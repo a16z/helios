@@ -1,14 +1,6 @@
 use eyre::Result;
-use serde::{Deserialize, Deserializer};
-use ssz::Encode;
-use ssz_types::typenum::*;
-use ssz_derive::Encode;
-use ssz_types::FixedVector;
-use eth2_hashing::hash;
-use merkle_proof::verify_merkle_proof;
-use ethereum_types::H256;
-use bls::PublicKeyBytes;
-use tree_hash_derive::TreeHash;
+use serde::Deserializer;
+use ssz_rs::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -38,33 +30,28 @@ struct Store {
 impl LightClient {
     async fn new(nimbus_rpc: &str, checkpoint_block_root: &str) -> Result<LightClient> {
 
-        let bootstrap = Self::get_bootstrap(nimbus_rpc, checkpoint_block_root).await?;
+        let mut bootstrap = Self::get_bootstrap(nimbus_rpc, checkpoint_block_root).await?;
 
-        let committee_hash = tree_hash::TreeHash::tree_hash_root(&bootstrap.current_sync_committee);
-        println!("{:?}", committee_hash);
-        
-        let committee_hash = H256::from_slice(&committee_hash[..]);
-        let branch = &bootstrap.current_sync_committee_branch.iter().map(|elem| {
-            H256::from_slice(&hex::decode(elem.strip_prefix("0x").unwrap()).unwrap())
-        }).collect::<Vec<H256>>()[..];
-         
-         let index = 22;
-         let depth = 5;
+        let committee_hash = bootstrap.current_sync_committee.hash_tree_root()?;
+        let root = Node::from_bytes(hex::decode(bootstrap.header.state_root.strip_prefix("0x").unwrap()).unwrap().try_into().unwrap());
+        let committee_branch = bootstrap.current_sync_committee_branch.iter().map(|elem| {
+            Node::from_bytes(hex::decode(elem.strip_prefix("0x").unwrap()).unwrap().try_into().unwrap())
+        }).collect::<Vec<_>>();
 
-         let root = H256::from_slice(&hex::decode(checkpoint_block_root.strip_prefix("0x").unwrap()).unwrap());
+        println!("{}", committee_hash);
+    
+        let is_valid = is_valid_merkle_branch(&committee_hash, committee_branch.iter(), 5, 22, &root);
+        println!("{}", is_valid);
 
-         let is_valid = verify_merkle_proof(committee_hash, branch, depth, index, root);
-         println!("{}", is_valid);
-         println!("{:?}", committee_hash);
-         println!("{:?}", branch);
+        // let store = Store {
+        //     header: bootstrap.header,
+        //     current_sync_committee: bootstrap.current_sync_committee,
+        //     next_sync_committee: None,
+        // };
 
-        let store = Store {
-            header: bootstrap.header,
-            current_sync_committee: bootstrap.current_sync_committee,
-            next_sync_committee: None,
-        };
+        // Ok(LightClient { nimbus_rpc: nimbus_rpc.to_string(), store })
 
-        Ok(LightClient { nimbus_rpc: nimbus_rpc.to_string(), store })
+        eyre::bail!("")
     }
 
     async fn sync(&self) -> Result<()> {
@@ -104,57 +91,60 @@ impl LightClient {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 struct BootstrapResponse {
     data: BootstrapData,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 struct BootstrapData {
     v: Bootstrap,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 struct Bootstrap {
     header: Header,
     current_sync_committee: SyncCommittee,
     current_sync_committee_branch: Vec<String>,
 }
 
-#[derive(Deserialize, Debug, Clone, Encode, TreeHash)]
+#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize)]
 struct SyncCommittee {
     #[serde(deserialize_with = "pubkeys_deserialize")]
-    pubkeys: FixedVector<PublicKeyBytes, U512>,
+    pubkeys: Vector<BLSPubKey, 512>,
     #[serde(deserialize_with = "pubkey_deserialize")]
-    aggregate_pubkey: PublicKeyBytes,
+    aggregate_pubkey: BLSPubKey,
 }
 
-fn pubkey_deserialize<'de, D>(deserializer: D) -> Result<PublicKeyBytes, D::Error> where D: Deserializer<'de> {
-    let key: String = Deserialize::deserialize(deserializer)?;
+type BLSPubKey = Vector<u8, 48>;
+
+fn pubkey_deserialize<'de, D>(deserializer: D) -> Result<BLSPubKey, D::Error> where D: serde::Deserializer<'de> {
+    let key: String = serde::Deserialize::deserialize(deserializer)?;
     let key_bytes = hex::decode(key.strip_prefix("0x").unwrap()).unwrap();
-    Ok(PublicKeyBytes::deserialize(&key_bytes).unwrap())
+    Ok(Vector::from_iter(key_bytes))
 }
 
-fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<FixedVector<PublicKeyBytes, U512>, D::Error> where D: Deserializer<'de> {
-    let keys: Vec<String> = Deserialize::deserialize(deserializer)?;
-    let vec = keys.iter().map(|key| {
+fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>, D::Error> where D: serde::Deserializer<'de> {
+    let keys: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
+    Ok(keys.iter().map(|key| {
         let key_bytes = hex::decode(key.strip_prefix("0x").unwrap()).unwrap();
-        PublicKeyBytes::deserialize(&key_bytes).unwrap()
-    }).collect::<Vec<PublicKeyBytes>>();
-    Ok(FixedVector::new(vec).unwrap())
+        Vector::from_iter(key_bytes)
+    }).collect::<Vector<BLSPubKey, 512>>())
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, Debug, Clone)]
 struct Header {
     slot: String,
+    state_root: String,
+    body_root: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 struct UpdateResponse {
     data: Vec<Update>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, Debug, Clone)]
 struct Update {
     attested_header: Header,
     next_sync_committee: SyncCommittee,
@@ -164,18 +154,18 @@ struct Update {
     sync_aggregate: SyncAggregate,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, Debug, Clone)]
 struct SyncAggregate {
     sync_committee_bits: String,
     sync_committee_signature: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 struct FinalityUpdateResponse {
     data: FinalityUpdate,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 struct FinalityUpdate {
     attested_header: Header,
     finalized_header: Header,
