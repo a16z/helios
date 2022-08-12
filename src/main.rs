@@ -5,7 +5,7 @@ use ssz_rs::prelude::*;
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    let client = LightClient::new(
+    let mut client = LightClient::new(
         "http://testing.prater.beacon-api.nimbus.team",
         "0x29d7ba1ef23b01a8b9024ee0cd73d0b7181edc0eb16e4645300092838c07783f"
     ).await?;    
@@ -33,36 +33,59 @@ impl LightClient {
         let mut bootstrap = Self::get_bootstrap(nimbus_rpc, checkpoint_block_root).await?;
 
         let committee_hash = bootstrap.current_sync_committee.hash_tree_root()?;
-        let root = Node::from_bytes(hex::decode(bootstrap.header.state_root.strip_prefix("0x").unwrap()).unwrap().try_into().unwrap());
-        let committee_branch = bootstrap.current_sync_committee_branch.iter().map(|elem| {
-            Node::from_bytes(hex::decode(elem.strip_prefix("0x").unwrap()).unwrap().try_into().unwrap())
-        }).collect::<Vec<_>>();
-
-        println!("{}", committee_hash);
+        let root = Node::from_bytes(bootstrap.header.state_root);
+        let committee_branch = branch_to_nodes(bootstrap.current_sync_committee_branch);
     
-        let is_valid = is_valid_merkle_branch(&committee_hash, committee_branch.iter(), 5, 22, &root);
-        println!("{}", is_valid);
+        let committee_valid = is_valid_merkle_branch(&committee_hash, committee_branch.iter(), 5, 22, &root);
+        println!("bootstrap committee valid: {}", committee_valid);
 
-        // let store = Store {
-        //     header: bootstrap.header,
-        //     current_sync_committee: bootstrap.current_sync_committee,
-        //     next_sync_committee: None,
-        // };
+        let header_hash = bootstrap.header.hash_tree_root()?;
+        let header_valid = header_hash.to_string() == checkpoint_block_root.to_string();
+        println!("bootstrap header valid: {}", header_valid);
 
-        // Ok(LightClient { nimbus_rpc: nimbus_rpc.to_string(), store })
+        if !(header_valid && committee_valid) {
+            return Err(eyre::eyre!("Invalid Bootstrap"));
+        }
 
-        eyre::bail!("")
+        let store = Store {
+            header: bootstrap.header,
+            current_sync_committee: bootstrap.current_sync_committee,
+            next_sync_committee: None,
+        };
+
+        Ok(LightClient { nimbus_rpc: nimbus_rpc.to_string(), store })
     }
 
-    async fn sync(&self) -> Result<()> {
+    async fn sync(&mut self) -> Result<()> {
 
-        let period = LightClient::calc_sync_period(self.store.header.slot.parse().unwrap());
-        let updates = self.get_updates(period).await?;
+        let current_period = calc_sync_period(self.store.header.slot);
+        let next_period = current_period +  1;
+
+        let updates = self.get_updates(next_period).await?;
 
         for update in updates {
-            // TODO: verify update
-            println!("{:?}", update.finalized_header);
+            self.proccess_update(update)?
         }
+
+        Ok(())
+    }
+
+    fn proccess_update(&mut self, update: Update) -> Result<()> {
+        let current_slot = self.store.header.slot;
+        let update_slot = update.attested_header.slot;
+        
+        let current_period = calc_sync_period(current_slot);
+        let update_period = calc_sync_period(update_slot);
+
+        println!("current period: {}", current_period);
+        println!("update period: {}", update_period);
+
+        assert!(update_period == current_period + 1);
+
+        // TODO: all validations
+        
+
+        self.store.header = update.attested_header.clone();
 
         Ok(())
     }
@@ -84,11 +107,15 @@ impl LightClient {
         let res = reqwest::get(req).await?.json::<FinalityUpdateResponse>().await?;
         Ok(res.data)
     }
+}
 
-    fn calc_sync_period(slot: u64) -> u64 {
-        let epoch = slot / 32;
-        epoch / 256
-    }
+fn calc_sync_period(slot: u64) -> u64 {
+    let epoch = slot / 32;
+    epoch / 256
+}
+
+fn branch_to_nodes(branch: Vec<Bytes32>) -> Vec<Node> {
+    branch.iter().map(|elem| Node::from_bytes(*elem)).collect()
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -105,7 +132,8 @@ struct BootstrapData {
 struct Bootstrap {
     header: Header,
     current_sync_committee: SyncCommittee,
-    current_sync_committee_branch: Vec<String>,
+    #[serde(deserialize_with = "branch_deserialize")]
+    current_sync_committee_branch: Vec<Bytes32>,
 }
 
 #[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize)]
@@ -117,6 +145,7 @@ struct SyncCommittee {
 }
 
 type BLSPubKey = Vector<u8, 48>;
+type Bytes32 = [u8; 32];
 
 fn pubkey_deserialize<'de, D>(deserializer: D) -> Result<BLSPubKey, D::Error> where D: serde::Deserializer<'de> {
     let key: String = serde::Deserialize::deserialize(deserializer)?;
@@ -132,11 +161,37 @@ fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>
     }).collect::<Vector<BLSPubKey, 512>>())
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+fn branch_deserialize<'de, D>(deserializer: D) -> Result<Vec<Bytes32>, D::Error> where D: serde::Deserializer<'de> {
+    let branch: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
+    Ok(branch.iter().map(|elem| {
+        let bytes = hex::decode(elem.strip_prefix("0x").unwrap()).unwrap();
+        bytes.to_vec().try_into().unwrap()
+    }).collect())
+}
+
+#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
 struct Header {
-    slot: String,
-    state_root: String,
-    body_root: String,
+    #[serde(deserialize_with = "u64_deserialize")]
+    slot: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    proposer_index: u64,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    parent_root: Bytes32,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    state_root: Bytes32,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    body_root: Bytes32,
+}
+
+fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error> where D: serde::Deserializer<'de> {
+    let val: String = serde::Deserialize::deserialize(deserializer)?;
+    Ok(val.parse().unwrap())
+}
+
+fn bytes32_deserialize<'de, D>(deserializer: D) -> Result<Bytes32, D::Error> where D: serde::Deserializer<'de> {
+    let bytes: String = serde::Deserialize::deserialize(deserializer)?;
+    let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
+    Ok(bytes.to_vec().try_into().unwrap())
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -173,3 +228,4 @@ struct FinalityUpdate {
     sync_aggregate: SyncAggregate,
     signature_slot: String,
 }
+
