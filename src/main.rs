@@ -63,14 +63,15 @@ impl LightClient {
 
         let updates = self.get_updates(next_period).await?;
 
-        for update in updates {
-            self.proccess_update(update)?
+        for mut update in updates {
+            self.proccess_update(&mut update)?;
+            return Ok(());
         }
 
         Ok(())
     }
 
-    fn proccess_update(&mut self, update: Update) -> Result<()> {
+    fn proccess_update(&mut self, update: &mut Update) -> Result<()> {
         let current_slot = self.store.header.slot;
         let update_slot = update.attested_header.slot;
         
@@ -80,12 +81,29 @@ impl LightClient {
         println!("current period: {}", current_period);
         println!("update period: {}", update_period);
 
-        assert!(update_period == current_period + 1);
+        if !(update_period == current_period + 1) {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
 
-        // TODO: all validations
-        
+        if !(update.signature_slot > update.attested_header.slot && update.attested_header.slot > update.finalized_header.slot) {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
 
-        self.store.header = update.attested_header.clone();
+        let finality_header_hash = update.finalized_header.hash_tree_root()?;
+        let update_header_root = Node::from_bytes(update.attested_header.state_root);
+        let finality_branch = branch_to_nodes(update.finality_branch.clone());
+        let finality_branch_valid = is_valid_merkle_branch(&finality_header_hash, finality_branch.iter(), 6, 41, &update_header_root);
+        println!("finality branch valid: {}", finality_branch_valid);
+
+        let next_committee_hash = update.next_sync_committee.hash_tree_root()?;
+        let next_committee_branch = branch_to_nodes(update.next_sync_committee_branch.clone());
+        let next_committee_branch_valid = is_valid_merkle_branch(&next_committee_hash, next_committee_branch.iter(), 5, 23, &update_header_root);
+        println!("next sync committee branch valid: {}", next_committee_branch_valid);
+
+        if !(finality_branch_valid && next_committee_branch_valid) {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
 
         Ok(())
     }
@@ -203,10 +221,14 @@ struct UpdateResponse {
 struct Update {
     attested_header: Header,
     next_sync_committee: SyncCommittee,
-    next_sync_committee_branch: Vec<String>,
+    #[serde(deserialize_with = "branch_deserialize")]
+    next_sync_committee_branch: Vec<Bytes32>,
     finalized_header: Header,
-    finality_branch: Vec<String>,
+    #[serde(deserialize_with = "branch_deserialize")]
+    finality_branch: Vec<Bytes32>,
     sync_aggregate: SyncAggregate,
+    #[serde(deserialize_with = "u64_deserialize")]
+    signature_slot: u64,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
