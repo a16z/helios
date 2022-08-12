@@ -10,3 +10,20 @@ reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
+eth2_ssz = { path = "../lighthouse/consensus/ssz" }
+eth2_ssz_derive = "0.3.0"
+eth2_ssz_types = { path = "../lighthouse/consensus/ssz_types" }
+hex = "0.4.3"
+eth2_hashing = { git = "https://github.com/sigp/lighthouse" }
+merkle_proof = { git = "https://github.com/sigp/lighthouse" }
+ethereum-types = "0.12.1"
+tree_hash = { path = "../lighthouse/consensus/tree_hash" }
+tree_hash_derive = { path = "../lighthouse/consensus/tree_hash_derive" }
+bls = { path = "../lighthouse/crypto/bls" }
+# types = { path = "../lighthouse/consensus/types" }
+
+[patch.crates-io]
+eth2_hashing = { git = "https://github.com/sigp/lighthouse" }
+eth2_serde_utils = { git = "https://github.com/sigp/lighthouse" }
+tree_hash = { path = "../lighthouse/consensus/tree_hash" }
+# eth2_ssz = { git = "https://github.com/sigp/lighthouse" }
