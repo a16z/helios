@@ -1,13 +1,13 @@
 use eyre::Result;
-use serde::Deserializer;
 use ssz_rs::prelude::*;
+use blst::min_pk::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
 
     let mut client = LightClient::new(
         "http://testing.prater.beacon-api.nimbus.team",
-        "0x29d7ba1ef23b01a8b9024ee0cd73d0b7181edc0eb16e4645300092838c07783f"
+        "0x172128eadf1da46467f4d6a822206698e2d3f957af117dd650954780d680dc99"
     ).await?;    
     
     client.sync().await?;
@@ -59,7 +59,7 @@ impl LightClient {
     async fn sync(&mut self) -> Result<()> {
 
         let current_period = calc_sync_period(self.store.header.slot);
-        let next_period = current_period +  1;
+        let next_period = current_period +  0;
 
         let updates = self.get_updates(next_period).await?;
 
@@ -81,9 +81,9 @@ impl LightClient {
         println!("current period: {}", current_period);
         println!("update period: {}", update_period);
 
-        if !(update_period == current_period + 1) {
-            return Err(eyre::eyre!("Invalid Update"));
-        }
+        // if !(update_period == current_period + 1) {
+        //     return Err(eyre::eyre!("Invalid Update"));
+        // }
 
         if !(update.signature_slot > update.attested_header.slot && update.attested_header.slot > update.finalized_header.slot) {
             return Err(eyre::eyre!("Invalid Update"));
@@ -104,6 +104,49 @@ impl LightClient {
             return Err(eyre::eyre!("Invalid Update"));
         }
 
+        let bytes = hex::decode(update.sync_aggregate.sync_committee_bits.strip_prefix("0x").unwrap())?;
+        let mut bits = String::new();
+        let mut count = 0;
+        for byte in bytes {
+            let byte_str = format!("{:08b}", byte);
+            byte_str.chars().for_each(|b| if b == '1' { count += 1 });
+            bits.push_str(&byte_str);
+        }
+
+        let mut pks: Vec<PublicKey> = Vec::new();
+        bits.chars().enumerate().for_each(|(i, bit)| {
+            if bit == '1' {
+                let pk = self.store.current_sync_committee.pubkeys[i].clone();
+                let pk = PublicKey::from_bytes(&pk).unwrap();
+                pks.push(pk)
+            }
+        });
+        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+
+        let committee_quorum = count as f64 > 2.0 / 3.0 * 512.0;
+        println!("sync committee quorum: {}", committee_quorum);
+
+        if !committee_quorum {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        let header_root = bytes_to_bytes32(update.attested_header.hash_tree_root()?.as_bytes());
+        let signing_root = compute_committee_sign_root(header_root)?;
+        println!("signing root: {}", signing_root);
+
+        // println!("{:?}", pks);
+        let aggregate = AggregatePublicKey::aggregate(&pks[..], true).unwrap().to_public_key();
+        let aggregate_str = hex::encode(aggregate.compress());
+        println!("aggregate key: {}", aggregate_str);
+
+        let sig_bytes = hex::decode(update.sync_aggregate.sync_committee_signature.strip_prefix("0x").unwrap())?;
+        let sig = Signature::from_bytes(&sig_bytes).unwrap();
+        let dst: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+        // let is_valid_sig = sig.verify(false, signing_root.as_bytes(), dst, &[], &aggregate, true);
+        let is_valid_sig = sig.fast_aggregate_verify(true, signing_root.as_bytes(), dst, &pks);
+        
+        println!("{:?}", is_valid_sig);
+        println!("{}", update.attested_header.slot);
 
         Ok(())
     }
@@ -134,6 +177,50 @@ fn calc_sync_period(slot: u64) -> u64 {
 
 fn branch_to_nodes(branch: Vec<Bytes32>) -> Vec<Node> {
     branch.iter().map(|elem| Node::from_bytes(*elem)).collect()
+}
+
+fn bytes_to_bytes32(bytes: &[u8]) -> [u8; 32] {
+    bytes.to_vec().try_into().unwrap()
+}
+
+fn compute_committee_sign_root(header: Bytes32) -> Result<Node> {
+    let genesis_root = hex::decode("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")?.to_vec().try_into().unwrap();
+    let domain_type = &hex::decode("07000000")?[..];
+    let fork_version = Vector::from_iter(hex::decode("02000000").unwrap());
+    let domain = compute_domain(domain_type, fork_version, genesis_root)?;
+    compute_signing_root(header, domain)
+}
+
+fn compute_signing_root(object_root: Bytes32, domain: Bytes32) -> Result<Node> {
+    let mut data = SigningData { object_root, domain };
+    Ok(data.hash_tree_root()?)
+}
+
+fn compute_domain(domain_type: &[u8], fork_version: Vector<u8, 4>, genesis_root: Bytes32) -> Result<Bytes32> {
+    let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
+    let start = domain_type;
+    let end = &fork_data_root.as_bytes()[..28];
+    let d = [start, end].concat();
+    println!("{:?}", d);
+    Ok(d.to_vec().try_into().unwrap())
+}
+
+fn compute_fork_data_root(current_version: Vector<u8, 4>, genesis_validator_root: Bytes32) -> Result<Node> {
+    let current_version = current_version.try_into()?;
+    let mut fork_data = ForkData { current_version, genesis_validator_root };
+    Ok(fork_data.hash_tree_root()?)
+}
+
+#[derive(SimpleSerialize, Default, Debug)]
+struct ForkData {
+    current_version: Vector<u8, 4>,
+    genesis_validator_root: Bytes32,
+}
+
+#[derive(SimpleSerialize, Default, Debug)]
+struct SigningData {
+    object_root: Bytes32,
+    domain: Bytes32
 }
 
 #[derive(serde::Deserialize, Debug)]
