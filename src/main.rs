@@ -1,6 +1,6 @@
 use eyre::Result;
 use ssz_rs::prelude::*;
-use blst::min_pk::*;
+use blst::{min_pk::*, BLST_ERROR};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -110,7 +110,7 @@ impl LightClient {
         for byte in bytes {
             let byte_str = format!("{:08b}", byte);
             byte_str.chars().for_each(|b| if b == '1' { count += 1 });
-            bits.push_str(&byte_str);
+            bits.push_str(&byte_str.chars().rev().collect::<String>());
         }
 
         let mut pks: Vec<PublicKey> = Vec::new();
@@ -132,21 +132,17 @@ impl LightClient {
 
         let header_root = bytes_to_bytes32(update.attested_header.hash_tree_root()?.as_bytes());
         let signing_root = compute_committee_sign_root(header_root)?;
-        println!("signing root: {}", signing_root);
-
-        // println!("{:?}", pks);
-        let aggregate = AggregatePublicKey::aggregate(&pks[..], true).unwrap().to_public_key();
-        let aggregate_str = hex::encode(aggregate.compress());
-        println!("aggregate key: {}", aggregate_str);
 
         let sig_bytes = hex::decode(update.sync_aggregate.sync_committee_signature.strip_prefix("0x").unwrap())?;
         let sig = Signature::from_bytes(&sig_bytes).unwrap();
         let dst: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
-        // let is_valid_sig = sig.verify(false, signing_root.as_bytes(), dst, &[], &aggregate, true);
-        let is_valid_sig = sig.fast_aggregate_verify(true, signing_root.as_bytes(), dst, &pks);
+        let is_valid_sig = sig.fast_aggregate_verify(true, signing_root.as_bytes(), dst, &pks) == BLST_ERROR::BLST_SUCCESS;
+        println!("committee signature valid: {}", is_valid_sig);
+
+        if !is_valid_sig {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
         
-        println!("{:?}", is_valid_sig);
-        println!("{}", update.attested_header.slot);
 
         Ok(())
     }
@@ -186,7 +182,7 @@ fn bytes_to_bytes32(bytes: &[u8]) -> [u8; 32] {
 fn compute_committee_sign_root(header: Bytes32) -> Result<Node> {
     let genesis_root = hex::decode("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")?.to_vec().try_into().unwrap();
     let domain_type = &hex::decode("07000000")?[..];
-    let fork_version = Vector::from_iter(hex::decode("02000000").unwrap());
+    let fork_version = Vector::from_iter(hex::decode("02001020").unwrap());
     let domain = compute_domain(domain_type, fork_version, genesis_root)?;
     compute_signing_root(header, domain)
 }
@@ -201,7 +197,6 @@ fn compute_domain(domain_type: &[u8], fork_version: Vector<u8, 4>, genesis_root:
     let start = domain_type;
     let end = &fork_data_root.as_bytes()[..28];
     let d = [start, end].concat();
-    println!("{:?}", d);
     Ok(d.to_vec().try_into().unwrap())
 }
 
