@@ -64,16 +64,33 @@ impl LightClient {
         let updates = self.get_updates(next_period).await?;
 
         for mut update in updates {
-            self.proccess_update(&mut update)?;
-            return Ok(());
+            self.verify_update(&mut update)?;
+            self.apply_update(&update);
+            println!("================================");
         }
+
+        let finality_update = self.get_finality_update().await?;
+        let mut finality_update_generic = Update {
+            attested_header: finality_update.attested_header,
+            next_sync_committee: None,
+            next_sync_committee_branch: Vec::new(),
+            finalized_header: finality_update.finalized_header,
+            finality_branch: finality_update.finality_branch,
+            sync_aggregate: finality_update.sync_aggregate,
+            signature_slot: finality_update.signature_slot,
+        };
+
+        self.verify_update(&mut finality_update_generic)?;
+        self.apply_update(&finality_update_generic);
+
+        println!("synced up to slot: {}", self.store.header.slot);
 
         Ok(())
     }
 
-    fn proccess_update(&mut self, update: &mut Update) -> Result<()> {
+    fn verify_update(&mut self, update: &mut Update) -> Result<()> {
         let current_slot = self.store.header.slot;
-        let update_slot = update.attested_header.slot;
+        let update_slot = update.finalized_header.slot;
         
         let current_period = calc_sync_period(current_slot);
         let update_period = calc_sync_period(update_slot);
@@ -81,9 +98,9 @@ impl LightClient {
         println!("current period: {}", current_period);
         println!("update period: {}", update_period);
 
-        // if !(update_period == current_period + 1) {
-        //     return Err(eyre::eyre!("Invalid Update"));
-        // }
+        if !(update_period == current_period + 1 || update_period == current_period) {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
 
         if !(update.signature_slot > update.attested_header.slot && update.attested_header.slot > update.finalized_header.slot) {
             return Err(eyre::eyre!("Invalid Update"));
@@ -95,14 +112,26 @@ impl LightClient {
         let finality_branch_valid = is_valid_merkle_branch(&finality_header_hash, finality_branch.iter(), 6, 41, &update_header_root);
         println!("finality branch valid: {}", finality_branch_valid);
 
-        let next_committee_hash = update.next_sync_committee.hash_tree_root()?;
-        let next_committee_branch = branch_to_nodes(update.next_sync_committee_branch.clone());
-        let next_committee_branch_valid = is_valid_merkle_branch(&next_committee_hash, next_committee_branch.iter(), 5, 23, &update_header_root);
-        println!("next sync committee branch valid: {}", next_committee_branch_valid);
+        if update.next_sync_committee.is_some() {
+            let next_committee_hash = update.next_sync_committee.as_ref().unwrap().clone().hash_tree_root()?;
+            let next_committee_branch = branch_to_nodes(update.next_sync_committee_branch.clone());
+            let next_committee_branch_valid = is_valid_merkle_branch(&next_committee_hash, next_committee_branch.iter(), 5, 23, &update_header_root);
+            println!("next sync committee branch valid: {}", next_committee_branch_valid);
 
-        if !(finality_branch_valid && next_committee_branch_valid) {
+            if !next_committee_branch_valid {
+                return Err(eyre::eyre!("Invalid Update"));
+            }
+        }
+
+        if !(finality_branch_valid) {
             return Err(eyre::eyre!("Invalid Update"));
         }
+
+        let sync_committee = if current_period == update_period {
+            &self.store.current_sync_committee
+        } else {
+            self.store.next_sync_committee.as_ref().unwrap()
+        };
 
         let bytes = hex::decode(update.sync_aggregate.sync_committee_bits.strip_prefix("0x").unwrap())?;
         let mut bits = String::new();
@@ -116,7 +145,7 @@ impl LightClient {
         let mut pks: Vec<PublicKey> = Vec::new();
         bits.chars().enumerate().for_each(|(i, bit)| {
             if bit == '1' {
-                let pk = self.store.current_sync_committee.pubkeys[i].clone();
+                let pk = sync_committee.pubkeys[i].clone();
                 let pk = PublicKey::from_bytes(&pk).unwrap();
                 pks.push(pk)
             }
@@ -142,9 +171,23 @@ impl LightClient {
         if !is_valid_sig {
             return Err(eyre::eyre!("Invalid Update"));
         }
-        
 
         Ok(())
+    }
+
+    fn apply_update(&mut self, update: &Update) {
+
+        let current_period = calc_sync_period(self.store.header.slot);
+        let update_period = calc_sync_period(update.finalized_header.slot);
+
+        self.store.header = update.finalized_header.clone();
+
+        if self.store.next_sync_committee.is_none() {
+            self.store.next_sync_committee = Some(update.next_sync_committee.as_ref().unwrap().clone());
+        } else if update_period == current_period + 1 {
+            self.store.current_sync_committee = self.store.next_sync_committee.as_ref().unwrap().clone();
+            self.store.next_sync_committee = Some(update.next_sync_committee.as_ref().unwrap().clone());
+        }
     }
 
     async fn get_bootstrap(rpc: &str, block_root: &str) -> Result<Bootstrap> {
@@ -302,7 +345,7 @@ struct UpdateResponse {
 #[derive(serde::Deserialize, Debug, Clone)]
 struct Update {
     attested_header: Header,
-    next_sync_committee: SyncCommittee,
+    next_sync_committee: Option<SyncCommittee>,
     #[serde(deserialize_with = "branch_deserialize")]
     next_sync_committee_branch: Vec<Bytes32>,
     finalized_header: Header,
@@ -328,8 +371,10 @@ struct FinalityUpdateResponse {
 struct FinalityUpdate {
     attested_header: Header,
     finalized_header: Header,
-    finality_branch: Vec<String>,
+    #[serde(deserialize_with = "branch_deserialize")]
+    finality_branch: Vec<Bytes32>,
     sync_aggregate: SyncAggregate,
-    signature_slot: String,
+    #[serde(deserialize_with = "u64_deserialize")]
+    signature_slot: u64,
 }
 
