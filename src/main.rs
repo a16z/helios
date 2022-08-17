@@ -17,6 +17,9 @@ async fn main() -> Result<()> {
     
     client.sync().await?;
 
+    let payload = client.get_execution_payload().await?;
+    println!("verified execution block hash: {}", hex::encode(payload.block_hash));
+
     Ok(())
 }
 
@@ -61,6 +64,19 @@ impl LightClient {
         Ok(LightClient { consensus_client, store })
     }
 
+    async fn get_execution_payload(&mut self) -> Result<ExecutionPayload> {
+        let slot = self.store.header.slot;
+        let mut block = self.consensus_client.get_block(slot).await?;
+        let block_hash = block.hash_tree_root()?;
+        let verified_block_hash = self.store.header.hash_tree_root()?;
+        
+        if verified_block_hash != block_hash {
+            Err(eyre::eyre!("Block Root Mismatch"))
+        } else {
+            Ok(block.body.execution_payload)
+        }
+    }
+
     async fn sync(&mut self) -> Result<()> {
 
         let current_period = calc_sync_period(self.store.header.slot);
@@ -86,6 +102,8 @@ impl LightClient {
         self.apply_update(&finality_update_generic);
 
         println!("synced up to slot: {}", self.store.header.slot);
+        
+        self.consensus_client.get_block(self.store.header.slot).await?;
 
         Ok(())
     }
@@ -136,15 +154,15 @@ impl LightClient {
         let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
         let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
 
-        let committee_quorum = pks.len() as f64 > 2.0 / 3.0 * 512.0;
+        let committee_quorum = pks.len() > 1;
         if !committee_quorum {
             return Err(eyre::eyre!("Invalid Update"));
         }
 
         let header_root = bytes_to_bytes32(update.attested_header.hash_tree_root()?.as_bytes());
         let signing_root = compute_committee_sign_root(header_root)?;
-        let sig_bytes = hex_str_to_bytes(&update.sync_aggregate.sync_committee_signature)?;
-        let is_valid_sig = is_aggregate_valid(sig_bytes, signing_root.as_bytes(), &pks);
+        let sig = &update.sync_aggregate.sync_committee_signature;
+        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
         if !is_valid_sig {
             return Err(eyre::eyre!("Invalid Update"));
@@ -169,24 +187,20 @@ impl LightClient {
     }
 }
 
-fn get_participating_keys(committee: &SyncCommittee, bitfield: &str) -> Result<Vec<PublicKey>> {
-        let bytes = hex_str_to_bytes(bitfield)?;
+fn get_participating_keys(committee: &SyncCommittee, bitfield: &Bitvector<512>) -> Result<Vec<PublicKey>> {
         let mut pks: Vec<PublicKey> = Vec::new();
-        bytes.iter().enumerate().for_each(|(i, byte)| {
-            format!("{:08b}", byte).chars().rev().enumerate().for_each(|(j, bit)| {
-                if bit == '1' {
-                    let index = 8 * i + j;
-                    let pk = &committee.pubkeys[index];
-                    let pk = PublicKey::from_bytes(&pk).unwrap();
-                    pks.push(pk);
-                }
-            });
+        bitfield.iter().enumerate().for_each(|(i, bit)| {
+            if bit == true {
+                let pk = &committee.pubkeys[i];
+                let pk = PublicKey::from_bytes(&pk).unwrap();
+                pks.push(pk);
+            }
         });
 
         Ok(pks)
 }
 
-fn is_aggregate_valid(sig_bytes: Vec<u8>, msg: &[u8], pks: &[&PublicKey]) -> bool {
+fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
     let dst: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
     let sig_res = Signature::from_bytes(&sig_bytes);
     match sig_res {
