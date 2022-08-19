@@ -22,9 +22,9 @@ async fn main() -> Result<()> {
     // let payload = client.get_execution_payload().await?;
     // println!("verified execution block hash: {}", hex::encode(payload.block_hash));
 
-    let proof = get_proof("0xf6401adc23Faa6B9AD83eA8604CA7254CB7F53e7", 15365978).await?;
-    verify(&proof)?;
-    // println!("{:?}", proof);
+    let proof = get_proof("0x88A83e0F661447576fb1f50e5d90d571E379cd72", 15365981).await?;
+    let is_valid = verify(&proof);
+    println!("{:?}", is_valid);
 
     Ok(())
 }
