@@ -13,3 +13,5 @@ serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
 blst = "0.3.10"
+ethers = "0.17.0"
+jsonrpsee = { version = "0.15.1", features = ["full"] }

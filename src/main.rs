@@ -3,22 +3,28 @@ use ssz_rs::prelude::*;
 use blst::{min_pk::*, BLST_ERROR};
 use consensus_client::*;
 use utils::*;
+use proof::*;
 
 pub mod consensus_client;
 pub mod utils;
+pub mod proof;
 
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    let mut client = LightClient::new(
-        "http://testing.prater.beacon-api.nimbus.team",
-        "0x172128eadf1da46467f4d6a822206698e2d3f957af117dd650954780d680dc99"
-    ).await?;    
-    
-    client.sync().await?;
+    // let mut client = LightClient::new(
+    //     "http://testing.prater.beacon-api.nimbus.team",
+    //     "0x172128eadf1da46467f4d6a822206698e2d3f957af117dd650954780d680dc99"
+    // ).await?;    
+    // 
+    // client.sync().await?;
 
-    let payload = client.get_execution_payload().await?;
-    println!("verified execution block hash: {}", hex::encode(payload.block_hash));
+    // let payload = client.get_execution_payload().await?;
+    // println!("verified execution block hash: {}", hex::encode(payload.block_hash));
+
+    let proof = get_proof("0xf6401adc23Faa6B9AD83eA8604CA7254CB7F53e7", 15365978).await?;
+    verify(&proof)?;
+    // println!("{:?}", proof);
 
     Ok(())
 }
