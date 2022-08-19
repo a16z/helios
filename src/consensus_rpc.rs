@@ -3,13 +3,13 @@ use ssz_rs::prelude::*;
 use super::utils::*;
 use serde::de::Error;
 
-pub struct ConsensusClient {
+pub struct ConsensusRpc {
     rpc: String,
 }
 
-impl ConsensusClient {
+impl ConsensusRpc {
     pub fn new(rpc: &str) -> Self {
-        ConsensusClient { rpc: rpc.to_string() }
+        ConsensusRpc { rpc: rpc.to_string() }
     }
 
     pub async fn get_bootstrap(&self, block_root: &str) -> Result<Bootstrap> {

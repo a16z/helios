@@ -21,11 +21,11 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
     // let state_root = hex_str_to_bytes("0x1d006918a3fef7ff7c843f20747c757a38a0a13fe7723f53e349f462c2cfdd71").unwrap();
     // let path = keccak256(proof.address).to_vec();
 
-    let mut expected_hash = root;
+    let mut expected_hash = root.clone();
     let mut path_offset = 0;
 
     for (i, node) in proof.iter().enumerate() {
-        if expected_hash != &keccak256(node).to_vec() {
+        if expected_hash != keccak256(node).to_vec() {
             return false;
         }
 
@@ -34,7 +34,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
         if node_list.len() == 17 {
 
             let nibble = get_nibble(&path, path_offset);
-            expected_hash = &node_list[nibble as usize].clone();
+            expected_hash = node_list[nibble as usize].clone();
 
             path_offset += 1;
 
@@ -44,7 +44,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
                     return false;
                 }
             } else {
-                expected_hash = &node_list[1].clone();
+                expected_hash = node_list[1].clone();
             }
         } else {
             return false;
