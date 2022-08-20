@@ -14,10 +14,11 @@ impl ExecutionRpc {
         ExecutionRpc { rpc: rpc.to_string() }
     }
 
-    pub async fn get_proof(&self, address: &str, block: u64) -> Result<Proof> {
+    pub async fn get_proof(&self, address: &Address, block: u64) -> Result<Proof> {
         let client = HttpClientBuilder::default().build(&self.rpc)?;
         let block_hex = format!("0x{:x}", block);
-        let params = rpc_params!(address, [""], block_hex);
+        let addr_hex = format!("0x{}", hex::encode(address.as_bytes()));
+        let params = rpc_params!(addr_hex, [""], block_hex);
         Ok(client.request("eth_getProof", params).await?)
     }
 }
