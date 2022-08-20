@@ -1,10 +1,10 @@
-use eyre::Result;
-use ssz_rs::prelude::*;
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
+use eyre::Result;
+use ssz_rs::prelude::*;
 
-use super::consensus_rpc::*;
-use super::utils::*;
+use crate::consensus_rpc::*;
+use crate::utils::*;
 
 pub struct ConsensusClient {
     consensus_rpc: ConsensusRpc,
@@ -20,7 +20,6 @@ struct Store {
 
 impl ConsensusClient {
     pub async fn new(nimbus_rpc: &str, checkpoint_block_root: &str) -> Result<ConsensusClient> {
-
         let consensus_rpc = ConsensusRpc::new(nimbus_rpc);
 
         let mut bootstrap = consensus_rpc.get_bootstrap(checkpoint_block_root).await?;
@@ -28,7 +27,7 @@ impl ConsensusClient {
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
             &mut bootstrap.current_sync_committee,
-            &bootstrap.current_sync_committee_branch
+            &bootstrap.current_sync_committee_branch,
         );
 
         let header_hash = bootstrap.header.hash_tree_root()?;
@@ -44,7 +43,10 @@ impl ConsensusClient {
             next_sync_committee: None,
         };
 
-        Ok(ConsensusClient { consensus_rpc, store })
+        Ok(ConsensusClient {
+            consensus_rpc,
+            store,
+        })
     }
 
     pub async fn get_execution_payload(&mut self) -> Result<ExecutionPayload> {
@@ -52,7 +54,7 @@ impl ConsensusClient {
         let mut block = self.consensus_rpc.get_block(slot).await?;
         let block_hash = block.hash_tree_root()?;
         let verified_block_hash = self.store.header.hash_tree_root()?;
-        
+
         if verified_block_hash != block_hash {
             Err(eyre::eyre!("Block Root Mismatch"))
         } else {
@@ -61,7 +63,6 @@ impl ConsensusClient {
     }
 
     pub async fn sync(&mut self) -> Result<()> {
-
         let current_period = calc_sync_period(self.store.header.slot);
         let updates = self.consensus_rpc.get_updates(current_period).await?;
 
@@ -85,7 +86,7 @@ impl ConsensusClient {
         self.apply_update(&finality_update_generic);
 
         println!("synced up to slot: {}", self.store.header.slot);
-        
+
         self.consensus_rpc.get_block(self.store.header.slot).await?;
 
         Ok(())
@@ -94,7 +95,7 @@ impl ConsensusClient {
     fn verify_update(&mut self, update: &mut Update) -> Result<()> {
         let current_slot = self.store.header.slot;
         let update_slot = update.finalized_header.slot;
-        
+
         let current_period = calc_sync_period(current_slot);
         let update_period = calc_sync_period(update_slot);
 
@@ -102,14 +103,16 @@ impl ConsensusClient {
             return Err(eyre::eyre!("Invalid Update"));
         }
 
-        if !(update.signature_slot > update.attested_header.slot && update.attested_header.slot > update.finalized_header.slot) {
+        if !(update.signature_slot > update.attested_header.slot
+            && update.attested_header.slot > update.finalized_header.slot)
+        {
             return Err(eyre::eyre!("Invalid Update"));
         }
 
         let finality_branch_valid = is_finality_proof_valid(
             &update.attested_header,
             &mut update.finalized_header,
-            &update.finality_branch
+            &update.finality_branch,
         );
 
         if !(finality_branch_valid) {
@@ -120,7 +123,7 @@ impl ConsensusClient {
             let next_committee_branch_valid = is_next_committee_proof_valid(
                 &update.attested_header,
                 &mut update.next_sync_committee.clone().unwrap(),
-                &update.next_sync_committee_branch
+                &update.next_sync_committee_branch,
             );
 
             if !next_committee_branch_valid {
@@ -134,7 +137,8 @@ impl ConsensusClient {
             self.store.next_sync_committee.as_ref().unwrap()
         };
 
-        let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+        let pks =
+            get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
         let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
 
         let committee_quorum = pks.len() > 1;
@@ -155,32 +159,37 @@ impl ConsensusClient {
     }
 
     fn apply_update(&mut self, update: &Update) {
-
         let current_period = calc_sync_period(self.store.header.slot);
         let update_period = calc_sync_period(update.finalized_header.slot);
 
         self.store.header = update.finalized_header.clone();
 
         if self.store.next_sync_committee.is_none() {
-            self.store.next_sync_committee = Some(update.next_sync_committee.as_ref().unwrap().clone());
+            self.store.next_sync_committee =
+                Some(update.next_sync_committee.as_ref().unwrap().clone());
         } else if update_period == current_period + 1 {
-            self.store.current_sync_committee = self.store.next_sync_committee.as_ref().unwrap().clone();
-            self.store.next_sync_committee = Some(update.next_sync_committee.as_ref().unwrap().clone());
+            self.store.current_sync_committee =
+                self.store.next_sync_committee.as_ref().unwrap().clone();
+            self.store.next_sync_committee =
+                Some(update.next_sync_committee.as_ref().unwrap().clone());
         }
     }
 }
 
-fn get_participating_keys(committee: &SyncCommittee, bitfield: &Bitvector<512>) -> Result<Vec<PublicKey>> {
-        let mut pks: Vec<PublicKey> = Vec::new();
-        bitfield.iter().enumerate().for_each(|(i, bit)| {
-            if bit == true {
-                let pk = &committee.pubkeys[i];
-                let pk = PublicKey::from_bytes(&pk).unwrap();
-                pks.push(pk);
-            }
-        });
+fn get_participating_keys(
+    committee: &SyncCommittee,
+    bitfield: &Bitvector<512>,
+) -> Result<Vec<PublicKey>> {
+    let mut pks: Vec<PublicKey> = Vec::new();
+    bitfield.iter().enumerate().for_each(|(i, bit)| {
+        if bit == true {
+            let pk = &committee.pubkeys[i];
+            let pk = PublicKey::from_bytes(&pk).unwrap();
+            pks.push(pk);
+        }
+    });
 
-        Ok(pks)
+    Ok(pks)
 }
 
 fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
@@ -192,35 +201,39 @@ fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]
     }
 }
 
-fn is_finality_proof_valid(attested_header: &Header, finality_header: &mut Header, finality_branch: &Vec<Bytes32>) -> bool {
-        let finality_header_hash_res = finality_header.hash_tree_root();
-        if finality_header_hash_res.is_err() {
-            return false;
-        }
+fn is_finality_proof_valid(
+    attested_header: &Header,
+    finality_header: &mut Header,
+    finality_branch: &Vec<Bytes32>,
+) -> bool {
+    let finality_header_hash_res = finality_header.hash_tree_root();
+    if finality_header_hash_res.is_err() {
+        return false;
+    }
 
-        let attested_header_state_root_res = bytes32_to_node(&attested_header.state_root);
-        if attested_header_state_root_res.is_err() {
-            return false;
-        }
+    let attested_header_state_root_res = bytes32_to_node(&attested_header.state_root);
+    if attested_header_state_root_res.is_err() {
+        return false;
+    }
 
-        let finality_branch_res = branch_to_nodes(finality_branch.clone());
-        if finality_branch_res.is_err() {
-            return false;
-        }
+    let finality_branch_res = branch_to_nodes(finality_branch.clone());
+    if finality_branch_res.is_err() {
+        return false;
+    }
 
-        is_valid_merkle_branch(
-            &finality_header_hash_res.unwrap(),
-            finality_branch_res.unwrap().iter(),
-            6,
-            41,
-            &attested_header_state_root_res.unwrap()
-        )
+    is_valid_merkle_branch(
+        &finality_header_hash_res.unwrap(),
+        finality_branch_res.unwrap().iter(),
+        6,
+        41,
+        &attested_header_state_root_res.unwrap(),
+    )
 }
 
 fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
-    next_committee_branch: &Vec<Bytes32>
+    next_committee_branch: &Vec<Bytes32>,
 ) -> bool {
     let next_committee_hash_res = next_committee.hash_tree_root();
     if next_committee_hash_res.is_err() {
@@ -242,14 +255,14 @@ fn is_next_committee_proof_valid(
         next_committee_branch_res.unwrap().iter(),
         5,
         23,
-        &attested_header_state_root_res.unwrap()
+        &attested_header_state_root_res.unwrap(),
     )
 }
 
 fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
-    current_committee_branch: &Vec<Bytes32>
+    current_committee_branch: &Vec<Bytes32>,
 ) -> bool {
     let next_committee_hash_res = current_committee.hash_tree_root();
     if next_committee_hash_res.is_err() {
@@ -271,7 +284,7 @@ fn is_current_committee_proof_valid(
         next_committee_branch_res.unwrap().iter(),
         5,
         22,
-        &attested_header_state_root_res.unwrap()
+        &attested_header_state_root_res.unwrap(),
     )
 }
 
@@ -281,11 +294,18 @@ fn calc_sync_period(slot: u64) -> u64 {
 }
 
 fn branch_to_nodes(branch: Vec<Bytes32>) -> Result<Vec<Node>> {
-    branch.iter().map(|elem| bytes32_to_node(elem)).collect::<Result<Vec<Node>>>()
+    branch
+        .iter()
+        .map(|elem| bytes32_to_node(elem))
+        .collect::<Result<Vec<Node>>>()
 }
 
 fn compute_committee_sign_root(header: Bytes32) -> Result<Node> {
-    let genesis_root = hex::decode("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")?.to_vec().try_into().unwrap();
+    let genesis_root =
+        hex::decode("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")?
+            .to_vec()
+            .try_into()
+            .unwrap();
     let domain_type = &hex::decode("07000000")?[..];
     let fork_version = Vector::from_iter(hex::decode("02001020").unwrap());
     let domain = compute_domain(domain_type, fork_version, genesis_root)?;
@@ -295,7 +315,7 @@ fn compute_committee_sign_root(header: Bytes32) -> Result<Node> {
 #[derive(SimpleSerialize, Default, Debug)]
 struct SigningData {
     object_root: Bytes32,
-    domain: Bytes32
+    domain: Bytes32,
 }
 
 #[derive(SimpleSerialize, Default, Debug)]
@@ -305,11 +325,18 @@ struct ForkData {
 }
 
 fn compute_signing_root(object_root: Bytes32, domain: Bytes32) -> Result<Node> {
-    let mut data = SigningData { object_root, domain };
+    let mut data = SigningData {
+        object_root,
+        domain,
+    };
     Ok(data.hash_tree_root()?)
 }
 
-fn compute_domain(domain_type: &[u8], fork_version: Vector<u8, 4>, genesis_root: Bytes32) -> Result<Bytes32> {
+fn compute_domain(
+    domain_type: &[u8],
+    fork_version: Vector<u8, 4>,
+    genesis_root: Bytes32,
+) -> Result<Bytes32> {
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
     let start = domain_type;
     let end = &fork_data_root.as_bytes()[..28];
@@ -317,9 +344,14 @@ fn compute_domain(domain_type: &[u8], fork_version: Vector<u8, 4>, genesis_root:
     Ok(d.to_vec().try_into().unwrap())
 }
 
-fn compute_fork_data_root(current_version: Vector<u8, 4>, genesis_validator_root: Bytes32) -> Result<Node> {
+fn compute_fork_data_root(
+    current_version: Vector<u8, 4>,
+    genesis_validator_root: Bytes32,
+) -> Result<Node> {
     let current_version = current_version.try_into()?;
-    let mut fork_data = ForkData { current_version, genesis_validator_root };
+    let mut fork_data = ForkData {
+        current_version,
+        genesis_validator_root,
+    };
     Ok(fork_data.hash_tree_root()?)
 }
-

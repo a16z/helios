@@ -1,9 +1,10 @@
-use ethers::prelude::{Address, U256, H256};
-use jsonrpsee::{http_client::HttpClientBuilder, rpc_params, core::client::ClientT};
+use ethers::prelude::{Address, H256, U256};
 use eyre::Result;
-use serde::Deserialize;
+use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use serde::de::Error;
-use super::utils::*;
+use serde::Deserialize;
+
+use crate::utils::hex_str_to_bytes;
 
 pub struct ExecutionRpc {
     rpc: String,
@@ -11,7 +12,9 @@ pub struct ExecutionRpc {
 
 impl ExecutionRpc {
     pub fn new(rpc: &str) -> Self {
-        ExecutionRpc { rpc: rpc.to_string() }
+        ExecutionRpc {
+            rpc: rpc.to_string(),
+        }
     }
 
     pub async fn get_proof(&self, address: &Address, block: u64) -> Result<Proof> {
@@ -35,10 +38,14 @@ pub struct Proof {
     pub account_proof: Vec<Vec<u8>>,
 }
 
-fn proof_deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error> where D: serde::Deserializer<'de> {
+fn proof_deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let branch: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(branch.iter().map(|elem| {
-        hex_str_to_bytes(elem)
-    }).collect::<Result<_>>().map_err(D::Error::custom)?)
+    Ok(branch
+        .iter()
+        .map(|elem| hex_str_to_bytes(elem))
+        .collect::<Result<_>>()
+        .map_err(D::Error::custom)?)
 }
-

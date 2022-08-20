@@ -1,7 +1,8 @@
 use eyre::Result;
-use ssz_rs::prelude::*;
-use super::utils::*;
 use serde::de::Error;
+use ssz_rs::prelude::*;
+
+use crate::utils::*;
 
 pub struct ConsensusRpc {
     rpc: String,
@@ -9,30 +10,44 @@ pub struct ConsensusRpc {
 
 impl ConsensusRpc {
     pub fn new(rpc: &str) -> Self {
-        ConsensusRpc { rpc: rpc.to_string() }
+        ConsensusRpc {
+            rpc: rpc.to_string(),
+        }
     }
 
     pub async fn get_bootstrap(&self, block_root: &str) -> Result<Bootstrap> {
-        let req = format!("{}/eth/v0/beacon/light_client/bootstrap/{}", self.rpc, block_root);
+        let req = format!(
+            "{}/eth/v0/beacon/light_client/bootstrap/{}",
+            self.rpc, block_root
+        );
         let res = reqwest::get(req).await?.json::<BootstrapResponse>().await?;
         Ok(res.data.v)
     }
 
     pub async fn get_updates(&self, period: u64) -> Result<Vec<Update>> {
-        let req = format!("{}/eth/v0/beacon/light_client/updates?start_period={}&count=1000", self.rpc, period);
+        let req = format!(
+            "{}/eth/v0/beacon/light_client/updates?start_period={}&count=1000",
+            self.rpc, period
+        );
         let res = reqwest::get(req).await?.json::<UpdateResponse>().await?;
         Ok(res.data)
     }
 
     pub async fn get_finality_update(&self) -> Result<FinalityUpdate> {
         let req = format!("{}/eth/v0/beacon/light_client/finality_update", self.rpc);
-        let res = reqwest::get(req).await?.json::<FinalityUpdateResponse>().await?;
+        let res = reqwest::get(req)
+            .await?
+            .json::<FinalityUpdateResponse>()
+            .await?;
         Ok(res.data)
     }
 
-    pub async fn get_block(&self, slot: u64) -> Result<BeaconBlock>{
+    pub async fn get_block(&self, slot: u64) -> Result<BeaconBlock> {
         let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
-        let res = reqwest::get(req).await?.json::<BeaconBlockResponse>().await?;
+        let res = reqwest::get(req)
+            .await?
+            .json::<BeaconBlockResponse>()
+            .await?;
         Ok(res.data.message)
     }
 }
@@ -99,7 +114,7 @@ pub struct ExecutionPayload {
     gas_used: u64,
     #[serde(deserialize_with = "u64_deserialize")]
     timestamp: u64,
-    #[serde(deserialize_with ="extra_data_deserialize")]
+    #[serde(deserialize_with = "extra_data_deserialize")]
     extra_data: List<u8, 32>,
     #[serde(deserialize_with = "u256_deserialize")]
     base_fee_per_gas: U256,
@@ -147,7 +162,7 @@ pub struct Eth1Data {
     #[serde(deserialize_with = "bytes32_deserialize")]
     deposit_root: Bytes32,
     #[serde(deserialize_with = "u64_deserialize")]
-    deposit_count: u64, 
+    deposit_count: u64,
     #[serde(deserialize_with = "bytes32_deserialize")]
     block_hash: Bytes32,
 }
@@ -244,76 +259,120 @@ struct BootstrapData {
     v: Bootstrap,
 }
 
-fn pubkey_deserialize<'de, D>(deserializer: D) -> Result<BLSPubKey, D::Error> where D: serde::Deserializer<'de> {
+fn pubkey_deserialize<'de, D>(deserializer: D) -> Result<BLSPubKey, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let key: String = serde::Deserialize::deserialize(deserializer)?;
     let key_bytes = hex_str_to_bytes(&key).map_err(D::Error::custom)?;
     Ok(Vector::from_iter(key_bytes))
 }
 
-fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>, D::Error> where D: serde::Deserializer<'de> {
+fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let keys: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(keys.iter().map(|key| {
-        let key_bytes = hex_str_to_bytes(key)?;
-        Ok(Vector::from_iter(key_bytes))
-    }).collect::<Result<Vector<BLSPubKey, 512>>>().map_err(D::Error::custom)?)
+    Ok(keys
+        .iter()
+        .map(|key| {
+            let key_bytes = hex_str_to_bytes(key)?;
+            Ok(Vector::from_iter(key_bytes))
+        })
+        .collect::<Result<Vector<BLSPubKey, 512>>>()
+        .map_err(D::Error::custom)?)
 }
 
-fn signature_deserialize<'de, D>(deserializer: D) -> Result<SignatureBytes, D::Error> where D: serde::Deserializer<'de> {
+fn signature_deserialize<'de, D>(deserializer: D) -> Result<SignatureBytes, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let sig: String = serde::Deserialize::deserialize(deserializer)?;
     let sig_bytes = hex_str_to_bytes(&sig).map_err(D::Error::custom)?;
     Ok(Vector::from_iter(sig_bytes))
 }
 
-fn branch_deserialize<'de, D>(deserializer: D) -> Result<Vec<Bytes32>, D::Error> where D: serde::Deserializer<'de> {
+fn branch_deserialize<'de, D>(deserializer: D) -> Result<Vec<Bytes32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let branch: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(branch.iter().map(|elem| {
-        let elem_bytes = hex_str_to_bytes(elem)?;
-        Ok(Vector::from_iter(elem_bytes))
-    }).collect::<Result<_>>().map_err(D::Error::custom)?)
+    Ok(branch
+        .iter()
+        .map(|elem| {
+            let elem_bytes = hex_str_to_bytes(elem)?;
+            Ok(Vector::from_iter(elem_bytes))
+        })
+        .collect::<Result<_>>()
+        .map_err(D::Error::custom)?)
 }
 
-fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error> where D: serde::Deserializer<'de> {
+fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let val: String = serde::Deserialize::deserialize(deserializer)?;
     Ok(val.parse().unwrap())
 }
 
-fn u256_deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error> where D: serde::Deserializer<'de> {
+fn u256_deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let val: String = serde::Deserialize::deserialize(deserializer)?;
     // TODO: support larger values
     let i = val.parse::<u64>().map_err(D::Error::custom)?;
     Ok(U256::from(i))
 }
 
-fn bytes32_deserialize<'de, D>(deserializer: D) -> Result<Bytes32, D::Error> where D: serde::Deserializer<'de> {
+fn bytes32_deserialize<'de, D>(deserializer: D) -> Result<Bytes32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let bytes: String = serde::Deserialize::deserialize(deserializer)?;
     let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
     Ok(bytes.to_vec().try_into().unwrap())
 }
 
-fn logs_bloom_deserialize<'de, D>(deserializer: D) -> Result<LogsBloom, D::Error> where D: serde::Deserializer<'de> {
+fn logs_bloom_deserialize<'de, D>(deserializer: D) -> Result<LogsBloom, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let bytes: String = serde::Deserialize::deserialize(deserializer)?;
     let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
     Ok(bytes.to_vec().try_into().unwrap())
 }
 
-fn address_deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error> where D: serde::Deserializer<'de> {
+fn address_deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let bytes: String = serde::Deserialize::deserialize(deserializer)?;
     let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
     Ok(bytes.to_vec().try_into().unwrap())
 }
 
-fn extra_data_deserialize<'de, D>(deserializer: D) -> Result<List<u8, 32>, D::Error> where D: serde::Deserializer<'de> {
+fn extra_data_deserialize<'de, D>(deserializer: D) -> Result<List<u8, 32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let bytes: String = serde::Deserialize::deserialize(deserializer)?;
     let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
     Ok(bytes.to_vec().try_into().unwrap())
 }
 
-fn transactions_deserialize<'de, D>(deserializer: D) -> Result<List<Transaction, 1048576>, D::Error> where D: serde::Deserializer<'de> {
+fn transactions_deserialize<'de, D>(deserializer: D) -> Result<List<Transaction, 1048576>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     let transactions: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    let transactions = transactions.iter().map(|tx| {
-        let tx = hex_str_to_bytes(tx).unwrap();
-        let tx: Transaction = List::from_iter(tx);        
-        tx
-    }).collect::<List<Transaction,1048576>>();
+    let transactions = transactions
+        .iter()
+        .map(|tx| {
+            let tx = hex_str_to_bytes(tx).unwrap();
+            let tx: Transaction = List::from_iter(tx);
+            tx
+        })
+        .collect::<List<Transaction, 1048576>>();
     Ok(transactions)
 }

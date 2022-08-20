@@ -1,9 +1,9 @@
 use ethers::utils::keccak256;
-use ethers::utils::rlp::{RlpStream, decode_list};
-use super::execution_rpc::Proof;
+use ethers::utils::rlp::{decode_list, RlpStream};
+
+use crate::execution_rpc::Proof;
 
 pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value: &Vec<u8>) -> bool {
-
     let mut expected_hash = root.clone();
     let mut path_offset = 0;
 
@@ -13,14 +13,12 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
         }
 
         let node_list: Vec<Vec<u8>> = decode_list(node);
-        
-        if node_list.len() == 17 {
 
+        if node_list.len() == 17 {
             let nibble = get_nibble(&path, path_offset);
             expected_hash = node_list[nibble as usize].clone();
 
             path_offset += 1;
-
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
                 if &node_list[1] != value {
@@ -59,4 +57,3 @@ pub fn encode_account(proof: &Proof) -> Vec<u8> {
 pub fn get_account_path(addr: &Vec<u8>) -> Vec<u8> {
     keccak256(addr).to_vec()
 }
-
