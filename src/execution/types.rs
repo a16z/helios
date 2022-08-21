@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ethers::prelude::{Address, H256, U256};
 use eyre::Result;
 use serde::de::Error;
@@ -15,6 +17,24 @@ pub struct Proof {
     pub storage_hash: H256,
     #[serde(deserialize_with = "proof_deserialize")]
     pub account_proof: Vec<Vec<u8>>,
+    pub storage_proof: Vec<StorageProof>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageProof {
+    pub key: U256,
+    pub value: U256,
+    #[serde(deserialize_with = "proof_deserialize")]
+    pub proof: Vec<Vec<u8>>,
+}
+
+pub struct Account {
+    pub balance: U256,
+    pub nonce: U256,
+    pub code_hash: H256,
+    pub storage_hash: H256,
+    pub slots: HashMap<U256, U256>,
 }
 
 fn proof_deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>

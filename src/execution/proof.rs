@@ -25,7 +25,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
                     return false;
                 }
             } else {
-                expected_hash = node_list[1].clone();
+                panic!("not implemented");
             }
         } else {
             return false;
@@ -52,8 +52,4 @@ pub fn encode_account(proof: &Proof) -> Vec<u8> {
     stream.append(&proof.code_hash);
     let encoded = stream.out();
     encoded.to_vec()
-}
-
-pub fn get_account_path(addr: &Vec<u8>) -> Vec<u8> {
-    keccak256(addr).to_vec()
 }

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ethers::prelude::Address;
+use ethers::prelude::{Address, U256};
 use eyre::Result;
 
 use client::Client;
@@ -23,13 +23,15 @@ async fn main() -> Result<()> {
     println!("synced up to slot: {}", header.slot);
 
     let address = Address::from_str("0x14f9D4aF749609c1438528C0Cce1cC3f6D411c47")?;
-    let balance = client.get_balance(address).await?;
-    let nonce = client.get_nonce(address).await?;
-    let code = client.get_code(address).await?;
+    let balance = client.get_balance(&address).await?;
+    let nonce = client.get_nonce(&address).await?;
+    let code = client.get_code(&address).await?;
+    let storage_value = client.get_storage_at(&address, U256::from(0)).await?;
 
     println!("balance: {}", balance);
     println!("nonce: {}", nonce);
     println!("code: 0x{}...", hex::encode(code[..5].to_vec()));
+    println!("value at slot 0: 0x{:x}", storage_value);
 
     Ok(())
 }

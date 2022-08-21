@@ -29,21 +29,34 @@ impl Client {
         self.consensus.sync().await
     }
 
-    pub async fn get_balance(&mut self, address: Address) -> Result<U256> {
+    pub async fn get_balance(&mut self, address: &Address) -> Result<U256> {
         let payload = self.consensus.get_execution_payload().await?;
-        let account = self.execution.get_account(&address, &payload).await?;
+        let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&mut self, address: Address) -> Result<U256> {
+    pub async fn get_nonce(&mut self, address: &Address) -> Result<U256> {
         let payload = self.consensus.get_execution_payload().await?;
-        let account = self.execution.get_account(&address, &payload).await?;
+        let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.nonce)
     }
 
-    pub async fn get_code(&mut self, address: Address) -> Result<Vec<u8>> {
+    pub async fn get_code(&mut self, address: &Address) -> Result<Vec<u8>> {
         let payload = self.consensus.get_execution_payload().await?;
         self.execution.get_code(&address, &payload).await
+    }
+
+    pub async fn get_storage_at(&mut self, address: &Address, slot: U256) -> Result<U256> {
+        let payload = self.consensus.get_execution_payload().await?;
+        let account = self
+            .execution
+            .get_account(address, Some(&[slot]), &payload)
+            .await?;
+        let value = account.slots.get(&slot);
+        match value {
+            Some(value) => Ok(*value),
+            None => Err(eyre::eyre!("Slot Not Found")),
+        }
     }
 
     pub fn get_header(&self) -> &Header {

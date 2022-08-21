@@ -1,4 +1,5 @@
-use ethers::prelude::Address;
+use ethers::abi::AbiEncode;
+use ethers::prelude::{Address, U256};
 use eyre::Result;
 use jsonrpsee::{
     core::client::ClientT,
@@ -21,11 +22,15 @@ impl Rpc {
         }
     }
 
-    pub async fn get_proof(&self, address: &Address, block: u64) -> Result<Proof> {
+    pub async fn get_proof(&self, address: &Address, slots: &[U256], block: u64) -> Result<Proof> {
         let client = self.client()?;
         let block_hex = u64_to_hex_string(block);
         let addr_hex = address_to_hex_string(address);
-        let params = rpc_params!(addr_hex, [""], block_hex);
+        let slots = slots
+            .iter()
+            .map(|slot| slot.encode_hex())
+            .collect::<Vec<String>>();
+        let params = rpc_params!(addr_hex, slots.as_slice(), block_hex);
         Ok(client.request("eth_getProof", params).await?)
     }
 
