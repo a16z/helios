@@ -1,7 +1,7 @@
 use eyre::Result;
 use ssz_rs::{Node, Vector};
 
-use crate::consensus_rpc::Bytes32;
+use crate::consensus::types::Bytes32;
 
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
     let stripped = s.strip_prefix("0x").unwrap_or(s);

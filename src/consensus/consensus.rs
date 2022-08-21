@@ -3,11 +3,12 @@ use blst::BLST_ERROR;
 use eyre::Result;
 use ssz_rs::prelude::*;
 
-use crate::consensus_rpc::*;
-use crate::utils::*;
+use crate::common::utils::*;
+use super::types::*;
+use super::rpc::Rpc;
 
 pub struct ConsensusClient {
-    consensus_rpc: ConsensusRpc,
+    rpc: Rpc,
     store: Store,
 }
 
@@ -20,9 +21,9 @@ struct Store {
 
 impl ConsensusClient {
     pub async fn new(nimbus_rpc: &str, checkpoint_block_root: &str) -> Result<ConsensusClient> {
-        let consensus_rpc = ConsensusRpc::new(nimbus_rpc);
+        let rpc = Rpc::new(nimbus_rpc);
 
-        let mut bootstrap = consensus_rpc.get_bootstrap(checkpoint_block_root).await?;
+        let mut bootstrap = rpc.get_bootstrap(checkpoint_block_root).await?;
 
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
@@ -44,14 +45,14 @@ impl ConsensusClient {
         };
 
         Ok(ConsensusClient {
-            consensus_rpc,
+            rpc,
             store,
         })
     }
 
     pub async fn get_execution_payload(&mut self) -> Result<ExecutionPayload> {
         let slot = self.store.header.slot;
-        let mut block = self.consensus_rpc.get_block(slot).await?;
+        let mut block = self.rpc.get_block(slot).await?;
         let block_hash = block.hash_tree_root()?;
         let verified_block_hash = self.store.header.hash_tree_root()?;
 
@@ -68,14 +69,14 @@ impl ConsensusClient {
 
     pub async fn sync(&mut self) -> Result<()> {
         let current_period = calc_sync_period(self.store.header.slot);
-        let updates = self.consensus_rpc.get_updates(current_period).await?;
+        let updates = self.rpc.get_updates(current_period).await?;
 
         for mut update in updates {
             self.verify_update(&mut update)?;
             self.apply_update(&update);
         }
 
-        let finality_update = self.consensus_rpc.get_finality_update().await?;
+        let finality_update = self.rpc.get_finality_update().await?;
         let mut finality_update_generic = Update {
             attested_header: finality_update.attested_header,
             next_sync_committee: None,
@@ -89,7 +90,7 @@ impl ConsensusClient {
         self.verify_update(&mut finality_update_generic)?;
         self.apply_update(&finality_update_generic);
 
-        self.consensus_rpc.get_block(self.store.header.slot).await?;
+        self.rpc.get_block(self.store.header.slot).await?;
 
         Ok(())
     }

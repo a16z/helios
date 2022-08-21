@@ -7,11 +7,8 @@ use client::Client;
 
 pub mod client;
 pub mod consensus;
-pub mod consensus_rpc;
 pub mod execution;
-pub mod execution_rpc;
-pub mod proof;
-pub mod utils;
+pub mod common;
 
 #[tokio::main]
 async fn main() -> Result<()> {

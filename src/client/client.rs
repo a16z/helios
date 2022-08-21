@@ -1,7 +1,9 @@
 use ethers::prelude::{Address, U256};
 use eyre::Result;
 
-use crate::{consensus::ConsensusClient, execution::ExecutionClient, consensus_rpc::Header};
+use crate::consensus::types::Header;
+use crate::consensus::ConsensusClient;
+use crate::execution::ExecutionClient;
 
 pub struct Client {
     consensus: ConsensusClient,

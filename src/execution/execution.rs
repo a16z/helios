@@ -2,9 +2,9 @@ use ethers::prelude::{Address, U256, H256};
 use ethers::utils::keccak256;
 use eyre::Result;
 
-use crate::consensus_rpc::ExecutionPayload;
-use crate::execution_rpc::ExecutionRpc;
-use crate::proof::{encode_account, verify_proof};
+use crate::consensus::types::ExecutionPayload;
+use super::proof::{encode_account, verify_proof};
+use super::execution_rpc::ExecutionRpc;
 
 pub struct ExecutionClient {
     execution_rpc: ExecutionRpc,

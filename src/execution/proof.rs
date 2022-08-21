@@ -1,7 +1,7 @@
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{decode_list, RlpStream};
 
-use crate::execution_rpc::Proof;
+use crate::execution::types::Proof;
 
 pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value: &Vec<u8>) -> bool {
     let mut expected_hash = root.clone();
