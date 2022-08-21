@@ -62,6 +62,10 @@ impl ConsensusClient {
         }
     }
 
+    pub fn get_head(&self) -> &Header {
+        &self.store.header
+    }
+
     pub async fn sync(&mut self) -> Result<()> {
         let current_period = calc_sync_period(self.store.header.slot);
         let updates = self.consensus_rpc.get_updates(current_period).await?;
@@ -84,8 +88,6 @@ impl ConsensusClient {
 
         self.verify_update(&mut finality_update_generic)?;
         self.apply_update(&finality_update_generic);
-
-        println!("synced up to slot: {}", self.store.header.slot);
 
         self.consensus_rpc.get_block(self.store.header.slot).await?;
 

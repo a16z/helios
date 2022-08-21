@@ -1,4 +1,4 @@
-use ethers::prelude::{Address, U256};
+use ethers::prelude::{Address, U256, H256};
 use ethers::utils::keccak256;
 use eyre::Result;
 
@@ -16,13 +16,13 @@ impl ExecutionClient {
         ExecutionClient { execution_rpc }
     }
 
-    pub async fn get_balance(&self, account: &Address, payload: &ExecutionPayload) -> Result<U256> {
+    pub async fn get_account(&self, address: &Address, payload: &ExecutionPayload) -> Result<Account> {
         let proof = self
             .execution_rpc
-            .get_proof(&account, payload.block_number)
+            .get_proof(&address, payload.block_number)
             .await?;
 
-        let account_path = keccak256(account.as_bytes()).to_vec();
+        let account_path = keccak256(address.as_bytes()).to_vec();
         let account_encoded = encode_account(&proof);
 
         let is_valid = verify_proof(
@@ -36,6 +36,18 @@ impl ExecutionClient {
             eyre::bail!("Invalid Proof");
         }
 
-        Ok(proof.balance)
+        Ok(Account {
+            balance: proof.balance,
+            nonce: proof.nonce,
+            code_hash: proof.code_hash,
+            storage_hash: proof.storage_hash,
+        })
     }
+}
+
+pub struct Account {
+    pub balance: U256,
+    pub nonce: U256,
+    pub code_hash: H256,
+    pub storage_hash: H256,
 }
