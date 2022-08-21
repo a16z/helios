@@ -4,15 +4,13 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_param
 
 use super::types::Proof;
 
-pub struct ExecutionRpc {
+pub struct Rpc {
     rpc: String,
 }
 
-impl ExecutionRpc {
+impl Rpc {
     pub fn new(rpc: &str) -> Self {
-        ExecutionRpc {
-            rpc: rpc.to_string(),
-        }
+        Rpc { rpc: rpc.to_string() }
     }
 
     pub async fn get_proof(&self, address: &Address, block: u64) -> Result<Proof> {

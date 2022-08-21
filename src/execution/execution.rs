@@ -4,21 +4,21 @@ use eyre::Result;
 
 use crate::consensus::types::ExecutionPayload;
 use super::proof::{encode_account, verify_proof};
-use super::execution_rpc::ExecutionRpc;
+use super::rpc::Rpc;
 
 pub struct ExecutionClient {
-    execution_rpc: ExecutionRpc,
+    rpc: Rpc,
 }
 
 impl ExecutionClient {
     pub fn new(rpc: &str) -> Self {
-        let execution_rpc = ExecutionRpc::new(rpc);
-        ExecutionClient { execution_rpc }
+        let rpc = Rpc::new(rpc);
+        ExecutionClient { rpc }
     }
 
     pub async fn get_account(&self, address: &Address, payload: &ExecutionPayload) -> Result<Account> {
         let proof = self
-            .execution_rpc
+            .rpc
             .get_proof(&address, payload.block_number)
             .await?;
 

@@ -3,5 +3,5 @@ pub mod types;
 mod execution;
 pub use execution::*;
 
-mod execution_rpc;
+mod rpc;
 mod proof;
