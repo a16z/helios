@@ -1,7 +1,7 @@
+use ethers::prelude::{Address, H256, U256};
+use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
-use ethers::prelude::{U256, H256, Address};
-use eyre::Result;
 
 use crate::common::utils::hex_str_to_bytes;
 

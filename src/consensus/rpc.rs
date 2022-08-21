@@ -8,7 +8,9 @@ pub struct Rpc {
 
 impl Rpc {
     pub fn new(rpc: &str) -> Self {
-        Rpc { rpc: rpc.to_string() }
+        Rpc {
+            rpc: rpc.to_string(),
+        }
     }
 
     pub async fn get_bootstrap(&self, block_root: &str) -> Result<Bootstrap> {
@@ -77,4 +79,3 @@ struct BootstrapResponse {
 struct BootstrapData {
     v: Bootstrap,
 }
-

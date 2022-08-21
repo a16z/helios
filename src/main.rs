@@ -6,9 +6,9 @@ use eyre::Result;
 use client::Client;
 
 pub mod client;
+pub mod common;
 pub mod consensus;
 pub mod execution;
-pub mod common;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,11 +22,14 @@ async fn main() -> Result<()> {
     let header = client.get_header();
     println!("synced up to slot: {}", header.slot);
 
-    let address = Address::from_str("0xe0Fa62CD8543473627D337fAe1212d4E639EE932")?;
+    let address = Address::from_str("0x14f9D4aF749609c1438528C0Cce1cC3f6D411c47")?;
     let balance = client.get_balance(address).await?;
     let nonce = client.get_nonce(address).await?;
+    let code = client.get_code(address).await?;
+
     println!("balance: {}", balance);
     println!("nonce: {}", nonce);
+    println!("code: 0x{}...", hex::encode(code[..5].to_vec()));
 
     Ok(())
 }

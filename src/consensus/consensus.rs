@@ -3,9 +3,9 @@ use blst::BLST_ERROR;
 use eyre::Result;
 use ssz_rs::prelude::*;
 
-use crate::common::utils::*;
-use super::types::*;
 use super::rpc::Rpc;
+use super::types::*;
+use crate::common::utils::*;
 
 pub struct ConsensusClient {
     rpc: Rpc,
@@ -44,10 +44,7 @@ impl ConsensusClient {
             next_sync_committee: None,
         };
 
-        Ok(ConsensusClient {
-            rpc,
-            store,
-        })
+        Ok(ConsensusClient { rpc, store })
     }
 
     pub async fn get_execution_payload(&mut self) -> Result<ExecutionPayload> {

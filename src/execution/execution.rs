@@ -1,10 +1,10 @@
-use ethers::prelude::{Address, U256, H256};
+use ethers::prelude::{Address, H256, U256};
 use ethers::utils::keccak256;
 use eyre::Result;
 
-use crate::consensus::types::ExecutionPayload;
 use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
+use crate::consensus::types::ExecutionPayload;
 
 pub struct ExecutionClient {
     rpc: Rpc,
@@ -16,11 +16,12 @@ impl ExecutionClient {
         ExecutionClient { rpc }
     }
 
-    pub async fn get_account(&self, address: &Address, payload: &ExecutionPayload) -> Result<Account> {
-        let proof = self
-            .rpc
-            .get_proof(&address, payload.block_number)
-            .await?;
+    pub async fn get_account(
+        &self,
+        address: &Address,
+        payload: &ExecutionPayload,
+    ) -> Result<Account> {
+        let proof = self.rpc.get_proof(&address, payload.block_number).await?;
 
         let account_path = keccak256(address.as_bytes()).to_vec();
         let account_encoded = encode_account(&proof);
@@ -42,6 +43,19 @@ impl ExecutionClient {
             code_hash: proof.code_hash,
             storage_hash: proof.storage_hash,
         })
+    }
+
+    pub async fn get_code(&self, address: &Address, payload: &ExecutionPayload) -> Result<Vec<u8>> {
+        let account = self.get_account(address, payload).await?;
+        let code = self.rpc.get_code(address, payload.block_number).await?;
+
+        let code_hash = keccak256(&code).into();
+
+        if account.code_hash != code_hash {
+            eyre::bail!("Invalid Proof");
+        }
+
+        Ok(code)
     }
 }
 

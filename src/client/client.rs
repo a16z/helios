@@ -41,6 +41,11 @@ impl Client {
         Ok(account.nonce)
     }
 
+    pub async fn get_code(&mut self, address: Address) -> Result<Vec<u8>> {
+        let payload = self.consensus.get_execution_payload().await?;
+        self.execution.get_code(&address, &payload).await
+    }
+
     pub fn get_header(&self) -> &Header {
         self.consensus.get_head()
     }
