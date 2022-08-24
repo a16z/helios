@@ -61,32 +61,30 @@ impl ProofDB {
             error: None,
         }
     }
+
+    pub fn safe_unwrap<T: Default>(&mut self, res: Result<T>) -> T {
+        match res {
+            Ok(value) => value,
+            Err(err) => {
+                self.error = Some(err.to_string());
+                T::default()
+            },
+        }
+    }
 }
 
 impl Database for ProofDB {
     fn basic(&mut self, address: H160) -> AccountInfo {
-
-        self.error = None;
 
         if is_precompile(&address) {
             return AccountInfo::default()
         }
 
         let account_future = self.execution.get_account(&address, None, &self.payload);
-        let account_res = block_on(account_future);
-        if account_res.is_err() {
-            self.error = Some(account_res.as_ref().err().unwrap().to_string())
-        }
-
-        let account = account_res.unwrap();
+        let account = self.safe_unwrap(block_on(account_future));
 
         let bytecode_future = self.execution.get_code(&address, &self.payload);
-        let bytecode_res = block_on(bytecode_future);
-        if bytecode_res.is_err() {
-            self.error = Some(bytecode_res.as_ref().err().unwrap().to_string())
-        }
-
-        let bytecode = bytecode_res.unwrap();
+        let bytecode = self.safe_unwrap(block_on(bytecode_future));
         let bytecode = Bytecode::new_raw(Bytes::from(bytecode));
 
         AccountInfo::new(account.balance, account.nonce.as_u64(), bytecode)
@@ -99,12 +97,8 @@ impl Database for ProofDB {
     fn storage(&mut self, address: H160, slot: U256) -> U256 {
         let slots = [slot];
         let account_future = self.execution.get_account(&address, Some(&slots), &self.payload);
-        let account_res = block_on(account_future);
-        if account_res.is_err() {
-            self.error = Some(account_res.as_ref().err().unwrap().to_string());
-        }
+        let account = self.safe_unwrap(block_on(account_future));
 
-        let account = account_res.unwrap();
         *account.slots.get(&slot).unwrap()
     }
 

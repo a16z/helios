@@ -29,6 +29,7 @@ pub struct StorageProof {
     pub proof: Vec<Vec<u8>>,
 }
 
+#[derive(Default)]
 pub struct Account {
     pub balance: U256,
     pub nonce: U256,
