@@ -11,6 +11,7 @@ use crate::common::utils::{address_to_hex_string, hex_str_to_bytes, u64_to_hex_s
 
 use super::types::Proof;
 
+#[derive(Clone)]
 pub struct Rpc {
     rpc: String,
 }

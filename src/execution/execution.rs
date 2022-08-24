@@ -12,6 +12,7 @@ use super::types::Account;
 use crate::common::utils::hex_str_to_bytes;
 use crate::consensus::types::ExecutionPayload;
 
+#[derive(Clone)]
 pub struct ExecutionClient {
     rpc: Rpc,
 }

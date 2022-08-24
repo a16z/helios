@@ -4,6 +4,7 @@ use eyre::Result;
 use crate::consensus::types::Header;
 use crate::consensus::ConsensusClient;
 use crate::execution::ExecutionClient;
+use crate::execution::evm::Evm;
 
 pub struct Client {
     consensus: ConsensusClient,
@@ -27,6 +28,12 @@ impl Client {
 
     pub async fn sync(&mut self) -> Result<()> {
         self.consensus.sync().await
+    }
+
+    pub async fn call(&mut self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<Vec<u8>> {
+        let payload = self.consensus.get_execution_payload().await?;
+        let mut evm = Evm::new(self.execution.clone(), payload);
+        evm.call(to, calldata, value)
     }
 
     pub async fn get_balance(&mut self, address: &Address) -> Result<U256> {
