@@ -1,14 +1,16 @@
+use std::sync::Arc;
+
 use ethers::prelude::{Address, U256};
 use eyre::Result;
 
 use crate::consensus::types::Header;
 use crate::consensus::ConsensusClient;
-use crate::execution::ExecutionClient;
 use crate::execution::evm::Evm;
+use crate::execution::ExecutionClient;
 
 pub struct Client {
     consensus: ConsensusClient,
-    execution: ExecutionClient,
+    execution: Arc<ExecutionClient>,
 }
 
 impl Client {
@@ -22,7 +24,7 @@ impl Client {
 
         Ok(Client {
             consensus,
-            execution,
+            execution: Arc::new(execution),
         })
     }
 
@@ -30,30 +32,30 @@ impl Client {
         self.consensus.sync().await
     }
 
-    pub async fn call(&mut self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<Vec<u8>> {
+    pub async fn call(&self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<Vec<u8>> {
         let payload = self.consensus.get_execution_payload().await?;
         let mut evm = Evm::new(self.execution.clone(), payload);
         evm.call(to, calldata, value)
     }
 
-    pub async fn get_balance(&mut self, address: &Address) -> Result<U256> {
+    pub async fn get_balance(&self, address: &Address) -> Result<U256> {
         let payload = self.consensus.get_execution_payload().await?;
         let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&mut self, address: &Address) -> Result<U256> {
+    pub async fn get_nonce(&self, address: &Address) -> Result<U256> {
         let payload = self.consensus.get_execution_payload().await?;
         let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.nonce)
     }
 
-    pub async fn get_code(&mut self, address: &Address) -> Result<Vec<u8>> {
+    pub async fn get_code(&self, address: &Address) -> Result<Vec<u8>> {
         let payload = self.consensus.get_execution_payload().await?;
         self.execution.get_code(&address, &payload).await
     }
 
-    pub async fn get_storage_at(&mut self, address: &Address, slot: U256) -> Result<U256> {
+    pub async fn get_storage_at(&self, address: &Address, slot: U256) -> Result<U256> {
         let payload = self.consensus.get_execution_payload().await?;
         let account = self
             .execution

@@ -1,11 +1,9 @@
-use std::str::FromStr;
+use std::{sync::Arc, time::Duration};
 
-use ethers::prelude::{Address, U256};
 use eyre::Result;
 
-use client::Client;
-
-use crate::common::utils::hex_str_to_bytes;
+use client::{rpc::Rpc, Client};
+use tokio::time::sleep;
 
 pub mod client;
 pub mod common;
@@ -21,24 +19,11 @@ async fn main() -> Result<()> {
     let mut client = Client::new(consensus_rpc, execution_rpc, checkpoint).await?;
     client.sync().await?;
 
-    let header = client.get_header();
-    println!("synced up to slot: {}", header.slot);
+    let mut rpc = Rpc::new(Arc::new(client));
+    let addr = rpc.start().await?;
+    println!("{}", addr);
 
-    let address = Address::from_str("0x14f9D4aF749609c1438528C0Cce1cC3f6D411c47")?;
-    let balance = client.get_balance(&address).await?;
-    let nonce = client.get_nonce(&address).await?;
-    let code = client.get_code(&address).await?;
-    let storage_value = client.get_storage_at(&address, U256::from(0)).await?;
-
-    let owner_calldata = hex_str_to_bytes("0x8da5cb5b")?;
-    let value = U256::from(0);
-    let owner = client.call(&address, &owner_calldata, value).await?;
-
-    println!("balance: {}", balance);
-    println!("nonce: {}", nonce);
-    println!("code: 0x{}...", hex::encode(code[..5].to_vec()));
-    println!("value at slot 0: 0x{:x}", storage_value);
-    println!("result of calling owner() on address: {}", hex::encode(owner));
+    sleep(Duration::from_secs(300)).await;
 
     Ok(())
 }

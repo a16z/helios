@@ -47,11 +47,11 @@ impl ConsensusClient {
         Ok(ConsensusClient { rpc, store })
     }
 
-    pub async fn get_execution_payload(&mut self) -> Result<ExecutionPayload> {
+    pub async fn get_execution_payload(&self) -> Result<ExecutionPayload> {
         let slot = self.store.header.slot;
-        let mut block = self.rpc.get_block(slot).await?;
+        let mut block = self.rpc.get_block(slot).await?.clone();
         let block_hash = block.hash_tree_root()?;
-        let verified_block_hash = self.store.header.hash_tree_root()?;
+        let verified_block_hash = self.store.header.clone().hash_tree_root()?;
 
         if verified_block_hash != block_hash {
             Err(eyre::eyre!("Block Root Mismatch"))

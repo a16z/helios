@@ -11,7 +11,7 @@ pub type Address = Vector<u8, 20>;
 pub type LogsBloom = Vector<u8, 256>;
 pub type Transaction = List<u8, 1073741824>;
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct BeaconBlock {
     #[serde(deserialize_with = "u64_deserialize")]
     pub slot: u64,
@@ -24,7 +24,7 @@ pub struct BeaconBlock {
     pub body: BeaconBlockBody,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct BeaconBlockBody {
     #[serde(deserialize_with = "signature_deserialize")]
     randao_reveal: SignatureBytes,
@@ -44,7 +44,7 @@ pub struct BeaconBlockBody {
     pub execution_payload: ExecutionPayload,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct ExecutionPayload {
     #[serde(deserialize_with = "bytes32_deserialize")]
     parent_hash: Bytes32,
@@ -76,7 +76,7 @@ pub struct ExecutionPayload {
     transactions: List<Transaction, 1048576>,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct Attestation {
     aggregation_bits: Bitlist<2048>,
     data: AttestationData,
@@ -84,7 +84,7 @@ struct Attestation {
     signature: SignatureBytes,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct AttestationData {
     #[serde(deserialize_with = "u64_deserialize")]
     slot: u64,
@@ -96,7 +96,7 @@ struct AttestationData {
     target: Checkpoint,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct Checkpoint {
     #[serde(deserialize_with = "u64_deserialize")]
     epoch: u64,
@@ -104,12 +104,12 @@ struct Checkpoint {
     root: Bytes32,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct Dummy {
     t: u64,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct Eth1Data {
     #[serde(deserialize_with = "bytes32_deserialize")]
     deposit_root: Bytes32,
