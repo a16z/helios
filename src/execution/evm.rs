@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc, thread};
+use std::{str::FromStr, thread};
 
 use bytes::Bytes;
 use ethers::prelude::{Address, H160, H256, U256};
@@ -14,7 +14,7 @@ pub struct Evm {
 }
 
 impl Evm {
-    pub fn new(execution: Arc<ExecutionClient>, payload: ExecutionPayload) -> Self {
+    pub fn new(execution: ExecutionClient, payload: ExecutionPayload) -> Self {
         let mut evm: EVM<ProofDB> = EVM::new();
         let db = ProofDB::new(execution, payload);
         evm.database(db);
@@ -47,13 +47,13 @@ impl Evm {
 }
 
 struct ProofDB {
-    execution: Arc<ExecutionClient>,
+    execution: ExecutionClient,
     payload: ExecutionPayload,
     error: Option<String>,
 }
 
 impl ProofDB {
-    pub fn new(execution: Arc<ExecutionClient>, payload: ExecutionPayload) -> Self {
+    pub fn new(execution: ExecutionClient, payload: ExecutionPayload) -> Self {
         ProofDB {
             execution,
             payload,

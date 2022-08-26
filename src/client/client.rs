@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ethers::prelude::{Address, U256};
 use eyre::Result;
 
@@ -10,7 +8,7 @@ use crate::execution::ExecutionClient;
 
 pub struct Client {
     consensus: ConsensusClient,
-    execution: Arc<ExecutionClient>,
+    execution: ExecutionClient,
 }
 
 impl Client {
@@ -24,7 +22,7 @@ impl Client {
 
         Ok(Client {
             consensus,
-            execution: Arc::new(execution),
+            execution,
         })
     }
 
