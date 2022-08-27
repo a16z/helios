@@ -49,6 +49,8 @@ trait EthRpc {
     async fn get_code(&self, address: &str, block: &str) -> Result<String, Error>;
     #[method(name = "call")]
     async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error>;
+    #[method(name = "estimateGas")]
+    async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error>;
     #[method(name = "chainId")]
     fn chain_id(&self) -> Result<String, Error>;
 }
@@ -110,6 +112,18 @@ impl EthRpcServer for RpcInner {
             }
             _ => Err(Error::Custom("Invalid Block Number".to_string())),
         }
+    }
+
+    async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
+        let to = convert_err(Address::from_str(&opts.to))?;
+        let data = convert_err(hex_str_to_bytes(&opts.data.unwrap_or("0x".to_string())))?;
+        let value = convert_err(U256::from_str_radix(
+            &opts.value.unwrap_or("0x0".to_string()),
+            16,
+        ))?;
+
+        let gas = convert_err(self.client.estimate_gas(&to, &data, value).await)?;
+        Ok(u64_to_hex_string(gas))
     }
 
     fn chain_id(&self) -> Result<String, Error> {

@@ -44,6 +44,25 @@ impl Evm {
             TransactOut::Call(bytes) => Ok(bytes.to_vec()),
         }
     }
+
+    pub fn estimate_gas(&mut self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<u64> {
+        let mut env = Env::default();
+        let mut tx = revm::TxEnv::default();
+        tx.transact_to = TransactTo::Call(*to);
+        tx.data = Bytes::from(calldata.clone());
+        tx.value = value;
+        env.tx = tx;
+
+        self.evm.env = env;
+
+        let gas = self.evm.transact().2;
+
+        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
+            return Err(eyre::eyre!(err.clone()));
+        }
+
+        Ok(gas)
+    }
 }
 
 struct ProofDB {

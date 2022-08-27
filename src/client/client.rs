@@ -42,6 +42,12 @@ impl Client {
         evm.call(to, calldata, value)
     }
 
+    pub async fn estimate_gas(&self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<u64> {
+        let payload = self.consensus.get_execution_payload().await?;
+        let mut evm = Evm::new(self.execution.clone(), payload);
+        evm.estimate_gas(to, calldata, value)
+    }
+
     pub async fn get_balance(&self, address: &Address) -> Result<U256> {
         let payload = self.consensus.get_execution_payload().await?;
         let account = self.execution.get_account(&address, None, &payload).await?;
