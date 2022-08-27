@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
 use eyre::Result;
@@ -5,11 +7,13 @@ use ssz_rs::prelude::*;
 
 use super::rpc::Rpc;
 use super::types::*;
+use crate::common::config::Config;
 use crate::common::utils::*;
 
 pub struct ConsensusClient {
     rpc: Rpc,
     store: Store,
+    config: Arc<Config>,
 }
 
 #[derive(Debug)]
@@ -20,7 +24,11 @@ struct Store {
 }
 
 impl ConsensusClient {
-    pub async fn new(nimbus_rpc: &str, checkpoint_block_root: &str) -> Result<ConsensusClient> {
+    pub async fn new(
+        nimbus_rpc: &str,
+        checkpoint_block_root: &Vec<u8>,
+        config: Arc<Config>,
+    ) -> Result<ConsensusClient> {
         let rpc = Rpc::new(nimbus_rpc);
 
         let mut bootstrap = rpc.get_bootstrap(checkpoint_block_root).await?;
@@ -32,7 +40,8 @@ impl ConsensusClient {
         );
 
         let header_hash = bootstrap.header.hash_tree_root()?;
-        let header_valid = header_hash.to_string() == checkpoint_block_root.to_string();
+        let header_valid =
+            header_hash.to_string() == format!("0x{}", hex::encode(checkpoint_block_root));
 
         if !(header_valid && committee_valid) {
             return Err(eyre::eyre!("Invalid Bootstrap"));
@@ -44,7 +53,7 @@ impl ConsensusClient {
             next_sync_committee: None,
         };
 
-        Ok(ConsensusClient { rpc, store })
+        Ok(ConsensusClient { rpc, store, config })
     }
 
     pub async fn get_execution_payload(&self) -> Result<ExecutionPayload> {
@@ -147,7 +156,7 @@ impl ConsensusClient {
         }
 
         let header_root = bytes_to_bytes32(update.attested_header.hash_tree_root()?.as_bytes());
-        let signing_root = compute_committee_sign_root(header_root)?;
+        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
         let sig = &update.sync_aggregate.sync_committee_signature;
         let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
@@ -173,6 +182,21 @@ impl ConsensusClient {
             self.store.next_sync_committee =
                 Some(update.next_sync_committee.as_ref().unwrap().clone());
         }
+    }
+
+    fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
+        let genesis_root = self
+            .config
+            .general
+            .genesis_root
+            .to_vec()
+            .try_into()
+            .unwrap();
+
+        let domain_type = &hex::decode("07000000")?[..];
+        let fork_version = Vector::from_iter(self.config.fork_version(slot));
+        let domain = compute_domain(domain_type, fork_version, genesis_root)?;
+        compute_signing_root(header, domain)
     }
 }
 
@@ -298,18 +322,6 @@ fn branch_to_nodes(branch: Vec<Bytes32>) -> Result<Vec<Node>> {
         .iter()
         .map(|elem| bytes32_to_node(elem))
         .collect::<Result<Vec<Node>>>()
-}
-
-fn compute_committee_sign_root(header: Bytes32) -> Result<Node> {
-    let genesis_root =
-        hex::decode("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")?
-            .to_vec()
-            .try_into()
-            .unwrap();
-    let domain_type = &hex::decode("07000000")?[..];
-    let fork_version = Vector::from_iter(hex::decode("02001020").unwrap());
-    let domain = compute_domain(domain_type, fork_version, genesis_root)?;
-    compute_signing_root(header, domain)
 }
 
 #[derive(SimpleSerialize, Default, Debug)]

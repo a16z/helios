@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use ethers::prelude::{Address, U256};
 use eyre::Result;
 
+use crate::common::config::Config;
 use crate::consensus::types::Header;
 use crate::consensus::ConsensusClient;
 use crate::execution::evm::Evm;
@@ -9,20 +12,23 @@ use crate::execution::ExecutionClient;
 pub struct Client {
     consensus: ConsensusClient,
     execution: ExecutionClient,
+    config: Arc<Config>,
 }
 
 impl Client {
-    pub async fn new(
-        consensus_rpc: &str,
-        execution_rpc: &str,
-        checkpoint_hash: &str,
-    ) -> Result<Self> {
-        let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash).await?;
+    pub async fn new(config: Arc<Config>) -> Result<Self> {
+        let consensus_rpc = &config.general.consensus_rpc;
+        let checkpoint_hash = &config.general.checkpoint;
+        let execution_rpc = &config.general.execution_rpc;
+
+        let consensus =
+            ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
         let execution = ExecutionClient::new(execution_rpc);
 
         Ok(Client {
             consensus,
             execution,
+            config,
         })
     }
 
@@ -64,6 +70,10 @@ impl Client {
             Some(value) => Ok(*value),
             None => Err(eyre::eyre!("Slot Not Found")),
         }
+    }
+
+    pub fn chain_id(&self) -> u64 {
+        self.config.general.chain_id
     }
 
     pub fn get_header(&self) -> &Header {

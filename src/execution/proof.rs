@@ -7,7 +7,6 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
     let mut expected_hash = root.clone();
     let mut path_offset = 0;
 
-
     for (i, node) in proof.iter().enumerate() {
         if expected_hash != keccak256(node).to_vec() {
             return false;
@@ -22,10 +21,11 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
             path_offset += 1;
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
-
                 // exclusion proof
-                if &node_list[0][skip_length(&node_list[0])..] != &path[path_offset..] && value[0] == 0x80 {
-                    return true
+                if &node_list[0][skip_length(&node_list[0])..] != &path[path_offset..]
+                    && value[0] == 0x80
+                {
+                    return true;
                 }
 
                 // inclusion proof

@@ -74,7 +74,6 @@ impl ProofDB {
 
 impl Database for ProofDB {
     fn basic(&mut self, address: H160) -> AccountInfo {
-
         if is_precompile(&address) {
             return AccountInfo::default();
         }
@@ -112,7 +111,6 @@ impl Database for ProofDB {
     }
 
     fn storage(&mut self, address: H160, slot: U256) -> U256 {
-
         let execution = self.execution.clone();
         let addr = address.clone();
         let slots = [slot];

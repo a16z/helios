@@ -13,10 +13,11 @@ impl Rpc {
         }
     }
 
-    pub async fn get_bootstrap(&self, block_root: &str) -> Result<Bootstrap> {
+    pub async fn get_bootstrap(&self, block_root: &Vec<u8>) -> Result<Bootstrap> {
+        let root_hex = hex::encode(block_root);
         let req = format!(
-            "{}/eth/v0/beacon/light_client/bootstrap/{}",
-            self.rpc, block_root
+            "{}/eth/v0/beacon/light_client/bootstrap/0x{}",
+            self.rpc, root_hex
         );
         let res = reqwest::get(req).await?.json::<BootstrapResponse>().await?;
         Ok(res.data.v)

@@ -30,7 +30,7 @@ impl ExecutionClient {
         payload: &ExecutionPayload,
     ) -> Result<Account> {
         let slots = slots.unwrap_or(&[]);
-        
+
         let proof = self
             .rpc
             .get_proof(&address, slots, payload.block_number)

@@ -1609,6 +1609,7 @@ dependencies = [
  "serde",
  "ssz-rs",
  "tokio",
+ "toml",
 ]
 
 [[package]]
