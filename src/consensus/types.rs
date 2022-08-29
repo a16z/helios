@@ -69,7 +69,7 @@ pub struct ExecutionPayload {
     #[serde(deserialize_with = "extra_data_deserialize")]
     extra_data: List<u8, 32>,
     #[serde(deserialize_with = "u256_deserialize")]
-    base_fee_per_gas: U256,
+    pub base_fee_per_gas: U256,
     #[serde(deserialize_with = "bytes32_deserialize")]
     pub block_hash: Bytes32,
     #[serde(deserialize_with = "transactions_deserialize")]

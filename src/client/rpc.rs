@@ -53,6 +53,10 @@ trait EthRpc {
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error>;
     #[method(name = "chainId")]
     fn chain_id(&self) -> Result<String, Error>;
+    #[method(name = "gasPrice")]
+    async fn gas_price(&self) -> Result<String, Error>;
+    #[method(name = "maxPriorityFeePerGas")]
+    async fn max_priority_fee_per_gas(&self) -> Result<String, Error>;
 }
 
 struct RpcInner {
@@ -129,6 +133,16 @@ impl EthRpcServer for RpcInner {
     fn chain_id(&self) -> Result<String, Error> {
         let id = self.client.chain_id();
         Ok(u64_to_hex_string(id))
+    }
+
+    async fn gas_price(&self) -> Result<String, Error> {
+        let gas_price = convert_err(self.client.get_gas_price().await)?;
+        Ok(gas_price.encode_hex())
+    }
+
+    async fn max_priority_fee_per_gas(&self) -> Result<String, Error> {
+        let tip = convert_err(self.client.get_priority_fee().await)?;
+        Ok(tip.encode_hex())
     }
 }
 

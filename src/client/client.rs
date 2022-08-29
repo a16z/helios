@@ -78,6 +78,18 @@ impl Client {
         }
     }
 
+    pub async fn get_gas_price(&self) -> Result<U256> {
+        let payload = self.consensus.get_execution_payload().await?;
+        let base_fee = U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
+        let tip = U256::from(10_u64.pow(9));
+        Ok(base_fee + tip)
+    }
+
+    pub async fn get_priority_fee(&self) -> Result<U256> {
+        let tip = U256::from(10_u64.pow(9));
+        Ok(tip)
+    }
+
     pub fn chain_id(&self) -> u64 {
         self.config.general.chain_id
     }
