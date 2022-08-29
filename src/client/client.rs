@@ -90,6 +90,11 @@ impl Client {
         Ok(tip)
     }
 
+    pub async fn get_block_number(&self) -> Result<u64> {
+        let payload = self.consensus.get_execution_payload().await?;
+        Ok(payload.block_number)
+    }
+
     pub fn chain_id(&self) -> u64 {
         self.config.general.chain_id
     }
