@@ -19,19 +19,22 @@ use super::Client;
 pub struct Rpc {
     client: Arc<Client>,
     handle: Option<HttpServerHandle>,
+    port: u16,
 }
 
 impl Rpc {
-    pub fn new(client: Arc<Client>) -> Self {
+    pub fn new(client: Arc<Client>, port: u16) -> Self {
         Rpc {
             client,
             handle: None,
+            port,
         }
     }
 
     pub async fn start(&mut self) -> Result<SocketAddr> {
         let rpc_inner = RpcInner {
             client: self.client.clone(),
+            port: self.port,
         };
         let (handle, addr) = start(rpc_inner).await?;
         self.handle = Some(handle);
@@ -62,7 +65,8 @@ trait EthRpc {
 }
 
 struct RpcInner {
-    pub client: Arc<Client>,
+    client: Arc<Client>,
+    port: u16,
 }
 
 #[async_trait]
@@ -154,7 +158,8 @@ impl EthRpcServer for RpcInner {
 }
 
 async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
-    let server = HttpServerBuilder::default().build("127.0.0.1:8545").await?;
+    let addr = format!("127.0.0.1:{}", rpc.port);
+    let server = HttpServerBuilder::default().build(addr).await?;
 
     let addr = server.local_addr()?;
     let handle = server.start(rpc.into_rpc())?;

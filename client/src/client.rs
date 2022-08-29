@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ethers::prelude::{Address, U256};
 use eyre::Result;
 
-use common::config::Config;
+use config::Config;
 use consensus::types::Header;
 use consensus::ConsensusClient;
 use execution::evm::Evm;

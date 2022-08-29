@@ -1,9 +1,11 @@
+pub mod networks;
+
 use std::{fs, path::Path};
 
 use eyre::Result;
 use serde::Deserialize;
 
-use super::utils::hex_str_to_bytes;
+use common::utils::hex_str_to_bytes;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {

@@ -5,9 +5,9 @@ use blst::BLST_ERROR;
 use eyre::Result;
 use ssz_rs::prelude::*;
 
-use common::config::Config;
 use common::types::*;
 use common::utils::*;
+use config::Config;
 
 use super::rpc::Rpc;
 use super::types::*;

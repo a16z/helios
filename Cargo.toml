@@ -4,6 +4,7 @@ members = [
     "cli",
     "client",
     "common",
+    "config",
     "consensus",
     "execution",
 ]
