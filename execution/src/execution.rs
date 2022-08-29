@@ -6,11 +6,12 @@ use ethers::utils::keccak256;
 use ethers::utils::rlp::encode;
 use eyre::Result;
 
+use common::utils::hex_str_to_bytes;
+use consensus::types::ExecutionPayload;
+
 use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
 use super::types::Account;
-use crate::common::utils::hex_str_to_bytes;
-use crate::consensus::types::ExecutionPayload;
 
 #[derive(Clone)]
 pub struct ExecutionClient {

@@ -5,7 +5,7 @@ use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
 
-use crate::common::utils::hex_str_to_bytes;
+use common::utils::hex_str_to_bytes;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

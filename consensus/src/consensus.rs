@@ -5,10 +5,12 @@ use blst::BLST_ERROR;
 use eyre::Result;
 use ssz_rs::prelude::*;
 
+use common::config::Config;
+use common::types::*;
+use common::utils::*;
+
 use super::rpc::Rpc;
 use super::types::*;
-use crate::common::config::Config;
-use crate::common::utils::*;
 
 pub struct ConsensusClient {
     rpc: Rpc,

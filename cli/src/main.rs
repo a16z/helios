@@ -6,11 +6,6 @@ use tokio::time::sleep;
 use client::{rpc::Rpc, Client};
 use common::config::Config;
 
-pub mod client;
-pub mod common;
-pub mod consensus;
-pub mod execution;
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = Config::from_file(Path::new("./configs/goerli.toml"))?;

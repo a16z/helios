@@ -12,7 +12,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 
-use crate::common::utils::{hex_str_to_bytes, u64_to_hex_string};
+use common::utils::{hex_str_to_bytes, u64_to_hex_string};
 
 use super::Client;
 

@@ -6,8 +6,9 @@ use eyre::Result;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
 use tokio::runtime::Runtime;
 
+use consensus::types::ExecutionPayload;
+
 use super::ExecutionClient;
-use crate::consensus::types::ExecutionPayload;
 
 pub struct Evm {
     evm: EVM<ProofDB>,

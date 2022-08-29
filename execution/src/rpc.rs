@@ -7,7 +7,7 @@ use jsonrpsee::{
     rpc_params,
 };
 
-use crate::common::utils::{address_to_hex_string, hex_str_to_bytes, u64_to_hex_string};
+use common::utils::{address_to_hex_string, hex_str_to_bytes, u64_to_hex_string};
 
 use super::types::Proof;
 

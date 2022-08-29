@@ -3,11 +3,11 @@ use std::sync::Arc;
 use ethers::prelude::{Address, U256};
 use eyre::Result;
 
-use crate::common::config::Config;
-use crate::consensus::types::Header;
-use crate::consensus::ConsensusClient;
-use crate::execution::evm::Evm;
-use crate::execution::ExecutionClient;
+use common::config::Config;
+use consensus::types::Header;
+use consensus::ConsensusClient;
+use execution::evm::Evm;
+use execution::ExecutionClient;
 
 pub struct Client {
     consensus: ConsensusClient,

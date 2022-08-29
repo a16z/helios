@@ -334,6 +334,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "client"
+version = "0.1.0"
+dependencies = [
+ "blst",
+ "bytes",
+ "common",
+ "consensus",
+ "ethers",
+ "execution",
+ "eyre",
+ "futures",
+ "hex",
+ "jsonrpsee",
+ "reqwest",
+ "revm",
+ "serde",
+ "ssz-rs",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "coins-bip32"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -388,6 +410,45 @@ dependencies = [
  "sha2 0.10.2",
  "sha3",
  "thiserror",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "blst",
+ "bytes",
+ "ethers",
+ "eyre",
+ "futures",
+ "hex",
+ "jsonrpsee",
+ "reqwest",
+ "revm",
+ "serde",
+ "ssz-rs",
+ "tokio",
+ "toml",
+]
+
+[[package]]
+name = "consensus"
+version = "0.1.0"
+dependencies = [
+ "blst",
+ "bytes",
+ "common",
+ "ethers",
+ "eyre",
+ "futures",
+ "hex",
+ "jsonrpsee",
+ "reqwest",
+ "revm",
+ "serde",
+ "ssz-rs",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -790,6 +851,27 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
+
+[[package]]
+name = "execution"
+version = "0.1.0"
+dependencies = [
+ "blst",
+ "bytes",
+ "common",
+ "consensus",
+ "ethers",
+ "eyre",
+ "futures",
+ "hex",
+ "jsonrpsee",
+ "reqwest",
+ "revm",
+ "serde",
+ "ssz-rs",
+ "tokio",
+ "toml",
+]
 
 [[package]]
 name = "eyre"
@@ -1599,6 +1681,8 @@ version = "0.1.0"
 dependencies = [
  "blst",
  "bytes",
+ "client",
+ "common",
  "ethers",
  "eyre",
  "futures",

@@ -2,11 +2,11 @@ use eyre::Result;
 use serde::de::Error;
 use ssz_rs::prelude::*;
 
-use crate::common::utils::hex_str_to_bytes;
+use common::types::Bytes32;
+use common::utils::hex_str_to_bytes;
 
 pub type BLSPubKey = Vector<u8, 48>;
 pub type SignatureBytes = Vector<u8, 96>;
-pub type Bytes32 = Vector<u8, 32>;
 pub type Address = Vector<u8, 20>;
 pub type LogsBloom = Vector<u8, 256>;
 pub type Transaction = List<u8, 1073741824>;
