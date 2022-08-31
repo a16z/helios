@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use clap::Parser;
 use dirs::home_dir;
 use eyre::Result;
-use tokio::time::sleep;
+use tokio::{sync::Mutex, time::sleep};
 
 use client::{rpc::Rpc, Client};
 use config::{networks, Config};
@@ -23,13 +23,16 @@ async fn main() -> Result<()> {
     let mut client = Client::new(Arc::new(config)).await?;
     client.sync().await?;
 
-    let mut rpc = Rpc::new(Arc::new(client), cli.port.unwrap_or(8545));
+    let client = Arc::new(Mutex::new(client));
+
+    let mut rpc = Rpc::new(client.clone(), cli.port.unwrap_or(8545));
     let addr = rpc.start().await?;
     println!("started rpc at: {}", addr);
 
-    sleep(Duration::from_secs(300)).await;
-
-    Ok(())
+    loop {
+        sleep(Duration::from_secs(10)).await;
+        client.lock().await.advance().await?
+    }
 }
 
 #[derive(Parser)]

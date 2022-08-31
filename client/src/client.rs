@@ -36,6 +36,10 @@ impl Client {
         self.consensus.sync().await
     }
 
+    pub async fn advance(&mut self) -> Result<()> {
+        self.consensus.advance().await
+    }
+
     pub async fn call(&self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<Vec<u8>> {
         let payload = self.consensus.get_execution_payload().await?;
         let mut evm = Evm::new(self.execution.clone(), payload);
