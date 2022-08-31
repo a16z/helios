@@ -1,3 +1,4 @@
+use std::cmp;
 use std::sync::Arc;
 
 use blst::min_pk::{PublicKey, Signature};
@@ -20,9 +21,12 @@ pub struct ConsensusClient {
 
 #[derive(Debug)]
 struct Store {
-    header: Header,
+    finalized_header: Header,
     current_sync_committee: SyncCommittee,
     next_sync_committee: Option<SyncCommittee>,
+    optimistic_header: Header,
+    previous_max_active_participants: u64,
+    current_max_active_participants: u64,
 }
 
 impl ConsensusClient {
@@ -50,19 +54,22 @@ impl ConsensusClient {
         }
 
         let store = Store {
-            header: bootstrap.header,
+            finalized_header: bootstrap.header.clone(),
             current_sync_committee: bootstrap.current_sync_committee,
             next_sync_committee: None,
+            optimistic_header: bootstrap.header,
+            previous_max_active_participants: 0,
+            current_max_active_participants: 0,
         };
 
         Ok(ConsensusClient { rpc, store, config })
     }
 
     pub async fn get_execution_payload(&self) -> Result<ExecutionPayload> {
-        let slot = self.store.header.slot;
+        let slot = self.store.optimistic_header.slot;
         let mut block = self.rpc.get_block(slot).await?.clone();
         let block_hash = block.hash_tree_root()?;
-        let verified_block_hash = self.store.header.clone().hash_tree_root()?;
+        let verified_block_hash = self.store.optimistic_header.clone().hash_tree_root()?;
 
         if verified_block_hash != block_hash {
             Err(eyre::eyre!("Block Root Mismatch"))
@@ -72,11 +79,11 @@ impl ConsensusClient {
     }
 
     pub fn get_head(&self) -> &Header {
-        &self.store.header
+        &self.store.optimistic_header
     }
 
     pub async fn sync(&mut self) -> Result<()> {
-        let current_period = calc_sync_period(self.store.header.slot);
+        let current_period = calc_sync_period(self.store.finalized_header.slot);
         let updates = self.rpc.get_updates(current_period).await?;
 
         for mut update in updates {
@@ -85,32 +92,34 @@ impl ConsensusClient {
         }
 
         let finality_update = self.rpc.get_finality_update().await?;
-        let mut finality_update_generic = Update {
-            attested_header: finality_update.attested_header,
-            next_sync_committee: None,
-            next_sync_committee_branch: Vec::new(),
-            finalized_header: finality_update.finalized_header,
-            finality_branch: finality_update.finality_branch,
-            sync_aggregate: finality_update.sync_aggregate,
-            signature_slot: finality_update.signature_slot,
-        };
+        self.verify_finality_update(&finality_update)?;
+        self.apply_finality_update(&finality_update);
 
-        self.verify_update(&mut finality_update_generic)?;
-        self.apply_update(&finality_update_generic);
+        let optimistic_update = self.rpc.get_optimistic_update().await?;
+        self.verify_optimistic_update(&optimistic_update)?;
+        self.apply_optimistic_update(&optimistic_update);
 
-        self.rpc.get_block(self.store.header.slot).await?;
+        Ok(())
+    }
+
+    pub async fn advance(&mut self) -> Result<()> {
+        let finality_update = self.rpc.get_finality_update().await?;
+        self.verify_finality_update(&finality_update)?;
+        self.apply_finality_update(&finality_update);
+
+        let optimistic_update = self.rpc.get_optimistic_update().await?;
+        self.verify_optimistic_update(&optimistic_update)?;
+        self.apply_optimistic_update(&optimistic_update);
 
         Ok(())
     }
 
     fn verify_update(&mut self, update: &mut Update) -> Result<()> {
-        let current_slot = self.store.header.slot;
-        let update_slot = update.finalized_header.slot;
+        let store_period = calc_sync_period(self.store.finalized_header.slot);
+        let update_signature_period = calc_sync_period(update.signature_slot);
 
-        let current_period = calc_sync_period(current_slot);
-        let update_period = calc_sync_period(update_slot);
-
-        if !(update_period == current_period + 1 || update_period == current_period) {
+        if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
+        {
             return Err(eyre::eyre!("Invalid Update"));
         }
 
@@ -130,26 +139,25 @@ impl ConsensusClient {
             return Err(eyre::eyre!("Invalid Update"));
         }
 
-        if update.next_sync_committee.is_some() {
-            let next_committee_branch_valid = is_next_committee_proof_valid(
-                &update.attested_header,
-                &mut update.next_sync_committee.clone().unwrap(),
-                &update.next_sync_committee_branch,
-            );
+        let next_committee_branch_valid = is_next_committee_proof_valid(
+            &update.attested_header,
+            &mut update.next_sync_committee,
+            &update.next_sync_committee_branch,
+        );
 
-            if !next_committee_branch_valid {
-                return Err(eyre::eyre!("Invalid Update"));
-            }
+        if !next_committee_branch_valid {
+            return Err(eyre::eyre!("Invalid Update"));
         }
 
-        let sync_committee = if current_period == update_period {
+        let sync_committee = if store_period == update_signature_period {
             &self.store.current_sync_committee
         } else {
             self.store.next_sync_committee.as_ref().unwrap()
         };
 
         let pks =
-            get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+            get_participating_keys(&sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+
         let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
 
         let committee_quorum = pks.len() > 1;
@@ -169,20 +177,152 @@ impl ConsensusClient {
         Ok(())
     }
 
-    fn apply_update(&mut self, update: &Update) {
-        let current_period = calc_sync_period(self.store.header.slot);
-        let update_period = calc_sync_period(update.finalized_header.slot);
+    fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
+        let store_period = calc_sync_period(self.store.finalized_header.slot);
+        let update_signature_period = calc_sync_period(update.signature_slot);
 
-        self.store.header = update.finalized_header.clone();
+        if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
+        {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        if !(update.signature_slot > update.attested_header.slot
+            && update.attested_header.slot > update.finalized_header.slot)
+        {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        let finality_branch_valid = is_finality_proof_valid(
+            &update.attested_header,
+            &mut update.finalized_header.clone(),
+            &update.finality_branch,
+        );
+
+        if !(finality_branch_valid) {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        let sync_committee = &self.store.current_sync_committee;
+
+        let pks =
+            get_participating_keys(&sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+
+        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+
+        let committee_quorum = pks.len() > 1;
+        if !committee_quorum {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        let header_root =
+            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
+        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
+        let sig = &update.sync_aggregate.sync_committee_signature;
+        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
+
+        if !is_valid_sig {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        Ok(())
+    }
+
+    fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
+        let store_period = calc_sync_period(self.store.finalized_header.slot);
+        let update_signature_period = calc_sync_period(update.signature_slot);
+
+        if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
+        {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        if !(update.signature_slot > update.attested_header.slot) {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        let sync_committee = &self.store.current_sync_committee;
+
+        let pks =
+            get_participating_keys(&sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+
+        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+
+        let committee_quorum = pks.len() > 1;
+        if !committee_quorum {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        let header_root =
+            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
+        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
+        let sig = &update.sync_aggregate.sync_committee_signature;
+        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
+
+        if !is_valid_sig {
+            return Err(eyre::eyre!("Invalid Update"));
+        }
+
+        Ok(())
+    }
+
+    fn apply_update(&mut self, update: &Update) {
+        let store_period = calc_sync_period(self.store.finalized_header.slot);
+        let update_signature_period = calc_sync_period(update.signature_slot);
+
+        self.store.finalized_header = update.finalized_header.clone();
 
         if self.store.next_sync_committee.is_none() {
-            self.store.next_sync_committee =
-                Some(update.next_sync_committee.as_ref().unwrap().clone());
-        } else if update_period == current_period + 1 {
+            self.store.next_sync_committee = Some(update.next_sync_committee.clone());
+        } else if update_signature_period == store_period + 1 {
             self.store.current_sync_committee =
                 self.store.next_sync_committee.as_ref().unwrap().clone();
-            self.store.next_sync_committee =
-                Some(update.next_sync_committee.as_ref().unwrap().clone());
+            self.store.next_sync_committee = Some(update.next_sync_committee.clone());
+        }
+
+        println!(
+            "applying update for slot: {}",
+            self.store.finalized_header.slot
+        );
+    }
+
+    fn apply_finality_update(&mut self, update: &FinalityUpdate) {
+        if self.store.finalized_header.slot != update.finalized_header.slot {
+            self.store.finalized_header = update.finalized_header.clone();
+            self.store.previous_max_active_participants =
+                self.store.current_max_active_participants;
+            self.store.current_max_active_participants =
+                get_bits(&update.sync_aggregate.sync_committee_bits);
+
+            println!(
+                "applying finality update for slot: {}",
+                self.store.finalized_header.slot
+            );
+        }
+
+        if self.store.finalized_header.slot > self.store.optimistic_header.slot {
+            self.store.optimistic_header = self.store.finalized_header.clone();
+        }
+    }
+
+    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
+        let votes = get_bits(&update.sync_aggregate.sync_committee_bits);
+        if votes > self.store.current_max_active_participants {
+            self.store.current_max_active_participants = votes;
+        }
+
+        let safety_theshhold = cmp::max(
+            self.store.current_max_active_participants,
+            self.store.previous_max_active_participants,
+        ) / 2;
+
+        if votes > safety_theshhold
+            && update.attested_header.slot > self.store.optimistic_header.slot
+        {
+            self.store.optimistic_header = update.attested_header.clone();
+            println!(
+                "applying optimistic update for slot: {}",
+                self.store.optimistic_header.slot
+            );
         }
     }
 
@@ -216,6 +356,17 @@ fn get_participating_keys(
     });
 
     Ok(pks)
+}
+
+fn get_bits(bitfield: &Bitvector<512>) -> u64 {
+    let mut count = 0;
+    bitfield.iter().for_each(|bit| {
+        if bit == true {
+            count += 1;
+        }
+    });
+
+    count
 }
 
 fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {

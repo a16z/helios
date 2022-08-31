@@ -41,6 +41,15 @@ impl Rpc {
         Ok(res.data)
     }
 
+    pub async fn get_optimistic_update(&self) -> Result<OptimisticUpdate> {
+        let req = format!("{}/eth/v0/beacon/light_client/optimistic_update", self.rpc);
+        let res = reqwest::get(req)
+            .await?
+            .json::<OptimisticUpdateResponse>()
+            .await?;
+        Ok(res.data)
+    }
+
     pub async fn get_block(&self, slot: u64) -> Result<BeaconBlock> {
         let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
         let res = reqwest::get(req)
@@ -69,6 +78,11 @@ struct UpdateResponse {
 #[derive(serde::Deserialize, Debug)]
 struct FinalityUpdateResponse {
     data: FinalityUpdate,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct OptimisticUpdateResponse {
+    data: OptimisticUpdate,
 }
 
 #[derive(serde::Deserialize, Debug)]

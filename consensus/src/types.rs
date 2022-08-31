@@ -130,7 +130,7 @@ pub struct Bootstrap {
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Update {
     pub attested_header: Header,
-    pub next_sync_committee: Option<SyncCommittee>,
+    pub next_sync_committee: SyncCommittee,
     #[serde(deserialize_with = "branch_deserialize")]
     pub next_sync_committee_branch: Vec<Bytes32>,
     pub finalized_header: Header,
@@ -147,6 +147,14 @@ pub struct FinalityUpdate {
     pub finalized_header: Header,
     #[serde(deserialize_with = "branch_deserialize")]
     pub finality_branch: Vec<Bytes32>,
+    pub sync_aggregate: SyncAggregate,
+    #[serde(deserialize_with = "u64_deserialize")]
+    pub signature_slot: u64,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct OptimisticUpdate {
+    pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
     #[serde(deserialize_with = "u64_deserialize")]
     pub signature_slot: u64,
