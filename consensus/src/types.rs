@@ -36,8 +36,7 @@ pub struct BeaconBlockBody {
     // TODO: handle
     attester_slashings: List<Dummy, 2>,
     attestations: List<Attestation, 128>,
-    // TODO: handle
-    deposits: List<Dummy, 16>,
+    deposits: List<Deposit, 16>,
     // TODO: handle
     voluntary_exits: List<Dummy, 16>,
     sync_aggregate: SyncAggregate,
@@ -47,33 +46,33 @@ pub struct BeaconBlockBody {
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct ExecutionPayload {
     #[serde(deserialize_with = "bytes32_deserialize")]
-    parent_hash: Bytes32,
+    pub parent_hash: Bytes32,
     #[serde(deserialize_with = "address_deserialize")]
-    fee_recipient: Address,
+    pub fee_recipient: Address,
     #[serde(deserialize_with = "bytes32_deserialize")]
     pub state_root: Bytes32,
     #[serde(deserialize_with = "bytes32_deserialize")]
     pub receipts_root: Bytes32,
     #[serde(deserialize_with = "logs_bloom_deserialize")]
-    logs_bloom: Vector<u8, 256>,
+    pub logs_bloom: Vector<u8, 256>,
     #[serde(deserialize_with = "bytes32_deserialize")]
-    prev_randao: Bytes32,
+    pub prev_randao: Bytes32,
     #[serde(deserialize_with = "u64_deserialize")]
     pub block_number: u64,
     #[serde(deserialize_with = "u64_deserialize")]
-    gas_limit: u64,
+    pub gas_limit: u64,
     #[serde(deserialize_with = "u64_deserialize")]
-    gas_used: u64,
+    pub gas_used: u64,
     #[serde(deserialize_with = "u64_deserialize")]
-    timestamp: u64,
+    pub timestamp: u64,
     #[serde(deserialize_with = "extra_data_deserialize")]
-    extra_data: List<u8, 32>,
+    pub extra_data: List<u8, 32>,
     #[serde(deserialize_with = "u256_deserialize")]
     pub base_fee_per_gas: U256,
     #[serde(deserialize_with = "bytes32_deserialize")]
     pub block_hash: Bytes32,
     #[serde(deserialize_with = "transactions_deserialize")]
-    transactions: List<Transaction, 1048576>,
+    pub transactions: List<Transaction, 1048576>,
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
@@ -107,6 +106,25 @@ struct Checkpoint {
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct Dummy {
     t: u64,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct Deposit {
+    #[serde(deserialize_with = "bytes_vector_deserialize")]
+    proof: Vector<Bytes32, 33>,
+    data: DepositData,
+}
+
+#[derive(serde::Deserialize, Default, Debug, SimpleSerialize, Clone)]
+struct DepositData {
+    #[serde(deserialize_with = "pubkey_deserialize")]
+    pubkey: BLSPubKey,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    withdrawal_credentials: Bytes32,
+    #[serde(deserialize_with = "u64_deserialize")]
+    amount: u64,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
@@ -210,6 +228,21 @@ where
             Ok(Vector::from_iter(key_bytes))
         })
         .collect::<Result<Vector<BLSPubKey, 512>>>()
+        .map_err(D::Error::custom)?)
+}
+
+fn bytes_vector_deserialize<'de, D>(deserializer: D) -> Result<Vector<Bytes32, 33>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let elems: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
+    Ok(elems
+        .iter()
+        .map(|elem| {
+            let elem_bytes = hex_str_to_bytes(elem)?;
+            Ok(Vector::from_iter(elem_bytes))
+        })
+        .collect::<Result<Vector<Bytes32, 33>>>()
         .map_err(D::Error::custom)?)
 }
 

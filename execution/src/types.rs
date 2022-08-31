@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use ethers::prelude::{Address, H256, U256};
 use eyre::Result;
 use serde::de::Error;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use common::utils::hex_str_to_bytes;
+use common::utils::{hex_str_to_bytes, u64_to_hex_string};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +37,55 @@ pub struct Account {
     pub storage_hash: H256,
     pub slots: HashMap<U256, U256>,
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionBlock {
+    #[serde(serialize_with = "serialize_u64_string")]
+    pub number: u64,
+    pub base_fee_per_gas: U256,
+    pub difficulty: U256,
+    #[serde(serialize_with = "serialize_bytes")]
+    pub extra_data: Vec<u8>,
+    #[serde(serialize_with = "serialize_u64_string")]
+    pub gas_limit: u64,
+    #[serde(serialize_with = "serialize_u64_string")]
+    pub gas_used: u64,
+    pub hash: H256,
+    #[serde(serialize_with = "serialize_bytes")]
+    pub logs_bloom: Vec<u8>,
+    pub miner: Address,
+    pub mix_hash: H256,
+    pub nonce: String,
+    pub parent_hash: H256,
+    pub receipts_root: H256,
+    pub sha3_uncles: H256,
+    #[serde(serialize_with = "serialize_u64_string")]
+    pub size: u64,
+    pub state_root: H256,
+    #[serde(serialize_with = "serialize_u64_string")]
+    pub timestamp: u64,
+    #[serde(serialize_with = "serialize_u64_string")]
+    pub total_difficulty: u64,
+    pub transactions: Vec<H256>,
+    pub transactions_root: H256,
+    pub uncles: Vec<H256>,
+}
+
+fn serialize_bytes<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
+where S: serde::Serializer
+{
+    let bytes_str = format!("0x{}", hex::encode(bytes));
+    s.serialize_str(&bytes_str)
+}
+
+fn serialize_u64_string<S>(x: &u64, s: S) -> Result<S::Ok, S::Error>
+where S: serde::Serializer
+{
+    let num_string = u64_to_hex_string(*x);
+    s.serialize_str(&num_string)
+}
+
 
 fn proof_deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
 where

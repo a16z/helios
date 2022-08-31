@@ -57,7 +57,7 @@ impl ConsensusClient {
             finalized_header: bootstrap.header.clone(),
             current_sync_committee: bootstrap.current_sync_committee,
             next_sync_committee: None,
-            optimistic_header: bootstrap.header,
+            optimistic_header: bootstrap.header.clone(),
             previous_max_active_participants: 0,
             current_max_active_participants: 0,
         };
@@ -65,8 +65,8 @@ impl ConsensusClient {
         Ok(ConsensusClient { rpc, store, config })
     }
 
-    pub async fn get_execution_payload(&self) -> Result<ExecutionPayload> {
-        let slot = self.store.optimistic_header.slot;
+    pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
+        let slot = slot.unwrap_or(self.store.optimistic_header.slot);
         let mut block = self.rpc.get_block(slot).await?.clone();
         let block_hash = block.hash_tree_root()?;
         let verified_block_hash = self.store.optimistic_header.clone().hash_tree_root()?;
@@ -287,6 +287,7 @@ impl ConsensusClient {
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
         if self.store.finalized_header.slot != update.finalized_header.slot {
+
             self.store.finalized_header = update.finalized_header.clone();
             self.store.previous_max_active_participants =
                 self.store.current_max_active_participants;
@@ -319,6 +320,7 @@ impl ConsensusClient {
             && update.attested_header.slot > self.store.optimistic_header.slot
         {
             self.store.optimistic_header = update.attested_header.clone();
+
             println!(
                 "applying optimistic update for slot: {}",
                 self.store.optimistic_header.slot

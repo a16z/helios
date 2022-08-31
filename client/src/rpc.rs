@@ -8,13 +8,13 @@ use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 
 use jsonrpsee::{
-    core::{async_trait, Error},
+    core::{async_trait, Error, server::rpc_module::Methods},
     http_server::{HttpServerBuilder, HttpServerHandle},
     proc_macros::rpc,
 };
 
 use common::utils::{hex_str_to_bytes, u64_to_hex_string};
-
+use execution::types::ExecutionBlock;
 use super::Client;
 
 pub struct Rpc {
@@ -63,8 +63,17 @@ trait EthRpc {
     async fn max_priority_fee_per_gas(&self) -> Result<String, Error>;
     #[method(name = "blockNumber")]
     async fn block_number(&self) -> Result<String, Error>;
+    #[method(name = "getBlockByNumber")]
+    async fn get_block_by_number(&self, num: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
 }
 
+#[rpc(client, server, namespace = "net")]
+trait NetRpc {
+    #[method(name = "version")]
+    async fn version(&self) -> Result<String, Error>;
+}
+
+#[derive(Clone)]
 struct RpcInner {
     client: Arc<Mutex<Client>>,
     port: u16,
@@ -73,60 +82,45 @@ struct RpcInner {
 #[async_trait]
 impl EthRpcServer for RpcInner {
     async fn get_balance(&self, address: &str, block: &str) -> Result<String, Error> {
-        match block {
-            "latest" => {
-                let address = convert_err(Address::from_str(address))?;
-                let client = self.client.lock().await;
-                let balance = convert_err(client.get_balance(&address).await)?;
+        let block = convert_err(decode_block(block))?;
+        let address = convert_err(Address::from_str(address))?;
+        let client = self.client.lock().await;
+        let balance = convert_err(client.get_balance(&address, &block).await)?;
 
-                Ok(balance.encode_hex())
-            }
-            _ => Err(Error::Custom("Invalid Block Number".to_string())),
-        }
+        Ok(balance.encode_hex())
     }
 
     async fn get_transaction_count(&self, address: &str, block: &str) -> Result<String, Error> {
-        match block {
-            "latest" => {
-                let address = convert_err(Address::from_str(address))?;
-                let client = self.client.lock().await;
-                let nonce = convert_err(client.get_nonce(&address).await)?;
+        let block = convert_err(decode_block(block))?;
+        let address = convert_err(Address::from_str(address))?;
+        let client = self.client.lock().await;
+        let nonce = convert_err(client.get_nonce(&address, &block).await)?;
 
-                Ok(nonce.encode_hex())
-            }
-            _ => Err(Error::Custom("Invalid Block Number".to_string())),
-        }
+        Ok(nonce.encode_hex())
     }
 
     async fn get_code(&self, address: &str, block: &str) -> Result<String, Error> {
-        match block {
-            "latest" => {
-                let address = convert_err(Address::from_str(address))?;
-                let client = self.client.lock().await;
-                let code = convert_err(client.get_code(&address).await)?;
+        let block = convert_err(decode_block(block))?;
+        let address = convert_err(Address::from_str(address))?;
+        let client = self.client.lock().await;
+        let code = convert_err(client.get_code(&address, &block).await)?;
 
-                Ok(hex::encode(code))
-            }
-            _ => Err(Error::Custom("Invalid Block Number".to_string())),
-        }
+        Ok(hex::encode(code))
     }
 
     async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error> {
-        match block {
-            "latest" => {
-                let to = convert_err(Address::from_str(&opts.to))?;
-                let data = convert_err(hex_str_to_bytes(&opts.data.unwrap_or("0x".to_string())))?;
-                let value = convert_err(U256::from_str_radix(
-                    &opts.value.unwrap_or("0x0".to_string()),
-                    16,
-                ))?;
+        let block = convert_err(decode_block(block))?;
+        let to = convert_err(Address::from_str(&opts.to))?;
+        let data = convert_err(hex_str_to_bytes(&opts.data.unwrap_or("0x".to_string())))?;
+        let value = convert_err(U256::from_str_radix(
+            &opts.value.unwrap_or("0x0".to_string()),
+            16,
+        ))?;
 
-                let client = self.client.lock().await;
-                let res = convert_err(client.call(&to, &data, value).await)?;
-                Ok(hex::encode(res))
-            }
-            _ => Err(Error::Custom("Invalid Block Number".to_string())),
-        }
+        let client = self.client.lock().await;
+        let res = convert_err(client.call(&to, &data, value, &block))?;
+
+        Ok(hex::encode(res))
     }
 
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
@@ -138,7 +132,7 @@ impl EthRpcServer for RpcInner {
         ))?;
 
         let client = self.client.lock().await;
-        let gas = convert_err(client.estimate_gas(&to, &data, value).await)?;
+        let gas = convert_err(client.estimate_gas(&to, &data, value))?;
         Ok(u64_to_hex_string(gas))
     }
 
@@ -150,35 +144,76 @@ impl EthRpcServer for RpcInner {
 
     async fn gas_price(&self) -> Result<String, Error> {
         let client = self.client.lock().await;
-        let gas_price = convert_err(client.get_gas_price().await)?;
+        let gas_price = convert_err(client.get_gas_price())?;
         Ok(gas_price.encode_hex())
     }
 
     async fn max_priority_fee_per_gas(&self) -> Result<String, Error> {
         let client = self.client.lock().await;
-        let tip = convert_err(client.get_priority_fee().await)?;
+        let tip = convert_err(client.get_priority_fee())?;
         Ok(tip.encode_hex())
     }
 
     async fn block_number(&self) -> Result<String, Error> {
         let client = self.client.lock().await;
-        let num = convert_err(client.get_block_number().await)?;
+        let num = convert_err(client.get_block_number())?;
         Ok(u64_to_hex_string(num))
+    }
+
+    async fn get_block_by_number(&self, block: &str, _full_tx: bool) -> Result<ExecutionBlock, Error> {
+        let block = convert_err(decode_block(block))?;
+        let client = self.client.lock().await;
+        let block = convert_err(client.get_block_by_number(&block))?;
+        
+        Ok(block)
+    }
+}
+
+#[async_trait]
+impl NetRpcServer for RpcInner {
+    async fn version(&self) -> Result<String,Error> {
+        let client = self.client.lock().await;
+        Ok(client.chain_id().to_string())
     }
 }
 
 async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
+
     let addr = format!("127.0.0.1:{}", rpc.port);
     let server = HttpServerBuilder::default().build(addr).await?;
 
     let addr = server.local_addr()?;
-    let handle = server.start(rpc.into_rpc())?;
+    
+    let mut methods = Methods::new();
+    let eth_methods: Methods = EthRpcServer::into_rpc(rpc.clone()).into();
+    let net_methods: Methods = NetRpcServer::into_rpc(rpc).into();
+
+    methods.merge(eth_methods)?;
+    methods.merge(net_methods)?;
+    
+    let handle = server.start(methods)?;
 
     Ok((handle, addr))
 }
 
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
-    res.map_err(|err| Error::Custom(err.to_string()))
+    res.map_err(|err| {
+        println!("{}", err.to_string());
+        Error::Custom(err.to_string())
+    })
+}
+
+fn decode_block(block: &str) -> Result<Option<u64>> {
+    match block {
+        "latest" => Ok(None),
+        _ => {
+            if block.starts_with("0x") {
+                Ok(Some(u64::from_str_radix(block.strip_prefix("0x").unwrap(), 16)?))
+            } else {
+                Ok(Some(block.parse()?))
+            }
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
