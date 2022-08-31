@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
+use ethers::types::H256;
 use ethers::utils::keccak256;
 use ethers::utils::rlp::encode;
 use eyre::Result;
@@ -11,7 +13,7 @@ use consensus::types::ExecutionPayload;
 
 use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
-use super::types::Account;
+use super::types::{Account, ExecutionBlock};
 
 #[derive(Clone)]
 pub struct ExecutionClient {
@@ -93,5 +95,40 @@ impl ExecutionClient {
         }
 
         Ok(code)
+    }
+
+    pub fn get_block(&self, payload: &ExecutionPayload) -> Result<ExecutionBlock> {
+        let empty_nonce = "0x0000000000000000".to_string();
+        let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+
+        let txs = payload
+            .transactions
+            .iter()
+            .map(|tx| H256::from_slice(&keccak256(tx.to_vec())))
+            .collect::<Vec<H256>>();
+
+        Ok(ExecutionBlock {
+            number: payload.block_number,
+            base_fee_per_gas: U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le()),
+            difficulty: U256::from(0),
+            extra_data: payload.extra_data.to_vec(),
+            gas_limit: payload.gas_limit,
+            gas_used: payload.gas_used,
+            hash: H256::from_slice(&payload.block_hash),
+            logs_bloom: payload.logs_bloom.to_vec(),
+            miner: Address::from_slice(&payload.fee_recipient),
+            parent_hash: H256::from_slice(&payload.parent_hash),
+            receipts_root: H256::from_slice(&payload.receipts_root),
+            state_root: H256::from_slice(&payload.state_root),
+            timestamp: payload.timestamp,
+            total_difficulty: 0,
+            transactions: txs,
+            mix_hash: H256::from_slice(&payload.prev_randao),
+            nonce: empty_nonce,
+            sha3_uncles: H256::from_str(empty_uncle_hash)?,
+            size: 0,
+            transactions_root: H256::default(),
+            uncles: vec![],
+        })
     }
 }
