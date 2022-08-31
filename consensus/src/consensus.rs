@@ -287,7 +287,6 @@ impl ConsensusClient {
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
         if self.store.finalized_header.slot != update.finalized_header.slot {
-
             self.store.finalized_header = update.finalized_header.clone();
             self.store.previous_max_active_participants =
                 self.store.current_max_active_participants;

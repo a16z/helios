@@ -101,9 +101,11 @@ impl ExecutionClient {
         let empty_nonce = "0x0000000000000000".to_string();
         let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
-        let txs = payload.transactions.iter().map(|tx| {
-            H256::from_slice(&keccak256(tx.to_vec()))
-        }).collect::<Vec<H256>>();
+        let txs = payload
+            .transactions
+            .iter()
+            .map(|tx| H256::from_slice(&keccak256(tx.to_vec())))
+            .collect::<Vec<H256>>();
 
         Ok(ExecutionBlock {
             number: payload.block_number,

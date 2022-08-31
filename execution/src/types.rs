@@ -73,19 +73,20 @@ pub struct ExecutionBlock {
 }
 
 fn serialize_bytes<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
-where S: serde::Serializer
+where
+    S: serde::Serializer,
 {
     let bytes_str = format!("0x{}", hex::encode(bytes));
     s.serialize_str(&bytes_str)
 }
 
 fn serialize_u64_string<S>(x: &u64, s: S) -> Result<S::Ok, S::Error>
-where S: serde::Serializer
+where
+    S: serde::Serializer,
 {
     let num_string = u64_to_hex_string(*x);
     s.serialize_str(&num_string)
 }
-
 
 fn proof_deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
 where

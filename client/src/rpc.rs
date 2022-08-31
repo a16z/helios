@@ -8,14 +8,14 @@ use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 
 use jsonrpsee::{
-    core::{async_trait, Error, server::rpc_module::Methods},
+    core::{async_trait, server::rpc_module::Methods, Error},
     http_server::{HttpServerBuilder, HttpServerHandle},
     proc_macros::rpc,
 };
 
+use super::Client;
 use common::utils::{hex_str_to_bytes, u64_to_hex_string};
 use execution::types::ExecutionBlock;
-use super::Client;
 
 pub struct Rpc {
     client: Arc<Mutex<Client>>,
@@ -160,37 +160,40 @@ impl EthRpcServer for RpcInner {
         Ok(u64_to_hex_string(num))
     }
 
-    async fn get_block_by_number(&self, block: &str, _full_tx: bool) -> Result<ExecutionBlock, Error> {
+    async fn get_block_by_number(
+        &self,
+        block: &str,
+        _full_tx: bool,
+    ) -> Result<ExecutionBlock, Error> {
         let block = convert_err(decode_block(block))?;
         let client = self.client.lock().await;
         let block = convert_err(client.get_block_by_number(&block))?;
-        
+
         Ok(block)
     }
 }
 
 #[async_trait]
 impl NetRpcServer for RpcInner {
-    async fn version(&self) -> Result<String,Error> {
+    async fn version(&self) -> Result<String, Error> {
         let client = self.client.lock().await;
         Ok(client.chain_id().to_string())
     }
 }
 
 async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
-
     let addr = format!("127.0.0.1:{}", rpc.port);
     let server = HttpServerBuilder::default().build(addr).await?;
 
     let addr = server.local_addr()?;
-    
+
     let mut methods = Methods::new();
     let eth_methods: Methods = EthRpcServer::into_rpc(rpc.clone()).into();
     let net_methods: Methods = NetRpcServer::into_rpc(rpc).into();
 
     methods.merge(eth_methods)?;
     methods.merge(net_methods)?;
-    
+
     let handle = server.start(methods)?;
 
     Ok((handle, addr))
@@ -208,7 +211,10 @@ fn decode_block(block: &str) -> Result<Option<u64>> {
         "latest" => Ok(None),
         _ => {
             if block.starts_with("0x") {
-                Ok(Some(u64::from_str_radix(block.strip_prefix("0x").unwrap(), 16)?))
+                Ok(Some(u64::from_str_radix(
+                    block.strip_prefix("0x").unwrap(),
+                    16,
+                )?))
             } else {
                 Ok(Some(block.parse()?))
             }

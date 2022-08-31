@@ -5,11 +5,11 @@ use ethers::prelude::{Address, U256};
 use eyre::Result;
 
 use config::Config;
-use consensus::types::{Header, ExecutionPayload};
+use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
-use execution::ExecutionClient;
 use execution::types::ExecutionBlock;
+use execution::ExecutionClient;
 
 pub struct Client {
     consensus: ConsensusClient,
@@ -44,7 +44,10 @@ impl Client {
         self.consensus.sync().await?;
 
         let head = self.consensus.get_head();
-        let payload = self.consensus.get_execution_payload(&Some(head.slot)).await?;
+        let payload = self
+            .consensus
+            .get_execution_payload(&Some(head.slot))
+            .await?;
         self.block_head = payload.block_number;
         self.payloads.insert(payload.block_number, payload);
 
@@ -55,14 +58,23 @@ impl Client {
         self.consensus.advance().await?;
 
         let head = self.consensus.get_head();
-        let payload = self.consensus.get_execution_payload(&Some(head.slot)).await?;
+        let payload = self
+            .consensus
+            .get_execution_payload(&Some(head.slot))
+            .await?;
         self.block_head = payload.block_number;
         self.payloads.insert(payload.block_number, payload);
 
         Ok(())
     }
 
-    pub fn call(&self, to: &Address, calldata: &Vec<u8>, value: U256, block: &Option<u64>) -> Result<Vec<u8>> {
+    pub fn call(
+        &self,
+        to: &Address,
+        calldata: &Vec<u8>,
+        value: U256,
+        block: &Option<u64>,
+    ) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(self.execution.clone(), payload);
         evm.call(to, calldata, value)
@@ -142,15 +154,14 @@ impl Client {
                     Some(payload) => Ok(payload.clone()),
                     None => Err(eyre::eyre!("Block Not Found")),
                 }
-            },
+            }
             None => {
                 let payload = self.payloads.get(&self.block_head);
                 match payload {
                     Some(payload) => Ok(payload.clone()),
                     None => Err(eyre::eyre!("Block Not Found")),
                 }
-            },
+            }
         }
     }
 }
-
