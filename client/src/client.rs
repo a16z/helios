@@ -110,6 +110,10 @@ impl Client {
         }
     }
 
+    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
+        self.execution.send_raw_transaction(bytes).await
+    }
+
     pub fn get_gas_price(&self) -> Result<U256> {
         let payload = self.get_payload(&None)?;
         let base_fee = U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
