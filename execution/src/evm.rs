@@ -8,6 +8,8 @@ use tokio::runtime::Runtime;
 
 use consensus::types::ExecutionPayload;
 
+use crate::types::CallOpts;
+
 use super::ExecutionClient;
 
 pub struct Evm {
@@ -23,13 +25,12 @@ impl Evm {
         Evm { evm }
     }
 
-    pub fn call(&mut self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<Vec<u8>> {
+    pub fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
         let mut env = Env::default();
-        let mut tx = revm::TxEnv::default();
-        tx.transact_to = TransactTo::Call(*to);
-        tx.data = Bytes::from(calldata.clone());
-        tx.value = value;
-        env.tx = tx;
+        env.tx.transact_to = TransactTo::Call(opts.to);
+        env.tx.caller = opts.from.unwrap_or(Address::zero());
+        env.tx.value = opts.value.unwrap_or(U256::from(0));
+        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
 
         self.evm.env = env;
 
@@ -46,13 +47,12 @@ impl Evm {
         }
     }
 
-    pub fn estimate_gas(&mut self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<u64> {
+    pub fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
         let mut env = Env::default();
-        let mut tx = revm::TxEnv::default();
-        tx.transact_to = TransactTo::Call(*to);
-        tx.data = Bytes::from(calldata.clone());
-        tx.value = value;
-        env.tx = tx;
+        env.tx.transact_to = TransactTo::Call(opts.to);
+        env.tx.caller = opts.from.unwrap_or(Address::zero());
+        env.tx.value = opts.value.unwrap_or(U256::from(0));
+        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
 
         self.evm.env = env;
 

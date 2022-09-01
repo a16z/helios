@@ -1,9 +1,5 @@
-use ethers::{
-    abi::AbiEncode,
-    types::{Address, U256},
-};
+use ethers::{abi::AbiEncode, types::Address};
 use eyre::Result;
-use serde::{Deserialize, Serialize};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -14,8 +10,8 @@ use jsonrpsee::{
 };
 
 use super::Client;
-use common::utils::{hex_str_to_bytes, u64_to_hex_string};
-use execution::types::ExecutionBlock;
+use common::utils::u64_to_hex_string;
+use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc {
     client: Arc<Mutex<Client>>,
@@ -110,29 +106,16 @@ impl EthRpcServer for RpcInner {
 
     async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error> {
         let block = convert_err(decode_block(block))?;
-        let to = convert_err(Address::from_str(&opts.to))?;
-        let data = convert_err(hex_str_to_bytes(&opts.data.unwrap_or("0x".to_string())))?;
-        let value = convert_err(U256::from_str_radix(
-            &opts.value.unwrap_or("0x0".to_string()),
-            16,
-        ))?;
-
         let client = self.client.lock().await;
-        let res = convert_err(client.call(&to, &data, value, &block))?;
+        let res = convert_err(client.call(&opts, &block))?;
 
-        Ok(hex::encode(res))
+        Ok(format!("0x{}", hex::encode(res)))
     }
 
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
-        let to = convert_err(Address::from_str(&opts.to))?;
-        let data = convert_err(hex_str_to_bytes(&opts.data.unwrap_or("0x".to_string())))?;
-        let value = convert_err(U256::from_str_radix(
-            &opts.value.unwrap_or("0x0".to_string()),
-            16,
-        ))?;
-
         let client = self.client.lock().await;
-        let gas = convert_err(client.estimate_gas(&to, &data, value))?;
+        let gas = convert_err(client.estimate_gas(&opts))?;
+
         Ok(u64_to_hex_string(gas))
     }
 
@@ -220,13 +203,4 @@ fn decode_block(block: &str) -> Result<Option<u64>> {
             }
         }
     }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct CallOpts {
-    from: Option<String>,
-    to: String,
-    gas: Option<String>,
-    value: Option<String>,
-    data: Option<String>,
 }
