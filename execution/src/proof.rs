@@ -21,7 +21,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
                 let node = &node_list[nibble as usize];
 
                 if node.len() == 0 && value[0] == 0x80 {
-                    return true
+                    return true;
                 }
             } else {
                 // inclusion proof
@@ -60,7 +60,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
 fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {
     let skip_length = skip_length(node_path);
     let mut node_decoded = vec![];
-    for i in skip_length..node_path.len()*2 {
+    for i in skip_length..node_path.len() * 2 {
         let decoded_nibble_offset = i - skip_length;
         if decoded_nibble_offset % 2 == 0 {
             let shifted = get_nibble(node_path, i) << 4;

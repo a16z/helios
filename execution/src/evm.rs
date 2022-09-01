@@ -149,7 +149,7 @@ impl Database for ProofDB {
             None => {
                 self.error = Some("slot not found".to_string());
                 U256::default()
-            },
+            }
         }
     }
 
