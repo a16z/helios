@@ -97,6 +97,10 @@ impl ExecutionClient {
         Ok(code)
     }
 
+    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
+        self.rpc.send_raw_transaction(bytes).await
+    }
+
     pub fn get_block(&self, payload: &ExecutionPayload) -> Result<ExecutionBlock> {
         let empty_nonce = "0x0000000000000000".to_string();
         let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";

@@ -10,7 +10,7 @@ use jsonrpsee::{
 };
 
 use super::Client;
-use common::utils::u64_to_hex_string;
+use common::utils::{hex_str_to_bytes, u64_to_hex_string};
 use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc {
@@ -61,6 +61,8 @@ trait EthRpc {
     async fn block_number(&self) -> Result<String, Error>;
     #[method(name = "getBlockByNumber")]
     async fn get_block_by_number(&self, num: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
+    #[method(name = "sendRawTransaction")]
+    async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -153,6 +155,13 @@ impl EthRpcServer for RpcInner {
         let block = convert_err(client.get_block_by_number(&block))?;
 
         Ok(block)
+    }
+
+    async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error> {
+        let client = self.client.lock().await;
+        let bytes = convert_err(hex_str_to_bytes(bytes))?;
+        let tx_hash = convert_err(client.send_raw_transaction(&bytes).await)?;
+        Ok(hex::encode(tx_hash))
     }
 }
 

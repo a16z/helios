@@ -44,6 +44,14 @@ impl Rpc {
         hex_str_to_bytes(&code)
     }
 
+    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
+        let client = self.client()?;
+        let bytes_hex = format!("0x{}", hex::encode(bytes));
+        let params = rpc_params!(bytes_hex);
+        let tx_hash: String = client.request("eth_sendRawTransaction", params).await?;
+        hex_str_to_bytes(&tx_hash)
+    }
+
     fn client(&self) -> Result<HttpClient> {
         Ok(HttpClientBuilder::default().build(&self.rpc)?)
     }
