@@ -8,7 +8,7 @@ use config::Config;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
-use execution::types::ExecutionBlock;
+use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
 
 pub struct Client {
@@ -68,22 +68,16 @@ impl Client {
         Ok(())
     }
 
-    pub fn call(
-        &self,
-        to: &Address,
-        calldata: &Vec<u8>,
-        value: U256,
-        block: &Option<u64>,
-    ) -> Result<Vec<u8>> {
+    pub fn call(&self, opts: &CallOpts, block: &Option<u64>) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(self.execution.clone(), payload);
-        evm.call(to, calldata, value)
+        evm.call(opts)
     }
 
-    pub fn estimate_gas(&self, to: &Address, calldata: &Vec<u8>, value: U256) -> Result<u64> {
+    pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         let payload = self.get_payload(&None)?;
         let mut evm = Evm::new(self.execution.clone(), payload);
-        evm.estimate_gas(to, calldata, value)
+        evm.estimate_gas(opts)
     }
 
     pub async fn get_balance(&self, address: &Address, block: &Option<u64>) -> Result<U256> {

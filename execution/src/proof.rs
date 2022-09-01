@@ -20,7 +20,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
                 let nibble = get_nibble(&path, path_offset);
                 let node = &node_list[nibble as usize];
 
-                if node.len() == 0 && value[0] == 0x80 {
+                if node.len() == 0 && is_empty_value(value) {
                     return true;
                 }
             } else {
@@ -34,7 +34,7 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
             if i == proof.len() - 1 {
                 // exclusion proof
                 if &node_list[0][skip_length(&node_list[0])..] != &path[path_offset..]
-                    && value[0] == 0x80
+                    && is_empty_value(value)
                 {
                     return true;
                 }
@@ -55,6 +55,15 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
     }
 
     false
+}
+
+fn is_empty_value(value: &Vec<u8>) -> bool {
+    let empty_account = hex::decode(
+        "f8448080a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    ).unwrap();
+    let is_empty_slot = value.len() == 1 && value[0] == 0x80;
+    let is_empty_account = value == &empty_account;
+    is_empty_slot || is_empty_account
 }
 
 fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {

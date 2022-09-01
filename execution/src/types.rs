@@ -72,6 +72,30 @@ pub struct ExecutionBlock {
     pub uncles: Vec<H256>,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct CallOpts {
+    pub from: Option<Address>,
+    pub to: Address,
+    pub gas: Option<U256>,
+    pub value: Option<U256>,
+    #[serde(default, deserialize_with = "bytes_deserialize")]
+    pub data: Option<Vec<u8>>,
+}
+
+fn bytes_deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let bytes: Option<String> = serde::Deserialize::deserialize(deserializer)?;
+    match bytes {
+        Some(bytes) => {
+            let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
+            Ok(Some(bytes.to_vec()))
+        }
+        None => Ok(None),
+    }
+}
+
 fn serialize_bytes<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
