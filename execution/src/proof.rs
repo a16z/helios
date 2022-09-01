@@ -15,10 +15,21 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
         let node_list: Vec<Vec<u8>> = decode_list(node);
 
         if node_list.len() == 17 {
-            let nibble = get_nibble(&path, path_offset);
-            expected_hash = node_list[nibble as usize].clone();
+            if i == proof.len() - 1 {
+                // exclusion proof
+                let nibble = get_nibble(&path, path_offset);
+                let node = &node_list[nibble as usize];
 
-            path_offset += 1;
+                if node.len() == 0 && value[0] == 0x80 {
+                    return true;
+                }
+            } else {
+                // inclusion proof
+                let nibble = get_nibble(&path, path_offset);
+                expected_hash = node_list[nibble as usize].clone();
+
+                path_offset += 1;
+            }
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
                 // exclusion proof
@@ -29,23 +40,59 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
                 }
 
                 // inclusion proof
-                if &node_list[1] != value {
-                    return false;
+                if &node_list[1] == value {
+                    return true;
                 }
             } else {
-                panic!("not implemented");
+                let node_path = &node_list[0];
+                let prefix_length = shared_prefix_length(path, path_offset, node_path);
+                path_offset += prefix_length;
+                expected_hash = node_list[1].clone();
             }
         } else {
             return false;
         }
     }
 
-    true
+    false
+}
+
+fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {
+    let skip_length = skip_length(node_path);
+    let mut node_decoded = vec![];
+    for i in skip_length..node_path.len() * 2 {
+        let decoded_nibble_offset = i - skip_length;
+        if decoded_nibble_offset % 2 == 0 {
+            let shifted = get_nibble(node_path, i) << 4;
+            node_decoded.push(shifted);
+        } else {
+            let byte = &node_decoded.get(decoded_nibble_offset / 2).unwrap().clone();
+            let right = get_nibble(node_path, i);
+            node_decoded.pop();
+            node_decoded.push(byte | right);
+        }
+    }
+
+    let len = node_decoded.len() * 2;
+    let mut prefix_len = 0;
+
+    for i in 0..len {
+        let path_nibble = get_nibble(path, i + path_offset);
+        let node_path_nibble = get_nibble(&node_decoded, i);
+
+        if path_nibble == node_path_nibble {
+            prefix_len += 1;
+        }
+    }
+
+    prefix_len
 }
 
 fn skip_length(node: &Vec<u8>) -> usize {
     let nibble = get_nibble(node, 0);
     match nibble {
+        0 => 2,
+        1 => 1,
         2 => 2,
         3 => 1,
         _ => 0,
