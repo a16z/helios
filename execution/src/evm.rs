@@ -143,7 +143,14 @@ impl Database for ProofDB {
         });
 
         let account = self.safe_unwrap(handle.join().unwrap());
-        *account.slots.get(&slot).unwrap()
+        let value = account.slots.get(&slot);
+        match value {
+            Some(value) => *value,
+            None => {
+                self.error = Some("slot not found".to_string());
+                U256::default()
+            },
+        }
     }
 
     fn code_by_hash(&mut self, _code_hash: H256) -> Bytecode {
