@@ -58,9 +58,16 @@ pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value:
 }
 
 fn is_empty_value(value: &Vec<u8>) -> bool {
-    let empty_account = hex::decode(
-        "f8448080a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-    ).unwrap();
+    let mut stream = RlpStream::new();
+    stream.begin_list(4);
+    stream.append_empty_data();
+    stream.append_empty_data();
+    let empty_storage_hash = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+    stream.append(&hex::decode(empty_storage_hash).unwrap());
+    let empty_code_hash = "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+    stream.append(&hex::decode(empty_code_hash).unwrap());
+    let empty_account = stream.out();
+
     let is_empty_slot = value.len() == 1 && value[0] == 0x80;
     let is_empty_account = value == &empty_account;
     is_empty_slot || is_empty_account
