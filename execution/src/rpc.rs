@@ -1,7 +1,7 @@
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
 use ethers::providers::{Middleware, Provider};
-use ethers::types::{TransactionReceipt, H256};
+use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::Result;
 use jsonrpsee::{
     core::client::ClientT,
@@ -62,6 +62,11 @@ impl Rpc {
         Ok(provider
             .get_transaction_receipt(H256::from_slice(tx_hash))
             .await?)
+    }
+
+    pub async fn get_transaction(&self, tx_hash: &Vec<u8>) -> Result<Option<Transaction>> {
+        let provider = Provider::try_from(&self.rpc)?;
+        Ok(provider.get_transaction(H256::from_slice(tx_hash)).await?)
     }
 
     fn client(&self) -> Result<HttpClient> {
