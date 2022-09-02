@@ -80,13 +80,13 @@ impl Client {
 
     pub fn call(&self, opts: &CallOpts, block: &Option<u64>) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
-        let mut evm = Evm::new(self.execution.clone(), payload);
+        let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
         evm.call(opts)
     }
 
     pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         let payload = self.get_payload(&None)?;
-        let mut evm = Evm::new(self.execution.clone(), payload);
+        let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
         evm.estimate_gas(opts)
     }
 

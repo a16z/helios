@@ -14,26 +14,20 @@ use super::ExecutionClient;
 
 pub struct Evm {
     evm: EVM<ProofDB>,
+    chain_id: u64,
 }
 
 impl Evm {
-    pub fn new(execution: ExecutionClient, payload: ExecutionPayload) -> Self {
+    pub fn new(execution: ExecutionClient, payload: ExecutionPayload, chain_id: u64) -> Self {
         let mut evm: EVM<ProofDB> = EVM::new();
         let db = ProofDB::new(execution, payload);
         evm.database(db);
 
-        Evm { evm }
+        Evm { evm, chain_id }
     }
 
     pub fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
-        let mut env = Env::default();
-        env.tx.transact_to = TransactTo::Call(opts.to);
-        env.tx.caller = opts.from.unwrap_or(Address::zero());
-        env.tx.value = opts.value.unwrap_or(U256::from(0));
-        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
-
-        self.evm.env = env;
-
+        self.evm.env = self.get_env(opts);
         let output = self.evm.transact().1;
 
         if let Some(err) = &self.evm.db.as_ref().unwrap().error {
@@ -48,21 +42,36 @@ impl Evm {
     }
 
     pub fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
-        let mut env = Env::default();
-        env.tx.transact_to = TransactTo::Call(opts.to);
-        env.tx.caller = opts.from.unwrap_or(Address::zero());
-        env.tx.value = opts.value.unwrap_or(U256::from(0));
-        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
-
-        self.evm.env = env;
-
+        self.evm.env = self.get_env(opts);
         let gas = self.evm.transact().2;
 
         if let Some(err) = &self.evm.db.as_ref().unwrap().error {
             return Err(eyre::eyre!(err.clone()));
         }
 
-        Ok(gas)
+        let gas_scaled = (1.10 * gas as f64) as u64;
+        Ok(gas_scaled)
+    }
+
+    fn get_env(&self, opts: &CallOpts) -> Env {
+        let mut env = Env::default();
+        let payload = &self.evm.db.as_ref().unwrap().payload;
+
+        env.tx.transact_to = TransactTo::Call(opts.to);
+        env.tx.caller = opts.from.unwrap_or(Address::zero());
+        env.tx.value = opts.value.unwrap_or(U256::from(0));
+        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
+        env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
+        env.tx.gas_price = opts.gas_price.unwrap_or(U256::zero());
+
+        env.block.number = U256::from(payload.block_number);
+        env.block.coinbase = Address::from_slice(&payload.fee_recipient);
+        env.block.timestamp = U256::from(payload.timestamp);
+        env.block.difficulty = U256::from_little_endian(&payload.prev_randao);
+
+        env.cfg.chain_id = self.chain_id.into();
+
+        env
     }
 }
 
