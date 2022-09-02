@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
-use ethers::types::{TransactionReceipt, H256};
+use ethers::types::{Transaction, TransactionReceipt, H256};
 use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, RlpStream};
+use ethers::utils::rlp::{encode, Decodable, Rlp, RlpStream};
 use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
@@ -142,7 +142,6 @@ impl ExecutionClient {
         tx_hash: &Vec<u8>,
         payloads: &HashMap<u64, ExecutionPayload>,
     ) -> Result<Option<TransactionReceipt>> {
-
         let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
         if receipt.is_none() {
             return Ok(None);
@@ -187,6 +186,46 @@ impl ExecutionClient {
         }
 
         Ok(Some(receipt))
+    }
+
+    pub async fn get_transaction(
+        &self,
+        hash: &Vec<u8>,
+        payloads: &HashMap<u64, ExecutionPayload>,
+    ) -> Result<Option<Transaction>> {
+        let tx = self.rpc.get_transaction(hash).await?;
+        if tx.is_none() {
+            return Ok(None);
+        }
+
+        let tx = tx.unwrap();
+
+        let block_number = tx.block_number;
+        if block_number.is_none() {
+            return Ok(None);
+        }
+
+        let block_number = block_number.unwrap();
+
+        let payload = payloads.get(&block_number.as_u64());
+        if payload.is_none() {
+            return Ok(None);
+        }
+
+        let payload = payload.unwrap();
+
+        let tx_encoded = tx.rlp().to_vec();
+        let txs_encoded = payload
+            .transactions
+            .iter()
+            .map(|tx| tx.to_vec())
+            .collect::<Vec<_>>();
+
+        if !txs_encoded.contains(&tx_encoded) {
+            return Err(eyre::eyre!("Transaction Proof Invalid"));
+        }
+
+        Ok(Some(tx))
     }
 }
 

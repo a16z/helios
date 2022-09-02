@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ethers::prelude::{Address, U256};
-use ethers::types::TransactionReceipt;
+use ethers::types::{Transaction, TransactionReceipt};
 use eyre::Result;
 
 use config::Config;
@@ -121,6 +121,12 @@ impl Client {
     ) -> Result<Option<TransactionReceipt>> {
         self.execution
             .get_transaction_receipt(tx_hash, &self.payloads)
+            .await
+    }
+
+    pub async fn get_transaction_by_hash(&self, tx_hash: &Vec<u8>) -> Result<Option<Transaction>> {
+        self.execution
+            .get_transaction(tx_hash, &self.payloads)
             .await
     }
 

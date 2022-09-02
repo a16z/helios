@@ -1,6 +1,6 @@
 use ethers::{
     abi::AbiEncode,
-    types::{Address, TransactionReceipt},
+    types::{Address, Transaction, TransactionReceipt},
 };
 use eyre::Result;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
@@ -68,6 +68,8 @@ trait EthRpc {
     async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error>;
     #[method(name = "getTransactionReceipt")]
     async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error>;
+    #[method(name = "getTransactionByHash")]
+    async fn get_transaction_by_hash(&self, hash: &str) -> Result<Transaction, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -177,6 +179,17 @@ impl EthRpcServer for RpcInner {
         match receipt {
             Some(receipt) => Ok(receipt),
             None => Err(Error::Custom("Receipt Not Found".to_string())),
+        }
+    }
+
+    async fn get_transaction_by_hash(&self, hash: &str) -> Result<Transaction, Error> {
+        let client = self.client.lock().await;
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let tx = convert_err(client.get_transaction_by_hash(&hash).await)?;
+
+        match tx {
+            Some(tx) => Ok(tx),
+            None => Err(Error::Custom("Transaction Not Found".to_string())),
         }
     }
 }
