@@ -3,13 +3,14 @@ use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
-use ethers::types::H256;
+use ethers::types::{TransactionReceipt, H256};
 use ethers::utils::keccak256;
-use ethers::utils::rlp::encode;
+use ethers::utils::rlp::{encode, RlpStream};
 use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
+use triehash_ethereum::ordered_trie_root;
 
 use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
@@ -134,5 +135,74 @@ impl ExecutionClient {
             transactions_root: H256::default(),
             uncles: vec![],
         })
+    }
+
+    pub async fn get_transaction_receipt(
+        &self,
+        tx_hash: &Vec<u8>,
+        payloads: &HashMap<u64, ExecutionPayload>,
+    ) -> Result<Option<TransactionReceipt>> {
+
+        let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
+        if receipt.is_none() {
+            return Ok(None);
+        }
+
+        let receipt = receipt.unwrap();
+        let payload = payloads.get(&receipt.block_number.unwrap().as_u64());
+        if payload.is_none() {
+            return Ok(None);
+        }
+
+        let payload = payload.unwrap();
+
+        let tx_hashes = payload
+            .transactions
+            .iter()
+            .map(|tx| H256::from_slice(&keccak256(tx)))
+            .collect::<Vec<H256>>();
+
+        let mut receipts = vec![];
+        for hash in tx_hashes {
+            let receipt = self
+                .rpc
+                .get_transaction_receipt(&hash.as_bytes().to_vec())
+                .await?
+                .unwrap();
+
+            receipts.push(receipt);
+        }
+
+        let receipts_encoded: Vec<Vec<u8>> = receipts
+            .iter()
+            .map(|receipt| encode_receipt(receipt))
+            .collect();
+
+        let expected_receipt_root = ordered_trie_root(receipts_encoded);
+        let expected_receipt_root = H256::from_slice(&expected_receipt_root.to_fixed_bytes());
+        let payload_receipt_root = H256::from_slice(&payload.receipts_root);
+
+        if expected_receipt_root != payload_receipt_root || !receipts.contains(&receipt) {
+            return Err(eyre::eyre!("Receipt Proof Invalid"));
+        }
+
+        Ok(Some(receipt))
+    }
+}
+
+fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
+    let mut stream = RlpStream::new();
+    stream.begin_list(4);
+    stream.append(&receipt.status.unwrap());
+    stream.append(&receipt.cumulative_gas_used);
+    stream.append(&receipt.logs_bloom);
+    stream.append_list(&receipt.logs);
+
+    let legacy_receipt_encoded = stream.out();
+    let tx_type = receipt.transaction_type.unwrap().as_u64();
+
+    match tx_type {
+        0 => legacy_receipt_encoded.to_vec(),
+        _ => [&tx_type.to_be_bytes()[7..8], &legacy_receipt_encoded].concat(),
     }
 }
