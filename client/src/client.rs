@@ -17,6 +17,7 @@ pub struct Client {
     execution: ExecutionClient,
     config: Arc<Config>,
     payloads: HashMap<u64, ExecutionPayload>,
+    block_hashes: HashMap<Vec<u8>, u64>,
     block_head: u64,
 }
 
@@ -31,12 +32,14 @@ impl Client {
         let execution = ExecutionClient::new(execution_rpc);
 
         let payloads = HashMap::new();
+        let block_hashes = HashMap::new();
 
         Ok(Client {
             consensus,
             execution,
             config,
             payloads,
+            block_hashes,
             block_head: 0,
         })
     }
@@ -49,7 +52,10 @@ impl Client {
             .consensus
             .get_execution_payload(&Some(head.slot))
             .await?;
+
         self.block_head = payload.block_number;
+        self.block_hashes
+            .insert(payload.block_hash.to_vec(), payload.block_number);
         self.payloads.insert(payload.block_number, payload);
 
         Ok(())
@@ -63,7 +69,10 @@ impl Client {
             .consensus
             .get_execution_payload(&Some(head.slot))
             .await?;
+
         self.block_head = payload.block_number;
+        self.block_hashes
+            .insert(payload.block_hash.to_vec(), payload.block_number);
         self.payloads.insert(payload.block_number, payload);
 
         Ok(())
@@ -149,6 +158,12 @@ impl Client {
 
     pub fn get_block_by_number(&self, block: &Option<u64>) -> Result<ExecutionBlock> {
         let payload = self.get_payload(block)?;
+        self.execution.get_block(&payload)
+    }
+
+    pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<ExecutionBlock> {
+        let block = self.block_hashes.get(hash);
+        let payload = self.get_payload(&block.cloned())?;
         self.execution.get_block(&payload)
     }
 

@@ -64,6 +64,8 @@ trait EthRpc {
     async fn block_number(&self) -> Result<String, Error>;
     #[method(name = "getBlockByNumber")]
     async fn get_block_by_number(&self, num: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
+    #[method(name = "getBlockByHash")]
+    async fn get_block_by_hash(&self, hash: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error>;
     #[method(name = "getTransactionReceipt")]
@@ -160,6 +162,14 @@ impl EthRpcServer for RpcInner {
         let block = convert_err(decode_block(block))?;
         let client = self.client.lock().await;
         let block = convert_err(client.get_block_by_number(&block))?;
+
+        Ok(block)
+    }
+
+    async fn get_block_by_hash(&self, hash: &str, _full_tx: bool) -> Result<ExecutionBlock, Error> {
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let client = self.client.lock().await;
+        let block = convert_err(client.get_block_by_hash(&hash))?;
 
         Ok(block)
     }
