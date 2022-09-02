@@ -73,10 +73,12 @@ pub struct ExecutionBlock {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct CallOpts {
     pub from: Option<Address>,
     pub to: Address,
     pub gas: Option<U256>,
+    pub gas_price: Option<U256>,
     pub value: Option<U256>,
     #[serde(default, deserialize_with = "bytes_deserialize")]
     pub data: Option<Vec<u8>>,
