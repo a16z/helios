@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ethers::prelude::{Address, U256};
+use ethers::types::TransactionReceipt;
 use eyre::Result;
 
 use config::Config;
@@ -112,6 +113,15 @@ impl Client {
 
     pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
         self.execution.send_raw_transaction(bytes).await
+    }
+
+    pub async fn get_transaction_receipt(
+        &self,
+        tx_hash: &Vec<u8>,
+    ) -> Result<Option<TransactionReceipt>> {
+        self.execution
+            .get_transaction_receipt(tx_hash, &self.payloads)
+            .await
     }
 
     pub fn get_gas_price(&self) -> Result<U256> {

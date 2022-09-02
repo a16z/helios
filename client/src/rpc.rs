@@ -1,4 +1,7 @@
-use ethers::{abi::AbiEncode, types::Address};
+use ethers::{
+    abi::AbiEncode,
+    types::{Address, TransactionReceipt},
+};
 use eyre::Result;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
@@ -63,6 +66,8 @@ trait EthRpc {
     async fn get_block_by_number(&self, num: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error>;
+    #[method(name = "getTransactionReceipt")]
+    async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -162,6 +167,17 @@ impl EthRpcServer for RpcInner {
         let bytes = convert_err(hex_str_to_bytes(bytes))?;
         let tx_hash = convert_err(client.send_raw_transaction(&bytes).await)?;
         Ok(hex::encode(tx_hash))
+    }
+
+    async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error> {
+        let client = self.client.lock().await;
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let receipt = convert_err(client.get_transaction_receipt(&hash).await)?;
+
+        match receipt {
+            Some(receipt) => Ok(receipt),
+            None => Err(Error::Custom("Receipt Not Found".to_string())),
+        }
     }
 }
 
