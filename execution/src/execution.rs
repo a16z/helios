@@ -5,7 +5,7 @@ use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
 use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, Decodable, Rlp, RlpStream};
+use ethers::utils::rlp::{encode, RlpStream};
 use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
