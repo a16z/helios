@@ -1,0 +1,14 @@
+{
+    "attested_header": {
+        "slot": "3818196",
+        "proposer_index": "162891",
+        "parent_root": "0x3a0ed66198e518928422cf2164d3a04f00ba2746f718f05c196c0e073ee80051",
+        "state_root": "0x859fe66e13da75d7f686581415f6b370c8d09c0bf83a6b019c74493c535387c0",
+        "body_root": "0x4cd79571a142221743ffe43439f2d7a2caf081a185113032577a84189ec7b25e"
+    },
+    "sync_aggregate": {
+        "sync_committee_bits": "0x7df8ffdeff5b7fdbfffb77efffffefdfefddf8f7e7f7ffbffdfbfd5fbfefbfff8f3fff7dffffde7cfd7f55d7fffbcfdee7efa7bd5fdbbfbded9fff637fffed7f",
+        "sync_committee_signature": "0x87c6142478c55127b1f570d115935383c5d4be650df710e935b3048322b0207372a5016a0b2e3ad8ef195841fcdb12c108e6960456c14e5be1f15f0097ba6c427e93796ae1da39c277b7b6ce16ad4d02196a358a59a3e476e134dae56d389e6e"
+    },
+    "signature_slot": "3818197"
+}

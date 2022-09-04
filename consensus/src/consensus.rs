@@ -13,8 +13,8 @@ use config::Config;
 use super::rpc::Rpc;
 use super::types::*;
 
-pub struct ConsensusClient {
-    rpc: Rpc,
+pub struct ConsensusClient<R: Rpc> {
+    rpc: R,
     store: Store,
     config: Arc<Config>,
 }
@@ -29,13 +29,13 @@ struct Store {
     current_max_active_participants: u64,
 }
 
-impl ConsensusClient {
+impl<R: Rpc> ConsensusClient<R> {
     pub async fn new(
-        nimbus_rpc: &str,
+        rpc: &str,
         checkpoint_block_root: &Vec<u8>,
         config: Arc<Config>,
-    ) -> Result<ConsensusClient> {
-        let rpc = Rpc::new(nimbus_rpc);
+    ) -> Result<ConsensusClient<R>> {
+        let rpc = R::new(rpc);
 
         let mut bootstrap = rpc.get_bootstrap(checkpoint_block_root).await?;
 
@@ -78,8 +78,12 @@ impl ConsensusClient {
         }
     }
 
-    pub fn get_head(&self) -> &Header {
+    pub fn get_header(&self) -> &Header {
         &self.store.optimistic_header
+    }
+
+    pub fn get_finalized_header(&self) -> &Header {
+        &self.store.finalized_header
     }
 
     pub async fn sync(&mut self) -> Result<()> {

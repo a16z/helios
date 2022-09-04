@@ -6,6 +6,7 @@ use ethers::types::{Transaction, TransactionReceipt};
 use eyre::Result;
 
 use config::Config;
+use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
@@ -13,7 +14,7 @@ use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
 
 pub struct Client {
-    consensus: ConsensusClient,
+    consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient,
     config: Arc<Config>,
     payloads: HashMap<u64, ExecutionPayload>,
@@ -47,7 +48,7 @@ impl Client {
     pub async fn sync(&mut self) -> Result<()> {
         self.consensus.sync().await?;
 
-        let head = self.consensus.get_head();
+        let head = self.consensus.get_header();
         let payload = self
             .consensus
             .get_execution_payload(&Some(head.slot))
@@ -64,7 +65,7 @@ impl Client {
     pub async fn advance(&mut self) -> Result<()> {
         self.consensus.advance().await?;
 
-        let head = self.consensus.get_head();
+        let head = self.consensus.get_header();
         let payload = self
             .consensus
             .get_execution_payload(&Some(head.slot))
@@ -172,7 +173,7 @@ impl Client {
     }
 
     pub fn get_header(&self) -> &Header {
-        self.consensus.get_head()
+        self.consensus.get_header()
     }
 
     fn get_payload(&self, block: &Option<u64>) -> Result<ExecutionPayload> {
