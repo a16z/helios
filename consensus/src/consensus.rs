@@ -525,3 +525,132 @@ fn compute_fork_data_root(
     };
     Ok(fork_data.hash_tree_root()?)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::{
+        rpc::{mock_rpc::MockRpc, Rpc},
+        types::Header,
+        ConsensusClient,
+    };
+    use config::networks;
+    use ssz_rs::Vector;
+
+    use super::calc_sync_period;
+
+    async fn get_client() -> ConsensusClient<MockRpc> {
+        ConsensusClient::new(
+            "testdata/",
+            &networks::goerli().general.checkpoint,
+            Arc::new(networks::goerli()),
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_verify_update() {
+        let mut client = get_client().await;
+        let period = calc_sync_period(client.store.finalized_header.slot);
+        let updates = client.rpc.get_updates(period).await.unwrap();
+
+        let mut update = updates[0].clone();
+        client.verify_update(&mut update).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_verify_update_invalid_committee() {
+        let mut client = get_client().await;
+        let period = calc_sync_period(client.store.finalized_header.slot);
+        let updates = client.rpc.get_updates(period).await.unwrap();
+
+        let mut update = updates[0].clone();
+        update.next_sync_committee.pubkeys[0] = Vector::default();
+
+        let res = client.verify_update(&mut update);
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_upadate_invlaid_finality() {
+        let mut client = get_client().await;
+        let period = calc_sync_period(client.store.finalized_header.slot);
+        let updates = client.rpc.get_updates(period).await.unwrap();
+
+        let mut update = updates[0].clone();
+        update.finalized_header = Header::default();
+
+        let res = client.verify_update(&mut update);
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_update_invalid_sig() {
+        let mut client = get_client().await;
+        let period = calc_sync_period(client.store.finalized_header.slot);
+        let updates = client.rpc.get_updates(period).await.unwrap();
+
+        let mut update = updates[0].clone();
+        update.sync_aggregate.sync_committee_signature = Vector::default();
+
+        let res = client.verify_update(&mut update);
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_finality() {
+        let mut client = get_client().await;
+        client.sync().await.unwrap();
+
+        let update = client.rpc.get_finality_update().await.unwrap();
+
+        client.verify_finality_update(&update).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_verify_finality_invlaid_finality() {
+        let mut client = get_client().await;
+        client.sync().await.unwrap();
+
+        let mut update = client.rpc.get_finality_update().await.unwrap();
+        update.finalized_header = Header::default();
+
+        let res = client.verify_finality_update(&update);
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_finality_invlaid_sig() {
+        let mut client = get_client().await;
+        client.sync().await.unwrap();
+
+        let mut update = client.rpc.get_finality_update().await.unwrap();
+        update.sync_aggregate.sync_committee_signature = Vector::default();
+
+        let res = client.verify_finality_update(&update);
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_optimistic() {
+        let mut client = get_client().await;
+        client.sync().await.unwrap();
+
+        let update = client.rpc.get_optimistic_update().await.unwrap();
+        client.verify_optimistic_update(&update).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_verify_optimistic_invalid_sig() {
+        let mut client = get_client().await;
+        client.sync().await.unwrap();
+
+        let mut update = client.rpc.get_optimistic_update().await.unwrap();
+        update.sync_aggregate.sync_committee_signature = Vector::default();
+
+        let res = client.verify_optimistic_update(&update);
+        assert!(res.is_err());
+    }
+}
