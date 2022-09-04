@@ -530,15 +530,15 @@ fn compute_fork_data_root(
 mod tests {
     use std::sync::Arc;
 
+    use ssz_rs::Vector;
+
+    use config::networks;
     use crate::{
+        consensus::calc_sync_period,
         rpc::{mock_rpc::MockRpc, Rpc},
         types::Header,
         ConsensusClient,
     };
-    use config::networks;
-    use ssz_rs::Vector;
-
-    use super::calc_sync_period;
 
     async fn get_client() -> ConsensusClient<MockRpc> {
         ConsensusClient::new(
