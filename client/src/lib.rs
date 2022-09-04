@@ -1,4 +1,4 @@
 mod client;
-pub use client::*;
+pub use crate::client::*;
 
 pub mod rpc;

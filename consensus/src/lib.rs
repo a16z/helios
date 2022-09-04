@@ -1,6 +1,5 @@
+pub mod rpc;
 pub mod types;
 
 mod consensus;
-pub use consensus::*;
-
-mod rpc;
+pub use crate::consensus::*;
