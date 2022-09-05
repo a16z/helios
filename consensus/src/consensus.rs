@@ -532,13 +532,13 @@ mod tests {
 
     use ssz_rs::Vector;
 
-    use config::networks;
     use crate::{
         consensus::calc_sync_period,
         rpc::{mock_rpc::MockRpc, Rpc},
         types::Header,
         ConsensusClient,
     };
+    use config::networks;
 
     async fn get_client() -> ConsensusClient<MockRpc> {
         ConsensusClient::new(
