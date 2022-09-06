@@ -1,9 +1,8 @@
+use ethers::types::{Bytes, EIP1186ProofResponse};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{decode_list, RlpStream};
 
-use super::types::Proof;
-
-pub fn verify_proof(proof: &Vec<Vec<u8>>, root: &Vec<u8>, path: &Vec<u8>, value: &Vec<u8>) -> bool {
+pub fn verify_proof(proof: &Vec<Bytes>, root: &Vec<u8>, path: &Vec<u8>, value: &Vec<u8>) -> bool {
     let mut expected_hash = root.clone();
     let mut path_offset = 0;
 
@@ -124,7 +123,7 @@ fn get_nibble(path: &Vec<u8>, offset: usize) -> u8 {
     }
 }
 
-pub fn encode_account(proof: &Proof) -> Vec<u8> {
+pub fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
     let mut stream = RlpStream::new_list(4);
     stream.append(&proof.nonce);
     stream.append(&proof.balance);

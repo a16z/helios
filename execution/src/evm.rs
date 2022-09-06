@@ -1,7 +1,10 @@
-use std::{str::FromStr, thread};
+use std::{fmt::Display, str::FromStr, thread};
 
 use bytes::Bytes;
-use ethers::prelude::{Address, H160, H256, U256};
+use ethers::{
+    abi::ethereum_types::BigEndianHash,
+    prelude::{Address, H160, H256, U256},
+};
 use eyre::Result;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
 use tokio::runtime::Runtime;
@@ -90,7 +93,7 @@ impl ProofDB {
         }
     }
 
-    pub fn safe_unwrap<T: Default>(&mut self, res: Result<T>) -> T {
+    pub fn safe_unwrap<T: Default, E: Display>(&mut self, res: Result<T, E>) -> T {
         match res {
             Ok(value) => value,
             Err(err) => {
@@ -132,7 +135,7 @@ impl Database for ProofDB {
         let bytecode = self.safe_unwrap(handle.join().unwrap());
         let bytecode = Bytecode::new_raw(Bytes::from(bytecode));
 
-        AccountInfo::new(account.balance, account.nonce.as_u64(), bytecode)
+        AccountInfo::new(account.balance, account.nonce, bytecode)
     }
 
     fn block_hash(&mut self, _number: U256) -> H256 {
@@ -142,6 +145,7 @@ impl Database for ProofDB {
     fn storage(&mut self, address: H160, slot: U256) -> U256 {
         let execution = self.execution.clone();
         let addr = address.clone();
+        let slot = H256::from_uint(&slot);
         let slots = [slot];
         let payload = self.payload.clone();
 

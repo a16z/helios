@@ -22,15 +22,15 @@ pub struct ExecutionClient {
 }
 
 impl ExecutionClient {
-    pub fn new(rpc: &str) -> Self {
-        let rpc = Rpc::new(rpc);
-        ExecutionClient { rpc }
+    pub fn new(rpc: &str) -> Result<Self> {
+        let rpc = Rpc::new(rpc)?;
+        Ok(ExecutionClient { rpc })
     }
 
     pub async fn get_account(
         &self,
         address: &Address,
-        slots: Option<&[U256]>,
+        slots: Option<&[H256]>,
         payload: &ExecutionPayload,
     ) -> Result<Account> {
         let slots = slots.unwrap_or(&[]);
@@ -78,7 +78,7 @@ impl ExecutionClient {
 
         Ok(Account {
             balance: proof.balance,
-            nonce: proof.nonce,
+            nonce: proof.nonce.as_u64(),
             code_hash: proof.code_hash,
             storage_hash: proof.storage_hash,
             slots: slot_map,
@@ -98,7 +98,7 @@ impl ExecutionClient {
         Ok(code)
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
+    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
@@ -139,7 +139,7 @@ impl ExecutionClient {
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &Vec<u8>,
+        tx_hash: &H256,
         payloads: &HashMap<u64, ExecutionPayload>,
     ) -> Result<Option<TransactionReceipt>> {
         let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
@@ -163,11 +163,7 @@ impl ExecutionClient {
 
         let mut receipts = vec![];
         for hash in tx_hashes {
-            let receipt = self
-                .rpc
-                .get_transaction_receipt(&hash.as_bytes().to_vec())
-                .await?
-                .unwrap();
+            let receipt = self.rpc.get_transaction_receipt(&hash).await?.unwrap();
 
             receipts.push(receipt);
         }
@@ -190,7 +186,7 @@ impl ExecutionClient {
 
     pub async fn get_transaction(
         &self,
-        hash: &Vec<u8>,
+        hash: &H256,
         payloads: &HashMap<u64, ExecutionPayload>,
     ) -> Result<Option<Transaction>> {
         let tx = self.rpc.get_transaction(hash).await?;

@@ -1,75 +1,53 @@
-use ethers::abi::AbiEncode;
-use ethers::prelude::{Address, U256};
+use ethers::prelude::{Address, Http};
 use ethers::providers::{Middleware, Provider};
-use ethers::types::{Transaction, TransactionReceipt, H256};
+use ethers::types::{BlockId, Bytes, EIP1186ProofResponse, Transaction, TransactionReceipt, H256};
 use eyre::Result;
-use jsonrpsee::{
-    core::client::ClientT,
-    http_client::{HttpClient, HttpClientBuilder},
-    rpc_params,
-};
-
-use common::utils::{address_to_hex_string, hex_str_to_bytes, u64_to_hex_string};
-
-use super::types::Proof;
 
 #[derive(Clone)]
 pub struct Rpc {
-    rpc: String,
+    provider: Provider<Http>,
 }
 
 impl Rpc {
-    pub fn new(rpc: &str) -> Self {
-        Rpc {
-            rpc: rpc.to_string(),
-        }
+    pub fn new(rpc: &str) -> Result<Self> {
+        let provider = Provider::try_from(rpc)?;
+        Ok(Rpc { provider })
     }
 
-    pub async fn get_proof(&self, address: &Address, slots: &[U256], block: u64) -> Result<Proof> {
-        let client = self.client()?;
-        let block_hex = u64_to_hex_string(block);
-        let addr_hex = address_to_hex_string(address);
-        let slots = slots
-            .iter()
-            .map(|slot| slot.encode_hex())
-            .collect::<Vec<String>>();
-        let params = rpc_params!(addr_hex, slots.as_slice(), block_hex);
-        Ok(client.request("eth_getProof", params).await?)
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        let block = Some(BlockId::from(block));
+        let proof_response = self
+            .provider
+            .get_proof(*address, slots.to_vec(), block)
+            .await?;
+        Ok(proof_response)
     }
 
     pub async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>> {
-        let client = self.client()?;
-        let block_hex = u64_to_hex_string(block);
-        let addr_hex = address_to_hex_string(address);
-        let params = rpc_params!(addr_hex, block_hex);
-        let code: String = client.request("eth_getCode", params).await?;
-        hex_str_to_bytes(&code)
+        let block = Some(BlockId::from(block));
+        let code = self.provider.get_code(*address, block).await?;
+        Ok(code.to_vec())
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
-        let client = self.client()?;
-        let bytes_hex = format!("0x{}", hex::encode(bytes));
-        let params = rpc_params!(bytes_hex);
-        let tx_hash: String = client.request("eth_sendRawTransaction", params).await?;
-        hex_str_to_bytes(&tx_hash)
+    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
+        let bytes = Bytes::from(bytes.as_slice().to_owned());
+        Ok(self.provider.send_raw_transaction(bytes).await?.tx_hash())
     }
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &Vec<u8>,
+        tx_hash: &H256,
     ) -> Result<Option<TransactionReceipt>> {
-        let provider = Provider::try_from(&self.rpc)?;
-        Ok(provider
-            .get_transaction_receipt(H256::from_slice(tx_hash))
-            .await?)
+        let receipt = self.provider.get_transaction_receipt(*tx_hash).await?;
+        Ok(receipt)
     }
 
-    pub async fn get_transaction(&self, tx_hash: &Vec<u8>) -> Result<Option<Transaction>> {
-        let provider = Provider::try_from(&self.rpc)?;
-        Ok(provider.get_transaction(H256::from_slice(tx_hash)).await?)
-    }
-
-    fn client(&self) -> Result<HttpClient> {
-        Ok(HttpClientBuilder::default().build(&self.rpc)?)
+    pub async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>> {
+        Ok(self.provider.get_transaction(*tx_hash).await?)
     }
 }

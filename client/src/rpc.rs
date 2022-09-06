@@ -1,6 +1,6 @@
 use ethers::{
     abi::AbiEncode,
-    types::{Address, Transaction, TransactionReceipt},
+    types::{Address, Transaction, TransactionReceipt, H256},
 };
 use eyre::Result;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
@@ -183,7 +183,7 @@ impl EthRpcServer for RpcInner {
 
     async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error> {
         let client = self.client.lock().await;
-        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
         let receipt = convert_err(client.get_transaction_receipt(&hash).await)?;
 
         match receipt {
@@ -194,7 +194,7 @@ impl EthRpcServer for RpcInner {
 
     async fn get_transaction_by_hash(&self, hash: &str) -> Result<Transaction, Error> {
         let client = self.client.lock().await;
-        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
         let tx = convert_err(client.get_transaction_by_hash(&hash).await)?;
 
         match tx {
