@@ -8,3 +8,6 @@ members = [
     "consensus",
     "execution",
 ]
+
+[patch.crates-io]
+ethers = { git = "https://github.com/gakonst/ethers-rs" }

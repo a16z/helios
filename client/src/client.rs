@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ethers::prelude::{Address, U256};
-use ethers::types::{Transaction, TransactionReceipt};
+use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::Result;
 
 use config::Config;
@@ -30,7 +30,7 @@ impl Client {
 
         let consensus =
             ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
-        let execution = ExecutionClient::new(execution_rpc);
+        let execution = ExecutionClient::new(execution_rpc)?;
 
         let payloads = HashMap::new();
         let block_hashes = HashMap::new();
@@ -97,7 +97,7 @@ impl Client {
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: &Option<u64>) -> Result<U256> {
+    pub async fn get_nonce(&self, address: &Address, block: &Option<u64>) -> Result<u64> {
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.nonce)
@@ -108,7 +108,7 @@ impl Client {
         self.execution.get_code(&address, &payload).await
     }
 
-    pub async fn get_storage_at(&self, address: &Address, slot: U256) -> Result<U256> {
+    pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
         let payload = self.get_payload(&None)?;
         let account = self
             .execution
@@ -121,20 +121,20 @@ impl Client {
         }
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<Vec<u8>> {
+    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
         self.execution.send_raw_transaction(bytes).await
     }
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &Vec<u8>,
+        tx_hash: &H256,
     ) -> Result<Option<TransactionReceipt>> {
         self.execution
             .get_transaction_receipt(tx_hash, &self.payloads)
             .await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: &Vec<u8>) -> Result<Option<Transaction>> {
+    pub async fn get_transaction_by_hash(&self, tx_hash: &H256) -> Result<Option<Transaction>> {
         self.execution
             .get_transaction(tx_hash, &self.payloads)
             .await
