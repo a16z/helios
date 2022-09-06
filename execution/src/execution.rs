@@ -12,16 +12,16 @@ use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
 use triehash_ethereum::ordered_trie_root;
 
-use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
+use super::proof::{encode_account, verify_proof};
 use super::types::{Account, ExecutionBlock};
 
 #[derive(Clone)]
-pub struct ExecutionClient {
-    rpc: Rpc,
+pub struct ExecutionClient<R: Rpc> {
+    rpc: R,
 }
 
-impl ExecutionClient {
+impl<R: Rpc> ExecutionClient<R> {
     pub fn new(rpc: &str) -> Result<Self> {
         let rpc = Rpc::new(rpc)?;
         Ok(ExecutionClient { rpc })

@@ -12,10 +12,11 @@ use consensus::ConsensusClient;
 use execution::evm::Evm;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
+use execution::rpc::http_rpc::HttpRpc;
 
 pub struct Client {
     consensus: ConsensusClient<NimbusRpc>,
-    execution: ExecutionClient,
+    execution: ExecutionClient<HttpRpc>,
     config: Arc<Config>,
     payloads: HashMap<u64, ExecutionPayload>,
     block_hashes: HashMap<Vec<u8>, u64>,

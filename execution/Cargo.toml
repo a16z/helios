@@ -20,6 +20,7 @@ bytes = "1.2.1"
 futures = "0.3.23"
 toml = "0.5.9"
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum" }
+async-trait = "0.1.57"
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
