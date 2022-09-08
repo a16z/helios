@@ -4,6 +4,7 @@ use std::sync::Arc;
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
 use eyre::Result;
+use log::info;
 use ssz_rs::prelude::*;
 
 use common::types::*;
@@ -283,8 +284,8 @@ impl<R: Rpc> ConsensusClient<R> {
             self.store.next_sync_committee = Some(update.next_sync_committee.clone());
         }
 
-        println!(
-            "applying update for slot: {}",
+        info!(
+            "applying update for slot {}",
             self.store.finalized_header.slot
         );
     }
@@ -297,8 +298,8 @@ impl<R: Rpc> ConsensusClient<R> {
             self.store.current_max_active_participants =
                 get_bits(&update.sync_aggregate.sync_committee_bits);
 
-            println!(
-                "applying finality update for slot: {}",
+            info!(
+                "applying finality update for slot {}",
                 self.store.finalized_header.slot
             );
         }
@@ -324,8 +325,8 @@ impl<R: Rpc> ConsensusClient<R> {
         {
             self.store.optimistic_header = update.attested_header.clone();
 
-            println!(
-                "applying optimistic update for slot: {}",
+            info!(
+                "applying optimistic update for slot {}",
                 self.store.optimistic_header.slot
             );
         }

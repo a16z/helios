@@ -3,6 +3,7 @@ use ethers::{
     types::{Address, Transaction, TransactionReceipt, H256},
 };
 use eyre::Result;
+use log::info;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -38,6 +39,9 @@ impl Rpc {
         };
         let (handle, addr) = start(rpc_inner).await?;
         self.handle = Some(handle);
+
+        info!("rpc server strated at {}", addr);
+
         Ok(addr)
     }
 }
