@@ -17,11 +17,11 @@ use super::rpc::Rpc;
 use super::types::{Account, ExecutionBlock};
 
 #[derive(Clone)]
-pub struct ExecutionClient {
-    rpc: Rpc,
+pub struct ExecutionClient<R: Rpc> {
+    rpc: R,
 }
 
-impl ExecutionClient {
+impl<R: Rpc> ExecutionClient<R> {
     pub fn new(rpc: &str) -> Result<Self> {
         let rpc = Rpc::new(rpc)?;
         Ok(ExecutionClient { rpc })
@@ -175,6 +175,7 @@ impl ExecutionClient {
 
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
         let expected_receipt_root = H256::from_slice(&expected_receipt_root.to_fixed_bytes());
+        println!("{}", hex::encode(expected_receipt_root));
         let payload_receipt_root = H256::from_slice(&payload.receipts_root);
 
         if expected_receipt_root != payload_receipt_root || !receipts.contains(&receipt) {
