@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
-use ethers::types::{Address, U256};
-use ssz_rs::Vector;
+use ethers::types::{Address, H256, U256};
+use ethers::utils::keccak256;
+use ssz_rs::{List, Vector};
 
 use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
@@ -15,7 +17,7 @@ fn get_client() -> ExecutionClient<MockRpc> {
 #[tokio::test]
 async fn test_get_account() {
     let execution = get_client();
-    let address = Address::from_str("000095E79eAC4d76aab57cB2c1f091d553b36ca0").unwrap();
+    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
 
     let mut payload = ExecutionPayload::default();
     payload.state_root = Vector::from_iter(
@@ -30,19 +32,102 @@ async fn test_get_account() {
 
     assert_eq!(
         account.balance,
-        U256::from_str_radix("145a440c047407cf0a", 16).unwrap()
+        U256::from_str_radix("48c27395000", 16).unwrap()
     );
 }
 
 #[tokio::test]
 async fn test_get_account_bad_proof() {
     let execution = get_client();
-    let address = Address::from_str("000095E79eAC4d76aab57cB2c1f091d553b36ca0").unwrap();
-
-    let mut payload = ExecutionPayload::default();
-    payload.state_root = Vector::default();
+    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
+    let payload = ExecutionPayload::default();
 
     let account_res = execution.get_account(&address, None, &payload).await;
 
     assert!(account_res.is_err());
+}
+
+#[tokio::test]
+async fn test_get_code() {
+    let execution = get_client();
+    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
+
+    let mut payload = ExecutionPayload::default();
+    payload.state_root = Vector::from_iter(
+        hex_str_to_bytes("0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d")
+            .unwrap(),
+    );
+
+    let code = execution.get_code(&address, &payload).await.unwrap();
+    let code_hash = keccak256(code);
+
+    assert_eq!(
+        code_hash.as_slice(),
+        &hex_str_to_bytes("0xc6ca0679d7242fa080596f2fe2e6b172d9b927a6b52278343826e33745854327")
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn test_get_code_bad_proof() {
+    let execution = get_client();
+    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
+
+    let payload = ExecutionPayload::default();
+
+    let code_res = execution.get_code(&address, &payload).await;
+
+    assert!(code_res.is_err());
+}
+
+#[tokio::test]
+async fn test_get_tx() {
+    let execution = get_client();
+    let tx_hash =
+        H256::from_str("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f").unwrap();
+
+    let mut payload = ExecutionPayload::default();
+    payload.transactions.push(List::from_iter(hex_str_to_bytes("0x02f8b20583623355849502f900849502f91082ea6094326c977e6efc84e512bb9c30f76e30c160ed06fb80b844a9059cbb0000000000000000000000007daccf9b3c1ae2fa5c55f1c978aeef700bc83be0000000000000000000000000000000000000000000000001158e460913d00000c080a0e1445466b058b6f883c0222f1b1f3e2ad9bee7b5f688813d86e3fa8f93aa868ca0786d6e7f3aefa8fe73857c65c32e4884d8ba38d0ecfb947fbffb82e8ee80c167").unwrap()));
+
+    let mut payloads = HashMap::new();
+    payloads.insert(7530933, payload);
+
+    let tx = execution
+        .get_transaction(&tx_hash, &payloads)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(tx.hash(), tx_hash);
+}
+
+#[tokio::test]
+async fn test_get_tx_bad_proof() {
+    let execution = get_client();
+    let tx_hash =
+        H256::from_str("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f").unwrap();
+
+    let payload = ExecutionPayload::default();
+    let mut payloads = HashMap::new();
+    payloads.insert(7530933, payload);
+
+    let tx_res = execution.get_transaction(&tx_hash, &payloads).await;
+
+    assert!(tx_res.is_err());
+}
+
+#[tokio::test]
+async fn test_get_tx_not_included() {
+    let execution = get_client();
+    let tx_hash =
+        H256::from_str("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f").unwrap();
+
+    let payloads = HashMap::new();
+
+    let tx_opt = execution
+        .get_transaction(&tx_hash, &payloads)
+        .await
+        .unwrap();
+
+    assert!(tx_opt.is_none());
 }

@@ -1,6 +1,7 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use async_trait::async_trait;
+use common::utils::hex_str_to_bytes;
 use ethers::types::{Address, EIP1186ProofResponse, Transaction, TransactionReceipt, H256};
 use eyre::Result;
 
@@ -30,7 +31,7 @@ impl Rpc for MockRpc {
 
     async fn get_code(&self, _address: &Address, _block: u64) -> Result<Vec<u8>> {
         let code = read_to_string(self.path.join("code.json"))?;
-        Ok(serde_json::from_str(&code)?)
+        hex_str_to_bytes(&code[0..code.len() - 1])
     }
 
     async fn send_raw_transaction(&self, _bytes: &Vec<u8>) -> Result<H256> {
@@ -43,7 +44,7 @@ impl Rpc for MockRpc {
     }
 
     async fn get_transaction(&self, _tx_hash: &H256) -> Result<Option<Transaction>> {
-        let tx = read_to_string(self.path.join("tx.json"))?;
+        let tx = read_to_string(self.path.join("transaction.json"))?;
         Ok(serde_json::from_str(&tx)?)
     }
 }
