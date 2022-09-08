@@ -12,8 +12,8 @@ use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
 use triehash_ethereum::ordered_trie_root;
 
-use super::rpc::Rpc;
 use super::proof::{encode_account, verify_proof};
+use super::rpc::Rpc;
 use super::types::{Account, ExecutionBlock};
 
 #[derive(Clone)]

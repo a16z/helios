@@ -11,7 +11,7 @@ use tokio::runtime::Runtime;
 
 use consensus::types::ExecutionPayload;
 
-use crate::{types::CallOpts, rpc::Rpc};
+use crate::{rpc::Rpc, types::CallOpts};
 
 use super::ExecutionClient;
 

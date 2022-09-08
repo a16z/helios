@@ -43,10 +43,7 @@ impl Rpc for HttpRpc {
         Ok(self.provider.send_raw_transaction(bytes).await?.tx_hash())
     }
 
-    async fn get_transaction_receipt(
-        &self,
-        tx_hash: &H256,
-    ) -> Result<Option<TransactionReceipt>> {
+    async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>> {
         let receipt = self.provider.get_transaction_receipt(*tx_hash).await?;
         Ok(receipt)
     }

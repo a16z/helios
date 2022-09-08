@@ -993,6 +993,7 @@ dependencies = [
  "reqwest",
  "revm",
  "serde",
+ "serde_json",
  "ssz-rs",
  "tokio",
  "toml",

@@ -1,13 +1,15 @@
 use async_trait::async_trait;
-use ethers::types::{Address, EIP1186ProofResponse, TransactionReceipt, H256, Transaction};
+use ethers::types::{Address, EIP1186ProofResponse, Transaction, TransactionReceipt, H256};
 use eyre::Result;
 
 pub mod http_rpc;
+pub mod mock_rpc;
 
 #[async_trait]
 pub trait Rpc: Send + Clone + 'static {
-
-    fn new(rpc: &str) -> Result<Self> where Self: Sized;
+    fn new(rpc: &str) -> Result<Self>
+    where
+        Self: Sized;
 
     async fn get_proof(
         &self,

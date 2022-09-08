@@ -10,9 +10,9 @@ use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
+use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
-use execution::rpc::http_rpc::HttpRpc;
 
 pub struct Client {
     consensus: ConsensusClient<NimbusRpc>,

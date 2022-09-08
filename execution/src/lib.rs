@@ -1,6 +1,6 @@
 pub mod evm;
-pub mod types;
 pub mod rpc;
+pub mod types;
 
 mod execution;
 pub use crate::execution::*;
