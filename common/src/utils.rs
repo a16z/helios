@@ -5,7 +5,6 @@ use ssz_rs::{Node, Vector};
 use super::types::Bytes32;
 
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
-    println!("{}", s.len());
     let stripped = s.strip_prefix("0x").unwrap_or(s);
     Ok(hex::decode(stripped)?)
 }
