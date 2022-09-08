@@ -190,3 +190,14 @@ async fn test_get_receipt_not_included() {
 
     assert!(receipt_opt.is_none());
 }
+
+#[test]
+fn test_get_block() {
+    let execution = get_client();
+    let mut payload = ExecutionPayload::default();
+    payload.block_number = 12345;
+
+    let block = execution.get_block(&payload).unwrap();
+
+    assert_eq!(block.number, 12345);
+}
