@@ -5,9 +5,9 @@ use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
 use env_logger::Env;
 use eyre::Result;
-use tokio::{sync::Mutex, time::sleep};
+use tokio::time::sleep;
 
-use client::{rpc::Rpc, Client};
+use client::Client;
 use config::{networks, Config};
 
 #[tokio::main]
@@ -29,16 +29,13 @@ async fn main() -> Result<()> {
     }
 
     let mut client = Client::new(Arc::new(config)).await?;
+
     client.sync().await?;
-
-    let client = Arc::new(Mutex::new(client));
-
-    let mut rpc = Rpc::new(client.clone(), cli.port);
-    rpc.start().await?;
+    client.start_rpc().await?;
 
     loop {
         sleep(Duration::from_secs(10)).await;
-        client.lock().await.advance().await?
+        client.advance().await?
     }
 }
 

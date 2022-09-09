@@ -13,20 +13,21 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 
-use super::Client;
+use crate::node::Node;
+
 use common::utils::{hex_str_to_bytes, u64_to_hex_string};
 use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc {
-    client: Arc<Mutex<Client>>,
+    node: Arc<Mutex<Node>>,
     handle: Option<HttpServerHandle>,
     port: u16,
 }
 
 impl Rpc {
-    pub fn new(client: Arc<Mutex<Client>>, port: u16) -> Self {
+    pub fn new(node: Arc<Mutex<Node>>, port: u16) -> Self {
         Rpc {
-            client,
+            node,
             handle: None,
             port,
         }
@@ -34,7 +35,7 @@ impl Rpc {
 
     pub async fn start(&mut self) -> Result<SocketAddr> {
         let rpc_inner = RpcInner {
-            client: self.client.clone(),
+            node: self.node.clone(),
             port: self.port,
         };
         let (handle, addr) = start(rpc_inner).await?;
@@ -86,7 +87,7 @@ trait NetRpc {
 
 #[derive(Clone)]
 struct RpcInner {
-    client: Arc<Mutex<Client>>,
+    node: Arc<Mutex<Node>>,
     port: u16,
 }
 
@@ -95,8 +96,8 @@ impl EthRpcServer for RpcInner {
     async fn get_balance(&self, address: &str, block: &str) -> Result<String, Error> {
         let block = convert_err(decode_block(block))?;
         let address = convert_err(Address::from_str(address))?;
-        let client = self.client.lock().await;
-        let balance = convert_err(client.get_balance(&address, &block).await)?;
+        let node = self.node.lock().await;
+        let balance = convert_err(node.get_balance(&address, &block).await)?;
 
         Ok(balance.encode_hex())
     }
@@ -104,8 +105,8 @@ impl EthRpcServer for RpcInner {
     async fn get_transaction_count(&self, address: &str, block: &str) -> Result<String, Error> {
         let block = convert_err(decode_block(block))?;
         let address = convert_err(Address::from_str(address))?;
-        let client = self.client.lock().await;
-        let nonce = convert_err(client.get_nonce(&address, &block).await)?;
+        let node = self.node.lock().await;
+        let nonce = convert_err(node.get_nonce(&address, &block).await)?;
 
         Ok(nonce.encode_hex())
     }
@@ -113,48 +114,48 @@ impl EthRpcServer for RpcInner {
     async fn get_code(&self, address: &str, block: &str) -> Result<String, Error> {
         let block = convert_err(decode_block(block))?;
         let address = convert_err(Address::from_str(address))?;
-        let client = self.client.lock().await;
-        let code = convert_err(client.get_code(&address, &block).await)?;
+        let node = self.node.lock().await;
+        let code = convert_err(node.get_code(&address, &block).await)?;
 
         Ok(hex::encode(code))
     }
 
     async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error> {
         let block = convert_err(decode_block(block))?;
-        let client = self.client.lock().await;
-        let res = convert_err(client.call(&opts, &block))?;
+        let node = self.node.lock().await;
+        let res = convert_err(node.call(&opts, &block))?;
 
         Ok(format!("0x{}", hex::encode(res)))
     }
 
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
-        let client = self.client.lock().await;
-        let gas = convert_err(client.estimate_gas(&opts))?;
+        let node = self.node.lock().await;
+        let gas = convert_err(node.estimate_gas(&opts))?;
 
         Ok(u64_to_hex_string(gas))
     }
 
     async fn chain_id(&self) -> Result<String, Error> {
-        let client = self.client.lock().await;
-        let id = client.chain_id();
+        let node = self.node.lock().await;
+        let id = node.chain_id();
         Ok(u64_to_hex_string(id))
     }
 
     async fn gas_price(&self) -> Result<String, Error> {
-        let client = self.client.lock().await;
-        let gas_price = convert_err(client.get_gas_price())?;
+        let node = self.node.lock().await;
+        let gas_price = convert_err(node.get_gas_price())?;
         Ok(gas_price.encode_hex())
     }
 
     async fn max_priority_fee_per_gas(&self) -> Result<String, Error> {
-        let client = self.client.lock().await;
-        let tip = convert_err(client.get_priority_fee())?;
+        let node = self.node.lock().await;
+        let tip = convert_err(node.get_priority_fee())?;
         Ok(tip.encode_hex())
     }
 
     async fn block_number(&self) -> Result<String, Error> {
-        let client = self.client.lock().await;
-        let num = convert_err(client.get_block_number())?;
+        let node = self.node.lock().await;
+        let num = convert_err(node.get_block_number())?;
         Ok(u64_to_hex_string(num))
     }
 
@@ -164,31 +165,31 @@ impl EthRpcServer for RpcInner {
         _full_tx: bool,
     ) -> Result<ExecutionBlock, Error> {
         let block = convert_err(decode_block(block))?;
-        let client = self.client.lock().await;
-        let block = convert_err(client.get_block_by_number(&block))?;
+        let node = self.node.lock().await;
+        let block = convert_err(node.get_block_by_number(&block))?;
 
         Ok(block)
     }
 
     async fn get_block_by_hash(&self, hash: &str, _full_tx: bool) -> Result<ExecutionBlock, Error> {
         let hash = convert_err(hex_str_to_bytes(hash))?;
-        let client = self.client.lock().await;
-        let block = convert_err(client.get_block_by_hash(&hash))?;
+        let node = self.node.lock().await;
+        let block = convert_err(node.get_block_by_hash(&hash))?;
 
         Ok(block)
     }
 
     async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error> {
-        let client = self.client.lock().await;
+        let node = self.node.lock().await;
         let bytes = convert_err(hex_str_to_bytes(bytes))?;
-        let tx_hash = convert_err(client.send_raw_transaction(&bytes).await)?;
+        let tx_hash = convert_err(node.send_raw_transaction(&bytes).await)?;
         Ok(hex::encode(tx_hash))
     }
 
     async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error> {
-        let client = self.client.lock().await;
+        let node = self.node.lock().await;
         let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
-        let receipt = convert_err(client.get_transaction_receipt(&hash).await)?;
+        let receipt = convert_err(node.get_transaction_receipt(&hash).await)?;
 
         match receipt {
             Some(receipt) => Ok(receipt),
@@ -197,9 +198,9 @@ impl EthRpcServer for RpcInner {
     }
 
     async fn get_transaction_by_hash(&self, hash: &str) -> Result<Transaction, Error> {
-        let client = self.client.lock().await;
+        let node = self.node.lock().await;
         let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
-        let tx = convert_err(client.get_transaction_by_hash(&hash).await)?;
+        let tx = convert_err(node.get_transaction_by_hash(&hash).await)?;
 
         match tx {
             Some(tx) => Ok(tx),
@@ -211,8 +212,8 @@ impl EthRpcServer for RpcInner {
 #[async_trait]
 impl NetRpcServer for RpcInner {
     async fn version(&self) -> Result<String, Error> {
-        let client = self.client.lock().await;
-        Ok(client.chain_id().to_string())
+        let node = self.node.lock().await;
+        Ok(node.chain_id().to_string())
     }
 }
 
