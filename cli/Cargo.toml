@@ -13,4 +13,4 @@ log = "0.4.17"
 
 client = { path = "../client" }
 config = { path = "../config" }
-
+common = { path = "../common" }

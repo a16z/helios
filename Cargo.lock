@@ -1936,6 +1936,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "client",
+ "common",
  "config",
  "dirs",
  "env_logger",
