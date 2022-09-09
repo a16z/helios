@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
 
     let client = Arc::new(Mutex::new(client));
 
-    let mut rpc = Rpc::new(client.clone(), cli.port.unwrap_or(8545));
+    let mut rpc = Rpc::new(client.clone(), cli.port);
     rpc.start().await?;
 
     loop {
@@ -39,8 +39,8 @@ async fn main() -> Result<()> {
 
 #[derive(Parser)]
 struct Cli {
-    #[clap(long)]
+    #[clap(long, default_value = "goerli")]
     network: String,
-    #[clap(long)]
-    port: Option<u16>,
+    #[clap(long, default_value = "8545")]
+    port: u16,
 }
