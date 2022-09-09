@@ -1,5 +1,6 @@
 [general]
 chain_id = 5
+genesis_time = 1616508000
 genesis_root = "0x043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb"
 checkpoint = "0x172128eadf1da46467f4d6a822206698e2d3f957af117dd650954780d680dc99"
 consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
