@@ -21,6 +21,8 @@ bytes = "1.2.1"
 futures = "0.3.23"
 toml = "0.5.9"
 async-trait = "0.1.57"
+log = "0.4.17"
+chrono = "0.4.22"
 
 common = { path = "../common" }
 config = { path = "../config" }

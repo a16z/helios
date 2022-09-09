@@ -6,6 +6,7 @@ pub fn goerli() -> Config {
     Config {
         general: General {
             chain_id: 5,
+            genesis_time: 1616508000,
             genesis_root: hex_str_to_bytes(
                 "0x043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb",
             )

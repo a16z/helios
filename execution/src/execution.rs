@@ -175,7 +175,6 @@ impl<R: Rpc> ExecutionClient<R> {
 
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
         let expected_receipt_root = H256::from_slice(&expected_receipt_root.to_fixed_bytes());
-        println!("{}", hex::encode(expected_receipt_root));
         let payload_receipt_root = H256::from_slice(&payload.receipts_root);
 
         if expected_receipt_root != payload_receipt_root || !receipts.contains(&receipt) {

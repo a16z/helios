@@ -16,6 +16,7 @@ pub struct Config {
 #[derive(Deserialize, Debug)]
 pub struct General {
     pub chain_id: u64,
+    pub genesis_time: u64,
     #[serde(deserialize_with = "bytes_deserialize")]
     pub genesis_root: Vec<u8>,
     #[serde(deserialize_with = "bytes_deserialize")]

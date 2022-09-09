@@ -1,9 +1,12 @@
 use std::cmp;
 use std::sync::Arc;
+use std::time::UNIX_EPOCH;
 
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
+use chrono::Duration;
 use eyre::Result;
+use log::info;
 use ssz_rs::prelude::*;
 
 use common::types::*;
@@ -283,9 +286,17 @@ impl<R: Rpc> ConsensusClient<R> {
             self.store.next_sync_committee = Some(update.next_sync_committee.clone());
         }
 
-        println!(
-            "applying update for slot: {}",
-            self.store.finalized_header.slot
+        let participation =
+            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+        let delay = self.get_delay(self.store.finalized_header.slot);
+
+        info!(
+            "applying update                slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+            self.store.finalized_header.slot,
+            participation,
+            delay.num_hours(),
+            delay.num_minutes(),
+            delay.num_seconds(),
         );
     }
 
@@ -297,9 +308,17 @@ impl<R: Rpc> ConsensusClient<R> {
             self.store.current_max_active_participants =
                 get_bits(&update.sync_aggregate.sync_committee_bits);
 
-            println!(
-                "applying finality update for slot: {}",
-                self.store.finalized_header.slot
+            let participation =
+                get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+            let delay = self.get_delay(self.store.finalized_header.slot);
+
+            info!(
+                "applying finality update       slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+                self.store.finalized_header.slot,
+                participation,
+                delay.num_hours(),
+                delay.num_minutes(),
+                delay.num_seconds(),
             );
         }
 
@@ -324,9 +343,17 @@ impl<R: Rpc> ConsensusClient<R> {
         {
             self.store.optimistic_header = update.attested_header.clone();
 
-            println!(
-                "applying optimistic update for slot: {}",
-                self.store.optimistic_header.slot
+            let participation =
+                get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+            let delay = self.get_delay(update.attested_header.slot);
+
+            info!(
+                "applying optimistic update     slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+                self.store.optimistic_header.slot,
+                participation,
+                delay.num_hours(),
+                delay.num_minutes(),
+                delay.num_seconds(),
             );
         }
     }
@@ -344,6 +371,15 @@ impl<R: Rpc> ConsensusClient<R> {
         let fork_version = Vector::from_iter(self.config.fork_version(slot));
         let domain = compute_domain(domain_type, fork_version, genesis_root)?;
         compute_signing_root(header, domain)
+    }
+
+    fn get_delay(&self, slot: u64) -> Duration {
+        let expected_time = slot * 12 + self.config.general.genesis_time;
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap();
+        let delay = now - std::time::Duration::from_secs(expected_time);
+        chrono::Duration::from_std(delay).unwrap()
     }
 }
 
