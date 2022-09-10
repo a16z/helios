@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
@@ -13,6 +11,17 @@ use config::{networks, Config};
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    let config = get_config()?;
+    let mut client = Client::new(config).await?;
+
+    client.sync().await?;
+    client.start_rpc().await?;
+    client.track()?;
+
+    std::future::pending().await
+}
+
+fn get_config() -> Result<Config> {
     let cli = Cli::parse();
     let mut config = match cli.network.as_str() {
         "goerli" => networks::goerli(),
@@ -31,13 +40,7 @@ async fn main() -> Result<()> {
         config.general.rpc_port = Some(port);
     }
 
-    let mut client = Client::new(config).await?;
-
-    client.sync().await?;
-    client.start_rpc().await?;
-    client.track()?;
-
-    std::future::pending().await
+    Ok(config)
 }
 
 #[derive(Parser)]
