@@ -13,10 +13,7 @@ async fn main() -> Result<()> {
 
     let config = get_config()?;
     let mut client = Client::new(config).await?;
-
-    client.sync().await?;
-    client.start_rpc().await?;
-    client.track()?;
+    client.start().await?;
 
     std::future::pending().await
 }

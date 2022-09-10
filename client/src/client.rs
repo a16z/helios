@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -9,6 +8,7 @@ use eyre::Result;
 use config::Config;
 use consensus::types::Header;
 use execution::types::{CallOpts, ExecutionBlock};
+use log::warn;
 use tokio::spawn;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -36,23 +36,18 @@ impl Client {
         Ok(Client { node, rpc })
     }
 
-    pub async fn start_rpc(&mut self) -> Result<SocketAddr> {
-        self.rpc.as_mut().unwrap().start().await
-    }
+    pub async fn start(&mut self) -> Result<()> {
+        self.rpc.as_mut().unwrap().start().await?;
+        self.node.lock().await.sync().await?;
 
-    pub async fn sync(&mut self) -> Result<()> {
-        self.node.lock().await.sync().await
-    }
-
-    pub async fn advance(&mut self) -> Result<()> {
-        self.node.lock().await.advance().await
-    }
-
-    pub fn track(&self) -> Result<()> {
         let node = self.node.clone();
         spawn(async move {
             loop {
-                node.lock().await.advance().await.unwrap();
+                let res = node.lock().await.advance().await;
+                if let Err(err) = res {
+                    warn!("{}", err);
+                }
+
                 sleep(Duration::from_secs(10)).await;
             }
         });
