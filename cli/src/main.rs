@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         config.general.rpc_port = Some(port);
     }
 
-    let mut client = Client::new(Arc::new(config)).await?;
+    let mut client = Client::new(config).await?;
 
     client.sync().await?;
     client.start_rpc().await?;

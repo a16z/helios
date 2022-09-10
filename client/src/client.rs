@@ -22,7 +22,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(config: Arc<Config>) -> Result<Self> {
+    pub async fn new(config: Config) -> Result<Self> {
+        let config = Arc::new(config);
         let node = Node::new(config.clone()).await?;
         let node = Arc::new(Mutex::new(node));
 
