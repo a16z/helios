@@ -1,11 +1,10 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
 use env_logger::Env;
 use eyre::Result;
-use tokio::time::sleep;
 
 use client::Client;
 use config::{networks, Config};
@@ -36,11 +35,9 @@ async fn main() -> Result<()> {
 
     client.sync().await?;
     client.start_rpc().await?;
+    client.track()?;
 
-    loop {
-        sleep(Duration::from_secs(10)).await;
-        client.advance().await?
-    }
+    std::future::pending().await
 }
 
 #[derive(Parser)]

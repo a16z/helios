@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
@@ -8,7 +9,9 @@ use eyre::Result;
 use config::Config;
 use consensus::types::Header;
 use execution::types::{CallOpts, ExecutionBlock};
+use tokio::spawn;
 use tokio::sync::Mutex;
+use tokio::time::sleep;
 
 use crate::node::Node;
 use crate::rpc::Rpc;
@@ -42,6 +45,18 @@ impl Client {
 
     pub async fn advance(&mut self) -> Result<()> {
         self.node.lock().await.advance().await
+    }
+
+    pub fn track(&self) -> Result<()> {
+        let node = self.node.clone();
+        spawn(async move {
+            loop {
+                node.lock().await.advance().await.unwrap();
+                sleep(Duration::from_secs(10)).await;
+            }
+        });
+
+        Ok(())
     }
 
     pub async fn call(&self, opts: &CallOpts, block: &Option<u64>) -> Result<Vec<u8>> {
