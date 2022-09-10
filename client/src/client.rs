@@ -20,15 +20,16 @@ pub struct Client {
 
 impl Client {
     pub async fn new(config: Arc<Config>) -> Result<Self> {
-        let node = Node::new(config).await?;
+        let node = Node::new(config.clone()).await?;
         let node = Arc::new(Mutex::new(node));
 
-        let rpc = Rpc::new(node.clone(), 8545);
+        let rpc = if let Some(port) = config.general.rpc_port {
+            Some(Rpc::new(node.clone(), port))
+        } else {
+            None
+        };
 
-        Ok(Client {
-            node,
-            rpc: Some(rpc),
-        })
+        Ok(Client { node, rpc })
     }
 
     pub async fn start_rpc(&mut self) -> Result<SocketAddr> {

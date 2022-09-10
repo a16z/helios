@@ -28,6 +28,10 @@ async fn main() -> Result<()> {
         config.general.checkpoint = hex_str_to_bytes(&checkpoint)?;
     }
 
+    if let Some(port) = cli.port {
+        config.general.rpc_port = Some(port);
+    }
+
     let mut client = Client::new(Arc::new(config)).await?;
 
     client.sync().await?;
@@ -43,8 +47,8 @@ async fn main() -> Result<()> {
 struct Cli {
     #[clap(short, long, default_value = "goerli")]
     network: String,
-    #[clap(short, long, default_value = "8545")]
-    port: u16,
+    #[clap(short, long)]
+    port: Option<u16>,
     #[clap(short, long)]
     checkpoint: Option<String>,
 }
