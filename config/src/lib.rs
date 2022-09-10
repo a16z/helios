@@ -23,6 +23,7 @@ pub struct General {
     pub checkpoint: Vec<u8>,
     pub consensus_rpc: String,
     pub execution_rpc: String,
+    pub rpc_port: Option<u16>,
 }
 
 #[derive(Deserialize, Debug)]

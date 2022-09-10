@@ -19,6 +19,7 @@ pub fn goerli() -> Config {
             execution_rpc:
                 "https://eth-goerli.g.alchemy.com:443/v2/o_8Qa9kgwDPf9G8sroyQ-uQtyhyWa3ao"
                     .to_string(),
+            rpc_port: Some(8545),
         },
         forks: Forks {
             genesis: Fork {
