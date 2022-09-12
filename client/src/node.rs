@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
-use eyre::Result;
+use eyre::{eyre, Result};
 
 use config::Config;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
@@ -20,7 +20,8 @@ pub struct Node {
     config: Arc<Config>,
     payloads: HashMap<u64, ExecutionPayload>,
     block_hashes: HashMap<Vec<u8>, u64>,
-    block_head: u64,
+    latest_block: u64,
+    finalized_block: u64,
 }
 
 impl Node {
@@ -42,75 +43,84 @@ impl Node {
             config,
             payloads,
             block_hashes,
-            block_head: 0,
+            latest_block: 0,
+            finalized_block: 0,
         })
     }
 
     pub async fn sync(&mut self) -> Result<()> {
         self.consensus.sync().await?;
-
-        let head = self.consensus.get_header();
-        let payload = self
-            .consensus
-            .get_execution_payload(&Some(head.slot))
-            .await?;
-
-        self.block_head = payload.block_number;
-        self.block_hashes
-            .insert(payload.block_hash.to_vec(), payload.block_number);
-        self.payloads.insert(payload.block_number, payload);
-
-        Ok(())
+        self.update_payloads().await
     }
 
     pub async fn advance(&mut self) -> Result<()> {
         self.consensus.advance().await?;
+        self.update_payloads().await
+    }
 
-        let head = self.consensus.get_header();
-        let payload = self
+    async fn update_payloads(&mut self) -> Result<()> {
+        let latest_header = self.consensus.get_header();
+        let latest_payload = self
             .consensus
-            .get_execution_payload(&Some(head.slot))
+            .get_execution_payload(&Some(latest_header.slot))
             .await?;
 
-        self.block_head = payload.block_number;
-        self.block_hashes
-            .insert(payload.block_hash.to_vec(), payload.block_number);
-        self.payloads.insert(payload.block_number, payload);
+        self.latest_block = latest_payload.block_number;
+        self.block_hashes.insert(
+            latest_payload.block_hash.to_vec(),
+            latest_payload.block_number,
+        );
+        self.payloads
+            .insert(latest_payload.block_number, latest_payload);
+
+        let finalized_header = self.consensus.get_finalized_header();
+        let finalized_payload = self
+            .consensus
+            .get_execution_payload(&Some(finalized_header.slot))
+            .await?;
+
+        self.finalized_block = finalized_payload.block_number;
+        self.block_hashes.insert(
+            finalized_payload.block_hash.to_vec(),
+            finalized_payload.block_number,
+        );
+        self.payloads
+            .insert(finalized_payload.block_number, finalized_payload);
 
         Ok(())
     }
 
-    pub fn call(&self, opts: &CallOpts, block: &Option<u64>) -> Result<Vec<u8>> {
+    pub fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
         evm.call(opts)
     }
 
     pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
-        let payload = self.get_payload(&None)?;
+        let payload = self.get_payload(&BlockTag::Latest)?;
         let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
         evm.estimate_gas(opts)
     }
 
-    pub async fn get_balance(&self, address: &Address, block: &Option<u64>) -> Result<U256> {
+    pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: &Option<u64>) -> Result<u64> {
+    pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, &payload).await?;
         Ok(account.nonce)
     }
 
-    pub async fn get_code(&self, address: &Address, block: &Option<u64>) -> Result<Vec<u8>> {
+    pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
         self.execution.get_code(&address, &payload).await
     }
 
     pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
-        let payload = self.get_payload(&None)?;
+        let payload = self.get_payload(&BlockTag::Latest)?;
         let account = self
             .execution
             .get_account(address, Some(&[slot]), &payload)
@@ -118,7 +128,7 @@ impl Node {
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),
-            None => Err(eyre::eyre!("Slot Not Found")),
+            None => Err(eyre!("Slot Not Found")),
         }
     }
 
@@ -142,7 +152,7 @@ impl Node {
     }
 
     pub fn get_gas_price(&self) -> Result<U256> {
-        let payload = self.get_payload(&None)?;
+        let payload = self.get_payload(&BlockTag::Latest)?;
         let base_fee = U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
         let tip = U256::from(10_u64.pow(9));
         Ok(base_fee + tip)
@@ -154,18 +164,21 @@ impl Node {
     }
 
     pub fn get_block_number(&self) -> Result<u64> {
-        let payload = self.get_payload(&None)?;
+        let payload = self.get_payload(&BlockTag::Latest)?;
         Ok(payload.block_number)
     }
 
-    pub fn get_block_by_number(&self, block: &Option<u64>) -> Result<ExecutionBlock> {
+    pub fn get_block_by_number(&self, block: &BlockTag) -> Result<ExecutionBlock> {
         let payload = self.get_payload(block)?;
         self.execution.get_block(&payload)
     }
 
     pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<ExecutionBlock> {
-        let block = self.block_hashes.get(hash);
-        let payload = self.get_payload(&block.cloned())?;
+        let block = self
+            .block_hashes
+            .get(hash)
+            .ok_or(eyre!("Block Not Found"))?;
+        let payload = self.get_payload(&BlockTag::Number(*block))?;
         self.execution.get_block(&payload)
     }
 
@@ -177,22 +190,26 @@ impl Node {
         self.consensus.get_header()
     }
 
-    fn get_payload(&self, block: &Option<u64>) -> Result<ExecutionPayload> {
+    fn get_payload(&self, block: &BlockTag) -> Result<ExecutionPayload> {
         match block {
-            Some(block) => {
-                let payload = self.payloads.get(block);
-                match payload {
-                    Some(payload) => Ok(payload.clone()),
-                    None => Err(eyre::eyre!("Block Not Found")),
-                }
+            BlockTag::Latest => {
+                let payload = self.payloads.get(&self.latest_block);
+                payload.cloned().ok_or(eyre!("Block Not Found"))
             }
-            None => {
-                let payload = self.payloads.get(&self.block_head);
-                match payload {
-                    Some(payload) => Ok(payload.clone()),
-                    None => Err(eyre::eyre!("Block Not Found")),
-                }
+            BlockTag::Finalized => {
+                let payload = self.payloads.get(&self.finalized_block);
+                payload.cloned().ok_or(eyre!("Block Not Found"))
+            }
+            BlockTag::Number(num) => {
+                let payload = self.payloads.get(&num);
+                payload.cloned().ok_or(eyre!("Block Not Found"))
             }
         }
     }
+}
+
+pub enum BlockTag {
+    Latest,
+    Finalized,
+    Number(u64),
 }

@@ -5,7 +5,7 @@ use std::time::UNIX_EPOCH;
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
 use chrono::Duration;
-use eyre::Result;
+use eyre::{eyre, Result};
 use log::info;
 use ssz_rs::prelude::*;
 
@@ -53,7 +53,7 @@ impl<R: Rpc> ConsensusClient<R> {
             header_hash.to_string() == format!("0x{}", hex::encode(checkpoint_block_root));
 
         if !(header_valid && committee_valid) {
-            return Err(eyre::eyre!("Invalid Bootstrap"));
+            return Err(eyre!("Invalid Bootstrap"));
         }
 
         let store = Store {
@@ -72,10 +72,20 @@ impl<R: Rpc> ConsensusClient<R> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
         let mut block = self.rpc.get_block(slot).await?.clone();
         let block_hash = block.hash_tree_root()?;
-        let verified_block_hash = self.store.optimistic_header.clone().hash_tree_root()?;
+
+        let latest_slot = self.store.optimistic_header.slot;
+        let finalized_slot = self.store.finalized_header.slot;
+
+        let verified_block_hash = if slot == latest_slot {
+            self.store.optimistic_header.clone().hash_tree_root()?
+        } else if slot == finalized_slot {
+            self.store.finalized_header.clone().hash_tree_root()?
+        } else {
+            return Err(eyre!("Block Not Found"));
+        };
 
         if verified_block_hash != block_hash {
-            Err(eyre::eyre!("Block Root Mismatch"))
+            Err(eyre!("Block Root Mismatch"))
         } else {
             Ok(block.body.execution_payload)
         }
@@ -127,13 +137,13 @@ impl<R: Rpc> ConsensusClient<R> {
 
         if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
         {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         if !(update.signature_slot > update.attested_header.slot
             && update.attested_header.slot > update.finalized_header.slot)
         {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let finality_branch_valid = is_finality_proof_valid(
@@ -143,7 +153,7 @@ impl<R: Rpc> ConsensusClient<R> {
         );
 
         if !(finality_branch_valid) {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let next_committee_branch_valid = is_next_committee_proof_valid(
@@ -153,7 +163,7 @@ impl<R: Rpc> ConsensusClient<R> {
         );
 
         if !next_committee_branch_valid {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let sync_committee = if store_period == update_signature_period {
@@ -169,7 +179,7 @@ impl<R: Rpc> ConsensusClient<R> {
 
         let committee_quorum = pks.len() > 1;
         if !committee_quorum {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let header_root = bytes_to_bytes32(update.attested_header.hash_tree_root()?.as_bytes());
@@ -178,7 +188,7 @@ impl<R: Rpc> ConsensusClient<R> {
         let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
         if !is_valid_sig {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         Ok(())
@@ -190,13 +200,13 @@ impl<R: Rpc> ConsensusClient<R> {
 
         if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
         {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         if !(update.signature_slot > update.attested_header.slot
             && update.attested_header.slot > update.finalized_header.slot)
         {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let finality_branch_valid = is_finality_proof_valid(
@@ -206,7 +216,7 @@ impl<R: Rpc> ConsensusClient<R> {
         );
 
         if !(finality_branch_valid) {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let sync_committee = &self.store.current_sync_committee;
@@ -218,7 +228,7 @@ impl<R: Rpc> ConsensusClient<R> {
 
         let committee_quorum = pks.len() > 1;
         if !committee_quorum {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let header_root =
@@ -228,7 +238,7 @@ impl<R: Rpc> ConsensusClient<R> {
         let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
         if !is_valid_sig {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         Ok(())
@@ -240,11 +250,11 @@ impl<R: Rpc> ConsensusClient<R> {
 
         if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
         {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         if !(update.signature_slot > update.attested_header.slot) {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let sync_committee = &self.store.current_sync_committee;
@@ -256,7 +266,7 @@ impl<R: Rpc> ConsensusClient<R> {
 
         let committee_quorum = pks.len() > 1;
         if !committee_quorum {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         let header_root =
@@ -266,7 +276,7 @@ impl<R: Rpc> ConsensusClient<R> {
         let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
         if !is_valid_sig {
-            return Err(eyre::eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Update"));
         }
 
         Ok(())

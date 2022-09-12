@@ -13,7 +13,7 @@ use tokio::spawn;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use crate::node::Node;
+use crate::node::{BlockTag, Node};
 use crate::rpc::Rpc;
 
 pub struct Client {
@@ -55,7 +55,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn call(&self, opts: &CallOpts, block: &Option<u64>) -> Result<Vec<u8>> {
+    pub async fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
         self.node.lock().await.call(opts, block)
     }
 
@@ -63,15 +63,15 @@ impl Client {
         self.node.lock().await.estimate_gas(opts)
     }
 
-    pub async fn get_balance(&self, address: &Address, block: &Option<u64>) -> Result<U256> {
+    pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
         self.node.lock().await.get_balance(address, block).await
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: &Option<u64>) -> Result<u64> {
+    pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
         self.node.lock().await.get_nonce(address, block).await
     }
 
-    pub async fn get_code(&self, address: &Address, block: &Option<u64>) -> Result<Vec<u8>> {
+    pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
         self.node.lock().await.get_code(address, block).await
     }
 
@@ -114,7 +114,7 @@ impl Client {
         self.node.lock().await.get_block_number()
     }
 
-    pub async fn get_block_by_number(&self, block: &Option<u64>) -> Result<ExecutionBlock> {
+    pub async fn get_block_by_number(&self, block: &BlockTag) -> Result<ExecutionBlock> {
         self.node.lock().await.get_block_by_number(block)
     }
 
