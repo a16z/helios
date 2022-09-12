@@ -13,7 +13,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 
-use crate::node::Node;
+use crate::node::{BlockTag, Node};
 
 use common::utils::{hex_str_to_bytes, u64_to_hex_string};
 use execution::types::{CallOpts, ExecutionBlock};
@@ -242,17 +242,18 @@ fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
     })
 }
 
-fn decode_block(block: &str) -> Result<Option<u64>> {
+fn decode_block(block: &str) -> Result<BlockTag> {
     match block {
-        "latest" => Ok(None),
+        "latest" => Ok(BlockTag::Latest),
+        "finalized" => Ok(BlockTag::Finalized),
         _ => {
             if block.starts_with("0x") {
-                Ok(Some(u64::from_str_radix(
+                Ok(BlockTag::Number(u64::from_str_radix(
                     block.strip_prefix("0x").unwrap(),
                     16,
                 )?))
             } else {
-                Ok(Some(block.parse()?))
+                Ok(BlockTag::Number(block.parse()?))
             }
         }
     }
