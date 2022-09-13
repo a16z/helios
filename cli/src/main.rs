@@ -37,6 +37,14 @@ fn get_config() -> Result<Config> {
         config.general.rpc_port = Some(port);
     }
 
+    if let Some(execution_rpc) = cli.execution_rpc {
+        config.general.execution_rpc = execution_rpc;
+    }
+
+    if let Some(consensus_rpc) = cli.consensus_rpc {
+        config.general.consensus_rpc = consensus_rpc;
+    }
+
     Ok(config)
 }
 
@@ -46,6 +54,10 @@ struct Cli {
     network: String,
     #[clap(short, long)]
     port: Option<u16>,
-    #[clap(short, long)]
+    #[clap(short = 'w', long)]
     checkpoint: Option<String>,
+    #[clap(short, long)]
+    execution_rpc: Option<String>,
+    #[clap(short, long)]
+    consensus_rpc: Option<String>,
 }
