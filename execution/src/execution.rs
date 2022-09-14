@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
@@ -140,7 +140,7 @@ impl<R: Rpc> ExecutionClient<R> {
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: &H256,
-        payloads: &HashMap<u64, ExecutionPayload>,
+        payloads: &BTreeSet<ExecutionPayload>,
     ) -> Result<Option<TransactionReceipt>> {
         let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
         if receipt.is_none() {
@@ -148,7 +148,12 @@ impl<R: Rpc> ExecutionClient<R> {
         }
 
         let receipt = receipt.unwrap();
-        let payload = payloads.get(&receipt.block_number.unwrap().as_u64());
+        let block_number = receipt.block_number.unwrap().as_u64();
+        let payload_matcher = ExecutionPayload {
+            block_number,
+            ..Default::default()
+        };
+        let payload = payloads.get(&payload_matcher);
         if payload.is_none() {
             return Ok(None);
         }
@@ -187,7 +192,7 @@ impl<R: Rpc> ExecutionClient<R> {
     pub async fn get_transaction(
         &self,
         hash: &H256,
-        payloads: &HashMap<u64, ExecutionPayload>,
+        payloads: &BTreeSet<ExecutionPayload>,
     ) -> Result<Option<Transaction>> {
         let tx = self.rpc.get_transaction(hash).await?;
         if tx.is_none() {
@@ -201,9 +206,12 @@ impl<R: Rpc> ExecutionClient<R> {
             return Ok(None);
         }
 
-        let block_number = block_number.unwrap();
-
-        let payload = payloads.get(&block_number.as_u64());
+        let block_number = block_number.unwrap().as_u64();
+        let payload_matcher = ExecutionPayload {
+            block_number,
+            ..Default::default()
+        };
+        let payload = payloads.get(&payload_matcher);
         if payload.is_none() {
             return Ok(None);
         }
