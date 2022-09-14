@@ -31,14 +31,11 @@ pub struct BeaconBlockBody {
     eth1_data: Eth1Data,
     #[serde(deserialize_with = "bytes32_deserialize")]
     graffiti: Bytes32,
-    // TODO: handle
-    proposer_slashings: List<Dummy, 16>,
-    // TODO: handle
-    attester_slashings: List<Dummy, 2>,
+    proposer_slashings: List<ProposerSlashing, 16>,
+    attester_slashings: List<AttesterSlashing, 2>,
     attestations: List<Attestation, 128>,
     deposits: List<Deposit, 16>,
-    // TODO: handle
-    voluntary_exits: List<Dummy, 16>,
+    voluntary_exits: List<SignedVoluntaryExit, 16>,
     sync_aggregate: SyncAggregate,
     pub execution_payload: ExecutionPayload,
 }
@@ -76,6 +73,48 @@ pub struct ExecutionPayload {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct ProposerSlashing {
+    signed_header_1: SignedBeaconBlockHeader,
+    signed_header_2: SignedBeaconBlockHeader,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct SignedBeaconBlockHeader {
+    message: BeaconBlockHeader,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct BeaconBlockHeader {
+    #[serde(deserialize_with = "u64_deserialize")]
+    slot: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    proposer_index: u64,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    parent_root: Bytes32,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    state_root: Bytes32,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    body_root: Bytes32,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct AttesterSlashing {
+    attestation_1: IndexedAttestation,
+    attestation_2: IndexedAttestation,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct IndexedAttestation {
+    #[serde(deserialize_with = "attesting_indices_deserialize")]
+    attesting_indices: List<u64, 2048>,
+    data: AttestationData,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct Attestation {
     aggregation_bits: Bitlist<2048>,
     data: AttestationData,
@@ -104,8 +143,18 @@ struct Checkpoint {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct Dummy {
-    t: u64,
+struct SignedVoluntaryExit {
+    message: VoluntaryExit,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct VoluntaryExit {
+    #[serde(deserialize_with = "u64_deserialize")]
+    epoch: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    validator_index: u64,
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
@@ -283,9 +332,10 @@ where
     D: serde::Deserializer<'de>,
 {
     let val: String = serde::Deserialize::deserialize(deserializer)?;
-    // TODO: support larger values
-    let i = val.parse::<u64>().map_err(D::Error::custom)?;
-    Ok(U256::from(i))
+    let x = ethers::types::U256::from_dec_str(&val).map_err(D::Error::custom)?;
+    let mut x_bytes = [0; 32];
+    x.to_little_endian(&mut x_bytes);
+    Ok(U256::from_bytes_le(x_bytes))
 }
 
 fn bytes32_deserialize<'de, D>(deserializer: D) -> Result<Bytes32, D::Error>
@@ -338,4 +388,17 @@ where
         })
         .collect::<List<Transaction, 1048576>>();
     Ok(transactions)
+}
+
+fn attesting_indices_deserialize<'de, D>(deserializer: D) -> Result<List<u64, 2048>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let attesting_indices: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
+    let attesting_indices = attesting_indices
+        .iter()
+        .map(|i| i.parse().unwrap())
+        .collect::<List<u64, 2048>>();
+
+    Ok(attesting_indices)
 }
