@@ -31,8 +31,7 @@ pub struct BeaconBlockBody {
     eth1_data: Eth1Data,
     #[serde(deserialize_with = "bytes32_deserialize")]
     graffiti: Bytes32,
-    // TODO: handle
-    proposer_slashings: List<Dummy, 16>,
+    proposer_slashings: List<ProposerSlashing, 16>,
     // TODO: handle
     attester_slashings: List<Dummy, 2>,
     attestations: List<Attestation, 128>,
@@ -73,6 +72,33 @@ pub struct ExecutionPayload {
     pub block_hash: Bytes32,
     #[serde(deserialize_with = "transactions_deserialize")]
     pub transactions: List<Transaction, 1048576>,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct ProposerSlashing {
+    signed_header_1: SignedBeaconBlockHeader,
+    signed_header_2: SignedBeaconBlockHeader,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct SignedBeaconBlockHeader {
+    message: BeaconBlockHeader,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct BeaconBlockHeader {
+    #[serde(deserialize_with = "u64_deserialize")]
+    slot: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    proposer_index: u64,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    parent_root: Bytes32,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    state_root: Bytes32,
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    body_root: Bytes32,
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
