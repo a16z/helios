@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use ethers::prelude::{Address, U256};
@@ -18,10 +18,9 @@ pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient<HttpRpc>,
     config: Arc<Config>,
-    payloads: HashMap<u64, ExecutionPayload>,
-    block_hashes: HashMap<Vec<u8>, u64>,
-    latest_block: u64,
-    finalized_block: u64,
+    payloads: BTreeMap<u64, ExecutionPayload>,
+    finalized_payloads: BTreeMap<u64, ExecutionPayload>,
+    history_size: usize,
 }
 
 impl Node {
@@ -34,17 +33,16 @@ impl Node {
             ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
         let execution = ExecutionClient::new(execution_rpc)?;
 
-        let payloads = HashMap::new();
-        let block_hashes = HashMap::new();
+        let payloads = BTreeMap::new();
+        let finalized_payloads = BTreeMap::new();
 
         Ok(Node {
             consensus,
             execution,
             config,
             payloads,
-            block_hashes,
-            latest_block: 0,
-            finalized_block: 0,
+            finalized_payloads,
+            history_size: 64,
         })
     }
 
@@ -65,66 +63,66 @@ impl Node {
             .get_execution_payload(&Some(latest_header.slot))
             .await?;
 
-        self.latest_block = latest_payload.block_number;
-        self.block_hashes.insert(
-            latest_payload.block_hash.to_vec(),
-            latest_payload.block_number,
-        );
-        self.payloads
-            .insert(latest_payload.block_number, latest_payload);
-
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
             .consensus
             .get_execution_payload(&Some(finalized_header.slot))
             .await?;
 
-        self.finalized_block = finalized_payload.block_number;
-        self.block_hashes.insert(
-            finalized_payload.block_hash.to_vec(),
-            finalized_payload.block_number,
-        );
         self.payloads
+            .insert(latest_payload.block_number, latest_payload);
+        self.payloads
+            .insert(finalized_payload.block_number, finalized_payload.clone());
+        self.finalized_payloads
             .insert(finalized_payload.block_number, finalized_payload);
+
+        while self.payloads.len() > self.history_size {
+            self.payloads.pop_first();
+        }
+
+        while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
+            self.finalized_payloads.pop_first();
+        }
 
         Ok(())
     }
 
     pub fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
-        let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
+        let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.call(opts)
     }
 
     pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         let payload = self.get_payload(&BlockTag::Latest)?;
-        let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
+        let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.estimate_gas(opts)
     }
 
     pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, &payload).await?;
+        let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.balance)
     }
 
     pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, &payload).await?;
+        let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.nonce)
     }
 
     pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
-        self.execution.get_code(&address, &payload).await
+        self.execution.get_code(&address, payload).await
     }
 
     pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
         let payload = self.get_payload(&BlockTag::Latest)?;
         let account = self
             .execution
-            .get_account(address, Some(&[slot]), &payload)
+            .get_account(address, Some(&[slot]), payload)
             .await?;
+
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),
@@ -170,16 +168,18 @@ impl Node {
 
     pub fn get_block_by_number(&self, block: &BlockTag) -> Result<ExecutionBlock> {
         let payload = self.get_payload(block)?;
-        self.execution.get_block(&payload)
+        self.execution.get_block(payload)
     }
 
     pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<ExecutionBlock> {
-        let block = self
-            .block_hashes
-            .get(hash)
-            .ok_or(eyre!("Block Not Found"))?;
-        let payload = self.get_payload(&BlockTag::Number(*block))?;
-        self.execution.get_block(&payload)
+        let payloads = self
+            .payloads
+            .iter()
+            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
+            .collect::<Vec<(&u64, &ExecutionPayload)>>();
+
+        let payload = payloads.get(0).ok_or(eyre!("Block Not Found"))?.1;
+        self.execution.get_block(payload)
     }
 
     pub fn chain_id(&self) -> u64 {
@@ -190,19 +190,19 @@ impl Node {
         self.consensus.get_header()
     }
 
-    fn get_payload(&self, block: &BlockTag) -> Result<ExecutionPayload> {
+    fn get_payload(&self, block: &BlockTag) -> Result<&ExecutionPayload> {
         match block {
             BlockTag::Latest => {
-                let payload = self.payloads.get(&self.latest_block);
-                payload.cloned().ok_or(eyre!("Block Not Found"))
+                let payload = self.payloads.last_key_value();
+                Ok(payload.ok_or(eyre!("Block Not Found"))?.1)
             }
             BlockTag::Finalized => {
-                let payload = self.payloads.get(&self.finalized_block);
-                payload.cloned().ok_or(eyre!("Block Not Found"))
+                let payload = self.finalized_payloads.last_key_value();
+                Ok(payload.ok_or(eyre!("Block Not Found"))?.1)
             }
             BlockTag::Number(num) => {
-                let payload = self.payloads.get(&num);
-                payload.cloned().ok_or(eyre!("Block Not Found"))
+                let payload = self.payloads.get(num);
+                payload.ok_or(eyre!("Block Not Found"))
             }
         }
     }
