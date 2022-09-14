@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [ "master" ]
 
-name: Continuous integration
-
 jobs:
   check:
     name: Check
