@@ -23,8 +23,11 @@ jobs:
           override: true
           components: rustfmt, clippy
     - name: Build
+      uses: actions-rs/cargo@v1
       run: cargo build --verbose
     - name: Format
+      uses: actions-rs/cargo@v1
       run: cargo fmt --check --verbose
     - name: Run tests
+      uses: actions-rs/cargo@v1
       run: cargo test --verbose
