@@ -401,7 +401,3 @@ where
 
     Ok(attesting_indices)
 }
-
-// let val: String = serde::Deserialize::deserialize(deserializer)?;
-// Ok(val.parse().unwrap())
-// attesting_indices: List<u64, 2048>,
