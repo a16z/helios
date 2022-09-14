@@ -75,26 +75,6 @@ pub struct ExecutionPayload {
     pub transactions: List<Transaction, 1048576>,
 }
 
-impl Ord for ExecutionPayload {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.block_number.cmp(&other.block_number)
-    }
-}
-
-impl PartialOrd for ExecutionPayload {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for ExecutionPayload {
-    fn eq(&self, other: &Self) -> bool {
-        self.block_number.eq(&other.block_number)
-    }
-}
-
-impl Eq for ExecutionPayload {}
-
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct Attestation {
     aggregation_bits: Bitlist<2048>,

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use ethers::prelude::{Address, U256};
@@ -18,8 +18,8 @@ pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient<HttpRpc>,
     config: Arc<Config>,
-    payloads: BTreeSet<ExecutionPayload>,
-    finalized_payloads: BTreeSet<ExecutionPayload>,
+    payloads: BTreeMap<u64, ExecutionPayload>,
+    finalized_payloads: BTreeMap<u64, ExecutionPayload>,
     history_size: usize,
 }
 
@@ -33,8 +33,8 @@ impl Node {
             ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
         let execution = ExecutionClient::new(execution_rpc)?;
 
-        let payloads = BTreeSet::new();
-        let finalized_payloads = BTreeSet::new();
+        let payloads = BTreeMap::new();
+        let finalized_payloads = BTreeMap::new();
 
         Ok(Node {
             consensus,
@@ -63,16 +63,18 @@ impl Node {
             .get_execution_payload(&Some(latest_header.slot))
             .await?;
 
-        self.payloads.insert(latest_payload);
-
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
             .consensus
             .get_execution_payload(&Some(finalized_header.slot))
             .await?;
 
-        self.payloads.insert(finalized_payload.clone());
-        self.finalized_payloads.insert(finalized_payload);
+        self.payloads
+            .insert(latest_payload.block_number, latest_payload);
+        self.payloads
+            .insert(finalized_payload.block_number, finalized_payload.clone());
+        self.finalized_payloads
+            .insert(finalized_payload.block_number, finalized_payload);
 
         while self.payloads.len() > self.history_size {
             self.payloads.pop_first();
@@ -87,39 +89,40 @@ impl Node {
 
     pub fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
-        let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
+        let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.call(opts)
     }
 
     pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         let payload = self.get_payload(&BlockTag::Latest)?;
-        let mut evm = Evm::new(self.execution.clone(), payload, self.chain_id());
+        let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.estimate_gas(opts)
     }
 
     pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, &payload).await?;
+        let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.balance)
     }
 
     pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, &payload).await?;
+        let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.nonce)
     }
 
     pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
-        self.execution.get_code(&address, &payload).await
+        self.execution.get_code(&address, payload).await
     }
 
     pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
         let payload = self.get_payload(&BlockTag::Latest)?;
         let account = self
             .execution
-            .get_account(address, Some(&[slot]), &payload)
+            .get_account(address, Some(&[slot]), payload)
             .await?;
+
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),
@@ -165,17 +168,17 @@ impl Node {
 
     pub fn get_block_by_number(&self, block: &BlockTag) -> Result<ExecutionBlock> {
         let payload = self.get_payload(block)?;
-        self.execution.get_block(&payload)
+        self.execution.get_block(payload)
     }
 
     pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<ExecutionBlock> {
         let payloads = self
             .payloads
             .iter()
-            .filter(|payload| &payload.block_hash.to_vec() == hash)
-            .collect::<Vec<&ExecutionPayload>>();
+            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
+            .collect::<Vec<(&u64, &ExecutionPayload)>>();
 
-        let payload = payloads.get(0).ok_or(eyre!("Block Not Found"))?;
+        let payload = payloads.get(0).ok_or(eyre!("Block Not Found"))?.1;
         self.execution.get_block(payload)
     }
 
@@ -187,24 +190,19 @@ impl Node {
         self.consensus.get_header()
     }
 
-    fn get_payload(&self, block: &BlockTag) -> Result<ExecutionPayload> {
+    fn get_payload(&self, block: &BlockTag) -> Result<&ExecutionPayload> {
         match block {
             BlockTag::Latest => {
-                let payload = self.payloads.last();
-                payload.cloned().ok_or(eyre!("Block Not Found"))
+                let payload = self.payloads.last_key_value();
+                Ok(payload.ok_or(eyre!("Block Not Found"))?.1)
             }
             BlockTag::Finalized => {
-                let payload = self.finalized_payloads.last();
-                payload.cloned().ok_or(eyre!("Block Not Found"))
+                let payload = self.finalized_payloads.last_key_value();
+                Ok(payload.ok_or(eyre!("Block Not Found"))?.1)
             }
             BlockTag::Number(num) => {
-                let matcher = ExecutionPayload {
-                    block_number: *num,
-                    ..Default::default()
-                };
-
-                let payload = self.payloads.get(&matcher);
-                payload.cloned().ok_or(eyre!("Block Not Found"))
+                let payload = self.payloads.get(num);
+                payload.ok_or(eyre!("Block Not Found"))
             }
         }
     }
