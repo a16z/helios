@@ -35,8 +35,7 @@ pub struct BeaconBlockBody {
     attester_slashings: List<AttesterSlashing, 2>,
     attestations: List<Attestation, 128>,
     deposits: List<Deposit, 16>,
-    // TODO: handle
-    voluntary_exits: List<Dummy, 16>,
+    voluntary_exits: List<SignedVoluntaryExit, 16>,
     sync_aggregate: SyncAggregate,
     pub execution_payload: ExecutionPayload,
 }
@@ -144,8 +143,18 @@ struct Checkpoint {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct Dummy {
-    t: u64,
+struct SignedVoluntaryExit {
+    message: VoluntaryExit,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct VoluntaryExit {
+    #[serde(deserialize_with = "u64_deserialize")]
+    epoch: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    validator_index: u64,
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
