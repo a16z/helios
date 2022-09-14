@@ -20,6 +20,8 @@ jobs:
       uses: actions-rs/toolchain@v1
       with: 
           toolchain: nightly
+          override: true
+          components: rustfmt, clippy
     - name: Build
       run: cargo build --verbose
     - name: Format
