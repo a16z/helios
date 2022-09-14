@@ -32,8 +32,7 @@ pub struct BeaconBlockBody {
     #[serde(deserialize_with = "bytes32_deserialize")]
     graffiti: Bytes32,
     proposer_slashings: List<ProposerSlashing, 16>,
-    // TODO: handle
-    attester_slashings: List<Dummy, 2>,
+    attester_slashings: List<AttesterSlashing, 2>,
     attestations: List<Attestation, 128>,
     deposits: List<Deposit, 16>,
     // TODO: handle
@@ -99,6 +98,21 @@ struct BeaconBlockHeader {
     state_root: Bytes32,
     #[serde(deserialize_with = "bytes32_deserialize")]
     body_root: Bytes32,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct AttesterSlashing {
+    attestation_1: IndexedAttestation,
+    attestation_2: IndexedAttestation,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+struct IndexedAttestation {
+    #[serde(deserialize_with = "attesting_indices_deserialize")]
+    attesting_indices: List<u64, 2048>,
+    data: AttestationData,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
@@ -365,3 +379,20 @@ where
         .collect::<List<Transaction, 1048576>>();
     Ok(transactions)
 }
+
+fn attesting_indices_deserialize<'de, D>(deserializer: D) -> Result<List<u64, 2048>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let attesting_indices: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
+    let attesting_indices = attesting_indices
+        .iter()
+        .map(|i| i.parse().unwrap())
+        .collect::<List<u64, 2048>>();
+
+    Ok(attesting_indices)
+}
+
+// let val: String = serde::Deserialize::deserialize(deserializer)?;
+// Ok(val.parse().unwrap())
+// attesting_indices: List<u64, 2048>,
