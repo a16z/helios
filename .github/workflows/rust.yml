@@ -16,7 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name Install nightly
+    - name: Install nightly
       uses: actions-rs/toolchain@v1
       with: 
           toolchain: nightly
