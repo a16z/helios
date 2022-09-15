@@ -28,10 +28,15 @@ jobs:
       - name: archive
         run: gtar -czvf "lightclient_darwin_arm64.tar.gz" -C ./target/aarch64-apple-darwin/release lightclient
 
+      - name: generate tag name
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+
       - name: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.GITHUB_SHA }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
           prerelease: true
           files: |
             lightclient_darwin_arm64.tar.gz
@@ -60,10 +65,15 @@ jobs:
       - name: archive
         run: gtar -czvf "lightclient_darwin_amd64.tar.gz" -C ./target/x86_64-apple-darwin/release lightclient
 
+      - name: generate tag name
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+
       - name: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.GITHUB_SHA }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
           prerelease: true
           files: |
             lightclient_darwin_amd64.tar.gz
@@ -98,10 +108,15 @@ jobs:
       - name: archive
         run: tar -czvf "lightclient_linux_arm64.tar.gz" -C ./target/aarch64-unknown-linux-gnu/release lightclient
 
+      - name: generate tag name
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+
       - name: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.GITHUB_SHA }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
           prerelease: true
           files: |
             lightclient_linux_arm64.tar.gz
@@ -130,10 +145,15 @@ jobs:
       - name: archive
         run: tar -czvf "lightclient_linux_amd64.tar.gz" -C ./target/x86_64-unknown-linux-gnu/release lightclient
 
+      - name: generate tag name
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+
       - name: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.GITHUB_SHA }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
           prerelease: true
           files: |
             lightclient_linux_amd64.tar.gz
