@@ -1,4 +1,4 @@
-name: Release
+name: release
 
 on:
   workflow_dispatch:
@@ -9,27 +9,29 @@ jobs:
   build-mac-arm:
     runs-on: macos-latest
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v1
 
-      - name: Install Nightly Rust
+      - name: install rust nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           default: true
           override: true
 
-      - name: Install Target
+      - name: install apple arm target
         run: rustup target add aarch64-apple-darwin
 
-      - name: Build
-        run: cargo build --all --release --target aarch64-apple-darwin && strip target/release/lightclient && mv target/release/lightclient target/release/lightclient_darwin_arm64
+      - name: build
+        run: cargo build --all --release --target aarch64-apple-darwin && mv target/release/lightclient target/release/lightclient_darwin_arm64
 
-      - name: Release
+      - name: archive
+        run: gtar -czvf "lightclient_darwin_arm64.tar.gz" -C ./target/${TARGET}/release lightclient
+
+      - name: release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            target/release/lightclient_darwin_arm64
+            lightclient_darwin_arm64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
