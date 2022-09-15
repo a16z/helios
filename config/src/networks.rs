@@ -16,9 +16,8 @@ pub fn mainnet() -> Config {
             )
             .unwrap(),
             consensus_rpc: "http://testing.mainnet.beacon-api.nimbus.team".to_string(),
-            execution_rpc:
-                "https://eth-mainnet.g.alchemy.com/v2/Q0BqQPbTQfSMzrCNl4x80XS_PLLB1RNf"
-                    .to_string(),
+            execution_rpc: "https://eth-mainnet.g.alchemy.com/v2/Q0BqQPbTQfSMzrCNl4x80XS_PLLB1RNf"
+                .to_string(),
             rpc_port: Some(8545),
         },
         forks: Forks {
