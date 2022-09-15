@@ -34,28 +34,6 @@ jobs:
             echo "::set-output name=tag_name::${GITHUB_REF_NAME}"
             echo "::set-output name=release_name::${GITHUB_REF_NAME}"
           fi
-      # Creates a `nightly-SHA` tag for this specific nightly
-      # This tag is used for this specific nightly version's release
-      # which allows users to roll back. It is also used to build
-      # the changelog.
-      - name: Create build-specific nightly tag
-        if: ${{ env.IS_NIGHTLY }}
-        uses: actions/github-script@v5
-        env:
-          TAG_NAME: ${{ steps.release_info.outputs.tag_name }}
-        with:
-          script: |
-            const createTag = require('./.github/scripts/create-tag.js')
-            await createTag({ github, context }, process.env.TAG_NAME)
-      - name: Build changelog
-        id: build_changelog
-        uses: mikepenz/release-changelog-builder-action@v2
-        with:
-          configuration: "./.github/changelog.json"
-          fromTag: ${{ env.IS_NIGHTLY && 'nightly' || '' }}
-          toTag: ${{ steps.release_info.outputs.tag_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
