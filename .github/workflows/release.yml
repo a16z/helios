@@ -23,10 +23,10 @@ jobs:
         run: rustup target add aarch64-apple-darwin
 
       - name: build
-        run: cargo build --all --release --target aarch64-apple-darwin && mv target/release/lightclient target/release/lightclient_darwin_arm64
+        run: cargo build --all --release --target aarch64-apple-darwin
 
       - name: archive
-        run: gtar -czvf "lightclient_darwin_arm64.tar.gz" -C ./target/${TARGET}/release lightclient
+        run: gtar -czvf "lightclient_darwin_arm64.tar.gz" -C ./target/aarch64-apple-darwin/release lightclient
 
       - name: release
         uses: softprops/action-gh-release@v1
