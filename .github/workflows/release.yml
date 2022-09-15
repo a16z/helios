@@ -86,6 +86,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y gcc-aarch64-linux-gnu
           sudo apt-get install -y libssl-dev
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: install target
         run: rustup target add aarch64-unknown-linux-gnu
