@@ -30,6 +30,7 @@ jobs:
 
       - name: release
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             lightclient_darwin_arm64.tar.gz
