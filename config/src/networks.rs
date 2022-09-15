@@ -2,6 +2,41 @@ use common::utils::hex_str_to_bytes;
 
 use crate::{Config, Fork, Forks, General};
 
+pub fn mainnet() -> Config {
+    Config {
+        general: General {
+            chain_id: 1,
+            genesis_time: 1606824023,
+            genesis_root: hex_str_to_bytes(
+                "0x4b363db94e286120d76eb905340fdd4e54bfe9f06bf33ff6cf5ad27f511bfe95",
+            )
+            .unwrap(),
+            checkpoint: hex_str_to_bytes(
+                "0x03e315e11b3f88cd63dfb62c74a313c4a65949ce9e37599e0ee66533ceceadfd",
+            )
+            .unwrap(),
+            consensus_rpc: "http://testing.mainnet.beacon-api.nimbus.team".to_string(),
+            execution_rpc: "https://eth-mainnet.g.alchemy.com/v2/Q0BqQPbTQfSMzrCNl4x80XS_PLLB1RNf"
+                .to_string(),
+            rpc_port: Some(8545),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x00000000").unwrap(),
+            },
+            altair: Fork {
+                epoch: 74240,
+                fork_version: hex_str_to_bytes("0x01000000").unwrap(),
+            },
+            bellatrix: Fork {
+                epoch: 144896,
+                fork_version: hex_str_to_bytes("0x02000000").unwrap(),
+            },
+        },
+    }
+}
+
 pub fn goerli() -> Config {
     Config {
         general: General {

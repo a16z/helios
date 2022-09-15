@@ -21,6 +21,7 @@ async fn main() -> Result<()> {
 fn get_config() -> Result<Config> {
     let cli = Cli::parse();
     let mut config = match cli.network.as_str() {
+        "mainnet" => networks::mainnet(),
         "goerli" => networks::goerli(),
         _ => {
             let home = home_dir().unwrap();
@@ -50,7 +51,7 @@ fn get_config() -> Result<Config> {
 
 #[derive(Parser)]
 struct Cli {
-    #[clap(short, long, default_value = "goerli")]
+    #[clap(short, long, default_value = "mainnet")]
     network: String,
     #[clap(short, long)]
     port: Option<u16>,
