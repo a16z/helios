@@ -22,6 +22,7 @@ futures = "0.3.23"
 toml = "0.5.9"
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum" }
 async-trait = "0.1.57"
+openssl = { version = "0.10", features = ["vendored"] }
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
