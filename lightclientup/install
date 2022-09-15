@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -e
+
+# modified from https://github.com/foundry-rs/foundry/blob/master/foundryup/install
+
+REPO="a16z/lightclient"
+NAME=lightclient
+
+INSTALLER_NAME=${NAME}up
+
+DIR=$HOME/.$NAME
+BIN_DIR=$DIR/bin
+
+BIN_URL="https://raw.githubusercontent.com/$REPO/master/$INSTALLER_NAME/$INSTALLER_NAME"
+BIN_PATH="$BIN_DIR/$INSTALLER_NAME"
+
+# Create the bin directory and binary if it doesn't exist.
+mkdir -p $BIN_DIR
+curl -# -L $BIN_URL -o $BIN_PATH
+chmod +x $BIN_PATH
+
+# Store the correct profile file (i.e. .profile for bash or .zshrc for ZSH).
+case $SHELL in
+*/zsh)
+    PROFILE=$HOME/.zshrc
+    PREF_SHELL=zsh
+    ;;
+*/bash)
+    PROFILE=$HOME/.bashrc
+    PREF_SHELL=bash
+    ;;
+*/fish)
+    PROFILE=$HOME/.config/fish/config.fish
+    PREF_SHELL=fish
+    ;;
+*)
+    echo "$INSTALLER_NAME: could not detect shell, manually add ${BIN_DIR} to your PATH."
+    exit 1
+esac
+
+# Only add installer if it isn't already in PATH.
+if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
+    # Add the foundryup directory to the path and ensure the old PATH variables remain.
+    echo >> $PROFILE && echo "export PATH=\"\$PATH:$BIN_DIR\"" >> $PROFILE
+fi
+
+echo && echo "Detected your preferred shell is ${PREF_SHELL} and added foundryup to PATH. Run 'source ${PROFILE}' or start a new terminal session to use $INSTALLER_NAME."
+echo "Then, simply run '$INSTALLER_NAME' to install $NAME."
