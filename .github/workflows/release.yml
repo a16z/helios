@@ -129,8 +129,8 @@ jobs:
 
       - name: release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: nightly
           files: |
             lightclient_linux_amd64.tar.gz
         env:
