@@ -19,6 +19,9 @@ jobs:
           default: true
           override: true
 
+      - name: Install Target
+        run: rustup target add aarch64-apple-darwin
+
       - name: Build
         run: cargo build --all --release --target aarch64-apple-darwin && strip target/release/lightclient && mv target/release/lightclient target/release/lightclient_darwin_arm64
 
