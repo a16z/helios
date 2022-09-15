@@ -78,22 +78,15 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          default: true
+          target: aarch64-unknown-linux-gnu
           override: true
           use-cross: true
 
-      - name: install dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-          sudo apt-get install -y libssl-dev
-          sudo apt-get install -y pkg-config
-
-      - name: install target
-        run: rustup target add aarch64-unknown-linux-gnu
-
       - name: build
-        run: cargo build --all --release --target aarch64-unknown-linux-gnu
+        with:
+          use-cross: true
+          command: build
+          args: --release --all --target aarch64-unknown-linux-gnu
 
       - name: archive
         run: tar -czvf "lightclient_linux_arm64.tar.gz" -C ./target/aarch64-unknown-linux-gnu/release lightclient
