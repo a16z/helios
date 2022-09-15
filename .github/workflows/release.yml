@@ -80,7 +80,6 @@ jobs:
           toolchain: nightly
           target: aarch64-unknown-linux-gnu
           override: true
-          use-cross: true
 
       - name: build
       - uses: actions-rs/cargo@v1
