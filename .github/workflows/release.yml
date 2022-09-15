@@ -30,8 +30,8 @@ jobs:
 
       - name: release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: $(git rev-parse "$GITHUB_SHA")
           files: |
             lightclient_darwin_arm64.tar.gz
         env:
@@ -61,8 +61,8 @@ jobs:
 
       - name: release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: $(git rev-parse "$GITHUB_SHA")
           files: |
             lightclient_darwin_amd64.tar.gz
         env:
@@ -98,8 +98,8 @@ jobs:
 
       - name: release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: $(git rev-parse "$GITHUB_SHA")
           files: |
             lightclient_linux_arm64.tar.gz
         env:
@@ -130,7 +130,7 @@ jobs:
       - name: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: nightly
+          tag_name: $(git rev-parse "$GITHUB_SHA")
           files: |
             lightclient_linux_amd64.tar.gz
         env:
