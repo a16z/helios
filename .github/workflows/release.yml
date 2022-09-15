@@ -57,7 +57,7 @@ jobs:
         run: cargo build --all --release --target x86_64-apple-darwin	
 
       - name: archive
-        run: gtar -czvf "lightclient_darwin_amd64.tar.gz" -C ./target/x86_64-apple-darwin	/release lightclient
+        run: gtar -czvf "lightclient_darwin_amd64.tar.gz" -C ./target/x86_64-apple-darwin/release lightclient
 
       - name: release
         uses: softprops/action-gh-release@v1
