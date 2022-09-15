@@ -12,3 +12,4 @@ hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
 ethers = "0.17.0"
 toml = "0.5.9"
+openssl = { version = "0.10", features = ["vendored"] }
