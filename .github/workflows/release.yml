@@ -1,5 +1,4 @@
 # https://github.com/foundry-rs/foundry/blob/master/.github/workflows/release.yml
-
 name: Release version
 
 on:
@@ -7,6 +6,7 @@ on:
 
 env:
   IS_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+  CARGO_TERM_COLOR: always
 
 jobs:
   prepare:
@@ -22,7 +22,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
         with:
-          ref: ${{ env.IS_NIGHTLY && 'stage' || 'main' }}
           fetch-depth: 0
 
       - name: Compute release name and tag
@@ -90,23 +89,16 @@ jobs:
             target: aarch64-apple-darwin
             arch: arm64
             svm_target_platform: macosx-aarch64
-          #- os: windows-latest
-          #  platform: win32
-          #  target: x86_64-pc-windows-msvc
-          #  arch: amd64
-          #  svm_target_platform: macosx-amd64
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          ref: ${{ env.IS_NIGHTLY && 'stage' || 'main' }}
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           target: ${{ matrix.job.target }}
           override: true
 
@@ -142,18 +134,18 @@ jobs:
           VERSION_NAME: ${{ (env.IS_NIGHTLY && 'nightly') || needs.prepare.outputs.tag_name }}
         run: |
           if [ "$PLATFORM_NAME" == "linux" ]; then
-            tar -czvf "huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release huffc
-            echo "::set-output name=file_name::huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
+            tar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release forge cast anvil
+            echo "::set-output name=file_name::foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
           elif [ "$PLATFORM_NAME" == "darwin" ]; then
             # We need to use gtar here otherwise the archive is corrupt.
             # See: https://github.com/actions/virtual-environments/issues/2619
-            gtar -czvf "huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release huffc
-            echo "::set-output name=file_name::huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
+            gtar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release forge cast anvil
+            echo "::set-output name=file_name::foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
           else
             cd ./target/${TARGET}/release
-            7z a -tzip "huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" huff.exe
-            mv "huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
-            echo "::set-output name=file_name::huff_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip"
+            7z a -tzip "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe anvil.exe
+            mv "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
+            echo "::set-output name=file_name::foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip"
           fi
         shell: bash
 
@@ -166,10 +158,14 @@ jobs:
           VERSION_NAME: ${{ (env.IS_NIGHTLY && 'nightly') || needs.prepare.outputs.tag_name }}
         run: |
           sudo apt-get -y install help2man
-          help2man -N ./target/${TARGET}/release/huffc > huff.1
-          gzip huff.1
-          tar -czvf "huff_man_${VERSION_NAME}.tar.gz" huff.1.gz
-          echo "::set-output name=huff_man::huff_man_${VERSION_NAME}.tar.gz"
+          help2man -N ./target/${TARGET}/release/forge > forge.1
+          help2man -N ./target/${TARGET}/release/cast > cast.1
+          help2man -N ./target/${TARGET}/release/anvil > anvil.1
+          gzip forge.1
+          gzip cast.1
+          gzip anvil.1
+          tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz anvil.1.gz
+          echo "::set-output name=foundry_man::foundry_man_${VERSION_NAME}.tar.gz"
         shell: bash
 
       # Creates the release for this specific version
@@ -182,9 +178,9 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.file_name }}
-            ${{ steps.man.outputs.huff_man }}
+            ${{ steps.man.outputs.foundry_man }}
       # If this is a nightly release, it also updates the release
-      # tagged `nightly` for compatability with `huffup`
+      # tagged `nightly` for compatability with `foundryup`
       - name: Update nightly release
         if: ${{ env.IS_NIGHTLY }}
         uses: softprops/action-gh-release@v1
@@ -195,7 +191,7 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.file_name }}
-            ${{ steps.man.outputs.huff_man }}
+            ${{ steps.man.outputs.foundry_man }}
   cleanup:
     name: Release cleanup
     runs-on: ubuntu-latest
@@ -204,8 +200,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          ref: ${{ env.IS_NIGHTLY && 'stage' || 'main' }}
 
       # Moves the `nightly` tag to `HEAD`
       - name: Move nightly tag
