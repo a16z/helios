@@ -58,10 +58,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release-docker:
-    name: Release Docker
-    uses: ./.github/workflows/docker-publish.yaml
-
   release:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
