@@ -1,4 +1,4 @@
-# https://github.com/foundry-rs/foundry/blob/master/.github/workflows/release.yml
+# https://github.com/lightclient-rs/foundry/blob/master/.github/workflows/release.yml
 name: Release version
 
 on:
@@ -134,18 +134,18 @@ jobs:
           VERSION_NAME: ${{ (env.IS_NIGHTLY && 'nightly') || needs.prepare.outputs.tag_name }}
         run: |
           if [ "$PLATFORM_NAME" == "linux" ]; then
-            tar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release forge cast anvil
-            echo "::set-output name=file_name::foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
+            tar -czvf "lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release forge cast anvil
+            echo "::set-output name=file_name::lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
           elif [ "$PLATFORM_NAME" == "darwin" ]; then
             # We need to use gtar here otherwise the archive is corrupt.
             # See: https://github.com/actions/virtual-environments/issues/2619
-            gtar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release forge cast anvil
-            echo "::set-output name=file_name::foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
+            gtar -czvf "lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C ./target/${TARGET}/release forge cast anvil
+            echo "::set-output name=file_name::lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
           else
             cd ./target/${TARGET}/release
-            7z a -tzip "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe anvil.exe
-            mv "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
-            echo "::set-output name=file_name::foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip"
+            7z a -tzip "lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe anvil.exe
+            mv "lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
+            echo "::set-output name=file_name::lightclient_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip"
           fi
         shell: bash
 
@@ -164,8 +164,8 @@ jobs:
           gzip forge.1
           gzip cast.1
           gzip anvil.1
-          tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz anvil.1.gz
-          echo "::set-output name=foundry_man::foundry_man_${VERSION_NAME}.tar.gz"
+          tar -czvf "lightclient_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz anvil.1.gz
+          echo "::set-output name=lightclient_man::foundry_man_${VERSION_NAME}.tar.gz"
         shell: bash
 
       # Creates the release for this specific version
@@ -178,9 +178,9 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.file_name }}
-            ${{ steps.man.outputs.foundry_man }}
+            ${{ steps.man.outputs.lightclient_man }}
       # If this is a nightly release, it also updates the release
-      # tagged `nightly` for compatability with `foundryup`
+      # tagged `nightly` for compatability with `lightclientup`
       - name: Update nightly release
         if: ${{ env.IS_NIGHTLY }}
         uses: softprops/action-gh-release@v1
@@ -191,7 +191,7 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.file_name }}
-            ${{ steps.man.outputs.foundry_man }}
+            ${{ steps.man.outputs.lightclient_man }}
   cleanup:
     name: Release cleanup
     runs-on: ubuntu-latest
