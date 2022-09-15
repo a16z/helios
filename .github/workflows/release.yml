@@ -83,6 +83,7 @@ jobs:
           use-cross: true
 
       - name: build
+      - uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
