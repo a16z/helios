@@ -82,7 +82,7 @@ jobs:
           override: true
 
       - name: build
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
