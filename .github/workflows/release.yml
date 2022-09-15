@@ -80,6 +80,7 @@ jobs:
           toolchain: nightly
           default: true
           override: true
+          use-cross: true
 
       - name: install dependencies
         run: |
@@ -87,7 +88,6 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
           sudo apt-get install -y libssl-dev
           sudo apt-get install -y pkg-config
-          echo "PKG_CONFIG_SYSROOT_DIR=/" >> $GITHUB_ENV
 
       - name: install target
         run: rustup target add aarch64-unknown-linux-gnu
