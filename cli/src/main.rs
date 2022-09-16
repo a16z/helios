@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, process::exit};
 
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
@@ -8,6 +8,7 @@ use eyre::Result;
 
 use client::Client;
 use config::{networks, Config};
+use futures::executor::block_on;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,6 +18,11 @@ async fn main() -> Result<()> {
     let mut client = Client::new(config).await?;
 
     client.start().await?;
+
+    ctrlc::set_handler(move || {
+        block_on(client.shutdown());
+        exit(0);
+    })?;
 
     std::future::pending().await
 }
