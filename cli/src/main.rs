@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
@@ -13,7 +13,7 @@ use config::{networks, Config};
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let config = get_config()?;
+    let config = get_config();
     let mut client = Client::new(config).await?;
 
     client.start().await?;
@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     std::future::pending().await
 }
 
-fn get_config() -> Result<Config> {
+fn get_config() -> Config {
     let cli = Cli::parse();
     let mut config = match cli.network.as_str() {
         "mainnet" => networks::mainnet(),
@@ -29,27 +29,16 @@ fn get_config() -> Result<Config> {
         _ => {
             let home = home_dir().unwrap();
             let config_path = home.join(format!(".lightclient/configs/{}.toml", cli.network));
-            Config::from_file(&config_path)?
+            Config::from_file(&config_path).expect("could not read network config")
         }
     };
 
-    let data_dir = home_dir()
-        .unwrap()
-        .join(format!(".lightclient/data/{}", cli.network));
+    let data_dir = get_data_dir(&cli);
 
-    let checkpoint_file = data_dir.join("checkpoint");
-    if checkpoint_file.exists() {
-        let checkpoint_res = fs::read(checkpoint_file);
-        if let Ok(checkpoint) = checkpoint_res {
-            config.general.checkpoint = checkpoint;
-        }
-    }
-
-    config.machine.data_dir = Some(data_dir);
-
-    if let Some(checkpoint) = cli.checkpoint {
-        config.general.checkpoint = hex_str_to_bytes(&checkpoint)?;
-    }
+    config.general.checkpoint = match cli.checkpoint {
+        Some(checkpoint) => hex_str_to_bytes(&checkpoint).expect("invalid checkpoint"),
+        None => get_cached_checkpoint(&data_dir).unwrap_or(config.general.checkpoint),
+    };
 
     if let Some(port) = cli.port {
         config.general.rpc_port = Some(port);
@@ -63,7 +52,31 @@ fn get_config() -> Result<Config> {
         config.general.consensus_rpc = consensus_rpc;
     }
 
-    Ok(config)
+    config.machine.data_dir = Some(data_dir);
+
+    config
+}
+
+fn get_data_dir(cli: &Cli) -> PathBuf {
+    match &cli.data_dir {
+        Some(dir) => PathBuf::from(dir),
+        None => home_dir()
+            .unwrap()
+            .join(format!(".lightclient/data/{}", cli.network)),
+    }
+}
+
+fn get_cached_checkpoint(data_dir: &PathBuf) -> Option<Vec<u8>> {
+    let checkpoint_file = data_dir.join("checkpoint");
+    if checkpoint_file.exists() {
+        let checkpoint_res = fs::read(checkpoint_file);
+        match checkpoint_res {
+            Ok(checkpoint) => Some(checkpoint),
+            Err(_) => None,
+        }
+    } else {
+        None
+    }
 }
 
 #[derive(Parser)]
@@ -78,4 +91,6 @@ struct Cli {
     execution_rpc: Option<String>,
     #[clap(short, long)]
     consensus_rpc: Option<String>,
+    #[clap(long)]
+    data_dir: Option<String>,
 }
