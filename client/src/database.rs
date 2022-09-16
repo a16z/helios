@@ -2,7 +2,7 @@ use std::{fs, io::Write, path::PathBuf};
 
 use eyre::Result;
 
-pub trait Database: Sync + Send {
+pub trait Database {
     fn save_checkpoint(&self, checkpoint: Vec<u8>) -> Result<()>;
 }
 
