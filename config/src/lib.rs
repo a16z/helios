@@ -1,6 +1,9 @@
 pub mod networks;
 
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use eyre::Result;
 use serde::Deserialize;
@@ -11,6 +14,7 @@ use common::utils::hex_str_to_bytes;
 pub struct Config {
     pub general: General,
     pub forks: Forks,
+    pub machine: Machine,
 }
 
 #[derive(Deserialize, Debug)]
@@ -38,6 +42,11 @@ pub struct Fork {
     pub epoch: u64,
     #[serde(deserialize_with = "bytes_deserialize")]
     pub fork_version: Vec<u8>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Machine {
+    pub data_dir: Option<PathBuf>,
 }
 
 impl Config {

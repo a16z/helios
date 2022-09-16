@@ -3,25 +3,27 @@ use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
-use eyre::Result;
+use eyre::{eyre, Result};
 
 use config::Config;
 use consensus::types::Header;
 use execution::types::{CallOpts, ExecutionBlock};
-use log::warn;
+use log::{info, warn};
 use tokio::spawn;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
+use crate::database::{Database, FileDB};
 use crate::node::{BlockTag, Node};
 use crate::rpc::Rpc;
 
-pub struct Client {
+pub struct Client<DB: Database> {
     node: Arc<Mutex<Node>>,
     rpc: Option<Rpc>,
+    db: DB,
 }
 
-impl Client {
+impl Client<FileDB> {
     pub async fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
         let node = Node::new(config.clone()).await?;
@@ -33,15 +35,24 @@ impl Client {
             None
         };
 
-        Ok(Client { node, rpc })
-    }
+        let data_dir = config.machine.data_dir.clone();
+        let db = FileDB::new(data_dir.ok_or(eyre!("data dir not found"))?);
 
+        Ok(Client { node, rpc, db })
+    }
+}
+
+impl<DB: Database> Client<DB> {
     pub async fn start(&mut self) -> Result<()> {
         self.rpc.as_mut().unwrap().start().await?;
-        self.node.lock().await.sync().await?;
 
         let node = self.node.clone();
         spawn(async move {
+            let res = node.lock().await.sync().await;
+            if let Err(err) = res {
+                warn!("{}", err);
+            }
+
             loop {
                 let res = node.lock().await.advance().await;
                 if let Err(err) = res {
@@ -53,6 +64,24 @@ impl Client {
         });
 
         Ok(())
+    }
+
+    pub async fn shutdown(&self) {
+        println!();
+        info!("shutting down");
+
+        let node = self.node.lock().await;
+        let checkpoint = if let Some(checkpoint) = node.get_last_checkpoint() {
+            checkpoint
+        } else {
+            return;
+        };
+
+        info!("saving last checkpoint hash");
+        let res = self.db.save_checkpoint(checkpoint);
+        if res.is_err() {
+            warn!("checkpoint save failed");
+        }
     }
 
     pub async fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {

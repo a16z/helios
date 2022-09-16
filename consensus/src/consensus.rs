@@ -19,7 +19,8 @@ use super::types::*;
 pub struct ConsensusClient<R: Rpc> {
     rpc: R,
     store: Store,
-    config: Arc<Config>,
+    pub last_checkpoint: Option<Vec<u8>>,
+    pub config: Arc<Config>,
 }
 
 #[derive(Debug)]
@@ -65,7 +66,12 @@ impl<R: Rpc> ConsensusClient<R> {
             current_max_active_participants: 0,
         };
 
-        Ok(ConsensusClient { rpc, store, config })
+        Ok(ConsensusClient {
+            rpc,
+            store,
+            last_checkpoint: None,
+            config,
+        })
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
@@ -288,6 +294,12 @@ impl<R: Rpc> ConsensusClient<R> {
 
         self.store.finalized_header = update.finalized_header.clone();
 
+        if update.finalized_header.slot % 32 == 0 {
+            let n = update.finalized_header.clone().hash_tree_root().unwrap();
+            let checkpoint = n.as_bytes().to_vec();
+            self.last_checkpoint = Some(checkpoint);
+        }
+
         if self.store.next_sync_committee.is_none() {
             self.store.next_sync_committee = Some(update.next_sync_committee.clone());
         } else if update_signature_period == store_period + 1 {
@@ -321,6 +333,12 @@ impl<R: Rpc> ConsensusClient<R> {
             let participation =
                 get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
             let delay = self.get_delay(self.store.finalized_header.slot);
+
+            if update.finalized_header.slot % 32 == 0 {
+                let n = update.finalized_header.clone().hash_tree_root().unwrap();
+                let checkpoint = n.as_bytes().to_vec();
+                self.last_checkpoint = Some(checkpoint);
+            }
 
             info!(
                 "applying finality update       slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",

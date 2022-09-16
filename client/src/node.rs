@@ -190,6 +190,10 @@ impl Node {
         self.consensus.get_header()
     }
 
+    pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
+        self.consensus.last_checkpoint.clone()
+    }
+
     fn get_payload(&self, block: &BlockTag) -> Result<&ExecutionPayload> {
         match block {
             BlockTag::Latest => {
