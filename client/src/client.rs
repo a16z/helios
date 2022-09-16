@@ -77,6 +77,7 @@ impl<DB: Database> Client<DB> {
             return;
         };
 
+        info!("saving last checkpoint hash");
         let res = self.db.save_checkpoint(checkpoint);
         if res.is_err() {
             warn!("checkpoint save failed");
