@@ -1,3 +1,7 @@
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::exit;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,7 +12,8 @@ use eyre::Result;
 use config::Config;
 use consensus::types::Header;
 use execution::types::{CallOpts, ExecutionBlock};
-use log::warn;
+use futures::executor::block_on;
+use log::{info, warn};
 use tokio::spawn;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -26,6 +31,20 @@ impl Client {
         let config = Arc::new(config);
         let node = Node::new(config.clone()).await?;
         let node = Arc::new(Mutex::new(node));
+
+        let node_moved = node.clone();
+        let name = config.machine.data_dir.clone();
+        ctrlc::set_handler(move || {
+            println!(""); // avoid ctrl-c showing up to the left of logs
+            info!("shutting down");
+
+            let res = save_last_checkpoint(node_moved.clone(), name.clone());
+            if res.is_err() {
+                warn!("could not save checkpoint")
+            }
+
+            exit(0);
+        })?;
 
         let rpc = if let Some(port) = config.general.rpc_port {
             Some(Rpc::new(node.clone(), port))
@@ -129,4 +148,37 @@ impl Client {
     pub async fn get_header(&self) -> Header {
         self.node.lock().await.get_header().clone()
     }
+}
+
+fn save_last_checkpoint(node: Arc<Mutex<Node>>, data_dir: Option<PathBuf>) -> Result<()> {
+    let node = block_on(node.lock());
+    let checkpoint = node.get_last_checkpoint();
+    let checkpoint = if let Some(checkpoint) = checkpoint {
+        checkpoint
+    } else {
+        return Ok(());
+    };
+
+    let data_dir = if let Some(data_dir) = data_dir {
+        data_dir
+    } else {
+        return Ok(());
+    };
+
+    info!(
+        "saving last checkpoint               hash={}",
+        hex::encode(&checkpoint)
+    );
+
+    fs::create_dir_all(&data_dir)?;
+
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(data_dir.join("checkpoint"))?;
+
+    f.write_all(checkpoint.as_slice())?;
+
+    Ok(())
 }

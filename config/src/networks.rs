@@ -1,6 +1,6 @@
 use common::utils::hex_str_to_bytes;
 
-use crate::{Config, Fork, Forks, General};
+use crate::{Config, Fork, Forks, General, Machine};
 
 pub fn mainnet() -> Config {
     Config {
@@ -34,6 +34,7 @@ pub fn mainnet() -> Config {
                 fork_version: hex_str_to_bytes("0x02000000").unwrap(),
             },
         },
+        machine: Machine { data_dir: None },
     }
 }
 
@@ -70,5 +71,6 @@ pub fn goerli() -> Config {
                 fork_version: hex_str_to_bytes("0x02001020").unwrap(),
             },
         },
+        machine: Machine { data_dir: None },
     }
 }

@@ -48,12 +48,17 @@ impl Node {
 
     pub async fn sync(&mut self) -> Result<()> {
         self.consensus.sync().await?;
+        self.update_checkpoint();
         self.update_payloads().await
     }
 
     pub async fn advance(&mut self) -> Result<()> {
         self.consensus.advance().await?;
         self.update_payloads().await
+    }
+
+    fn update_checkpoint(&self) {
+        self.consensus.get_finalized_header();
     }
 
     async fn update_payloads(&mut self) -> Result<()> {
@@ -188,6 +193,10 @@ impl Node {
 
     pub fn get_header(&self) -> &Header {
         self.consensus.get_header()
+    }
+
+    pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
+        self.consensus.last_checkpoint.clone()
     }
 
     fn get_payload(&self, block: &BlockTag) -> Result<&ExecutionPayload> {

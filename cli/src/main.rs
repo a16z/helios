@@ -1,3 +1,5 @@
+use std::fs;
+
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
@@ -13,6 +15,7 @@ async fn main() -> Result<()> {
 
     let config = get_config()?;
     let mut client = Client::new(config).await?;
+
     client.start().await?;
 
     std::future::pending().await
@@ -26,9 +29,23 @@ fn get_config() -> Result<Config> {
         _ => {
             let home = home_dir().unwrap();
             let config_path = home.join(format!(".lightclient/configs/{}.toml", cli.network));
-            Config::from_file(&config_path).unwrap()
+            Config::from_file(&config_path)?
         }
     };
+
+    let data_dir = home_dir()
+        .unwrap()
+        .join(format!(".lightclient/data/{}", cli.network));
+
+    let checkpoint_file = data_dir.join("checkpoint");
+    if checkpoint_file.exists() {
+        let checkpoint_res = fs::read(checkpoint_file);
+        if let Ok(checkpoint) = checkpoint_res {
+            config.general.checkpoint = checkpoint;
+        }
+    }
+
+    config.machine.data_dir = Some(data_dir);
 
     if let Some(checkpoint) = cli.checkpoint {
         config.general.checkpoint = hex_str_to_bytes(&checkpoint)?;
