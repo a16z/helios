@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     client.start().await?;
 
     ctrlc::set_handler(move || {
-        block_on(client.shutdown());
+        // block_on(client.shutdown());
         exit(0);
     })?;
 

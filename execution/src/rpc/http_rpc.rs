@@ -1,8 +1,12 @@
 use async_trait::async_trait;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{Middleware, Provider};
-use ethers::types::{BlockId, Bytes, EIP1186ProofResponse, Transaction, TransactionReceipt, H256};
+use ethers::types::transaction::eip2718::TypedTransaction;
+use ethers::types::transaction::eip2930::AccessListWithGasUsed;
+use ethers::types::{BlockId, Bytes, EIP1186ProofResponse, Transaction, TransactionReceipt, H256, Eip1559TransactionRequest, U256};
 use eyre::Result;
+
+use crate::types::CallOpts;
 
 use super::Rpc;
 
@@ -30,6 +34,22 @@ impl Rpc for HttpRpc {
             .get_proof(*address, slots.to_vec(), block)
             .await?;
         Ok(proof_response)
+    }
+
+    async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessListWithGasUsed> {
+        let block = Some(BlockId::from(block));
+
+        let mut tx = Eip1559TransactionRequest::new();
+        tx.to = Some(opts.to.into());
+        tx.from = opts.from;
+        tx.value = opts.value;
+        tx.gas = Some(U256::from(100_000_000));
+        tx.data = opts.data.as_ref().map(|data| Bytes::from(data.as_slice().to_owned()));
+
+        let tx = TypedTransaction::Eip1559(tx);
+        let list = self.provider.create_access_list(&tx, block).await?;
+
+        Ok(list)
     }
 
     async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>> {

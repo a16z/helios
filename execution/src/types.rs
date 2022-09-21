@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use ethers::prelude::{Address, H256, U256};
 use eyre::Result;
@@ -49,7 +49,7 @@ pub struct ExecutionBlock {
     pub uncles: Vec<H256>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CallOpts {
     pub from: Option<Address>,
@@ -59,6 +59,17 @@ pub struct CallOpts {
     pub value: Option<U256>,
     #[serde(default, deserialize_with = "bytes_deserialize")]
     pub data: Option<Vec<u8>>,
+}
+
+impl fmt::Debug for CallOpts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CallOpts")
+         .field("from", &self.from)
+         .field("to", &self.to)
+         .field("value", &self.value)
+         .field("data", &hex::encode(&self.data.clone().unwrap_or_default()))
+         .finish()
+    }
 }
 
 fn bytes_deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
