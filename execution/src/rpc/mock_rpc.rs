@@ -2,8 +2,11 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use async_trait::async_trait;
 use common::utils::hex_str_to_bytes;
-use ethers::types::{Address, EIP1186ProofResponse, Transaction, TransactionReceipt, H256, transaction::eip2930::AccessListWithGasUsed};
-use eyre::{Result, eyre};
+use ethers::types::{
+    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, Transaction,
+    TransactionReceipt, H256,
+};
+use eyre::{eyre, Result};
 
 use crate::types::CallOpts;
 
@@ -31,7 +34,7 @@ impl Rpc for MockRpc {
         Ok(serde_json::from_str(&proof)?)
     }
 
-    async fn create_access_list(&self, _opts: &CallOpts, _block: u64) -> Result<AccessListWithGasUsed> {
+    async fn create_access_list(&self, _opts: &CallOpts, _block: u64) -> Result<AccessList> {
         Err(eyre!("not implemented"))
     }
 

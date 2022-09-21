@@ -2,9 +2,13 @@ use async_trait::async_trait;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{Middleware, Provider};
 use ethers::types::transaction::eip2718::TypedTransaction;
-use ethers::types::transaction::eip2930::AccessListWithGasUsed;
-use ethers::types::{BlockId, Bytes, EIP1186ProofResponse, Transaction, TransactionReceipt, H256, Eip1559TransactionRequest, U256};
+use ethers::types::transaction::eip2930::AccessList;
+use ethers::types::{
+    BlockId, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, Transaction,
+    TransactionReceipt, H256, U256,
+};
 use eyre::Result;
+use log::trace;
 
 use crate::types::CallOpts;
 
@@ -28,28 +32,34 @@ impl Rpc for HttpRpc {
         slots: &[H256],
         block: u64,
     ) -> Result<EIP1186ProofResponse> {
+        trace!("fetching proof");
         let block = Some(BlockId::from(block));
         let proof_response = self
             .provider
             .get_proof(*address, slots.to_vec(), block)
             .await?;
+        trace!("completed proof fetch");
         Ok(proof_response)
     }
 
-    async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessListWithGasUsed> {
+    async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessList> {
         let block = Some(BlockId::from(block));
 
         let mut tx = Eip1559TransactionRequest::new();
         tx.to = Some(opts.to.into());
         tx.from = opts.from;
         tx.value = opts.value;
-        tx.gas = Some(U256::from(100_000_000));
-        tx.data = opts.data.as_ref().map(|data| Bytes::from(data.as_slice().to_owned()));
+        // TODO: better way to set gas limit
+        tx.gas = Some(U256::from(10_000_000));
+        tx.data = opts
+            .data
+            .as_ref()
+            .map(|data| Bytes::from(data.as_slice().to_owned()));
 
         let tx = TypedTransaction::Eip1559(tx);
         let list = self.provider.create_access_list(&tx, block).await?;
 
-        Ok(list)
+        Ok(list.access_list)
     }
 
     async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>> {

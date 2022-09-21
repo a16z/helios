@@ -1033,6 +1033,7 @@ dependencies = [
  "futures",
  "hex",
  "jsonrpsee",
+ "log",
  "openssl",
  "reqwest",
  "revm",

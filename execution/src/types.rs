@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 
 use common::utils::u64_to_hex_string;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Account {
     pub balance: U256,
     pub nonce: u64,
     pub code_hash: H256,
+    pub code: Vec<u8>,
     pub storage_hash: H256,
     pub slots: HashMap<H256, U256>,
 }
@@ -64,11 +65,11 @@ pub struct CallOpts {
 impl fmt::Debug for CallOpts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CallOpts")
-         .field("from", &self.from)
-         .field("to", &self.to)
-         .field("value", &self.value)
-         .field("data", &hex::encode(&self.data.clone().unwrap_or_default()))
-         .finish()
+            .field("from", &self.from)
+            .field("to", &self.to)
+            .field("value", &self.value)
+            .field("data", &hex::encode(&self.data.clone().unwrap_or_default()))
+            .finish()
     }
 }
 

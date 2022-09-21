@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr, thread};
+use std::{collections::HashMap, fmt::Display, str::FromStr, thread};
 
 use bytes::Bytes;
 use ethers::{
@@ -6,12 +6,17 @@ use ethers::{
     prelude::{Address, H160, H256, U256},
 };
 use eyre::Result;
+use futures::future::join_all;
+use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
 use tokio::runtime::Runtime;
 
 use consensus::types::ExecutionPayload;
 
-use crate::{rpc::Rpc, types::CallOpts};
+use crate::{
+    rpc::Rpc,
+    types::{Account, CallOpts},
+};
 
 use super::ExecutionClient;
 
@@ -30,6 +35,52 @@ impl<R: Rpc> Evm<R> {
     }
 
     pub fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
+        let db = self.evm.db().unwrap();
+        let rpc = db.execution.rpc.clone();
+        let payload = db.payload.clone();
+        let execution = db.execution.clone();
+        let block = db.payload.block_number;
+
+        let opts_moved = CallOpts {
+            from: opts.from,
+            to: opts.to,
+            value: opts.value,
+            data: opts.data.clone(),
+            gas: opts.gas,
+            gas_price: opts.gas_price,
+        };
+
+        let block_moved = block.clone();
+        let handle = thread::spawn(move || {
+            let list_fut = rpc.create_access_list(&opts_moved, block_moved);
+            let runtime = Runtime::new()?;
+            let list = runtime.block_on(list_fut)?;
+
+            let account_futs = list.0.iter().map(|account| {
+                let addr_fut = futures::future::ready(account.address);
+                let account_fut = execution.get_account(
+                    &account.address,
+                    Some(account.storage_keys.as_slice()),
+                    &payload,
+                );
+                async move { (addr_fut.await, account_fut.await) }
+            });
+
+            let accounts = runtime.block_on(join_all(account_futs));
+
+            Ok::<_, eyre::Error>(accounts)
+        });
+
+        let accounts = handle.join().unwrap().unwrap();
+        let mut account_map = HashMap::new();
+        accounts.iter().for_each(|account| {
+            let addr = account.0;
+            let account = account.1.as_ref().unwrap().clone();
+            account_map.insert(addr, account);
+        });
+
+        db.set_accounts(account_map);
+
         self.evm.env = self.get_env(opts);
         let output = self.evm.transact().1;
 
@@ -81,6 +132,7 @@ impl<R: Rpc> Evm<R> {
 struct ProofDB<R: Rpc> {
     execution: ExecutionClient<R>,
     payload: ExecutionPayload,
+    accounts: HashMap<Address, Account>,
     error: Option<String>,
 }
 
@@ -89,6 +141,7 @@ impl<R: Rpc> ProofDB<R> {
         ProofDB {
             execution,
             payload,
+            accounts: HashMap::new(),
             error: None,
         }
     }
@@ -102,6 +155,10 @@ impl<R: Rpc> ProofDB<R> {
             }
         }
     }
+
+    pub fn set_accounts(&mut self, accounts: HashMap<Address, Account>) {
+        self.accounts = accounts;
+    }
 }
 
 impl<R: Rpc> Database for ProofDB<R> {
@@ -110,31 +167,29 @@ impl<R: Rpc> Database for ProofDB<R> {
             return AccountInfo::default();
         }
 
-        let execution = self.execution.clone();
-        let addr = address.clone();
-        let payload = self.payload.clone();
+        trace!(
+            "fetch basic evm state for address: 0x{}",
+            hex::encode(address.as_bytes())
+        );
 
-        let handle = thread::spawn(move || {
-            let account_fut = execution.get_account(&addr, None, &payload);
-            let runtime = Runtime::new()?;
-            runtime.block_on(account_fut)
-        });
+        let account = match self.accounts.get(&address) {
+            Some(account) => account.clone(),
+            None => {
+                let execution = self.execution.clone();
+                let addr = address.clone();
+                let payload = self.payload.clone();
 
-        let account = self.safe_unwrap(handle.join().unwrap());
+                let handle = thread::spawn(move || {
+                    let account_fut = execution.get_account(&addr, None, &payload);
+                    let runtime = Runtime::new()?;
+                    runtime.block_on(account_fut)
+                });
 
-        let execution = self.execution.clone();
-        let addr = address.clone();
-        let payload = self.payload.clone();
+                self.safe_unwrap(handle.join().unwrap())
+            }
+        };
 
-        let handle = thread::spawn(move || {
-            let code_fut = execution.get_code(&addr, &payload);
-            let runtime = Runtime::new()?;
-            runtime.block_on(code_fut)
-        });
-
-        let bytecode = self.safe_unwrap(handle.join().unwrap());
-        let bytecode = Bytecode::new_raw(Bytes::from(bytecode));
-
+        let bytecode = Bytecode::new_raw(Bytes::from(account.code.clone()));
         AccountInfo::new(account.balance, account.nonce, bytecode)
     }
 
@@ -143,25 +198,37 @@ impl<R: Rpc> Database for ProofDB<R> {
     }
 
     fn storage(&mut self, address: H160, slot: U256) -> U256 {
-        let execution = self.execution.clone();
-        let addr = address.clone();
+        trace!(
+            "fetch evm state for address: 0x{}",
+            hex::encode(address.as_bytes())
+        );
+
         let slot = H256::from_uint(&slot);
-        let slots = [slot];
-        let payload = self.payload.clone();
 
-        let handle = thread::spawn(move || {
-            let account_fut = execution.get_account(&addr, Some(&slots), &payload);
-            let runtime = Runtime::new()?;
-            runtime.block_on(account_fut)
-        });
-
-        let account = self.safe_unwrap(handle.join().unwrap());
-        let value = account.slots.get(&slot);
-        match value {
-            Some(value) => *value,
+        match self.accounts.get(&address) {
+            Some(account) => account.slots.get(&slot).unwrap().clone(),
             None => {
-                self.error = Some("slot not found".to_string());
-                U256::default()
+                let execution = self.execution.clone();
+                let addr = address.clone();
+                let slots = [slot];
+                let payload = self.payload.clone();
+
+                let handle = thread::spawn(move || {
+                    let account_fut = execution.get_account(&addr, Some(&slots), &payload);
+                    let runtime = Runtime::new()?;
+                    runtime.block_on(account_fut)
+                });
+
+                let account = self.safe_unwrap(handle.join().unwrap());
+                let value = account.slots.get(&slot);
+
+                match value {
+                    Some(value) => value.clone(),
+                    None => {
+                        self.error = Some("slot not found".to_string());
+                        U256::default()
+                    }
+                }
             }
         }
     }
@@ -173,4 +240,5 @@ impl<R: Rpc> Database for ProofDB<R> {
 
 fn is_precompile(address: &Address) -> bool {
     address.le(&Address::from_str("0x0000000000000000000000000000000000000009").unwrap())
+    // && address.gt(&Address::zero())
 }

@@ -3,7 +3,7 @@ use ethers::{
     types::{Address, Transaction, TransactionReceipt, H256},
 };
 use eyre::Result;
-use log::{info, warn, debug};
+use log::{debug, info, warn};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -123,11 +123,9 @@ impl EthRpcServer for RpcInner {
 
     async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error> {
         debug!("eth_call");
-        debug!("{:?}", opts);
         let block = convert_err(decode_block(block))?;
         let node = self.node.lock().await;
         let res = convert_err(node.call(&opts, &block))?;
-        debug!("completed eth_call");
 
         Ok(format!("0x{}", hex::encode(res)))
     }
@@ -136,7 +134,6 @@ impl EthRpcServer for RpcInner {
         debug!("eth_estimateGas");
         let node = self.node.lock().await;
         let gas = convert_err(node.estimate_gas(&opts))?;
-        debug!("completed eth_estimateGas");
 
         Ok(u64_to_hex_string(gas))
     }

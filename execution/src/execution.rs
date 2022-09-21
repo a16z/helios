@@ -18,7 +18,7 @@ use super::types::{Account, ExecutionBlock};
 
 #[derive(Clone)]
 pub struct ExecutionClient<R: Rpc> {
-    rpc: R,
+    pub rpc: R,
 }
 
 impl<R: Rpc> ExecutionClient<R> {
@@ -76,9 +76,17 @@ impl<R: Rpc> ExecutionClient<R> {
             slot_map.insert(storage_proof.key, storage_proof.value);
         }
 
+        let code = self.rpc.get_code(address, payload.block_number).await?;
+        let code_hash = keccak256(&code).into();
+
+        if proof.code_hash != code_hash {
+            eyre::bail!("Invalid Proof");
+        }
+
         Ok(Account {
             balance: proof.balance,
             nonce: proof.nonce.as_u64(),
+            code,
             code_hash: proof.code_hash,
             storage_hash: proof.storage_hash,
             slots: slot_map,
