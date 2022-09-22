@@ -31,8 +31,8 @@ impl Clone for HttpRpc {
 impl Rpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
         let http = Http::from_str(rpc)?;
-        let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 10, 1);
-        client.set_compute_units(300);
+        let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 10);
+        client.set_compute_units(250);
         let provider = Provider::new(client);
         Ok(HttpRpc {
             url: rpc.to_string(),
