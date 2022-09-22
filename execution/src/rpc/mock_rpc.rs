@@ -2,8 +2,13 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use async_trait::async_trait;
 use common::utils::hex_str_to_bytes;
-use ethers::types::{Address, EIP1186ProofResponse, Transaction, TransactionReceipt, H256};
-use eyre::Result;
+use ethers::types::{
+    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, Transaction,
+    TransactionReceipt, H256,
+};
+use eyre::{eyre, Result};
+
+use crate::types::CallOpts;
 
 use super::Rpc;
 
@@ -29,13 +34,17 @@ impl Rpc for MockRpc {
         Ok(serde_json::from_str(&proof)?)
     }
 
+    async fn create_access_list(&self, _opts: &CallOpts, _block: u64) -> Result<AccessList> {
+        Err(eyre!("not implemented"))
+    }
+
     async fn get_code(&self, _address: &Address, _block: u64) -> Result<Vec<u8>> {
         let code = read_to_string(self.path.join("code.json"))?;
         hex_str_to_bytes(&code[0..code.len() - 1])
     }
 
     async fn send_raw_transaction(&self, _bytes: &Vec<u8>) -> Result<H256> {
-        Err(eyre::eyre!("not implemented"))
+        Err(eyre!("not implemented"))
     }
 
     async fn get_transaction_receipt(&self, _tx_hash: &H256) -> Result<Option<TransactionReceipt>> {

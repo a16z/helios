@@ -1,21 +1,43 @@
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use ethers::prelude::{Address, Http};
-use ethers::providers::{Middleware, Provider};
-use ethers::types::{BlockId, Bytes, EIP1186ProofResponse, Transaction, TransactionReceipt, H256};
+use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
+use ethers::types::transaction::eip2718::TypedTransaction;
+use ethers::types::transaction::eip2930::AccessList;
+use ethers::types::{
+    BlockId, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, Transaction,
+    TransactionReceipt, H256, U256,
+};
 use eyre::Result;
+use log::trace;
+
+use crate::types::CallOpts;
 
 use super::Rpc;
 
-#[derive(Clone)]
 pub struct HttpRpc {
-    provider: Provider<Http>,
+    url: String,
+    provider: Provider<RetryClient<Http>>,
+}
+
+impl Clone for HttpRpc {
+    fn clone(&self) -> Self {
+        Self::new(&self.url).unwrap()
+    }
 }
 
 #[async_trait]
 impl Rpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
-        let provider = Provider::try_from(rpc)?;
-        Ok(HttpRpc { provider })
+        let http = Http::from_str(rpc)?;
+        let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 10, 1);
+        client.set_compute_units(300);
+        let provider = Provider::new(client);
+        Ok(HttpRpc {
+            url: rpc.to_string(),
+            provider,
+        })
     }
 
     async fn get_proof(
@@ -24,12 +46,33 @@ impl Rpc for HttpRpc {
         slots: &[H256],
         block: u64,
     ) -> Result<EIP1186ProofResponse> {
+        trace!("fetching proof");
         let block = Some(BlockId::from(block));
         let proof_response = self
             .provider
             .get_proof(*address, slots.to_vec(), block)
             .await?;
         Ok(proof_response)
+    }
+
+    async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessList> {
+        let block = Some(BlockId::from(block));
+
+        let mut tx = Eip1559TransactionRequest::new();
+        tx.to = Some(opts.to.into());
+        tx.from = opts.from;
+        tx.value = opts.value;
+        // TODO: better way to set gas limit
+        tx.gas = Some(U256::from(10_000_000));
+        tx.data = opts
+            .data
+            .as_ref()
+            .map(|data| Bytes::from(data.as_slice().to_owned()));
+
+        let tx = TypedTransaction::Eip1559(tx);
+        let list = self.provider.create_access_list(&tx, block).await?;
+
+        Ok(list.access_list)
     }
 
     async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>> {
