@@ -1,6 +1,8 @@
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use ethers::prelude::{Address, Http};
-use ethers::providers::{Middleware, Provider};
+use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
@@ -14,16 +16,28 @@ use crate::types::CallOpts;
 
 use super::Rpc;
 
-#[derive(Clone)]
 pub struct HttpRpc {
-    provider: Provider<Http>,
+    url: String,
+    provider: Provider<RetryClient<Http>>,
+}
+
+impl Clone for HttpRpc {
+    fn clone(&self) -> Self {
+        Self::new(&self.url).unwrap()
+    }
 }
 
 #[async_trait]
 impl Rpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
-        let provider = Provider::try_from(rpc)?;
-        Ok(HttpRpc { provider })
+        let http = Http::from_str(rpc)?;
+        let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 10, 1);
+        client.set_compute_units(300);
+        let provider = Provider::new(client);
+        Ok(HttpRpc {
+            url: rpc.to_string(),
+            provider,
+        })
     }
 
     async fn get_proof(
