@@ -35,7 +35,40 @@ impl<R: Rpc> Evm<R> {
     }
 
     pub fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
-        let db = self.evm.db().unwrap();
+        let account_map = self.batch_fetch_accounts(opts);
+        self.evm.db.as_mut().unwrap().set_accounts(account_map);
+
+        self.evm.env = self.get_env(opts);
+        let output = self.evm.transact().1;
+
+        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
+            return Err(eyre::eyre!(err.clone()));
+        }
+
+        match output {
+            TransactOut::None => Err(eyre::eyre!("Invalid Call")),
+            TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
+            TransactOut::Call(bytes) => Ok(bytes.to_vec()),
+        }
+    }
+
+    pub fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
+        let account_map = self.batch_fetch_accounts(opts);
+        self.evm.db.as_mut().unwrap().set_accounts(account_map);
+
+        self.evm.env = self.get_env(opts);
+        let gas = self.evm.transact().2;
+
+        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
+            return Err(eyre::eyre!(err.clone()));
+        }
+
+        let gas_scaled = (1.10 * gas as f64) as u64;
+        Ok(gas_scaled)
+    }
+
+    fn batch_fetch_accounts(&self, opts: &CallOpts) -> HashMap<Address, Account> {
+        let db = self.evm.db.as_ref().unwrap();
         let rpc = db.execution.rpc.clone();
         let payload = db.payload.clone();
         let execution = db.execution.clone();
@@ -79,32 +112,7 @@ impl<R: Rpc> Evm<R> {
             account_map.insert(addr, account);
         });
 
-        db.set_accounts(account_map);
-
-        self.evm.env = self.get_env(opts);
-        let output = self.evm.transact().1;
-
-        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-            return Err(eyre::eyre!(err.clone()));
-        }
-
-        match output {
-            TransactOut::None => Err(eyre::eyre!("Invalid Call")),
-            TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
-            TransactOut::Call(bytes) => Ok(bytes.to_vec()),
-        }
-    }
-
-    pub fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
-        self.evm.env = self.get_env(opts);
-        let gas = self.evm.transact().2;
-
-        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-            return Err(eyre::eyre!(err.clone()));
-        }
-
-        let gas_scaled = (1.10 * gas as f64) as u64;
-        Ok(gas_scaled)
+        account_map
     }
 
     fn get_env(&self, opts: &CallOpts) -> Env {

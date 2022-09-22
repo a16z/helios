@@ -38,7 +38,6 @@ impl Rpc for HttpRpc {
             .provider
             .get_proof(*address, slots.to_vec(), block)
             .await?;
-        trace!("completed proof fetch");
         Ok(proof_response)
     }
 
