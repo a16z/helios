@@ -159,6 +159,21 @@ impl<R: Rpc> ProofDB<R> {
     pub fn set_accounts(&mut self, accounts: HashMap<Address, Account>) {
         self.accounts = accounts;
     }
+
+    fn get_account(&mut self, address: Address, slots: &[H256]) -> Account {
+        let execution = self.execution.clone();
+        let addr = address.clone();
+        let payload = self.payload.clone();
+        let slots = slots.to_owned();
+
+        let handle = thread::spawn(move || {
+            let account_fut = execution.get_account(&addr, Some(&slots), &payload);
+            let runtime = Runtime::new()?;
+            runtime.block_on(account_fut)
+        });
+
+        self.safe_unwrap(handle.join().unwrap())
+    }
 }
 
 impl<R: Rpc> Database for ProofDB<R> {
@@ -168,25 +183,13 @@ impl<R: Rpc> Database for ProofDB<R> {
         }
 
         trace!(
-            "fetch basic evm state for address: 0x{}",
+            "fetch basic evm state for addess=0x{}",
             hex::encode(address.as_bytes())
         );
 
         let account = match self.accounts.get(&address) {
             Some(account) => account.clone(),
-            None => {
-                let execution = self.execution.clone();
-                let addr = address.clone();
-                let payload = self.payload.clone();
-
-                let handle = thread::spawn(move || {
-                    let account_fut = execution.get_account(&addr, None, &payload);
-                    let runtime = Runtime::new()?;
-                    runtime.block_on(account_fut)
-                });
-
-                self.safe_unwrap(handle.join().unwrap())
-            }
+            None => self.get_account(address, &[]),
         };
 
         let bytecode = Bytecode::new_raw(Bytes::from(account.code.clone()));
@@ -199,37 +202,29 @@ impl<R: Rpc> Database for ProofDB<R> {
 
     fn storage(&mut self, address: H160, slot: U256) -> U256 {
         trace!(
-            "fetch evm state for address: 0x{}",
-            hex::encode(address.as_bytes())
+            "fetch evm state for address=0x{}, slot={}",
+            hex::encode(address.as_bytes()),
+            slot
         );
 
         let slot = H256::from_uint(&slot);
 
         match self.accounts.get(&address) {
-            Some(account) => account.slots.get(&slot).unwrap().clone(),
-            None => {
-                let execution = self.execution.clone();
-                let addr = address.clone();
-                let slots = [slot];
-                let payload = self.payload.clone();
-
-                let handle = thread::spawn(move || {
-                    let account_fut = execution.get_account(&addr, Some(&slots), &payload);
-                    let runtime = Runtime::new()?;
-                    runtime.block_on(account_fut)
-                });
-
-                let account = self.safe_unwrap(handle.join().unwrap());
-                let value = account.slots.get(&slot);
-
-                match value {
-                    Some(value) => value.clone(),
-                    None => {
-                        self.error = Some("slot not found".to_string());
-                        U256::default()
-                    }
-                }
-            }
+            Some(account) => match account.slots.get(&slot) {
+                Some(slot) => slot.clone(),
+                None => self
+                    .get_account(address, &[slot])
+                    .slots
+                    .get(&slot)
+                    .unwrap()
+                    .clone(),
+            },
+            None => self
+                .get_account(address, &[slot])
+                .slots
+                .get(&slot)
+                .unwrap()
+                .clone(),
         }
     }
 
@@ -240,5 +235,5 @@ impl<R: Rpc> Database for ProofDB<R> {
 
 fn is_precompile(address: &Address) -> bool {
     address.le(&Address::from_str("0x0000000000000000000000000000000000000009").unwrap())
-    // && address.gt(&Address::zero())
+        && address.gt(&Address::zero())
 }
