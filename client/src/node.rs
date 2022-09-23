@@ -166,20 +166,24 @@ impl Node {
         Ok(payload.block_number)
     }
 
-    pub fn get_block_by_number(&self, block: &BlockTag) -> Result<ExecutionBlock> {
-        let payload = self.get_payload(block)?;
-        self.execution.get_block(payload)
+    pub fn get_block_by_number(&self, block: &BlockTag) -> Result<Option<ExecutionBlock>> {
+        match self.get_payload(block) {
+            Ok(payload) => self.execution.get_block(payload).map(|b| Some(b)),
+            Err(_) => Ok(None),
+        }
     }
 
-    pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<ExecutionBlock> {
+    pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<Option<ExecutionBlock>> {
         let payloads = self
             .payloads
             .iter()
             .filter(|entry| &entry.1.block_hash.to_vec() == hash)
             .collect::<Vec<(&u64, &ExecutionPayload)>>();
 
-        let payload = payloads.get(0).ok_or(eyre!("Block Not Found"))?.1;
-        self.execution.get_block(payload)
+        match payloads.get(0) {
+            Some(payload_entry) => self.execution.get_block(payload_entry.1).map(|b| Some(b)),
+            None => Ok(None),
+        }
     }
 
     pub fn chain_id(&self) -> u64 {

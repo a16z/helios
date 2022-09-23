@@ -68,15 +68,26 @@ trait EthRpc {
     #[method(name = "blockNumber")]
     async fn block_number(&self) -> Result<String, Error>;
     #[method(name = "getBlockByNumber")]
-    async fn get_block_by_number(&self, num: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
+    async fn get_block_by_number(
+        &self,
+        num: &str,
+        full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>, Error>;
     #[method(name = "getBlockByHash")]
-    async fn get_block_by_hash(&self, hash: &str, full_tx: bool) -> Result<ExecutionBlock, Error>;
+    async fn get_block_by_hash(
+        &self,
+        hash: &str,
+        full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>, Error>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: &str) -> Result<String, Error>;
     #[method(name = "getTransactionReceipt")]
-    async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error>;
+    async fn get_transaction_receipt(
+        &self,
+        hash: &str,
+    ) -> Result<Option<TransactionReceipt>, Error>;
     #[method(name = "getTransactionByHash")]
-    async fn get_transaction_by_hash(&self, hash: &str) -> Result<Transaction, Error>;
+    async fn get_transaction_by_hash(&self, hash: &str) -> Result<Option<Transaction>, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -166,19 +177,21 @@ impl EthRpcServer for RpcInner {
         &self,
         block: &str,
         _full_tx: bool,
-    ) -> Result<ExecutionBlock, Error> {
+    ) -> Result<Option<ExecutionBlock>, Error> {
         let block = convert_err(decode_block(block))?;
         let node = self.node.read().await;
         let block = convert_err(node.get_block_by_number(&block))?;
-
         Ok(block)
     }
 
-    async fn get_block_by_hash(&self, hash: &str, _full_tx: bool) -> Result<ExecutionBlock, Error> {
+    async fn get_block_by_hash(
+        &self,
+        hash: &str,
+        _full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>, Error> {
         let hash = convert_err(hex_str_to_bytes(hash))?;
         let node = self.node.read().await;
         let block = convert_err(node.get_block_by_hash(&hash))?;
-
         Ok(block)
     }
 
@@ -189,26 +202,20 @@ impl EthRpcServer for RpcInner {
         Ok(hex::encode(tx_hash))
     }
 
-    async fn get_transaction_receipt(&self, hash: &str) -> Result<TransactionReceipt, Error> {
+    async fn get_transaction_receipt(
+        &self,
+        hash: &str,
+    ) -> Result<Option<TransactionReceipt>, Error> {
         let node = self.node.read().await;
         let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
         let receipt = convert_err(node.get_transaction_receipt(&hash).await)?;
-
-        match receipt {
-            Some(receipt) => Ok(receipt),
-            None => Err(Error::Custom("Receipt Not Found".to_string())),
-        }
+        Ok(receipt)
     }
 
-    async fn get_transaction_by_hash(&self, hash: &str) -> Result<Transaction, Error> {
+    async fn get_transaction_by_hash(&self, hash: &str) -> Result<Option<Transaction>, Error> {
         let node = self.node.read().await;
         let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
-        let tx = convert_err(node.get_transaction_by_hash(&hash).await)?;
-
-        match tx {
-            Some(tx) => Ok(tx),
-            None => Err(Error::Custom("Transaction Not Found".to_string())),
-        }
+        convert_err(node.get_transaction_by_hash(&hash).await)
     }
 }
 
