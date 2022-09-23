@@ -31,7 +31,7 @@ impl Node {
 
         let consensus =
             ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
-        let execution = ExecutionClient::new(execution_rpc)?;
+        let execution = ExecutionClient::new(execution_rpc.as_ref().unwrap())?;
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();

@@ -16,8 +16,7 @@ pub fn mainnet() -> Config {
             )
             .unwrap(),
             consensus_rpc: "http://testing.mainnet.beacon-api.nimbus.team".to_string(),
-            execution_rpc: "https://eth-mainnet.g.alchemy.com/v2/Q0BqQPbTQfSMzrCNl4x80XS_PLLB1RNf"
-                .to_string(),
+            execution_rpc: None,
             rpc_port: Some(8545),
         },
         forks: Forks {
@@ -52,9 +51,7 @@ pub fn goerli() -> Config {
             )
             .unwrap(),
             consensus_rpc: "http://34.207.158.131:5052".to_string(),
-            execution_rpc:
-                "https://eth-goerli.g.alchemy.com:443/v2/o_8Qa9kgwDPf9G8sroyQ-uQtyhyWa3ao"
-                    .to_string(),
+            execution_rpc: None,
             rpc_port: Some(8545),
         },
         forks: Forks {
