@@ -48,39 +48,6 @@ async fn test_get_account_bad_proof() {
 }
 
 #[tokio::test]
-async fn test_get_code() {
-    let execution = get_client();
-    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
-
-    let mut payload = ExecutionPayload::default();
-    payload.state_root = Vector::from_iter(
-        hex_str_to_bytes("0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d")
-            .unwrap(),
-    );
-
-    let code = execution.get_code(&address, &payload).await.unwrap();
-    let code_hash = keccak256(code);
-
-    assert_eq!(
-        code_hash.as_slice(),
-        &hex_str_to_bytes("0xc6ca0679d7242fa080596f2fe2e6b172d9b927a6b52278343826e33745854327")
-            .unwrap()
-    );
-}
-
-#[tokio::test]
-async fn test_get_code_bad_proof() {
-    let execution = get_client();
-    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
-
-    let payload = ExecutionPayload::default();
-
-    let code_res = execution.get_code(&address, &payload).await;
-
-    assert!(code_res.is_err());
-}
-
-#[tokio::test]
 async fn test_get_tx() {
     let execution = get_client();
     let tx_hash =
