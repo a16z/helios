@@ -41,7 +41,7 @@ impl Rpc {
         let (handle, addr) = start(rpc_inner).await?;
         self.handle = Some(handle);
 
-        info!("rpc server strated at {}", addr);
+        info!("rpc server started at {}", addr);
 
         Ok(addr)
     }

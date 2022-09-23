@@ -44,5 +44,5 @@ if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
     echo >> $PROFILE && echo "export PATH=\"\$PATH:$BIN_DIR\"" >> $PROFILE
 fi
 
-echo && echo "Detected your preferred shell is ${PREF_SHELL} and added foundryup to PATH. Run 'source ${PROFILE}' or start a new terminal session to use $INSTALLER_NAME."
+echo && echo "Detected your preferred shell is ${PREF_SHELL} and added ${INSTALLER_NAME} to PATH. Run 'source ${PROFILE}' or start a new terminal session to use $INSTALLER_NAME."
 echo "Then, simply run '$INSTALLER_NAME' to install $NAME."
