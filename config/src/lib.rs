@@ -26,7 +26,7 @@ pub struct General {
     #[serde(deserialize_with = "bytes_deserialize")]
     pub checkpoint: Vec<u8>,
     pub consensus_rpc: String,
-    pub execution_rpc: String,
+    pub execution_rpc: Option<String>,
     pub rpc_port: Option<u16>,
 }
 

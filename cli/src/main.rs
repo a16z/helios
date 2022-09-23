@@ -46,12 +46,10 @@ fn get_config() -> Config {
         None => get_cached_checkpoint(&data_dir).unwrap_or(config.general.checkpoint),
     };
 
+    config.general.execution_rpc = Some(cli.execution_rpc);
+
     if let Some(port) = cli.port {
         config.general.rpc_port = Some(port);
-    }
-
-    if let Some(execution_rpc) = cli.execution_rpc {
-        config.general.execution_rpc = execution_rpc;
     }
 
     if let Some(consensus_rpc) = cli.consensus_rpc {
@@ -94,7 +92,7 @@ struct Cli {
     #[clap(short = 'w', long)]
     checkpoint: Option<String>,
     #[clap(short, long)]
-    execution_rpc: Option<String>,
+    execution_rpc: String,
     #[clap(short, long)]
     consensus_rpc: Option<String>,
     #[clap(long)]
