@@ -10,6 +10,7 @@ use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
+use revm::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
 use super::proof::{encode_account, verify_proof};
@@ -76,12 +77,18 @@ impl<R: Rpc> ExecutionClient<R> {
             slot_map.insert(storage_proof.key, storage_proof.value);
         }
 
-        let code = self.rpc.get_code(address, payload.block_number).await?;
-        let code_hash = keccak256(&code).into();
+        let code = if proof.code_hash == KECCAK_EMPTY {
+            Vec::new()
+        } else {
+            let code = self.rpc.get_code(address, payload.block_number).await?;
+            let code_hash = keccak256(&code).into();
 
-        if proof.code_hash != code_hash {
-            eyre::bail!("Invalid Proof");
-        }
+            if proof.code_hash != code_hash {
+                eyre::bail!("Invalid Proof");
+            }
+
+            code
+        };
 
         Ok(Account {
             balance: proof.balance,
@@ -91,19 +98,6 @@ impl<R: Rpc> ExecutionClient<R> {
             storage_hash: proof.storage_hash,
             slots: slot_map,
         })
-    }
-
-    pub async fn get_code(&self, address: &Address, payload: &ExecutionPayload) -> Result<Vec<u8>> {
-        let account = self.get_account(address, None, payload).await?;
-        let code = self.rpc.get_code(address, payload.block_number).await?;
-
-        let code_hash = keccak256(&code).into();
-
-        if account.code_hash != code_hash {
-            eyre::bail!("Invalid Proof");
-        }
-
-        Ok(code)
     }
 
     pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {

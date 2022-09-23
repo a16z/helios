@@ -4,6 +4,7 @@ use bytes::Bytes;
 use ethers::{
     abi::ethereum_types::BigEndianHash,
     prelude::{Address, H160, H256, U256},
+    types::transaction::eip2930::AccessListItem,
 };
 use eyre::Result;
 use futures::future::join_all;
@@ -87,9 +88,28 @@ impl<R: Rpc> Evm<R> {
         let handle = thread::spawn(move || {
             let list_fut = rpc.create_access_list(&opts_moved, block_moved);
             let runtime = Runtime::new()?;
-            let list = runtime.block_on(list_fut)?;
+            let mut list = runtime.block_on(list_fut)?.0;
 
-            let account_futs = list.0.iter().map(|account| {
+            let from_access_entry = AccessListItem {
+                address: opts_moved.from.unwrap_or_default(),
+                storage_keys: Vec::default(),
+            };
+
+            let to_access_entry = AccessListItem {
+                address: opts_moved.to,
+                storage_keys: Vec::default(),
+            };
+
+            let producer_account = AccessListItem {
+                address: Address::from_slice(&payload.fee_recipient),
+                storage_keys: Vec::default(),
+            };
+
+            list.push(from_access_entry);
+            list.push(to_access_entry);
+            list.push(producer_account);
+
+            let account_futs = list.iter().map(|account| {
                 let addr_fut = futures::future::ready(account.address);
                 let account_fut = execution.get_account(
                     &account.address,

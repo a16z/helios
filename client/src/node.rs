@@ -113,7 +113,8 @@ impl Node {
 
     pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
         let payload = self.get_payload(block)?;
-        self.execution.get_code(&address, payload).await
+        let account = self.execution.get_account(&address, None, payload).await?;
+        Ok(account.code)
     }
 
     pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
