@@ -36,7 +36,7 @@ impl<R: Rpc> Evm<R> {
     }
 
     pub fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
-        let account_map = self.batch_fetch_accounts(opts);
+        let account_map = self.batch_fetch_accounts(opts)?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
         self.evm.env = self.get_env(opts);
@@ -54,7 +54,7 @@ impl<R: Rpc> Evm<R> {
     }
 
     pub fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
-        let account_map = self.batch_fetch_accounts(opts);
+        let account_map = self.batch_fetch_accounts(opts)?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
         self.evm.env = self.get_env(opts);
@@ -68,7 +68,7 @@ impl<R: Rpc> Evm<R> {
         Ok(gas_scaled)
     }
 
-    fn batch_fetch_accounts(&self, opts: &CallOpts) -> HashMap<Address, Account> {
+    fn batch_fetch_accounts(&self, opts: &CallOpts) -> Result<HashMap<Address, Account>> {
         let db = self.evm.db.as_ref().unwrap();
         let rpc = db.execution.rpc.clone();
         let payload = db.payload.clone();
@@ -124,7 +124,7 @@ impl<R: Rpc> Evm<R> {
             Ok::<_, eyre::Error>(accounts)
         });
 
-        let accounts = handle.join().unwrap().unwrap();
+        let accounts = handle.join().unwrap()?;
         let mut account_map = HashMap::new();
         accounts.iter().for_each(|account| {
             let addr = account.0;
@@ -132,7 +132,7 @@ impl<R: Rpc> Evm<R> {
             account_map.insert(addr, account);
         });
 
-        account_map
+        Ok(account_map)
     }
 
     fn get_env(&self, opts: &CallOpts) -> Env {
