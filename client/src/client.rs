@@ -67,9 +67,6 @@ impl<DB: Database> Client<DB> {
     }
 
     pub async fn shutdown(&self) {
-        println!();
-        info!("shutting down");
-
         let node = self.node.read().await;
         let checkpoint = if let Some(checkpoint) = node.get_last_checkpoint() {
             checkpoint

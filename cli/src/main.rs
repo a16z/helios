@@ -1,4 +1,9 @@
-use std::{fs, path::PathBuf, process::exit};
+use std::{
+    fs,
+    path::PathBuf,
+    process::exit,
+    sync::{Arc, Mutex},
+};
 
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
@@ -6,9 +11,10 @@ use dirs::home_dir;
 use env_logger::Env;
 use eyre::Result;
 
-use client::Client;
+use client::{database::FileDB, Client};
 use config::{networks, Config};
 use futures::executor::block_on;
+use log::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -19,12 +25,39 @@ async fn main() -> Result<()> {
 
     client.start().await?;
 
-    ctrlc::set_handler(move || {
-        block_on(client.shutdown());
-        exit(0);
-    })?;
-
+    register_shutdown_handler(client);
     std::future::pending().await
+}
+
+fn register_shutdown_handler(client: Client<FileDB>) {
+    let client = Arc::new(client);
+    let shutdown_counter = Arc::new(Mutex::new(0));
+
+    ctrlc::set_handler(move || {
+        let mut counter = shutdown_counter.lock().unwrap();
+        *counter += 1;
+
+        let counter_value = *counter;
+
+        if counter_value == 3 {
+            info!("forced shutdown");
+            exit(0);
+        }
+
+        info!(
+            "shutting down... press ctrl-c {} more times to force quit",
+            3 - counter_value
+        );
+
+        if counter_value == 1 {
+            let client = client.clone();
+            std::thread::spawn(move || {
+                block_on(client.shutdown());
+                exit(0);
+            });
+        }
+    })
+    .expect("could not register shutdown handler");
 }
 
 fn get_config() -> Config {
