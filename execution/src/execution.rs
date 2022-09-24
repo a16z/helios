@@ -10,6 +10,7 @@ use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
+use futures::future::join_all;
 use revm::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
@@ -164,16 +165,17 @@ impl<R: Rpc> ExecutionClient<R> {
             .map(|tx| H256::from_slice(&keccak256(tx)))
             .collect::<Vec<H256>>();
 
-        let mut receipts = vec![];
-        for hash in tx_hashes {
-            let receipt = self.rpc.get_transaction_receipt(&hash).await?.unwrap();
+        let receipts_fut = tx_hashes.iter().map(|hash| async move {
+            let receipt = self.rpc.get_transaction_receipt(hash).await;
+            receipt?.ok_or(eyre::eyre!("not reachable"))
+        });
 
-            receipts.push(receipt);
-        }
+        let receipts = join_all(receipts_fut).await;
+        let receipts = receipts.into_iter().collect::<Result<Vec<_>>>()?;
 
         let receipts_encoded: Vec<Vec<u8>> = receipts
             .iter()
-            .map(|receipt| encode_receipt(receipt))
+            .map(|receipt| encode_receipt(&receipt))
             .collect();
 
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
