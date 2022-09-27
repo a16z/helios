@@ -6,7 +6,7 @@ use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
 use chrono::Duration;
 use eyre::{eyre, Result};
-use log::info;
+use log::{debug, info};
 use ssz_rs::prelude::*;
 
 use common::types::*;
@@ -133,6 +133,22 @@ impl<R: Rpc> ConsensusClient<R> {
         let optimistic_update = self.rpc.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
+
+        if self.store.next_sync_committee.is_none() {
+            debug!("checking for sync committee update");
+            let current_period = calc_sync_period(self.store.finalized_header.slot);
+            let mut updates = self.rpc.get_updates(current_period).await?;
+
+            if updates.len() == 1 {
+                let mut update = updates.get_mut(0).unwrap();
+                let res = self.verify_update(&mut update);
+
+                if res.is_ok() {
+                    info!("updating sync committee");
+                    self.apply_update(&update);
+                }
+            }
+        }
 
         Ok(())
     }
