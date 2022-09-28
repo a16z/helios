@@ -49,13 +49,13 @@ impl<DB: Database> Client<DB> {
         spawn(async move {
             let res = node.write().await.sync().await;
             if let Err(err) = res {
-                warn!("{}", err);
+                warn!("consensus error: {}", err);
             }
 
             loop {
                 let res = node.write().await.advance().await;
                 if let Err(err) = res {
-                    warn!("{}", err);
+                    warn!("consensus error: {}", err);
                 }
 
                 let next_update = node.read().await.duration_until_next_update();
