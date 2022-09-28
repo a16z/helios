@@ -153,162 +153,113 @@ impl<R: Rpc> ConsensusClient<R> {
         Ok(())
     }
 
-    fn verify_update(&mut self, update: &mut Update) -> Result<()> {
+    fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
+        let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
+        if bits == 0 {
+            return Err(eyre!("Insufficient Participation"));
+        }
+
+        let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
+        let valid_time = self.current_slot() >= update.signature_slot
+            && update.signature_slot > update.attested_header.slot
+            && update.attested_header.slot >= update_finalized_slot;
+
+        if !valid_time {
+            return Err(eyre!("Invalid Timestamp"));
+        }
+
         let store_period = calc_sync_period(self.store.finalized_header.slot);
-        let update_signature_period = calc_sync_period(update.signature_slot);
+        let update_sig_period = calc_sync_period(update.signature_slot);
+        let valid_period = if self.store.next_sync_committee.is_some() {
+            update_sig_period == store_period || update_sig_period == store_period + 1
+        } else {
+            update_sig_period == store_period
+        };
 
-        if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
+        if !valid_period {
+            return Err(eyre!("Invalid Period"));
+        }
+
+        let update_attested_period = calc_sync_period(update.attested_header.slot);
+        let update_has_next_committee = self.store.next_sync_committee.is_none()
+            && update.next_sync_committee.is_some()
+            && update_attested_period == store_period;
+
+        if update.attested_header.slot <= self.store.finalized_header.slot
+            && !update_has_next_committee
         {
-            return Err(eyre!("Invalid Update"));
+            return Err(eyre!("Update Not Relevent"));
         }
 
-        if !(update.signature_slot > update.attested_header.slot
-            && update.attested_header.slot > update.finalized_header.slot)
-        {
-            return Err(eyre!("Invalid Update"));
+        if update.finalized_header.is_some() && update.finality_branch.is_some() {
+            let is_valid = is_finality_proof_valid(
+                &update.attested_header,
+                &mut update.finalized_header.clone().unwrap(),
+                &update.finality_branch.clone().unwrap(),
+            );
+
+            if !is_valid {
+                return Err(eyre!("Invalid Finality Proof"));
+            }
         }
 
-        let finality_branch_valid = is_finality_proof_valid(
-            &update.attested_header,
-            &mut update.finalized_header,
-            &update.finality_branch,
-        );
+        if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
+            let is_valid = is_next_committee_proof_valid(
+                &update.attested_header,
+                &mut update.next_sync_committee.clone().unwrap(),
+                &update.next_sync_committee_branch.clone().unwrap(),
+            );
 
-        if !(finality_branch_valid) {
-            return Err(eyre!("Invalid Update"));
+            if !is_valid {
+                return Err(eyre!("Invalid Next Sync Committee Proof"));
+            }
         }
 
-        let next_committee_branch_valid = is_next_committee_proof_valid(
-            &update.attested_header,
-            &mut update.next_sync_committee,
-            &update.next_sync_committee_branch,
-        );
-
-        if !next_committee_branch_valid {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let sync_committee = if store_period == update_signature_period {
+        let sync_committee = if update_sig_period == store_period {
             &self.store.current_sync_committee
         } else {
             self.store.next_sync_committee.as_ref().unwrap()
         };
 
         let pks =
-            get_participating_keys(&sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-
+            get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
         let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
 
-        let committee_quorum = pks.len() > 1;
-        if !committee_quorum {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let header_root = bytes_to_bytes32(update.attested_header.hash_tree_root()?.as_bytes());
+        let header_root =
+            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
         let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
         let sig = &update.sync_aggregate.sync_committee_signature;
         let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
         if !is_valid_sig {
-            return Err(eyre!("Invalid Update"));
+            return Err(eyre!("Invalid Signature"));
         }
 
         Ok(())
+    }
+
+    fn verify_update(&self, update: &Update) -> Result<()> {
+        let update = GenericUpdate::from(update);
+        self.verify_generic_update(&update)
     }
 
     fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
-        let store_period = calc_sync_period(self.store.finalized_header.slot);
-        let update_signature_period = calc_sync_period(update.signature_slot);
-
-        if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
-        {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        if !(update.signature_slot > update.attested_header.slot
-            && update.attested_header.slot > update.finalized_header.slot)
-        {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let finality_branch_valid = is_finality_proof_valid(
-            &update.attested_header,
-            &mut update.finalized_header.clone(),
-            &update.finality_branch,
-        );
-
-        if !(finality_branch_valid) {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let sync_committee = &self.store.current_sync_committee;
-
-        let pks =
-            get_participating_keys(&sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-
-        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
-
-        let committee_quorum = pks.len() > 1;
-        if !committee_quorum {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let header_root =
-            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
-        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
-        let sig = &update.sync_aggregate.sync_committee_signature;
-        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
-
-        if !is_valid_sig {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        Ok(())
+        let update = GenericUpdate::from(update);
+        self.verify_generic_update(&update)
     }
 
     fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
-        let store_period = calc_sync_period(self.store.finalized_header.slot);
-        let update_signature_period = calc_sync_period(update.signature_slot);
-
-        if !(update_signature_period == store_period + 1 || update_signature_period == store_period)
-        {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        if !(update.signature_slot > update.attested_header.slot) {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let sync_committee = &self.store.current_sync_committee;
-
-        let pks =
-            get_participating_keys(&sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-
-        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
-
-        let committee_quorum = pks.len() > 1;
-        if !committee_quorum {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        let header_root =
-            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
-        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
-        let sig = &update.sync_aggregate.sync_committee_signature;
-        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
-
-        if !is_valid_sig {
-            return Err(eyre!("Invalid Update"));
-        }
-
-        Ok(())
+        let update = GenericUpdate::from(update);
+        self.verify_generic_update(&update)
     }
 
     fn apply_update(&mut self, update: &Update) {
         let store_period = calc_sync_period(self.store.finalized_header.slot);
         let update_signature_period = calc_sync_period(update.signature_slot);
 
-        self.store.finalized_header = update.finalized_header.clone();
+        if update.finalized_header.slot > self.store.finalized_header.slot {
+            self.store.finalized_header = update.finalized_header.clone();
+        }
 
         if update.finalized_header.slot % 32 == 0 {
             let n = update.finalized_header.clone().hash_tree_root().unwrap();
@@ -424,6 +375,17 @@ impl<R: Rpc> ConsensusClient<R> {
             .unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
         chrono::Duration::from_std(delay).unwrap()
+    }
+
+    fn current_slot(&self) -> u64 {
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap();
+
+        let genesis_time = self.config.general.genesis_time;
+        let since_genesis = now - std::time::Duration::from_secs(genesis_time);
+
+        since_genesis.as_secs() / 12
     }
 }
 

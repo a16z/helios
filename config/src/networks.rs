@@ -12,7 +12,7 @@ pub fn mainnet() -> Config {
             )
             .unwrap(),
             checkpoint: hex_str_to_bytes(
-                "0x03e315e11b3f88cd63dfb62c74a313c4a65949ce9e37599e0ee66533ceceadfd",
+                "0x5ca31c7c795d8f2de2e844718cdb08835639c644365427b9f20f82083e7dac9a",
             )
             .unwrap(),
             consensus_rpc: "http://testing.mainnet.beacon-api.nimbus.team".to_string(),

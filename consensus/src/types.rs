@@ -256,6 +256,58 @@ pub struct SyncAggregate {
     pub sync_committee_signature: SignatureBytes,
 }
 
+pub struct GenericUpdate {
+    pub attested_header: Header,
+    pub sync_aggregate: SyncAggregate,
+    pub signature_slot: u64,
+    pub next_sync_committee: Option<SyncCommittee>,
+    pub next_sync_committee_branch: Option<Vec<Bytes32>>,
+    pub finalized_header: Option<Header>,
+    pub finality_branch: Option<Vec<Bytes32>>,
+}
+
+impl From<&Update> for GenericUpdate {
+    fn from(update: &Update) -> Self {
+        Self {
+            attested_header: update.attested_header.clone(),
+            sync_aggregate: update.sync_aggregate.clone(),
+            signature_slot: update.signature_slot.clone(),
+            next_sync_committee: Some(update.next_sync_committee.clone()),
+            next_sync_committee_branch: Some(update.next_sync_committee_branch.clone()),
+            finalized_header: Some(update.finalized_header.clone()),
+            finality_branch: Some(update.finality_branch.clone()),
+        }
+    }
+}
+
+impl From<&FinalityUpdate> for GenericUpdate {
+    fn from(update: &FinalityUpdate) -> Self {
+        Self {
+            attested_header: update.attested_header.clone(),
+            sync_aggregate: update.sync_aggregate.clone(),
+            signature_slot: update.signature_slot.clone(),
+            next_sync_committee: None,
+            next_sync_committee_branch: None,
+            finalized_header: Some(update.finalized_header.clone()),
+            finality_branch: Some(update.finality_branch.clone()),
+        }
+    }
+}
+
+impl From<&OptimisticUpdate> for GenericUpdate {
+    fn from(update: &OptimisticUpdate) -> Self {
+        Self {
+            attested_header: update.attested_header.clone(),
+            sync_aggregate: update.sync_aggregate.clone(),
+            signature_slot: update.signature_slot.clone(),
+            next_sync_committee: None,
+            next_sync_committee_branch: None,
+            finalized_header: None,
+            finality_branch: None,
+        }
+    }
+}
+
 fn pubkey_deserialize<'de, D>(deserializer: D) -> Result<BLSPubKey, D::Error>
 where
     D: serde::Deserializer<'de>,
