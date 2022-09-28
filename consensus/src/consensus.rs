@@ -253,27 +253,67 @@ impl<R: Rpc> ConsensusClient<R> {
         self.verify_generic_update(&update)
     }
 
+    fn apply_generic_update(&mut self, update: &GenericUpdate) {
+        let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
+
+        self.store.current_max_active_participants =
+            u64::max(self.store.current_max_active_participants, committee_bits);
+
+        let safety_theshhold = cmp::max(
+            self.store.current_max_active_participants,
+            self.store.previous_max_active_participants,
+        ) / 2;
+
+        if committee_bits > safety_theshhold
+            && update.attested_header.slot > self.store.optimistic_header.slot
+        {
+            self.store.optimistic_header = update.attested_header.clone();
+        }
+
+        let update_finalized_period =
+            calc_sync_period(update.finalized_header.clone().unwrap_or_default().slot);
+        let update_attested_period = calc_sync_period(update.attested_header.slot);
+
+        let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
+            && update.next_sync_committee.is_some()
+            && update.next_sync_committee_branch.is_some()
+            && update.finalized_header.is_some()
+            && update.finality_branch.is_some()
+            && update_finalized_period == update_attested_period;
+
+        let should_apply = committee_bits * 3 >= 512 * 2
+            && (update.finalized_header.clone().unwrap_or_default().slot
+                > self.store.finalized_header.slot
+                || update_has_finalized_next_committee);
+
+        if should_apply {
+            let store_period = calc_sync_period(self.store.finalized_header.slot);
+
+            if self.store.next_sync_committee.is_none() {
+                self.store.next_sync_committee = update.next_sync_committee.clone();
+            } else if update_finalized_period == store_period + 1 {
+                self.store.current_sync_committee = self.store.next_sync_committee.clone().unwrap();
+                self.store.next_sync_committee = update.next_sync_committee.clone();
+                self.store.previous_max_active_participants =
+                    self.store.current_max_active_participants;
+                self.store.current_max_active_participants = 0;
+            }
+
+            if update.finalized_header.clone().unwrap_or_default().slot
+                > self.store.finalized_header.slot
+            {
+                self.store.finalized_header = update.finalized_header.clone().unwrap();
+
+                if self.store.finalized_header.slot > self.store.optimistic_header.slot {
+                    self.store.optimistic_header = self.store.finalized_header.clone();
+                }
+            }
+        }
+    }
+
     fn apply_update(&mut self, update: &Update) {
-        let store_period = calc_sync_period(self.store.finalized_header.slot);
-        let update_signature_period = calc_sync_period(update.signature_slot);
-
-        if update.finalized_header.slot > self.store.finalized_header.slot {
-            self.store.finalized_header = update.finalized_header.clone();
-        }
-
-        if update.finalized_header.slot % 32 == 0 {
-            let n = update.finalized_header.clone().hash_tree_root().unwrap();
-            let checkpoint = n.as_bytes().to_vec();
-            self.last_checkpoint = Some(checkpoint);
-        }
-
-        if self.store.next_sync_committee.is_none() {
-            self.store.next_sync_committee = Some(update.next_sync_committee.clone());
-        } else if update_signature_period == store_period + 1 {
-            self.store.current_sync_committee =
-                self.store.next_sync_committee.as_ref().unwrap().clone();
-            self.store.next_sync_committee = Some(update.next_sync_committee.clone());
-        }
+        let update = GenericUpdate::from(update);
+        self.apply_generic_update(&update);
 
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
@@ -290,67 +330,76 @@ impl<R: Rpc> ConsensusClient<R> {
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        if self.store.finalized_header.slot != update.finalized_header.slot {
-            self.store.finalized_header = update.finalized_header.clone();
-            self.store.previous_max_active_participants =
-                self.store.current_max_active_participants;
-            self.store.current_max_active_participants =
-                get_bits(&update.sync_aggregate.sync_committee_bits);
+        let update = GenericUpdate::from(update);
+        self.apply_generic_update(&update);
 
-            let participation =
-                get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
-            let delay = self.get_delay(self.store.finalized_header.slot);
+        info!("attempting to apply finality update");
 
-            if update.finalized_header.slot % 32 == 0 {
-                let n = update.finalized_header.clone().hash_tree_root().unwrap();
-                let checkpoint = n.as_bytes().to_vec();
-                self.last_checkpoint = Some(checkpoint);
-            }
+        // if self.store.finalized_header.slot != update.finalized_header.slot {
+        //     self.store.finalized_header = update.finalized_header.clone();
+        //     self.store.previous_max_active_participants =
+        //         self.store.current_max_active_participants;
+        //     self.store.current_max_active_participants =
+        //         get_bits(&update.sync_aggregate.sync_committee_bits);
 
-            info!(
-                "applying finality update       slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
-                self.store.finalized_header.slot,
-                participation,
-                delay.num_hours(),
-                delay.num_minutes(),
-                delay.num_seconds(),
-            );
-        }
+        //     let participation =
+        //         get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+        //     let delay = self.get_delay(self.store.finalized_header.slot);
 
-        if self.store.finalized_header.slot > self.store.optimistic_header.slot {
-            self.store.optimistic_header = self.store.finalized_header.clone();
-        }
+        //     if update.finalized_header.slot % 32 == 0 {
+        //         let n = update.finalized_header.clone().hash_tree_root().unwrap();
+        //         let checkpoint = n.as_bytes().to_vec();
+        //         self.last_checkpoint = Some(checkpoint);
+        //     }
+
+        //     info!(
+        //         "applying finality update       slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+        //         self.store.finalized_header.slot,
+        //         participation,
+        //         delay.num_hours(),
+        //         delay.num_minutes(),
+        //         delay.num_seconds(),
+        //     );
+        // }
+
+        // if self.store.finalized_header.slot > self.store.optimistic_header.slot {
+        //     self.store.optimistic_header = self.store.finalized_header.clone();
+        // }
     }
 
     fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let votes = get_bits(&update.sync_aggregate.sync_committee_bits);
-        if votes > self.store.current_max_active_participants {
-            self.store.current_max_active_participants = votes;
-        }
+        let update = GenericUpdate::from(update);
+        self.apply_generic_update(&update);
+        info!("attempting to apply optimistic update");
 
-        let safety_theshhold = cmp::max(
-            self.store.current_max_active_participants,
-            self.store.previous_max_active_participants,
-        ) / 2;
+        // let votes = get_bits(&update.sync_aggregate.sync_committee_bits);
+        // if votes > self.store.current_max_active_participants {
+        //     self.store.current_max_active_participants = votes;
+        // }
 
-        if votes > safety_theshhold
-            && update.attested_header.slot > self.store.optimistic_header.slot
-        {
-            self.store.optimistic_header = update.attested_header.clone();
+        // let safety_theshhold = cmp::max(
+        //     self.store.current_max_active_participants,
+        //     self.store.previous_max_active_participants,
+        // ) / 2;
 
-            let participation =
-                get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
-            let delay = self.get_delay(update.attested_header.slot);
+        // if votes > safety_theshhold
+        //     && update.attested_header.slot > self.store.optimistic_header.slot
+        // {
+        //     self.store.optimistic_header = update.attested_header.clone();
 
-            info!(
-                "applying optimistic update     slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
-                self.store.optimistic_header.slot,
-                participation,
-                delay.num_hours(),
-                delay.num_minutes(),
-                delay.num_seconds(),
-            );
-        }
+        //     let participation =
+        //         get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+        //     let delay = self.get_delay(update.attested_header.slot);
+
+        //     info!(
+        //         "applying optimistic update     slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+        //         self.store.optimistic_header.slot,
+        //         participation,
+        //         delay.num_hours(),
+        //         delay.num_minutes(),
+        //         delay.num_seconds(),
+        //     );
+        // }
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
