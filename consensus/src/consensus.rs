@@ -259,35 +259,38 @@ impl<R: Rpc> ConsensusClient<R> {
         self.store.current_max_active_participants =
             u64::max(self.store.current_max_active_participants, committee_bits);
 
-        let safety_theshhold = cmp::max(
-            self.store.current_max_active_participants,
-            self.store.previous_max_active_participants,
-        ) / 2;
+        let should_update_optimistic = committee_bits > self.safety_theshhold()
+            && update.attested_header.slot > self.store.optimistic_header.slot;
 
-        if committee_bits > safety_theshhold
-            && update.attested_header.slot > self.store.optimistic_header.slot
-        {
+        if should_update_optimistic {
             self.store.optimistic_header = update.attested_header.clone();
             self.log_optimistic_update(update);
         }
 
-        let update_finalized_period =
-            calc_sync_period(update.finalized_header.clone().unwrap_or_default().slot);
         let update_attested_period = calc_sync_period(update.attested_header.slot);
 
+        let update_finalized_slot = update
+            .finalized_header
+            .as_ref()
+            .map(|h| h.slot)
+            .unwrap_or(0);
+
+        let update_finalized_period = calc_sync_period(update_finalized_slot);
+
         let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
-            && update.next_sync_committee.is_some()
-            && update.next_sync_committee_branch.is_some()
-            && update.finalized_header.is_some()
-            && update.finality_branch.is_some()
+            && self.has_sync_update(update)
+            && self.has_finality_update(update)
             && update_finalized_period == update_attested_period;
 
-        let should_apply = committee_bits * 3 >= 512 * 2
-            && (update.finalized_header.clone().unwrap_or_default().slot
-                > self.store.finalized_header.slot
-                || update_has_finalized_next_committee);
+        let should_apply_update = {
+            let has_majority = committee_bits * 3 >= 512 * 2;
+            let update_is_newer = update_finalized_slot > self.store.finalized_header.slot;
+            let good_update = update_is_newer || update_has_finalized_next_committee;
 
-        if should_apply {
+            has_majority && good_update
+        };
+
+        if should_apply_update {
             let store_period = calc_sync_period(self.store.finalized_header.slot);
 
             if self.store.next_sync_committee.is_none() {
@@ -301,9 +304,7 @@ impl<R: Rpc> ConsensusClient<R> {
                 self.store.current_max_active_participants = 0;
             }
 
-            if update.finalized_header.clone().unwrap_or_default().slot
-                > self.store.finalized_header.slot
-            {
+            if update_finalized_slot > self.store.finalized_header.slot {
                 self.store.finalized_header = update.finalized_header.clone().unwrap();
                 self.log_finality_update(update);
 
@@ -334,15 +335,17 @@ impl<R: Rpc> ConsensusClient<R> {
     fn log_finality_update(&self, update: &GenericUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+        let decimals = if participation == 100.0 { 1 } else { 2 };
         let delay = self.get_delay(self.store.finalized_header.slot);
 
         info!(
-            "finalized slot             slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+            "finalized slot             slot={}  confidence={:.decimals$}%  delay={:02}:{:02}:{:02}:{:02}",
             self.store.finalized_header.slot,
             participation,
-            delay.num_hours(),
-            delay.num_minutes(),
-            delay.num_seconds(),
+            delay.num_days(),
+            delay.num_hours() % 24,
+            delay.num_minutes() % 60,
+            delay.num_seconds() % 60,
         );
     }
 
@@ -354,16 +357,33 @@ impl<R: Rpc> ConsensusClient<R> {
     fn log_optimistic_update(&self, update: &GenericUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+        let decimals = if participation == 100.0 { 1 } else { 2 };
         let delay = self.get_delay(self.store.optimistic_header.slot);
 
         info!(
-            "updated head               slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+            "updated head               slot={}  confidence={:.decimals$}%  delay={:02}:{:02}:{:02}:{:02}",
             self.store.optimistic_header.slot,
             participation,
-            delay.num_hours(),
-            delay.num_minutes(),
-            delay.num_seconds(),
+            delay.num_days(),
+            delay.num_hours() % 24,
+            delay.num_minutes() % 60,
+            delay.num_seconds() % 60,
         );
+    }
+
+    fn has_finality_update(&self, update: &GenericUpdate) -> bool {
+        update.finalized_header.is_some() && update.finality_branch.is_some()
+    }
+
+    fn has_sync_update(&self, update: &GenericUpdate) -> bool {
+        update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
+    }
+
+    fn safety_theshhold(&self) -> u64 {
+        cmp::max(
+            self.store.current_max_active_participants,
+            self.store.previous_max_active_participants,
+        ) / 2
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
