@@ -160,7 +160,7 @@ impl<R: Rpc> ConsensusClient<R> {
         }
 
         let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-        let valid_time = self.current_slot() >= update.signature_slot
+        let valid_time = self.expected_current_slot() >= update.signature_slot
             && update.signature_slot > update.attested_header.slot
             && update.attested_header.slot >= update_finalized_slot;
 
@@ -410,7 +410,7 @@ impl<R: Rpc> ConsensusClient<R> {
         chrono::Duration::from_std(delay).unwrap()
     }
 
-    fn current_slot(&self) -> u64 {
+    pub fn expected_current_slot(&self) -> u64 {
         let now = std::time::SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap();
@@ -428,7 +428,7 @@ impl<R: Rpc> ConsensusClient<R> {
     /// Gets the duration until the next update
     /// Updates are scheduled for 4 seconds into each slot
     pub fn duration_until_next_update(&self) -> Duration {
-        let current_slot = self.current_slot();
+        let current_slot = self.expected_current_slot();
         let next_slot = current_slot + 1;
         let next_slot_timestamp = self.slot_timestamp(next_slot);
 
