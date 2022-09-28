@@ -268,6 +268,7 @@ impl<R: Rpc> ConsensusClient<R> {
             && update.attested_header.slot > self.store.optimistic_header.slot
         {
             self.store.optimistic_header = update.attested_header.clone();
+            self.log_optimistic_update(update);
         }
 
         let update_finalized_period =
@@ -292,6 +293,7 @@ impl<R: Rpc> ConsensusClient<R> {
             if self.store.next_sync_committee.is_none() {
                 self.store.next_sync_committee = update.next_sync_committee.clone();
             } else if update_finalized_period == store_period + 1 {
+                info!("sync committee updated");
                 self.store.current_sync_committee = self.store.next_sync_committee.clone().unwrap();
                 self.store.next_sync_committee = update.next_sync_committee.clone();
                 self.store.previous_max_active_participants =
@@ -303,6 +305,7 @@ impl<R: Rpc> ConsensusClient<R> {
                 > self.store.finalized_header.slot
             {
                 self.store.finalized_header = update.finalized_header.clone().unwrap();
+                self.log_finality_update(update);
 
                 if self.store.finalized_header.slot > self.store.optimistic_header.slot {
                     self.store.optimistic_header = self.store.finalized_header.clone();
@@ -314,13 +317,20 @@ impl<R: Rpc> ConsensusClient<R> {
     fn apply_update(&mut self, update: &Update) {
         let update = GenericUpdate::from(update);
         self.apply_generic_update(&update);
+    }
 
+    fn apply_finality_update(&mut self, update: &FinalityUpdate) {
+        let update = GenericUpdate::from(update);
+        self.apply_generic_update(&update);
+    }
+
+    fn log_finality_update(&self, update: &GenericUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let delay = self.get_delay(self.store.finalized_header.slot);
 
         info!(
-            "applying update                slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+            "finalized slot             slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
             self.store.finalized_header.slot,
             participation,
             delay.num_hours(),
@@ -329,77 +339,24 @@ impl<R: Rpc> ConsensusClient<R> {
         );
     }
 
-    fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
-
-        info!("attempting to apply finality update");
-
-        // if self.store.finalized_header.slot != update.finalized_header.slot {
-        //     self.store.finalized_header = update.finalized_header.clone();
-        //     self.store.previous_max_active_participants =
-        //         self.store.current_max_active_participants;
-        //     self.store.current_max_active_participants =
-        //         get_bits(&update.sync_aggregate.sync_committee_bits);
-
-        //     let participation =
-        //         get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
-        //     let delay = self.get_delay(self.store.finalized_header.slot);
-
-        //     if update.finalized_header.slot % 32 == 0 {
-        //         let n = update.finalized_header.clone().hash_tree_root().unwrap();
-        //         let checkpoint = n.as_bytes().to_vec();
-        //         self.last_checkpoint = Some(checkpoint);
-        //     }
-
-        //     info!(
-        //         "applying finality update       slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
-        //         self.store.finalized_header.slot,
-        //         participation,
-        //         delay.num_hours(),
-        //         delay.num_minutes(),
-        //         delay.num_seconds(),
-        //     );
-        // }
-
-        // if self.store.finalized_header.slot > self.store.optimistic_header.slot {
-        //     self.store.optimistic_header = self.store.finalized_header.clone();
-        // }
-    }
-
     fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
         let update = GenericUpdate::from(update);
         self.apply_generic_update(&update);
-        info!("attempting to apply optimistic update");
+    }
 
-        // let votes = get_bits(&update.sync_aggregate.sync_committee_bits);
-        // if votes > self.store.current_max_active_participants {
-        //     self.store.current_max_active_participants = votes;
-        // }
+    fn log_optimistic_update(&self, update: &GenericUpdate) {
+        let participation =
+            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+        let delay = self.get_delay(self.store.optimistic_header.slot);
 
-        // let safety_theshhold = cmp::max(
-        //     self.store.current_max_active_participants,
-        //     self.store.previous_max_active_participants,
-        // ) / 2;
-
-        // if votes > safety_theshhold
-        //     && update.attested_header.slot > self.store.optimistic_header.slot
-        // {
-        //     self.store.optimistic_header = update.attested_header.clone();
-
-        //     let participation =
-        //         get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
-        //     let delay = self.get_delay(update.attested_header.slot);
-
-        //     info!(
-        //         "applying optimistic update     slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
-        //         self.store.optimistic_header.slot,
-        //         participation,
-        //         delay.num_hours(),
-        //         delay.num_minutes(),
-        //         delay.num_seconds(),
-        //     );
-        // }
+        info!(
+            "updated head               slot={}  confidence={:.2}%  delay={:02}:{:02}:{:02}",
+            self.store.optimistic_header.slot,
+            participation,
+            delay.num_hours(),
+            delay.num_minutes(),
+            delay.num_seconds(),
+        );
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
