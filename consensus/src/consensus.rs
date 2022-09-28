@@ -307,6 +307,13 @@ impl<R: Rpc> ConsensusClient<R> {
                 self.store.finalized_header = update.finalized_header.clone().unwrap();
                 self.log_finality_update(update);
 
+                if self.store.finalized_header.slot % 32 == 0 {
+                    let checkpoint_res = self.store.finalized_header.hash_tree_root();
+                    if let Ok(checkpoint) = checkpoint_res {
+                        self.last_checkpoint = Some(checkpoint.as_bytes().to_vec());
+                    }
+                }
+
                 if self.store.finalized_header.slot > self.store.optimistic_header.slot {
                     self.store.optimistic_header = self.store.finalized_header.clone();
                 }
