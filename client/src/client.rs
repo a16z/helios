@@ -152,7 +152,7 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.chain_id()
     }
 
-    pub async fn get_header(&self) -> Header {
-        self.node.read().await.get_header().clone()
+    pub async fn get_header(&self) -> Result<Header> {
+        self.node.read().await.get_header()
     }
 }

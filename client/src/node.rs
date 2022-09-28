@@ -96,36 +96,48 @@ impl Node {
     }
 
     pub fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
+        self.check_blocktag_age(block)?;
+
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.call(opts)
     }
 
     pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
+        self.check_head_age()?;
+
         let payload = self.get_payload(&BlockTag::Latest)?;
         let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.estimate_gas(opts)
     }
 
     pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
+        self.check_blocktag_age(block)?;
+
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.balance)
     }
 
     pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
+        self.check_blocktag_age(block)?;
+
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.nonce)
     }
 
     pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
+        self.check_blocktag_age(block)?;
+
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.code)
     }
 
     pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
+        self.check_head_age()?;
+
         let payload = self.get_payload(&BlockTag::Latest)?;
         let account = self
             .execution
@@ -159,6 +171,8 @@ impl Node {
     }
 
     pub fn get_gas_price(&self) -> Result<U256> {
+        self.check_head_age()?;
+
         let payload = self.get_payload(&BlockTag::Latest)?;
         let base_fee = U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
         let tip = U256::from(10_u64.pow(9));
@@ -171,11 +185,15 @@ impl Node {
     }
 
     pub fn get_block_number(&self) -> Result<u64> {
+        self.check_head_age()?;
+
         let payload = self.get_payload(&BlockTag::Latest)?;
         Ok(payload.block_number)
     }
 
     pub fn get_block_by_number(&self, block: &BlockTag) -> Result<Option<ExecutionBlock>> {
+        self.check_blocktag_age(block)?;
+
         match self.get_payload(block) {
             Ok(payload) => self.execution.get_block(payload).map(|b| Some(b)),
             Err(_) => Ok(None),
@@ -199,8 +217,9 @@ impl Node {
         self.config.general.chain_id
     }
 
-    pub fn get_header(&self) -> &Header {
-        self.consensus.get_header()
+    pub fn get_header(&self) -> Result<Header> {
+        self.check_head_age()?;
+        Ok(self.consensus.get_header().clone())
     }
 
     pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
@@ -221,6 +240,26 @@ impl Node {
                 let payload = self.payloads.get(num);
                 payload.ok_or(eyre!("Block Not Found"))
             }
+        }
+    }
+
+    fn check_head_age(&self) -> Result<()> {
+        let synced_slot = self.consensus.get_header().slot;
+        let expected_slot = self.consensus.expected_current_slot();
+        let slot_delay = expected_slot - synced_slot;
+
+        if slot_delay > 10 {
+            return Err(eyre!("Out of Sync"));
+        }
+
+        Ok(())
+    }
+
+    fn check_blocktag_age(&self, block: &BlockTag) -> Result<()> {
+        match block {
+            BlockTag::Latest => self.check_head_age(),
+            BlockTag::Finalized => Ok(()),
+            BlockTag::Number(_) => Ok(()),
         }
     }
 }
