@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
@@ -54,6 +55,13 @@ impl Node {
     pub async fn advance(&mut self) -> Result<()> {
         self.consensus.advance().await?;
         self.update_payloads().await
+    }
+
+    pub fn duration_until_next_update(&self) -> Duration {
+        self.consensus
+            .duration_until_next_update()
+            .to_std()
+            .unwrap()
     }
 
     async fn update_payloads(&mut self) -> Result<()> {

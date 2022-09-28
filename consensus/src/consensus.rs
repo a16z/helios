@@ -336,16 +336,16 @@ impl<R: Rpc> ConsensusClient<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let delay = self.get_delay(self.store.finalized_header.slot);
+        let age = self.age(self.store.finalized_header.slot);
 
         info!(
-            "finalized slot             slot={}  confidence={:.decimals$}%  delay={:02}:{:02}:{:02}:{:02}",
+            "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             self.store.finalized_header.slot,
             participation,
-            delay.num_days(),
-            delay.num_hours() % 24,
-            delay.num_minutes() % 60,
-            delay.num_seconds() % 60,
+            age.num_days(),
+            age.num_hours() % 24,
+            age.num_minutes() % 60,
+            age.num_seconds() % 60,
         );
     }
 
@@ -358,16 +358,16 @@ impl<R: Rpc> ConsensusClient<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let delay = self.get_delay(self.store.optimistic_header.slot);
+        let age = self.age(self.store.optimistic_header.slot);
 
         info!(
-            "updated head               slot={}  confidence={:.decimals$}%  delay={:02}:{:02}:{:02}:{:02}",
+            "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             self.store.optimistic_header.slot,
             participation,
-            delay.num_days(),
-            delay.num_hours() % 24,
-            delay.num_minutes() % 60,
-            delay.num_seconds() % 60,
+            age.num_days(),
+            age.num_hours() % 24,
+            age.num_minutes() % 60,
+            age.num_seconds() % 60,
         );
     }
 
@@ -401,8 +401,8 @@ impl<R: Rpc> ConsensusClient<R> {
         compute_signing_root(header, domain)
     }
 
-    fn get_delay(&self, slot: u64) -> Duration {
-        let expected_time = slot * 12 + self.config.general.genesis_time;
+    fn age(&self, slot: u64) -> Duration {
+        let expected_time = self.slot_timestamp(slot);
         let now = std::time::SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap();
@@ -419,6 +419,28 @@ impl<R: Rpc> ConsensusClient<R> {
         let since_genesis = now - std::time::Duration::from_secs(genesis_time);
 
         since_genesis.as_secs() / 12
+    }
+
+    fn slot_timestamp(&self, slot: u64) -> u64 {
+        slot * 12 + self.config.general.genesis_time
+    }
+
+    /// Gets the duration until the next update
+    /// Updates are scheduled for 4 seconds into each slot
+    pub fn duration_until_next_update(&self) -> Duration {
+        let current_slot = self.current_slot();
+        let next_slot = current_slot + 1;
+        let next_slot_timestamp = self.slot_timestamp(next_slot);
+
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let time_to_next_slot = next_slot_timestamp - now;
+        let next_update = time_to_next_slot + 4;
+
+        Duration::seconds(next_update as i64)
     }
 }
 
