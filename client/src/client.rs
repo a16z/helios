@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
@@ -59,7 +58,8 @@ impl<DB: Database> Client<DB> {
                     warn!("{}", err);
                 }
 
-                sleep(Duration::from_secs(10)).await;
+                let next_update = node.read().await.duration_until_next_update();
+                sleep(next_update).await;
             }
         });
 
