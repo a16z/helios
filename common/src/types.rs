@@ -37,15 +37,12 @@ impl<'de> Deserialize<'de> for BlockTag {
             "finalized" => BlockTag::Finalized,
             _ => match block.strip_prefix("0x") {
                 Some(hex_block) => {
-                    let num = u64::from_str_radix(hex_block, 16)
-                        .map_err(|_| parse_error)?;
+                    let num = u64::from_str_radix(hex_block, 16).map_err(|_| parse_error)?;
 
                     BlockTag::Number(num)
                 }
                 None => {
-                    let num = block
-                        .parse()
-                        .map_err(|_| parse_error)?;
+                    let num = block.parse().map_err(|_| parse_error)?;
 
                     BlockTag::Number(num)
                 }

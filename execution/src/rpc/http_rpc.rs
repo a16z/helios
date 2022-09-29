@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use common::errors::RpcError;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
@@ -51,7 +52,9 @@ impl Rpc for HttpRpc {
         let proof_response = self
             .provider
             .get_proof(*address, slots.to_vec(), block)
-            .await?;
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(proof_response)
     }
 
@@ -71,24 +74,44 @@ impl Rpc for HttpRpc {
             .map(|data| Bytes::from(data.as_slice().to_owned()));
 
         let tx = TypedTransaction::Eip1559(raw_tx);
-        let list = self.provider.create_access_list(&tx, block).await?;
+        let list = self
+            .provider
+            .create_access_list(&tx, block)
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
 
         Ok(list.access_list)
     }
 
     async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>> {
         let block = Some(BlockId::from(block));
-        let code = self.provider.get_code(*address, block).await?;
+        let code = self
+            .provider
+            .get_code(*address, block)
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(code.to_vec())
     }
 
     async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
         let bytes = Bytes::from(bytes.as_slice().to_owned());
-        Ok(self.provider.send_raw_transaction(bytes).await?.tx_hash())
+        let tx = self
+            .provider
+            .send_raw_transaction(bytes)
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
+        Ok(tx.tx_hash())
     }
 
     async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>> {
-        let receipt = self.provider.get_transaction_receipt(*tx_hash).await?;
+        let receipt = self
+            .provider
+            .get_transaction_receipt(*tx_hash)
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(receipt)
     }
 

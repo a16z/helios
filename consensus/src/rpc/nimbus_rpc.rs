@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use common::errors::RpcError;
 use eyre::Result;
 
 use super::Rpc;
@@ -22,7 +23,14 @@ impl Rpc for NimbusRpc {
             "{}/eth/v0/beacon/light_client/bootstrap/0x{}",
             self.rpc, root_hex
         );
-        let res = reqwest::get(req).await?.json::<BootstrapResponse>().await?;
+
+        let res = reqwest::get(req)
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?
+            .json::<BootstrapResponse>()
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(res.data.v)
     }
 
@@ -31,34 +39,50 @@ impl Rpc for NimbusRpc {
             "{}/eth/v0/beacon/light_client/updates?start_period={}&count=1000",
             self.rpc, period
         );
-        let res = reqwest::get(req).await?.json::<UpdateResponse>().await?;
+
+        let res = reqwest::get(req)
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?
+            .json::<UpdateResponse>()
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(res.data)
     }
 
     async fn get_finality_update(&self) -> Result<FinalityUpdate> {
         let req = format!("{}/eth/v0/beacon/light_client/finality_update", self.rpc);
         let res = reqwest::get(req)
-            .await?
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?
             .json::<FinalityUpdateResponse>()
-            .await?;
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(res.data)
     }
 
     async fn get_optimistic_update(&self) -> Result<OptimisticUpdate> {
         let req = format!("{}/eth/v0/beacon/light_client/optimistic_update", self.rpc);
         let res = reqwest::get(req)
-            .await?
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?
             .json::<OptimisticUpdateResponse>()
-            .await?;
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(res.data)
     }
 
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock> {
         let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
         let res = reqwest::get(req)
-            .await?
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?
             .json::<BeaconBlockResponse>()
-            .await?;
+            .await
+            .map_err(|e| RpcError::new(e.to_string()))?;
+
         Ok(res.data.message)
     }
 }
