@@ -14,6 +14,8 @@ use futures::future::join_all;
 use revm::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
+use crate::errors::ExecutionError;
+
 use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
 use super::types::{Account, ExecutionBlock};
@@ -53,7 +55,7 @@ impl<R: Rpc> ExecutionClient<R> {
         );
 
         if !is_valid {
-            eyre::bail!("Invalid Proof");
+            return Err(ExecutionError::InvalidAccountProof(*address).into());
         }
 
         let mut slot_map = HashMap::new();
@@ -72,7 +74,9 @@ impl<R: Rpc> ExecutionClient<R> {
             );
 
             if !is_valid {
-                eyre::bail!("Invalid Proof");
+                return Err(
+                    ExecutionError::InvalidStorageProof(*address, storage_proof.key).into(),
+                );
             }
 
             slot_map.insert(storage_proof.key, storage_proof.value);
@@ -85,7 +89,12 @@ impl<R: Rpc> ExecutionClient<R> {
             let code_hash = keccak256(&code).into();
 
             if proof.code_hash != code_hash {
-                eyre::bail!("Invalid Proof");
+                return Err(ExecutionError::CodeHashMismatch(
+                    *address,
+                    code_hash.to_string(),
+                    proof.code_hash.to_string(),
+                )
+                .into());
             }
 
             code
@@ -183,7 +192,7 @@ impl<R: Rpc> ExecutionClient<R> {
         let payload_receipt_root = H256::from_slice(&payload.receipts_root);
 
         if expected_receipt_root != payload_receipt_root || !receipts.contains(&receipt) {
-            return Err(eyre::eyre!("Receipt Proof Invalid"));
+            return Err(ExecutionError::ReceiptRootMismatch(tx_hash.to_string()).into());
         }
 
         Ok(Some(receipt))
@@ -222,7 +231,7 @@ impl<R: Rpc> ExecutionClient<R> {
             .collect::<Vec<_>>();
 
         if !txs_encoded.contains(&tx_encoded) {
-            return Err(eyre::eyre!("Transaction Proof Invalid"));
+            return Err(ExecutionError::MissingTransaction(hash.to_string()).into());
         }
 
         Ok(Some(tx))

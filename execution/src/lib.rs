@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod evm;
 pub mod rpc;
 pub mod types;

@@ -13,3 +13,4 @@ ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
 ethers = "0.17.0"
 toml = "0.5.9"
 openssl = { version = "0.10", features = ["vendored"] }
+thiserror = "1.0.37"

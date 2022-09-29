@@ -4,6 +4,7 @@ use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
+use common::types::BlockTag;
 use config::Config;
 use consensus::types::Header;
 use execution::types::{CallOpts, ExecutionBlock};
@@ -13,7 +14,7 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use crate::database::{Database, FileDB};
-use crate::node::{BlockTag, Node};
+use crate::node::Node;
 use crate::rpc::Rpc;
 
 pub struct Client<DB: Database> {
@@ -49,13 +50,13 @@ impl<DB: Database> Client<DB> {
         spawn(async move {
             let res = node.write().await.sync().await;
             if let Err(err) = res {
-                warn!("{}", err);
+                warn!("consensus error: {}", err);
             }
 
             loop {
                 let res = node.write().await.advance().await;
                 if let Err(err) = res {
-                    warn!("{}", err);
+                    warn!("consensus error: {}", err);
                 }
 
                 let next_update = node.read().await.duration_until_next_update();
