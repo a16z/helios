@@ -50,16 +50,16 @@ impl Rpc {
     }
 }
 
-#[rpc(client, server, namespace = "eth")]
+#[rpc(server, namespace = "eth")]
 trait EthRpc {
     #[method(name = "getBalance")]
-    async fn get_balance(&self, address: &str, block: &str) -> Result<String, Error>;
+    async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "getTransactionCount")]
-    async fn get_transaction_count(&self, address: &str, block: &str) -> Result<String, Error>;
+    async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "getCode")]
-    async fn get_code(&self, address: &str, block: &str) -> Result<String, Error>;
+    async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "call")]
-    async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error>;
+    async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error>;
     #[method(name = "estimateGas")]
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error>;
     #[method(name = "chainId")]
@@ -73,7 +73,7 @@ trait EthRpc {
     #[method(name = "getBlockByNumber")]
     async fn get_block_by_number(
         &self,
-        num: &str,
+        block: BlockTag,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>, Error>;
     #[method(name = "getBlockByHash")]
@@ -107,9 +107,8 @@ struct RpcInner {
 
 #[async_trait]
 impl EthRpcServer for RpcInner {
-    async fn get_balance(&self, address: &str, block: &str) -> Result<String, Error> {
+    async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         debug!("eth_getBalance");
-        let block = convert_err(decode_block(block))?;
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
         let balance = convert_err(node.get_balance(&address, &block).await)?;
@@ -117,8 +116,7 @@ impl EthRpcServer for RpcInner {
         Ok(balance.encode_hex())
     }
 
-    async fn get_transaction_count(&self, address: &str, block: &str) -> Result<String, Error> {
-        let block = convert_err(decode_block(block))?;
+    async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
         let nonce = convert_err(node.get_nonce(&address, &block).await)?;
@@ -126,8 +124,7 @@ impl EthRpcServer for RpcInner {
         Ok(nonce.encode_hex())
     }
 
-    async fn get_code(&self, address: &str, block: &str) -> Result<String, Error> {
-        let block = convert_err(decode_block(block))?;
+    async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
         let code = convert_err(node.get_code(&address, &block).await)?;
@@ -135,9 +132,8 @@ impl EthRpcServer for RpcInner {
         Ok(hex::encode(code))
     }
 
-    async fn call(&self, opts: CallOpts, block: &str) -> Result<String, Error> {
+    async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {
         debug!("eth_call");
-        let block = convert_err(decode_block(block))?;
         let node = self.node.read().await;
         let res = convert_err(node.call(&opts, &block))?;
 
@@ -178,10 +174,9 @@ impl EthRpcServer for RpcInner {
 
     async fn get_block_by_number(
         &self,
-        block: &str,
+        block: BlockTag,
         _full_tx: bool,
     ) -> Result<Option<ExecutionBlock>, Error> {
-        let block = convert_err(decode_block(block))?;
         let node = self.node.read().await;
         let block = convert_err(node.get_block_by_number(&block))?;
         Ok(block)
@@ -253,21 +248,4 @@ fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
         warn!("{}", err);
         Error::Custom(err.to_string())
     })
-}
-
-fn decode_block(block: &str) -> Result<BlockTag> {
-    match block {
-        "latest" => Ok(BlockTag::Latest),
-        "finalized" => Ok(BlockTag::Finalized),
-        _ => {
-            if block.starts_with("0x") {
-                Ok(BlockTag::Number(u64::from_str_radix(
-                    block.strip_prefix("0x").unwrap(),
-                    16,
-                )?))
-            } else {
-                Ok(BlockTag::Number(block.parse()?))
-            }
-        }
-    }
 }
