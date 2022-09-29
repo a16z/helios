@@ -1042,6 +1042,7 @@ dependencies = [
  "serde",
  "serde_json",
  "ssz-rs",
+ "thiserror",
  "tokio",
  "toml",
  "triehash-ethereum",
