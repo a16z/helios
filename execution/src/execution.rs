@@ -55,7 +55,7 @@ impl<R: Rpc> ExecutionClient<R> {
         );
 
         if !is_valid {
-            return Err(ExecutionError::InvalidAccountProof.into());
+            return Err(ExecutionError::InvalidAccountProof(*address).into());
         }
 
         let mut slot_map = HashMap::new();
@@ -74,7 +74,9 @@ impl<R: Rpc> ExecutionClient<R> {
             );
 
             if !is_valid {
-                return Err(ExecutionError::InvalidStorageProof.into());
+                return Err(
+                    ExecutionError::InvalidStorageProof(*address, storage_proof.key).into(),
+                );
             }
 
             slot_map.insert(storage_proof.key, storage_proof.value);
@@ -87,7 +89,12 @@ impl<R: Rpc> ExecutionClient<R> {
             let code_hash = keccak256(&code).into();
 
             if proof.code_hash != code_hash {
-                return Err(ExecutionError::CodeHashMismatch.into());
+                return Err(ExecutionError::CodeHashMismatch(
+                    *address,
+                    code_hash.to_string(),
+                    proof.code_hash.to_string(),
+                )
+                .into());
             }
 
             code
@@ -185,7 +192,7 @@ impl<R: Rpc> ExecutionClient<R> {
         let payload_receipt_root = H256::from_slice(&payload.receipts_root);
 
         if expected_receipt_root != payload_receipt_root || !receipts.contains(&receipt) {
-            return Err(ExecutionError::ReceiptRootMismatch.into());
+            return Err(ExecutionError::ReceiptRootMismatch(tx_hash.to_string()).into());
         }
 
         Ok(Some(receipt))
@@ -224,7 +231,7 @@ impl<R: Rpc> ExecutionClient<R> {
             .collect::<Vec<_>>();
 
         if !txs_encoded.contains(&tx_encoded) {
-            return Err(ExecutionError::MissingTransaction.into());
+            return Err(ExecutionError::MissingTransaction(hash.to_string()).into());
         }
 
         Ok(Some(tx))

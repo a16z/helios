@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::types::BlockTag;
 
 #[derive(Debug, Error)]
-#[error("block {block} not available")]
+#[error("block not available: {block}")]
 pub struct BlockNotFoundError {
     block: BlockTag,
 }

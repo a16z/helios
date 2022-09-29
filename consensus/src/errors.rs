@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum VerifyUpdateError {
+pub enum ConsensusError {
     #[error("insufficient participation")]
     InsufficientParticipation,
     #[error("invalid timestamp")]
@@ -13,15 +13,13 @@ pub enum VerifyUpdateError {
     #[error("invalid finality proof")]
     InvalidFinalityProof,
     #[error("invalid next sync committee proof")]
-    InvalidSyncCommitteeProof,
+    InvalidNextSyncCommitteeProof,
+    #[error("invalid current sync committee proof")]
+    InvalidCurrentSyncCommitteeProof,
     #[error("invalid sync committee signature")]
     InvalidSignature,
-}
-
-#[derive(Debug, Error)]
-pub enum BootstrapError {
-    #[error("invalid sync committee proof")]
-    InvalidSyncCommitteeProof,
-    #[error("invalid header hash")]
-    InvalidHash,
+    #[error("invalid header hash found: {0}, expected: {1}")]
+    InvalidHeaderHash(String, String),
+    #[error("payload not found for slot: {0}")]
+    PayloadNotFound(u64),
 }

@@ -5,7 +5,7 @@ use std::time::UNIX_EPOCH;
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
 use chrono::Duration;
-use eyre::{eyre, Result};
+use eyre::Result;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
@@ -13,7 +13,7 @@ use common::types::*;
 use common::utils::*;
 use config::Config;
 
-use crate::errors::{BootstrapError, VerifyUpdateError};
+use crate::errors::ConsensusError;
 
 use super::rpc::Rpc;
 use super::types::*;
@@ -51,16 +51,16 @@ impl<R: Rpc> ConsensusClient<R> {
             &bootstrap.current_sync_committee_branch,
         );
 
-        let header_hash = bootstrap.header.hash_tree_root()?;
-        let header_valid =
-            header_hash.to_string() == format!("0x{}", hex::encode(checkpoint_block_root));
+        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
+        let expected_hash = format!("0x{}", hex::encode(checkpoint_block_root));
+        let header_valid = header_hash == expected_hash;
 
         if !header_valid {
-            return Err(BootstrapError::InvalidHash.into());
+            return Err(ConsensusError::InvalidHeaderHash(expected_hash, header_hash).into());
         }
 
         if !committee_valid {
-            return Err(BootstrapError::InvalidSyncCommitteeProof.into());
+            return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
         }
 
         let store = Store {
@@ -93,11 +93,15 @@ impl<R: Rpc> ConsensusClient<R> {
         } else if slot == finalized_slot {
             self.store.finalized_header.clone().hash_tree_root()?
         } else {
-            return Err(eyre!("Block Not Found"));
+            return Err(ConsensusError::PayloadNotFound(slot).into());
         };
 
         if verified_block_hash != block_hash {
-            Err(eyre!("Block Root Mismatch"))
+            Err(ConsensusError::InvalidHeaderHash(
+                block_hash.to_string(),
+                verified_block_hash.to_string(),
+            )
+            .into())
         } else {
             Ok(block.body.execution_payload)
         }
@@ -162,7 +166,7 @@ impl<R: Rpc> ConsensusClient<R> {
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
-            return Err(VerifyUpdateError::InsufficientParticipation.into());
+            return Err(ConsensusError::InsufficientParticipation.into());
         }
 
         let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
@@ -171,7 +175,7 @@ impl<R: Rpc> ConsensusClient<R> {
             && update.attested_header.slot >= update_finalized_slot;
 
         if !valid_time {
-            return Err(VerifyUpdateError::InvalidTimestamp.into());
+            return Err(ConsensusError::InvalidTimestamp.into());
         }
 
         let store_period = calc_sync_period(self.store.finalized_header.slot);
@@ -183,7 +187,7 @@ impl<R: Rpc> ConsensusClient<R> {
         };
 
         if !valid_period {
-            return Err(VerifyUpdateError::InvalidPeriod.into());
+            return Err(ConsensusError::InvalidPeriod.into());
         }
 
         let update_attested_period = calc_sync_period(update.attested_header.slot);
@@ -194,7 +198,7 @@ impl<R: Rpc> ConsensusClient<R> {
         if update.attested_header.slot <= self.store.finalized_header.slot
             && !update_has_next_committee
         {
-            return Err(VerifyUpdateError::NotRelevant.into());
+            return Err(ConsensusError::NotRelevant.into());
         }
 
         if update.finalized_header.is_some() && update.finality_branch.is_some() {
@@ -205,7 +209,7 @@ impl<R: Rpc> ConsensusClient<R> {
             );
 
             if !is_valid {
-                return Err(VerifyUpdateError::InvalidFinalityProof.into());
+                return Err(ConsensusError::InvalidFinalityProof.into());
             }
         }
 
@@ -217,7 +221,7 @@ impl<R: Rpc> ConsensusClient<R> {
             );
 
             if !is_valid {
-                return Err(VerifyUpdateError::InvalidSyncCommitteeProof.into());
+                return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
             }
         }
 
@@ -238,7 +242,7 @@ impl<R: Rpc> ConsensusClient<R> {
         let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
 
         if !is_valid_sig {
-            return Err(VerifyUpdateError::InvalidSignature.into());
+            return Err(ConsensusError::InvalidSignature.into());
         }
 
         Ok(())
@@ -637,7 +641,7 @@ mod tests {
 
     use crate::{
         consensus::calc_sync_period,
-        errors::VerifyUpdateError,
+        errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, Rpc},
         types::Header,
         ConsensusClient,
@@ -676,7 +680,7 @@ mod tests {
         let err = client.verify_update(&mut update).err().unwrap();
         assert_eq!(
             err.to_string(),
-            VerifyUpdateError::InvalidSyncCommitteeProof.to_string()
+            ConsensusError::InvalidNextSyncCommitteeProof.to_string()
         );
     }
 
@@ -692,7 +696,7 @@ mod tests {
         let err = client.verify_update(&mut update).err().unwrap();
         assert_eq!(
             err.to_string(),
-            VerifyUpdateError::InvalidFinalityProof.to_string()
+            ConsensusError::InvalidFinalityProof.to_string()
         );
     }
 
@@ -708,7 +712,7 @@ mod tests {
         let err = client.verify_update(&mut update).err().unwrap();
         assert_eq!(
             err.to_string(),
-            VerifyUpdateError::InvalidSignature.to_string()
+            ConsensusError::InvalidSignature.to_string()
         );
     }
 
@@ -733,7 +737,7 @@ mod tests {
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
-            VerifyUpdateError::InvalidFinalityProof.to_string()
+            ConsensusError::InvalidFinalityProof.to_string()
         );
     }
 
@@ -748,7 +752,7 @@ mod tests {
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
-            VerifyUpdateError::InvalidSignature.to_string()
+            ConsensusError::InvalidSignature.to_string()
         );
     }
 
@@ -772,7 +776,7 @@ mod tests {
         let err = client.verify_optimistic_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
-            VerifyUpdateError::InvalidSignature.to_string()
+            ConsensusError::InvalidSignature.to_string()
         );
     }
 }
