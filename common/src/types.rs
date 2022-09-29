@@ -30,6 +30,7 @@ impl<'de> Deserialize<'de> for BlockTag {
         D: serde::Deserializer<'de>,
     {
         let block: String = serde::Deserialize::deserialize(deserializer)?;
+        let parse_error = D::Error::custom("could not parse block tag");
 
         let block_tag = match block.as_str() {
             "latest" => BlockTag::Latest,
@@ -37,13 +38,15 @@ impl<'de> Deserialize<'de> for BlockTag {
             _ => match block.strip_prefix("0x") {
                 Some(hex_block) => {
                     let num = u64::from_str_radix(hex_block, 16)
-                        .map_err(|_| D::Error::custom("could not parse block tag"))?;
+                        .map_err(|_| parse_error)?;
+
                     BlockTag::Number(num)
                 }
                 None => {
                     let num = block
                         .parse()
-                        .map_err(|_| D::Error::custom("could not parse block tag"))?;
+                        .map_err(|_| parse_error)?;
+
                     BlockTag::Number(num)
                 }
             },
