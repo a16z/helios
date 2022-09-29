@@ -13,9 +13,12 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 
-use crate::node::{BlockTag, Node};
+use crate::node::Node;
 
-use common::utils::{hex_str_to_bytes, u64_to_hex_string};
+use common::{
+    types::BlockTag,
+    utils::{hex_str_to_bytes, u64_to_hex_string},
+};
 use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc {

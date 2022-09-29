@@ -4,6 +4,7 @@ use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
+use common::types::BlockTag;
 use config::Config;
 use consensus::types::Header;
 use execution::types::{CallOpts, ExecutionBlock};
@@ -13,7 +14,7 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use crate::database::{Database, FileDB};
-use crate::node::{BlockTag, Node};
+use crate::node::Node;
 use crate::rpc::Rpc;
 
 pub struct Client<DB: Database> {

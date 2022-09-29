@@ -6,6 +6,8 @@ use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
+use common::errors::BlockNotFoundError;
+use common::types::BlockTag;
 use config::Config;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
@@ -147,7 +149,7 @@ impl Node {
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),
-            None => Err(eyre!("Slot Not Found")),
+            None => Err(eyre!("slot not found")),
         }
     }
 
@@ -230,15 +232,17 @@ impl Node {
         match block {
             BlockTag::Latest => {
                 let payload = self.payloads.last_key_value();
-                Ok(payload.ok_or(eyre!("Block Not Found"))?.1)
+                Ok(payload.ok_or(BlockNotFoundError::new(BlockTag::Latest))?.1)
             }
             BlockTag::Finalized => {
                 let payload = self.finalized_payloads.last_key_value();
-                Ok(payload.ok_or(eyre!("Block Not Found"))?.1)
+                Ok(payload
+                    .ok_or(BlockNotFoundError::new(BlockTag::Finalized))?
+                    .1)
             }
             BlockTag::Number(num) => {
                 let payload = self.payloads.get(num);
-                payload.ok_or(eyre!("Block Not Found"))
+                payload.ok_or(BlockNotFoundError::new(BlockTag::Number(*num)).into())
             }
         }
     }
@@ -249,7 +253,7 @@ impl Node {
         let slot_delay = expected_slot - synced_slot;
 
         if slot_delay > 10 {
-            return Err(eyre!("Out of Sync"));
+            return Err(eyre!("out of sync"));
         }
 
         Ok(())
@@ -262,10 +266,4 @@ impl Node {
             BlockTag::Number(_) => Ok(()),
         }
     }
-}
-
-pub enum BlockTag {
-    Latest,
-    Finalized,
-    Number(u64),
 }

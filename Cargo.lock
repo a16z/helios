@@ -513,6 +513,7 @@ dependencies = [
  "openssl",
  "serde",
  "ssz-rs",
+ "thiserror",
  "toml",
 ]
 
