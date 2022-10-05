@@ -128,8 +128,9 @@ impl<R: Rpc> Evm<R> {
         let mut account_map = HashMap::new();
         accounts.iter().for_each(|account| {
             let addr = account.0;
-            let account = account.1.as_ref().unwrap().clone();
-            account_map.insert(addr, account);
+            if let Ok(account) = &account.1 {
+                account_map.insert(addr, account.clone());
+            }
         });
 
         Ok(account_map)
