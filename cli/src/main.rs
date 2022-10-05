@@ -107,12 +107,12 @@ fn get_cached_checkpoint(data_dir: &PathBuf) -> Option<Vec<u8>> {
 struct Cli {
     #[clap(short, long, default_value = "mainnet")]
     network: String,
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     port: Option<u16>,
-    #[clap(short = 'w', long)]
+    #[clap(short = 'w', long, env)]
     checkpoint: Option<String>,
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     execution_rpc: Option<String>,
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     consensus_rpc: Option<String>,
 }
