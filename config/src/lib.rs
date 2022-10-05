@@ -38,12 +38,12 @@ impl Config {
 
         let base_provider = Serialized::from(base_config, network);
         let toml_provider = Toml::file(config_path).nested();
-        let user_provider = cli_config.as_provider(network);
+        let cli_provider = cli_config.as_provider(network);
 
         let config_res = Figment::new()
             .merge(base_provider)
             .merge(toml_provider)
-            .merge(user_provider)
+            .merge(cli_provider)
             .select(network)
             .extract();
 
@@ -88,7 +88,7 @@ pub struct CliConfig {
     pub execution_rpc: Option<String>,
     pub consensus_rpc: Option<String>,
     pub checkpoint: Option<Vec<u8>>,
-    pub port: Option<u16>,
+    pub rpc_port: Option<u16>,
     pub data_dir: PathBuf,
 }
 
@@ -108,8 +108,8 @@ impl CliConfig {
             user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
         }
 
-        if let Some(port) = self.port {
-            user_dict.insert("port", Value::from(port));
+        if let Some(port) = self.rpc_port {
+            user_dict.insert("rpc_port", Value::from(port));
         }
 
         user_dict.insert("data_dir", Value::from(self.data_dir.to_str().unwrap()));
