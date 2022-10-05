@@ -29,31 +29,15 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_file(
-        file: &PathBuf,
-        network: &str,
-        execution_rpc: &Option<String>,
-        consensus_rpc: &Option<String>,
-        checkpoint: Option<Vec<u8>>,
-        port: Option<u16>,
-        data_dir: &PathBuf,
-    ) -> Self {
+    pub fn from_file(config_path: &PathBuf, network: &str, cli_config: &CliConfig) -> Self {
         let base_config = match network {
             "mainnet" => networks::mainnet(),
             "goerli" => networks::goerli(),
             _ => BaseConfig::default(),
         };
 
-        let cli_config = CliConfig {
-            execution_rpc: execution_rpc.clone(),
-            consensus_rpc: consensus_rpc.clone(),
-            checkpoint,
-            port,
-            data_dir: data_dir.clone(),
-        };
-
         let base_provider = Serialized::from(base_config, network);
-        let toml_provider = Toml::file(file).nested();
+        let toml_provider = Toml::file(config_path).nested();
         let user_provider = cli_config.as_provider(network);
 
         let config_res = Figment::new()
@@ -100,12 +84,12 @@ impl Config {
 }
 
 #[derive(Serialize)]
-struct CliConfig {
-    execution_rpc: Option<String>,
-    consensus_rpc: Option<String>,
-    checkpoint: Option<Vec<u8>>,
-    port: Option<u16>,
-    data_dir: PathBuf,
+pub struct CliConfig {
+    pub execution_rpc: Option<String>,
+    pub consensus_rpc: Option<String>,
+    pub checkpoint: Option<Vec<u8>>,
+    pub port: Option<u16>,
+    pub data_dir: PathBuf,
 }
 
 impl CliConfig {

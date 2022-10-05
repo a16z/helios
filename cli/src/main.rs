@@ -12,7 +12,7 @@ use env_logger::Env;
 use eyre::Result;
 
 use client::{database::FileDB, Client};
-use config::Config;
+use config::{CliConfig, Config};
 use futures::executor::block_on;
 use log::info;
 
@@ -63,42 +63,11 @@ fn register_shutdown_handler(client: Client<FileDB>) {
 fn get_config() -> Config {
     let cli = Cli::parse();
 
-    let data_dir = get_data_dir(&cli);
     let config_path = home_dir().unwrap().join(".lightclient/lightclient.toml");
 
-    let checkpoint = match cli.checkpoint {
-        Some(checkpoint) => Some(hex_str_to_bytes(&checkpoint).expect("invalid checkpoint")),
-        None => get_cached_checkpoint(&data_dir),
-    };
+    let cli_config = cli.as_cli_config();
 
-    Config::from_file(
-        &config_path,
-        &cli.network,
-        &cli.execution_rpc,
-        &cli.consensus_rpc,
-        checkpoint,
-        cli.port,
-        &data_dir,
-    )
-}
-
-fn get_data_dir(cli: &Cli) -> PathBuf {
-    home_dir()
-        .unwrap()
-        .join(format!(".lightclient/data/{}", cli.network))
-}
-
-fn get_cached_checkpoint(data_dir: &PathBuf) -> Option<Vec<u8>> {
-    let checkpoint_file = data_dir.join("checkpoint");
-    if checkpoint_file.exists() {
-        let checkpoint_res = fs::read(checkpoint_file);
-        match checkpoint_res {
-            Ok(checkpoint) => Some(checkpoint),
-            Err(_) => None,
-        }
-    } else {
-        None
-    }
+    Config::from_file(&config_path, &cli.network, &cli_config)
 }
 
 #[derive(Parser)]
@@ -113,4 +82,42 @@ struct Cli {
     execution_rpc: Option<String>,
     #[clap(short, long, env)]
     consensus_rpc: Option<String>,
+}
+
+impl Cli {
+    fn as_cli_config(&self) -> CliConfig {
+        let checkpoint = match &self.checkpoint {
+            Some(checkpoint) => Some(hex_str_to_bytes(&checkpoint).expect("invalid checkpoint")),
+            None => self.get_cached_checkpoint(),
+        };
+
+        CliConfig {
+            checkpoint,
+            execution_rpc: self.execution_rpc.clone(),
+            consensus_rpc: self.consensus_rpc.clone(),
+            data_dir: self.get_data_dir(),
+            port: self.port,
+        }
+    }
+
+    fn get_cached_checkpoint(&self) -> Option<Vec<u8>> {
+        let data_dir = self.get_data_dir();
+        let checkpoint_file = data_dir.join("checkpoint");
+
+        if checkpoint_file.exists() {
+            let checkpoint_res = fs::read(checkpoint_file);
+            match checkpoint_res {
+                Ok(checkpoint) => Some(checkpoint),
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_data_dir(&self) -> PathBuf {
+        home_dir()
+            .unwrap()
+            .join(format!(".lightclient/data/{}", self.network))
+    }
 }
