@@ -640,16 +640,21 @@ mod tests {
         types::Header,
         ConsensusClient,
     };
-    use config::networks;
+    use config::{networks, Config};
 
     async fn get_client() -> ConsensusClient<MockRpc> {
-        ConsensusClient::new(
-            "testdata/",
-            &networks::goerli().checkpoint,
-            Arc::new(networks::goerli()),
-        )
-        .await
-        .unwrap()
+        let base_config = networks::goerli();
+        let config = Config {
+            consensus_rpc: String::new(),
+            execution_rpc: String::new(),
+            chain: base_config.chain,
+            forks: base_config.forks,
+            ..Default::default()
+        };
+
+        ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config))
+            .await
+            .unwrap()
     }
 
     #[tokio::test]
