@@ -397,13 +397,7 @@ impl<R: Rpc> ConsensusClient<R> {
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
-        let genesis_root = self
-            .config
-            .general
-            .genesis_root
-            .to_vec()
-            .try_into()
-            .unwrap();
+        let genesis_root = self.config.chain.genesis_root.to_vec().try_into().unwrap();
 
         let domain_type = &hex::decode("07000000")?[..];
         let fork_version = Vector::from_iter(self.config.fork_version(slot));
@@ -425,14 +419,14 @@ impl<R: Rpc> ConsensusClient<R> {
             .duration_since(UNIX_EPOCH)
             .unwrap();
 
-        let genesis_time = self.config.general.genesis_time;
+        let genesis_time = self.config.chain.genesis_time;
         let since_genesis = now - std::time::Duration::from_secs(genesis_time);
 
         since_genesis.as_secs() / 12
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
-        slot * 12 + self.config.general.genesis_time
+        slot * 12 + self.config.chain.genesis_time
     }
 
     /// Gets the duration until the next update
@@ -646,16 +640,21 @@ mod tests {
         types::Header,
         ConsensusClient,
     };
-    use config::networks;
+    use config::{networks, Config};
 
     async fn get_client() -> ConsensusClient<MockRpc> {
-        ConsensusClient::new(
-            "testdata/",
-            &networks::goerli().general.checkpoint,
-            Arc::new(networks::goerli()),
-        )
-        .await
-        .unwrap()
+        let base_config = networks::goerli();
+        let config = Config {
+            consensus_rpc: String::new(),
+            execution_rpc: String::new(),
+            chain: base_config.chain,
+            forks: base_config.forks,
+            ..Default::default()
+        };
+
+        ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config))
+            .await
+            .unwrap()
     }
 
     #[tokio::test]
