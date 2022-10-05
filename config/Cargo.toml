@@ -13,5 +13,6 @@ hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
 ethers = "0.17.0"
 figment = { version = "0.10.7", features = ["toml", "env"] }
+thiserror = "1.0.37"
 
 common = { path = "../common" }

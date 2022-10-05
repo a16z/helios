@@ -1,6 +1,6 @@
 pub mod networks;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, process::exit};
 
 use eyre::Result;
 use figment::{
@@ -37,7 +37,7 @@ impl Config {
         checkpoint: Option<Vec<u8>>,
         port: Option<u16>,
         data_dir: &PathBuf,
-    ) -> Result<Self> {
+    ) -> Self {
         let base_config = match network {
             "mainnet" => networks::mainnet(),
             "goerli" => networks::goerli(),
@@ -56,12 +56,34 @@ impl Config {
         let toml_provider = Toml::file(file).nested();
         let user_provider = cli_config.as_provider(network);
 
-        Ok(Figment::new()
+        let config_res = Figment::new()
             .merge(base_provider)
             .merge(toml_provider)
             .merge(user_provider)
             .select(network)
-            .extract()?)
+            .extract();
+
+        match config_res {
+            Ok(config) => config,
+            Err(err) => {
+                match err.kind {
+                    figment::error::Kind::MissingField(field) => {
+                        println!(
+                            "\x1b[91merror\x1b[0m: missing configuration field: {}",
+                            field
+                        );
+                        println!(
+                            "\n\ttry supplying the propoper command line argument: --{}",
+                            field
+                        );
+                        println!("\talternatively, you can add the field to your lightclient.toml file or as an environment variable");
+                        println!("\nfor more information, check the github README");
+                    }
+                    _ => println!("cannot parse configuration: {}", err),
+                }
+                exit(1);
+            }
+        }
     }
 
     pub fn fork_version(&self, slot: u64) -> Vec<u8> {

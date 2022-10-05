@@ -537,6 +537,7 @@ dependencies = [
  "hex",
  "serde",
  "ssz-rs",
+ "thiserror",
 ]
 
 [[package]]

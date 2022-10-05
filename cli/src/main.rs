@@ -20,7 +20,7 @@ use log::info;
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let config = get_config().expect("could not parse configuration");
+    let config = get_config();
     let mut client = Client::new(config).await?;
 
     client.start().await?;
@@ -60,7 +60,7 @@ fn register_shutdown_handler(client: Client<FileDB>) {
     .expect("could not register shutdown handler");
 }
 
-fn get_config() -> Result<Config> {
+fn get_config() -> Config {
     let cli = Cli::parse();
 
     let data_dir = get_data_dir(&cli);
@@ -71,7 +71,7 @@ fn get_config() -> Result<Config> {
         None => get_cached_checkpoint(&data_dir),
     };
 
-    let config = Config::from_file(
+    Config::from_file(
         &config_path,
         &cli.network,
         &cli.execution_rpc,
@@ -79,9 +79,7 @@ fn get_config() -> Result<Config> {
         checkpoint,
         cli.port,
         &data_dir,
-    )?;
-
-    Ok(config)
+    )
 }
 
 fn get_data_dir(cli: &Cli) -> PathBuf {
