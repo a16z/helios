@@ -29,13 +29,13 @@ impl Client<FileDB> {
         let node = Node::new(config.clone()).await?;
         let node = Arc::new(RwLock::new(node));
 
-        let rpc = if let Some(port) = config.general.rpc_port {
+        let rpc = if let Some(port) = config.rpc_port {
             Some(Rpc::new(node.clone(), port))
         } else {
             None
         };
 
-        let data_dir = config.machine.data_dir.clone();
+        let data_dir = config.data_dir.clone();
         let db = FileDB::new(data_dir.ok_or(eyre!("data dir not found"))?);
 
         Ok(Client { node, rpc, db })

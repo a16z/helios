@@ -28,13 +28,13 @@ pub struct Node {
 
 impl Node {
     pub async fn new(config: Arc<Config>) -> Result<Self> {
-        let consensus_rpc = &config.general.consensus_rpc;
-        let checkpoint_hash = &config.general.checkpoint;
-        let execution_rpc = &config.general.execution_rpc;
+        let consensus_rpc = &config.consensus_rpc;
+        let checkpoint_hash = &config.checkpoint;
+        let execution_rpc = &config.execution_rpc;
 
         let consensus =
             ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
-        let execution = ExecutionClient::new(execution_rpc.as_ref().unwrap())?;
+        let execution = ExecutionClient::new(execution_rpc)?;
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
@@ -216,7 +216,7 @@ impl Node {
     }
 
     pub fn chain_id(&self) -> u64 {
-        self.config.general.chain_id
+        self.config.chain.chain_id
     }
 
     pub fn get_header(&self) -> Result<Header> {
