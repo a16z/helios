@@ -74,8 +74,8 @@ fn get_config() -> Config {
 struct Cli {
     #[clap(short, long, default_value = "mainnet")]
     network: String,
-    #[clap(short, long, env)]
-    port: Option<u16>,
+    #[clap(short = 'p', long, env)]
+    rpc_port: Option<u16>,
     #[clap(short = 'w', long, env)]
     checkpoint: Option<String>,
     #[clap(short, long, env)]
@@ -96,7 +96,7 @@ impl Cli {
             execution_rpc: self.execution_rpc.clone(),
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self.get_data_dir(),
-            port: self.port,
+            rpc_port: self.rpc_port,
         }
     }
 
