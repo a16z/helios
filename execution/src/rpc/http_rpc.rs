@@ -53,7 +53,7 @@ impl Rpc for HttpRpc {
             .provider
             .get_proof(*address, slots.to_vec(), block)
             .await
-            .map_err(|e| RpcError::new(e.to_string()))?;
+            .map_err(|e| RpcError::new("get_proof", e))?;
 
         Ok(proof_response)
     }
@@ -78,7 +78,7 @@ impl Rpc for HttpRpc {
             .provider
             .create_access_list(&tx, block)
             .await
-            .map_err(|e| RpcError::new(e.to_string()))?;
+            .map_err(|e| RpcError::new("create_access_list", e))?;
 
         Ok(list.access_list)
     }
@@ -89,7 +89,7 @@ impl Rpc for HttpRpc {
             .provider
             .get_code(*address, block)
             .await
-            .map_err(|e| RpcError::new(e.to_string()))?;
+            .map_err(|e| RpcError::new("get_code", e))?;
 
         Ok(code.to_vec())
     }
@@ -100,7 +100,7 @@ impl Rpc for HttpRpc {
             .provider
             .send_raw_transaction(bytes)
             .await
-            .map_err(|e| RpcError::new(e.to_string()))?;
+            .map_err(|e| RpcError::new("send_raw_transaction", e))?;
 
         Ok(tx.tx_hash())
     }
@@ -110,12 +110,16 @@ impl Rpc for HttpRpc {
             .provider
             .get_transaction_receipt(*tx_hash)
             .await
-            .map_err(|e| RpcError::new(e.to_string()))?;
+            .map_err(|e| RpcError::new("get_transaction_receipt", e))?;
 
         Ok(receipt)
     }
 
     async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>> {
-        Ok(self.provider.get_transaction(*tx_hash).await?)
+        Ok(self
+            .provider
+            .get_transaction(*tx_hash)
+            .await
+            .map_err(|e| RpcError::new("get_transaction", e))?)
     }
 }
