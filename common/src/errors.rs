@@ -15,13 +15,17 @@ impl BlockNotFoundError {
 }
 
 #[derive(Debug, Error)]
-#[error("rpc error: {message}")]
+#[error("rpc error on method: {method}, message: {message}")]
 pub struct RpcError {
+    method: String,
     message: String,
 }
 
 impl RpcError {
-    pub fn new(message: String) -> Self {
-        Self { message }
+    pub fn new<E: ToString>(method: &str, err: E) -> Self {
+        Self {
+            method: method.to_string(),
+            message: err.to_string(),
+        }
     }
 }
