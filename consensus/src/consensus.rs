@@ -5,6 +5,7 @@ use std::time::UNIX_EPOCH;
 use blst::min_pk::{PublicKey, Signature};
 use blst::BLST_ERROR;
 use chrono::Duration;
+use eyre::eyre;
 use eyre::Result;
 use log::{debug, info};
 use ssz_rs::prelude::*;
@@ -43,7 +44,10 @@ impl<R: Rpc> ConsensusClient<R> {
     ) -> Result<ConsensusClient<R>> {
         let rpc = R::new(rpc);
 
-        let mut bootstrap = rpc.get_bootstrap(checkpoint_block_root).await?;
+        let mut bootstrap = rpc
+            .get_bootstrap(checkpoint_block_root)
+            .await
+            .map_err(|_| eyre!("could not fetch bootstrap"))?;
 
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
