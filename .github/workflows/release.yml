@@ -24,7 +24,7 @@ jobs:
         run: cargo build --all --release --target aarch64-apple-darwin
 
       - name: archive
-        run: gtar -czvf "helios_darwin_arm64.tar.gz" -C ./target/aarch64-apple-darwin/release lightclient
+        run: gtar -czvf "helios_darwin_arm64.tar.gz" -C ./target/aarch64-apple-darwin/release helios
 
       - name: generate tag name
         id: tag
@@ -61,7 +61,7 @@ jobs:
         run: cargo build --all --release --target x86_64-apple-darwin	
 
       - name: archive
-        run: gtar -czvf "helios_darwin_amd64.tar.gz" -C ./target/x86_64-apple-darwin/release lightclient
+        run: gtar -czvf "helios_darwin_amd64.tar.gz" -C ./target/x86_64-apple-darwin/release helios
 
       - name: generate tag name
         id: tag
@@ -104,7 +104,7 @@ jobs:
         run: cargo build --all --release --target aarch64-unknown-linux-gnu
 
       - name: archive
-        run: tar -czvf "helios_linux_arm64.tar.gz" -C ./target/aarch64-unknown-linux-gnu/release lightclient
+        run: tar -czvf "helios_linux_arm64.tar.gz" -C ./target/aarch64-unknown-linux-gnu/release helios
 
       - name: generate tag name
         id: tag
@@ -141,7 +141,7 @@ jobs:
         run: cargo build --all --release --target x86_64-unknown-linux-gnu
 
       - name: archive
-        run: tar -czvf "helios_linux_amd64.tar.gz" -C ./target/x86_64-unknown-linux-gnu/release lightclient
+        run: tar -czvf "helios_linux_amd64.tar.gz" -C ./target/x86_64-unknown-linux-gnu/release helios
 
       - name: generate tag name
         id: tag
