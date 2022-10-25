@@ -63,7 +63,7 @@ fn register_shutdown_handler(client: Client<FileDB>) {
 fn get_config() -> Config {
     let cli = Cli::parse();
 
-    let config_path = home_dir().unwrap().join(".lightclient/lightclient.toml");
+    let config_path = home_dir().unwrap().join(".helios/helios.toml");
 
     let cli_config = cli.as_cli_config();
 
@@ -118,6 +118,6 @@ impl Cli {
     fn get_data_dir(&self) -> PathBuf {
         home_dir()
             .unwrap()
-            .join(format!(".lightclient/data/{}", self.network))
+            .join(format!(".helios/data/{}", self.network))
     }
 }

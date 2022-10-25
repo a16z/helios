@@ -3,8 +3,8 @@ set -e
 
 # modified from https://github.com/foundry-rs/foundry/blob/master/foundryup/foundryup
 
-REPO="a16z/lightclient"
-NAME=lightclient
+REPO="a16z/helios"
+NAME=helios
 
 DIR=$HOME/.$NAME
 BIN_DIR=$DIR/bin
