@@ -18,7 +18,7 @@ pub struct BaseConfig {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         checkpoint: hex_str_to_bytes(
-            "0xb0fe0394e2ed1a96b758b67fad1942371db5f7070502d10937fa65dacfc2ea4b",
+            "0x6d41048663adafa064bae3b3768a8448fa1f1b003118fa5887d06da266530cff",
         )
         .unwrap(),
         rpc_port: 8545,

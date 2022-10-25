@@ -3,8 +3,8 @@ set -e
 
 # modified from https://github.com/foundry-rs/foundry/blob/master/foundryup/install
 
-REPO="a16z/lightclient"
-NAME=lightclient
+REPO="a16z/helios"
+NAME=helios
 
 INSTALLER_NAME=${NAME}up
 
