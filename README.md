@@ -19,7 +19,7 @@ To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provi
 ```
 helios --consensus-rpc https://www.lightclientdata.org --execution-rpc $ETH_RPC_URL
 ```
-Helios will now run a local RPC server at `http://127.0.0.1:8545`
+Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 ### Additional Options
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
