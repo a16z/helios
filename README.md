@@ -26,7 +26,7 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`
 
 `--network` or `-n` sets the network to sync to. Current valid option are `mainnet` and `goerli`, however users can add custom networks in their configurationf files.
 
-`--rpc-port` or `p` sets the port that the local RPC should run on. The default value is `8545`.
+`--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
 ### Configuration Files
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
