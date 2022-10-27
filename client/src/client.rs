@@ -141,12 +141,28 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_block_number()
     }
 
-    pub async fn get_block_by_number(&self, block: &BlockTag) -> Result<Option<ExecutionBlock>> {
-        self.node.read().await.get_block_by_number(block)
+    pub async fn get_block_by_number(
+        &self,
+        block: &BlockTag,
+        full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>> {
+        self.node
+            .read()
+            .await
+            .get_block_by_number(block, full_tx)
+            .await
     }
 
-    pub async fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<Option<ExecutionBlock>> {
-        self.node.read().await.get_block_by_hash(hash)
+    pub async fn get_block_by_hash(
+        &self,
+        hash: &Vec<u8>,
+        full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>> {
+        self.node
+            .read()
+            .await
+            .get_block_by_hash(hash, full_tx)
+            .await
     }
 
     pub async fn chain_id(&self) -> u64 {
