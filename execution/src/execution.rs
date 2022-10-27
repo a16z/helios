@@ -15,6 +15,7 @@ use revm::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
 use crate::errors::ExecutionError;
+use crate::types::Transactions;
 
 use super::proof::{encode_account, verify_proof};
 use super::rpc::Rpc;
@@ -114,15 +115,40 @@ impl<R: Rpc> ExecutionClient<R> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
-    pub fn get_block(&self, payload: &ExecutionPayload) -> Result<ExecutionBlock> {
+    pub async fn get_block(
+        &self,
+        payload: &ExecutionPayload,
+        full_tx: bool,
+    ) -> Result<ExecutionBlock> {
         let empty_nonce = "0x0000000000000000".to_string();
         let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
-        let txs = payload
+        let tx_hashes = payload
             .transactions
             .iter()
             .map(|tx| H256::from_slice(&keccak256(tx.to_vec())))
             .collect::<Vec<H256>>();
+
+        let txs = if full_tx {
+            let txs_fut = tx_hashes.iter().map(|hash| async move {
+                let mut payloads = BTreeMap::new();
+                payloads.insert(payload.block_number, payload.clone());
+                let tx = self
+                    .get_transaction(hash, &payloads)
+                    .await?
+                    .ok_or(eyre::eyre!("not reachable"))?;
+
+                Ok(tx)
+            });
+
+            let txs = join_all(txs_fut)
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>>>()?;
+            Transactions::Full(txs)
+        } else {
+            Transactions::Hashes(tx_hashes)
+        };
 
         Ok(ExecutionBlock {
             number: payload.block_number,

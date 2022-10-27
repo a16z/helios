@@ -175,21 +175,21 @@ impl EthRpcServer for RpcInner {
     async fn get_block_by_number(
         &self,
         block: BlockTag,
-        _full_tx: bool,
+        full_tx: bool,
     ) -> Result<Option<ExecutionBlock>, Error> {
         let node = self.node.read().await;
-        let block = convert_err(node.get_block_by_number(&block))?;
+        let block = convert_err(node.get_block_by_number(&block, full_tx).await)?;
         Ok(block)
     }
 
     async fn get_block_by_hash(
         &self,
         hash: &str,
-        _full_tx: bool,
+        full_tx: bool,
     ) -> Result<Option<ExecutionBlock>, Error> {
         let hash = convert_err(hex_str_to_bytes(hash))?;
         let node = self.node.read().await;
-        let block = convert_err(node.get_block_by_hash(&hash))?;
+        let block = convert_err(node.get_block_by_hash(&hash, full_tx).await)?;
         Ok(block)
     }
 

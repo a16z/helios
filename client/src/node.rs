@@ -193,16 +193,28 @@ impl Node {
         Ok(payload.block_number)
     }
 
-    pub fn get_block_by_number(&self, block: &BlockTag) -> Result<Option<ExecutionBlock>> {
+    pub async fn get_block_by_number(
+        &self,
+        block: &BlockTag,
+        full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>> {
         self.check_blocktag_age(block)?;
 
         match self.get_payload(block) {
-            Ok(payload) => self.execution.get_block(payload).map(|b| Some(b)),
+            Ok(payload) => self
+                .execution
+                .get_block(payload, full_tx)
+                .await
+                .map(|b| Some(b)),
             Err(_) => Ok(None),
         }
     }
 
-    pub fn get_block_by_hash(&self, hash: &Vec<u8>) -> Result<Option<ExecutionBlock>> {
+    pub async fn get_block_by_hash(
+        &self,
+        hash: &Vec<u8>,
+        full_tx: bool,
+    ) -> Result<Option<ExecutionBlock>> {
         let payloads = self
             .payloads
             .iter()
@@ -210,7 +222,11 @@ impl Node {
             .collect::<Vec<(&u64, &ExecutionPayload)>>();
 
         match payloads.get(0) {
-            Some(payload_entry) => self.execution.get_block(payload_entry.1).map(|b| Some(b)),
+            Some(payload_entry) => self
+                .execution
+                .get_block(payload_entry.1, full_tx)
+                .await
+                .map(|b| Some(b)),
             None => Ok(None),
         }
     }

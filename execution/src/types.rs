@@ -1,8 +1,11 @@
 use std::{collections::HashMap, fmt};
 
-use ethers::prelude::{Address, H256, U256};
+use ethers::{
+    prelude::{Address, H256, U256},
+    types::Transaction,
+};
 use eyre::Result;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use common::utils::u64_to_hex_string;
 
@@ -45,9 +48,16 @@ pub struct ExecutionBlock {
     pub timestamp: u64,
     #[serde(serialize_with = "serialize_u64_string")]
     pub total_difficulty: u64,
-    pub transactions: Vec<H256>,
+    #[serde(serialize_with = "serialize_transactions")]
+    pub transactions: Transactions,
     pub transactions_root: H256,
     pub uncles: Vec<H256>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub enum Transactions {
+    Hashes(Vec<H256>),
+    Full(Vec<Transaction>),
 }
 
 #[derive(Deserialize, Serialize)]
@@ -101,4 +111,28 @@ where
 {
     let num_string = u64_to_hex_string(*x);
     s.serialize_str(&num_string)
+}
+
+fn serialize_transactions<S>(txs: &Transactions, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match txs {
+        Transactions::Hashes(hashes) => {
+            let mut seq = s.serialize_seq(Some(hashes.len()))?;
+            for hash in hashes {
+                seq.serialize_element(&hash)?;
+            }
+
+            seq.end()
+        }
+        Transactions::Full(txs) => {
+            let mut seq = s.serialize_seq(Some(txs.len()))?;
+            for tx in txs {
+                seq.serialize_element(&tx)?;
+            }
+
+            seq.end()
+        }
+    }
 }
