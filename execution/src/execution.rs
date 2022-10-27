@@ -133,13 +133,18 @@ impl<R: Rpc> ExecutionClient<R> {
             let txs_fut = tx_hashes.iter().map(|hash| async move {
                 let mut payloads = BTreeMap::new();
                 payloads.insert(payload.block_number, payload.clone());
-                self.get_transaction(hash, &payloads)
-                    .await
-                    .unwrap()
-                    .unwrap()
+                let tx = self
+                    .get_transaction(hash, &payloads)
+                    .await?
+                    .ok_or(eyre::eyre!("not reachable"))?;
+
+                Ok(tx)
             });
 
-            let txs = join_all(txs_fut).await;
+            let txs = join_all(txs_fut)
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>>>()?;
             Transactions::Full(txs)
         } else {
             Transactions::Hashes(tx_hashes)
