@@ -108,7 +108,6 @@ struct RpcInner {
 #[async_trait]
 impl EthRpcServer for RpcInner {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
-        debug!("eth_getBalance");
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
         let balance = convert_err(node.get_balance(&address, &block).await)?;
@@ -133,7 +132,6 @@ impl EthRpcServer for RpcInner {
     }
 
     async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {
-        debug!("eth_call");
         let node = self.node.read().await;
         let res = convert_err(node.call(&opts, &block))?;
 
@@ -141,7 +139,6 @@ impl EthRpcServer for RpcInner {
     }
 
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
-        debug!("eth_estimateGas");
         let node = self.node.read().await;
         let gas = convert_err(node.estimate_gas(&opts))?;
 
