@@ -6,6 +6,7 @@ use eyre::Result;
 
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
+// implements https://github.com/ethereum/beacon-APIs/tree/master/apis/beacon/light_client
 #[async_trait]
 pub trait Rpc {
     fn new(path: &str) -> Self;
