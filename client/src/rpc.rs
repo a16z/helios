@@ -3,7 +3,7 @@ use ethers::{
     types::{Address, Transaction, TransactionReceipt, H256},
 };
 use eyre::Result;
-use log::{debug, info, warn};
+use log::{info, warn};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 
