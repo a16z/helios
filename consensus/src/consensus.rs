@@ -19,6 +19,9 @@ use super::rpc::Rpc;
 use super::types::*;
 use super::utils::*;
 
+// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
+// does not implement force updates
+
 pub struct ConsensusClient<R: Rpc> {
     rpc: R,
     store: LightClientStore,
@@ -167,6 +170,8 @@ impl<R: Rpc> ConsensusClient<R> {
         Ok(())
     }
 
+    // implements checks from validate_light_client_update and process_light_client_update in the
+    // specification
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
@@ -237,13 +242,13 @@ impl<R: Rpc> ConsensusClient<R> {
 
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
 
-        let header_root =
-            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
-        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
-        let sig = &update.sync_aggregate.sync_committee_signature;
-        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
+        let is_valid_sig = self.verify_sync_committee_signture(
+            &pks,
+            &update.attested_header,
+            &update.sync_aggregate.sync_committee_signature,
+            update.signature_slot,
+        );
 
         if !is_valid_sig {
             return Err(ConsensusError::InvalidSignature.into());
@@ -267,6 +272,8 @@ impl<R: Rpc> ConsensusClient<R> {
         self.verify_generic_update(&update)
     }
 
+    // implements state changes from apply_light_client_update and process_light_client_update in
+    // the specification
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
@@ -400,6 +407,29 @@ impl<R: Rpc> ConsensusClient<R> {
         ) / 2
     }
 
+    fn verify_sync_committee_signture(
+        &self,
+        pks: &Vec<PublicKey>,
+        attested_header: &Header,
+        signature: &SignatureBytes,
+        signature_slot: u64,
+    ) -> bool {
+        let res: Result<bool> = (move || {
+            let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+            let header_root =
+                bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_bytes());
+            let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
+
+            Ok(is_aggregate_valid(signature, signing_root.as_bytes(), &pks))
+        })();
+
+        if let Ok(is_valid) = res {
+            is_valid
+        } else {
+            false
+        }
+    }
+
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
         let genesis_root = self.config.chain.genesis_root.to_vec().try_into().unwrap();
 
@@ -481,7 +511,8 @@ fn get_bits(bitfield: &Bitvector<512>) -> u64 {
 
 fn is_finality_proof_valid(
     attested_header: &Header,
-    finality_header: &mut Header, finality_branch: &Vec<Bytes32>,
+    finality_header: &mut Header,
+    finality_branch: &Vec<Bytes32>,
 ) -> bool {
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
@@ -491,7 +522,13 @@ fn is_next_committee_proof_valid(
     next_committee: &mut SyncCommittee,
     next_committee_branch: &Vec<Bytes32>,
 ) -> bool {
-    is_proof_valid(attested_header, next_committee, next_committee_branch, 5, 23)
+    is_proof_valid(
+        attested_header,
+        next_committee,
+        next_committee_branch,
+        5,
+        23,
+    )
 }
 
 fn is_current_committee_proof_valid(
@@ -499,9 +536,14 @@ fn is_current_committee_proof_valid(
     current_committee: &mut SyncCommittee,
     current_committee_branch: &Vec<Bytes32>,
 ) -> bool {
-    is_proof_valid(attested_header, current_committee, current_committee_branch, 5, 22)
+    is_proof_valid(
+        attested_header,
+        current_committee,
+        current_committee_branch,
+        5,
+        22,
+    )
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -1,14 +1,16 @@
-use blst::{min_pk::{PublicKey, Signature}, BLST_ERROR};
+use blst::{
+    min_pk::{PublicKey, Signature},
+    BLST_ERROR,
+};
 use common::{types::Bytes32, utils::bytes32_to_node};
-use ssz_rs::prelude::*;
 use eyre::Result;
+use ssz_rs::prelude::*;
 
-use crate::types::{SignatureBytes, Header};
-
+use crate::types::{Header, SignatureBytes};
 
 pub fn calc_sync_period(slot: u64) -> u64 {
-    let epoch = slot / 32;  // 32 slots per epoch
-    epoch / 256  // 256 epochs per sync committee
+    let epoch = slot / 32; // 32 slots per epoch
+    epoch / 256 // 256 epochs per sync committee
 }
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
@@ -42,7 +44,6 @@ pub fn is_proof_valid<L: Merkleized>(
         false
     }
 }
-
 
 #[derive(SimpleSerialize, Default, Debug)]
 struct SigningData {
