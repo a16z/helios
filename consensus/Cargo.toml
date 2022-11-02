@@ -14,7 +14,7 @@ serde_json = "1.0.85"
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
 blst = "0.3.10"
-ethers = "0.17.0"
+ethers = "1.0.0"
 bytes = "1.2.1"
 toml = "0.5.9"
 async-trait = "0.1.57"
