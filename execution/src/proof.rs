@@ -23,7 +23,6 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &Vec<u8>, path: &Vec<u8>, value: &
                     return true;
                 }
             } else {
-                // inclusion proof
                 let nibble = get_nibble(&path, path_offset);
                 expected_hash = node_list[nibble as usize].clone();
 
@@ -32,15 +31,24 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &Vec<u8>, path: &Vec<u8>, value: &
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
                 // exclusion proof
-                if &node_list[0][skip_length(&node_list[0])..] != &path[path_offset..]
-                    && is_empty_value(value)
+                if !paths_match(
+                    &node_list[0],
+                    skip_length(&node_list[0]),
+                    &path,
+                    path_offset,
+                ) && is_empty_value(value)
                 {
                     return true;
                 }
 
                 // inclusion proof
                 if &node_list[1] == value {
-                    return true;
+                    return paths_match(
+                        &node_list[0],
+                        skip_length(&node_list[0]),
+                        &path,
+                        path_offset,
+                    );
                 }
             } else {
                 let node_path = &node_list[0];
@@ -54,6 +62,36 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &Vec<u8>, path: &Vec<u8>, value: &
     }
 
     false
+}
+
+fn paths_match(p1: &Vec<u8>, s1: usize, p2: &Vec<u8>, s2: usize) -> bool {
+    let len1 = p1.len() * 2 - s1;
+    let len2 = p2.len() * 2 - s2;
+
+    if len1 != len2 {
+        return false;
+    }
+
+    for offset in 0..len1 {
+        let n1 = get_nibble(p1, s1 + offset);
+        let n2 = get_nibble(p2, s2 + offset);
+
+        if n1 != n2 {
+            return false;
+        }
+    }
+
+    true
+}
+
+#[allow(dead_code)]
+fn get_rest_path(p: &Vec<u8>, s: usize) -> String {
+    let mut ret = String::new();
+    for i in s..p.len() * 2 {
+        let n = get_nibble(p, i);
+        ret += &format!("{:01x}", n);
+    }
+    ret
 }
 
 fn is_empty_value(value: &Vec<u8>) -> bool {
@@ -104,6 +142,10 @@ fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>)
 }
 
 fn skip_length(node: &Vec<u8>) -> usize {
+    if node.len() == 0 {
+        return 0;
+    }
+
     let nibble = get_nibble(node, 0);
     match nibble {
         0 => 2,
