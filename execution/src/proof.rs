@@ -13,13 +13,6 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &Vec<u8>, path: &Vec<u8>, value: &
 
         let node_list: Vec<Vec<u8>> = decode_list(node);
 
-        println!(
-            "{}",
-            get_rest_path(&node_list[0], skip_length(&node_list[0]))
-        );
-        println!("{}", get_rest_path(&path, path_offset));
-        println!();
-
         if node_list.len() == 17 {
             if i == proof.len() - 1 {
                 // exclusion proof
@@ -91,7 +84,7 @@ fn paths_match(p1: &Vec<u8>, s1: usize, p2: &Vec<u8>, s2: usize) -> bool {
     true
 }
 
-// TODO: remove
+#[allow(dead_code)]
 fn get_rest_path(p: &Vec<u8>, s: usize) -> String {
     let mut ret = String::new();
     for i in s..p.len() * 2 {
