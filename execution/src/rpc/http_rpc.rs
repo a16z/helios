@@ -11,7 +11,6 @@ use ethers::types::{
     TransactionReceipt, H256, U256,
 };
 use eyre::Result;
-use log::trace;
 
 use crate::types::CallOpts;
 
@@ -47,7 +46,6 @@ impl ExecutionRpc for HttpRpc {
         slots: &[H256],
         block: u64,
     ) -> Result<EIP1186ProofResponse> {
-        trace!("fetching proof");
         let block = Some(BlockId::from(block));
         let proof_response = self
             .provider

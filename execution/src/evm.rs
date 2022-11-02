@@ -64,6 +64,7 @@ impl<R: ExecutionRpc> Evm<R> {
             return Err(eyre::eyre!(err.clone()));
         }
 
+        // overestimate to avoid out of gas reverts
         let gas_scaled = (1.10 * gas as f64) as u64;
         Ok(gas_scaled)
     }
