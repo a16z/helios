@@ -11,7 +11,7 @@ pub mod http_rpc;
 pub mod mock_rpc;
 
 #[async_trait]
-pub trait ExecutionRpc: Send + Clone + 'static {
+pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     fn new(rpc: &str) -> Result<Self>
     where
         Self: Sized;

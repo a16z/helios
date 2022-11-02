@@ -41,6 +41,7 @@ impl Rpc {
             node: self.node.clone(),
             port: self.port,
         };
+
         let (handle, addr) = start(rpc_inner).await?;
         self.handle = Some(handle);
 
@@ -133,14 +134,14 @@ impl EthRpcServer for RpcInner {
 
     async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {
         let node = self.node.read().await;
-        let res = convert_err(node.call(&opts, &block))?;
+        let res = convert_err(node.call(&opts, &block).await)?;
 
         Ok(format!("0x{}", hex::encode(res)))
     }
 
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
         let node = self.node.read().await;
-        let gas = convert_err(node.estimate_gas(&opts))?;
+        let gas = convert_err(node.estimate_gas(&opts).await)?;
 
         Ok(u64_to_hex_string(gas))
     }

@@ -19,7 +19,7 @@ use execution::ExecutionClient;
 
 pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
-    execution: ExecutionClient<HttpRpc>,
+    execution: Arc<ExecutionClient<HttpRpc>>,
     config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
@@ -34,7 +34,7 @@ impl Node {
 
         let consensus =
             ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
-        let execution = ExecutionClient::new(execution_rpc)?;
+        let execution = Arc::new(ExecutionClient::new(execution_rpc)?);
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
@@ -99,20 +99,20 @@ impl Node {
         Ok(())
     }
 
-    pub fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
+    pub async fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
         self.check_blocktag_age(block)?;
 
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
-        evm.call(opts)
+        evm.call(opts).await
     }
 
-    pub fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
+    pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         self.check_head_age()?;
 
         let payload = self.get_payload(&BlockTag::Latest)?;
         let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
-        evm.estimate_gas(opts)
+        evm.estimate_gas(opts).await
     }
 
     pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {

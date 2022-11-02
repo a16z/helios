@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, str::FromStr, thread};
+use std::{cmp, collections::HashMap, fmt::Display, str::FromStr, sync::Arc, thread};
 
 use bytes::Bytes;
 use ethers::{
@@ -27,7 +27,11 @@ pub struct Evm<R: ExecutionRpc> {
 }
 
 impl<R: ExecutionRpc> Evm<R> {
-    pub fn new(execution: ExecutionClient<R>, payload: ExecutionPayload, chain_id: u64) -> Self {
+    pub fn new(
+        execution: Arc<ExecutionClient<R>>,
+        payload: ExecutionPayload,
+        chain_id: u64,
+    ) -> Self {
         let mut evm: EVM<ProofDB<R>> = EVM::new();
         let db = ProofDB::new(execution, payload);
         evm.database(db);
@@ -35,41 +39,71 @@ impl<R: ExecutionRpc> Evm<R> {
         Evm { evm, chain_id }
     }
 
-    pub fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
-        let account_map = self.batch_fetch_accounts(opts)?;
+    pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
+        let account_map = self.batch_fetch_accounts(opts).await?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
         self.evm.env = self.get_env(opts);
-        let output = self.evm.transact().1;
+        let tx = self.evm.transact();
+        let output = tx.1;
 
-        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-            return Err(eyre::eyre!(err.clone()));
-        }
+        match tx.0 {
+            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
+            revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
+            revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
+            revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
+            revm::Return::InvalidJump => {
+                Err(eyre::eyre!("execution reverted: invalid jump destination"))
+            }
+            revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
+            revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
+            revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
+            _ => {
+                if let Some(err) = &self.evm.db.as_ref().unwrap().error {
+                    return Err(eyre::eyre!(err.clone()));
+                }
 
-        match output {
-            TransactOut::None => Err(eyre::eyre!("Invalid Call")),
-            TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
-            TransactOut::Call(bytes) => Ok(bytes.to_vec()),
+                match output {
+                    TransactOut::None => Err(eyre::eyre!("Invalid Call")),
+                    TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
+                    TransactOut::Call(bytes) => Ok(bytes.to_vec()),
+                }
+            }
         }
     }
 
-    pub fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
-        let account_map = self.batch_fetch_accounts(opts)?;
+    pub async fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
+        let account_map = self.batch_fetch_accounts(opts).await?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
         self.evm.env = self.get_env(opts);
-        let gas = self.evm.transact().2;
+        let tx = self.evm.transact();
+        let gas = tx.2;
 
-        if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-            return Err(eyre::eyre!(err.clone()));
+        match tx.0 {
+            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
+            revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
+            revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
+            revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
+            revm::Return::InvalidJump => {
+                Err(eyre::eyre!("execution reverted: invalid jump destination"))
+            }
+            revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
+            revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
+            revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
+            _ => {
+                if let Some(err) = &self.evm.db.as_ref().unwrap().error {
+                    return Err(eyre::eyre!(err.clone()));
+                }
+
+                // overestimate to avoid out of gas reverts
+                let gas_scaled = (1.10 * gas as f64) as u64;
+                Ok(gas_scaled)
+            }
         }
-
-        // overestimate to avoid out of gas reverts
-        let gas_scaled = (1.10 * gas as f64) as u64;
-        Ok(gas_scaled)
     }
 
-    fn batch_fetch_accounts(&self, opts: &CallOpts) -> Result<HashMap<Address, Account>> {
+    async fn batch_fetch_accounts(&self, opts: &CallOpts) -> Result<HashMap<Address, Account>> {
         let db = self.evm.db.as_ref().unwrap();
         let rpc = db.execution.rpc.clone();
         let payload = db.payload.clone();
@@ -86,31 +120,34 @@ impl<R: ExecutionRpc> Evm<R> {
         };
 
         let block_moved = block.clone();
-        let handle = thread::spawn(move || {
-            let list_fut = rpc.create_access_list(&opts_moved, block_moved);
-            let runtime = Runtime::new()?;
-            let mut list = runtime.block_on(list_fut)?.0;
+        let mut list = rpc.create_access_list(&opts_moved, block_moved).await?.0;
 
-            let from_access_entry = AccessListItem {
-                address: opts_moved.from.unwrap_or_default(),
-                storage_keys: Vec::default(),
-            };
+        let from_access_entry = AccessListItem {
+            address: opts_moved.from.unwrap_or_default(),
+            storage_keys: Vec::default(),
+        };
 
-            let to_access_entry = AccessListItem {
-                address: opts_moved.to,
-                storage_keys: Vec::default(),
-            };
+        let to_access_entry = AccessListItem {
+            address: opts_moved.to,
+            storage_keys: Vec::default(),
+        };
 
-            let producer_account = AccessListItem {
-                address: Address::from_slice(&payload.fee_recipient),
-                storage_keys: Vec::default(),
-            };
+        let producer_account = AccessListItem {
+            address: Address::from_slice(&payload.fee_recipient),
+            storage_keys: Vec::default(),
+        };
 
-            list.push(from_access_entry);
-            list.push(to_access_entry);
-            list.push(producer_account);
+        list.push(from_access_entry);
+        list.push(to_access_entry);
+        list.push(producer_account);
 
-            let account_futs = list.iter().map(|account| {
+        let mut accounts = Vec::new();
+        let batch_size = 20;
+        for i in (0..list.len()).step_by(batch_size) {
+            let end = cmp::min(i + batch_size, list.len());
+            let chunk = &list[i..end];
+
+            let account_chunk_futs = chunk.iter().map(|account| {
                 let addr_fut = futures::future::ready(account.address);
                 let account_fut = execution.get_account(
                     &account.address,
@@ -120,12 +157,10 @@ impl<R: ExecutionRpc> Evm<R> {
                 async move { (addr_fut.await, account_fut.await) }
             });
 
-            let accounts = runtime.block_on(join_all(account_futs));
+            let mut account_chunk = join_all(account_chunk_futs).await;
+            accounts.append(&mut account_chunk);
+        }
 
-            Ok::<_, eyre::Error>(accounts)
-        });
-
-        let accounts = handle.join().unwrap()?;
         let mut account_map = HashMap::new();
         accounts.iter().for_each(|account| {
             let addr = account.0;
@@ -160,14 +195,14 @@ impl<R: ExecutionRpc> Evm<R> {
 }
 
 struct ProofDB<R: ExecutionRpc> {
-    execution: ExecutionClient<R>,
+    execution: Arc<ExecutionClient<R>>,
     payload: ExecutionPayload,
     accounts: HashMap<Address, Account>,
     error: Option<String>,
 }
 
 impl<R: ExecutionRpc> ProofDB<R> {
-    pub fn new(execution: ExecutionClient<R>, payload: ExecutionPayload) -> Self {
+    pub fn new(execution: Arc<ExecutionClient<R>>, payload: ExecutionPayload) -> Self {
         ProofDB {
             execution,
             payload,

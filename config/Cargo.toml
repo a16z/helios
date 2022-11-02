@@ -11,7 +11,7 @@ eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
-ethers = "0.17.0"
+ethers = "1.0.0"
 figment = { version = "0.10.7", features = ["toml", "env"] }
 thiserror = "1.0.37"
 
