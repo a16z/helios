@@ -15,18 +15,18 @@ use tokio::runtime::Runtime;
 use consensus::types::ExecutionPayload;
 
 use crate::{
-    rpc::Rpc,
+    rpc::ExecutionRpc,
     types::{Account, CallOpts},
 };
 
 use super::ExecutionClient;
 
-pub struct Evm<R: Rpc> {
+pub struct Evm<R: ExecutionRpc> {
     evm: EVM<ProofDB<R>>,
     chain_id: u64,
 }
 
-impl<R: Rpc> Evm<R> {
+impl<R: ExecutionRpc> Evm<R> {
     pub fn new(execution: ExecutionClient<R>, payload: ExecutionPayload, chain_id: u64) -> Self {
         let mut evm: EVM<ProofDB<R>> = EVM::new();
         let db = ProofDB::new(execution, payload);
@@ -158,14 +158,14 @@ impl<R: Rpc> Evm<R> {
     }
 }
 
-struct ProofDB<R: Rpc> {
+struct ProofDB<R: ExecutionRpc> {
     execution: ExecutionClient<R>,
     payload: ExecutionPayload,
     accounts: HashMap<Address, Account>,
     error: Option<String>,
 }
 
-impl<R: Rpc> ProofDB<R> {
+impl<R: ExecutionRpc> ProofDB<R> {
     pub fn new(execution: ExecutionClient<R>, payload: ExecutionPayload) -> Self {
         ProofDB {
             execution,
@@ -205,7 +205,7 @@ impl<R: Rpc> ProofDB<R> {
     }
 }
 
-impl<R: Rpc> Database for ProofDB<R> {
+impl<R: ExecutionRpc> Database for ProofDB<R> {
     fn basic(&mut self, address: H160) -> AccountInfo {
         if is_precompile(&address) {
             return AccountInfo::default();

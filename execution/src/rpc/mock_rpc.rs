@@ -10,7 +10,7 @@ use eyre::{eyre, Result};
 
 use crate::types::CallOpts;
 
-use super::Rpc;
+use super::ExecutionRpc;
 
 #[derive(Clone)]
 pub struct MockRpc {
@@ -18,7 +18,7 @@ pub struct MockRpc {
 }
 
 #[async_trait]
-impl Rpc for MockRpc {
+impl ExecutionRpc for MockRpc {
     fn new(rpc: &str) -> Result<Self> {
         let path = PathBuf::from(rpc);
         Ok(MockRpc { path })

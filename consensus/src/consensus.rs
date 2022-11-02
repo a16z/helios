@@ -15,14 +15,14 @@ use config::Config;
 
 use crate::errors::ConsensusError;
 
-use super::rpc::Rpc;
+use super::rpc::ConsensusRpc;
 use super::types::*;
 use super::utils::*;
 
 // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
 // does not implement force updates
 
-pub struct ConsensusClient<R: Rpc> {
+pub struct ConsensusClient<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
     pub last_checkpoint: Option<Vec<u8>>,
@@ -39,7 +39,7 @@ struct LightClientStore {
     current_max_active_participants: u64,
 }
 
-impl<R: Rpc> ConsensusClient<R> {
+impl<R: ConsensusRpc> ConsensusClient<R> {
     pub async fn new(
         rpc: &str,
         checkpoint_block_root: &Vec<u8>,
@@ -554,7 +554,7 @@ mod tests {
     use crate::{
         consensus::calc_sync_period,
         errors::ConsensusError,
-        rpc::{mock_rpc::MockRpc, Rpc},
+        rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::Header,
         ConsensusClient,
     };

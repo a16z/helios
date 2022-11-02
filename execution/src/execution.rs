@@ -18,17 +18,17 @@ use crate::errors::ExecutionError;
 use crate::types::Transactions;
 
 use super::proof::{encode_account, verify_proof};
-use super::rpc::Rpc;
+use super::rpc::ExecutionRpc;
 use super::types::{Account, ExecutionBlock};
 
 #[derive(Clone)]
-pub struct ExecutionClient<R: Rpc> {
+pub struct ExecutionClient<R: ExecutionRpc> {
     pub rpc: R,
 }
 
-impl<R: Rpc> ExecutionClient<R> {
+impl<R: ExecutionRpc> ExecutionClient<R> {
     pub fn new(rpc: &str) -> Result<Self> {
-        let rpc = Rpc::new(rpc)?;
+        let rpc = ExecutionRpc::new(rpc)?;
         Ok(ExecutionClient { rpc })
     }
 

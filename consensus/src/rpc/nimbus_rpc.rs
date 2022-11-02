@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use common::errors::RpcError;
 use eyre::Result;
 
-use super::Rpc;
+use super::ConsensusRpc;
 use crate::types::*;
 
 pub struct NimbusRpc {
@@ -10,7 +10,7 @@ pub struct NimbusRpc {
 }
 
 #[async_trait]
-impl Rpc for NimbusRpc {
+impl ConsensusRpc for NimbusRpc {
     fn new(rpc: &str) -> Self {
         NimbusRpc {
             rpc: rpc.to_string(),
