@@ -90,6 +90,8 @@ impl Node {
             self.payloads.pop_first();
         }
 
+        // only save one finalized block per epoch
+        // finality updates only occur on epoch boundries
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
@@ -172,6 +174,7 @@ impl Node {
             .await
     }
 
+    // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age()?;
 
@@ -181,6 +184,7 @@ impl Node {
         Ok(base_fee + tip)
     }
 
+    // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub fn get_priority_fee(&self) -> Result<U256> {
         let tip = U256::from(10_u64.pow(9));
         Ok(tip)
@@ -221,13 +225,13 @@ impl Node {
             .filter(|entry| &entry.1.block_hash.to_vec() == hash)
             .collect::<Vec<(&u64, &ExecutionPayload)>>();
 
-        match payloads.get(0) {
-            Some(payload_entry) => self
-                .execution
+        if let Some(payload_entry) = payloads.get(0) {
+            self.execution
                 .get_block(payload_entry.1, full_tx)
                 .await
-                .map(|b| Some(b)),
-            None => Ok(None),
+                .map(|b| Some(b))
+        } else {
+            Ok(None)
         }
     }
 

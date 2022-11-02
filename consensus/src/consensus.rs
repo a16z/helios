@@ -2,8 +2,7 @@ use std::cmp;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 
-use blst::min_pk::{PublicKey, Signature};
-use blst::BLST_ERROR;
+use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
@@ -16,18 +15,22 @@ use config::Config;
 
 use crate::errors::ConsensusError;
 
-use super::rpc::Rpc;
+use super::rpc::ConsensusRpc;
 use super::types::*;
+use super::utils::*;
 
-pub struct ConsensusClient<R: Rpc> {
+// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
+// does not implement force updates
+
+pub struct ConsensusClient<R: ConsensusRpc> {
     rpc: R,
-    store: Store,
+    store: LightClientStore,
     pub last_checkpoint: Option<Vec<u8>>,
     pub config: Arc<Config>,
 }
 
 #[derive(Debug)]
-struct Store {
+struct LightClientStore {
     finalized_header: Header,
     current_sync_committee: SyncCommittee,
     next_sync_committee: Option<SyncCommittee>,
@@ -36,7 +39,7 @@ struct Store {
     current_max_active_participants: u64,
 }
 
-impl<R: Rpc> ConsensusClient<R> {
+impl<R: ConsensusRpc> ConsensusClient<R> {
     pub async fn new(
         rpc: &str,
         checkpoint_block_root: &Vec<u8>,
@@ -67,7 +70,7 @@ impl<R: Rpc> ConsensusClient<R> {
             return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
         }
 
-        let store = Store {
+        let store = LightClientStore {
             finalized_header: bootstrap.header.clone(),
             current_sync_committee: bootstrap.current_sync_committee,
             next_sync_committee: None,
@@ -167,6 +170,8 @@ impl<R: Rpc> ConsensusClient<R> {
         Ok(())
     }
 
+    // implements checks from validate_light_client_update and process_light_client_update in the
+    // specification
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
@@ -237,13 +242,13 @@ impl<R: Rpc> ConsensusClient<R> {
 
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-        let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
 
-        let header_root =
-            bytes_to_bytes32(update.attested_header.clone().hash_tree_root()?.as_bytes());
-        let signing_root = self.compute_committee_sign_root(header_root, update.signature_slot)?;
-        let sig = &update.sync_aggregate.sync_committee_signature;
-        let is_valid_sig = is_aggregate_valid(sig, signing_root.as_bytes(), &pks);
+        let is_valid_sig = self.verify_sync_committee_signture(
+            &pks,
+            &update.attested_header,
+            &update.sync_aggregate.sync_committee_signature,
+            update.signature_slot,
+        );
 
         if !is_valid_sig {
             return Err(ConsensusError::InvalidSignature.into());
@@ -267,13 +272,15 @@ impl<R: Rpc> ConsensusClient<R> {
         self.verify_generic_update(&update)
     }
 
+    // implements state changes from apply_light_client_update and process_light_client_update in
+    // the specification
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
         self.store.current_max_active_participants =
             u64::max(self.store.current_max_active_participants, committee_bits);
 
-        let should_update_optimistic = committee_bits > self.safety_theshhold()
+        let should_update_optimistic = committee_bits > self.safety_threshold()
             && update.attested_header.slot > self.store.optimistic_header.slot;
 
         if should_update_optimistic {
@@ -393,11 +400,34 @@ impl<R: Rpc> ConsensusClient<R> {
         update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
     }
 
-    fn safety_theshhold(&self) -> u64 {
+    fn safety_threshold(&self) -> u64 {
         cmp::max(
             self.store.current_max_active_participants,
             self.store.previous_max_active_participants,
         ) / 2
+    }
+
+    fn verify_sync_committee_signture(
+        &self,
+        pks: &Vec<PublicKey>,
+        attested_header: &Header,
+        signature: &SignatureBytes,
+        signature_slot: u64,
+    ) -> bool {
+        let res: Result<bool> = (move || {
+            let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+            let header_root =
+                bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_bytes());
+            let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
+
+            Ok(is_aggregate_valid(signature, signing_root.as_bytes(), &pks))
+        })();
+
+        if let Ok(is_valid) = res {
+            is_valid
+        } else {
+            false
+        }
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
@@ -479,42 +509,12 @@ fn get_bits(bitfield: &Bitvector<512>) -> u64 {
     count
 }
 
-fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
-    let dst: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
-    let sig_res = Signature::from_bytes(&sig_bytes);
-    match sig_res {
-        Ok(sig) => sig.fast_aggregate_verify(true, msg, dst, &pks) == BLST_ERROR::BLST_SUCCESS,
-        Err(_) => false,
-    }
-}
-
 fn is_finality_proof_valid(
     attested_header: &Header,
     finality_header: &mut Header,
     finality_branch: &Vec<Bytes32>,
 ) -> bool {
-    let finality_header_hash_res = finality_header.hash_tree_root();
-    if finality_header_hash_res.is_err() {
-        return false;
-    }
-
-    let attested_header_state_root_res = bytes32_to_node(&attested_header.state_root);
-    if attested_header_state_root_res.is_err() {
-        return false;
-    }
-
-    let finality_branch_res = branch_to_nodes(finality_branch.clone());
-    if finality_branch_res.is_err() {
-        return false;
-    }
-
-    is_valid_merkle_branch(
-        &finality_header_hash_res.unwrap(),
-        finality_branch_res.unwrap().iter(),
-        6,
-        41,
-        &attested_header_state_root_res.unwrap(),
-    )
+    is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
 
 fn is_next_committee_proof_valid(
@@ -522,27 +522,12 @@ fn is_next_committee_proof_valid(
     next_committee: &mut SyncCommittee,
     next_committee_branch: &Vec<Bytes32>,
 ) -> bool {
-    let next_committee_hash_res = next_committee.hash_tree_root();
-    if next_committee_hash_res.is_err() {
-        return false;
-    }
-
-    let attested_header_state_root_res = bytes32_to_node(&attested_header.state_root);
-    if attested_header_state_root_res.is_err() {
-        return false;
-    }
-
-    let next_committee_branch_res = branch_to_nodes(next_committee_branch.clone());
-    if next_committee_branch_res.is_err() {
-        return false;
-    }
-
-    is_valid_merkle_branch(
-        &next_committee_hash_res.unwrap(),
-        next_committee_branch_res.unwrap().iter(),
+    is_proof_valid(
+        attested_header,
+        next_committee,
+        next_committee_branch,
         5,
         23,
-        &attested_header_state_root_res.unwrap(),
     )
 }
 
@@ -551,84 +536,13 @@ fn is_current_committee_proof_valid(
     current_committee: &mut SyncCommittee,
     current_committee_branch: &Vec<Bytes32>,
 ) -> bool {
-    let next_committee_hash_res = current_committee.hash_tree_root();
-    if next_committee_hash_res.is_err() {
-        return false;
-    }
-
-    let attested_header_state_root_res = bytes32_to_node(&attested_header.state_root);
-    if attested_header_state_root_res.is_err() {
-        return false;
-    }
-
-    let next_committee_branch_res = branch_to_nodes(current_committee_branch.clone());
-    if next_committee_branch_res.is_err() {
-        return false;
-    }
-
-    is_valid_merkle_branch(
-        &next_committee_hash_res.unwrap(),
-        next_committee_branch_res.unwrap().iter(),
+    is_proof_valid(
+        attested_header,
+        current_committee,
+        current_committee_branch,
         5,
         22,
-        &attested_header_state_root_res.unwrap(),
     )
-}
-
-fn calc_sync_period(slot: u64) -> u64 {
-    let epoch = slot / 32;
-    epoch / 256
-}
-
-fn branch_to_nodes(branch: Vec<Bytes32>) -> Result<Vec<Node>> {
-    branch
-        .iter()
-        .map(|elem| bytes32_to_node(elem))
-        .collect::<Result<Vec<Node>>>()
-}
-
-#[derive(SimpleSerialize, Default, Debug)]
-struct SigningData {
-    object_root: Bytes32,
-    domain: Bytes32,
-}
-
-#[derive(SimpleSerialize, Default, Debug)]
-struct ForkData {
-    current_version: Vector<u8, 4>,
-    genesis_validator_root: Bytes32,
-}
-
-fn compute_signing_root(object_root: Bytes32, domain: Bytes32) -> Result<Node> {
-    let mut data = SigningData {
-        object_root,
-        domain,
-    };
-    Ok(data.hash_tree_root()?)
-}
-
-fn compute_domain(
-    domain_type: &[u8],
-    fork_version: Vector<u8, 4>,
-    genesis_root: Bytes32,
-) -> Result<Bytes32> {
-    let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
-    let start = domain_type;
-    let end = &fork_data_root.as_bytes()[..28];
-    let d = [start, end].concat();
-    Ok(d.to_vec().try_into().unwrap())
-}
-
-fn compute_fork_data_root(
-    current_version: Vector<u8, 4>,
-    genesis_validator_root: Bytes32,
-) -> Result<Node> {
-    let current_version = current_version.try_into()?;
-    let mut fork_data = ForkData {
-        current_version,
-        genesis_validator_root,
-    };
-    Ok(fork_data.hash_tree_root()?)
 }
 
 #[cfg(test)]
@@ -640,7 +554,7 @@ mod tests {
     use crate::{
         consensus::calc_sync_period,
         errors::ConsensusError,
-        rpc::{mock_rpc::MockRpc, Rpc},
+        rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::Header,
         ConsensusClient,
     };
@@ -688,7 +602,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_verify_upadate_invlaid_finality() {
+    async fn test_verify_update_invalid_finality() {
         let client = get_client().await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client.rpc.get_updates(period).await.unwrap();
@@ -730,7 +644,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_verify_finality_invlaid_finality() {
+    async fn test_verify_finality_invalid_finality() {
         let mut client = get_client().await;
         client.sync().await.unwrap();
 
@@ -745,7 +659,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_verify_finality_invlaid_sig() {
+    async fn test_verify_finality_invalid_sig() {
         let mut client = get_client().await;
         client.sync().await.unwrap();
 

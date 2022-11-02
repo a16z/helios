@@ -11,11 +11,10 @@ use ethers::types::{
     TransactionReceipt, H256, U256,
 };
 use eyre::Result;
-use log::trace;
 
 use crate::types::CallOpts;
 
-use super::Rpc;
+use super::ExecutionRpc;
 
 pub struct HttpRpc {
     url: String,
@@ -29,7 +28,7 @@ impl Clone for HttpRpc {
 }
 
 #[async_trait]
-impl Rpc for HttpRpc {
+impl ExecutionRpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
         let http = Http::from_str(rpc)?;
         let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 250);
@@ -47,7 +46,6 @@ impl Rpc for HttpRpc {
         slots: &[H256],
         block: u64,
     ) -> Result<EIP1186ProofResponse> {
-        trace!("fetching proof");
         let block = Some(BlockId::from(block));
         let proof_response = self
             .provider

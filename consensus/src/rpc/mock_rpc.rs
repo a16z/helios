@@ -3,7 +3,7 @@ use std::{fs::read_to_string, path::PathBuf};
 use async_trait::async_trait;
 use eyre::Result;
 
-use super::Rpc;
+use super::ConsensusRpc;
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
 pub struct MockRpc {
@@ -11,7 +11,7 @@ pub struct MockRpc {
 }
 
 #[async_trait]
-impl Rpc for MockRpc {
+impl ConsensusRpc for MockRpc {
     fn new(path: &str) -> Self {
         MockRpc {
             testdata: PathBuf::from(path),
