@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     let mut client = ClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc("https://www.lightclientdata.org")
-        .execution_rpc("https://eth-mainnet.g.alchemy.com/v2/Q0BqQPbTQfSMzrCNl4x80XS_PLLB1RNf")
+        .execution_rpc("UNTRUSTED_RPC_URL")
         .build()?;
 
     client.start().await?;
