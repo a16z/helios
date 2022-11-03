@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config = get_config();
-    let mut client = ClientBuilder::new().config(config).build().await?;
+    let mut client = ClientBuilder::new().config(config).build()?;
 
     client.start().await?;
 

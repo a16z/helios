@@ -27,13 +27,12 @@ pub struct Node {
 }
 
 impl Node {
-    pub async fn new(config: Arc<Config>) -> Result<Self> {
+    pub fn new(config: Arc<Config>) -> Result<Self> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint;
         let execution_rpc = &config.execution_rpc;
 
-        let consensus =
-            ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone()).await?;
+        let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())?;
         let execution = Arc::new(ExecutionClient::new(execution_rpc)?);
 
         let payloads = BTreeMap::new();

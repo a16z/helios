@@ -26,9 +26,9 @@ pub struct Client<DB: Database> {
 }
 
 impl Client<FileDB> {
-    async fn new(config: Config) -> Result<Self> {
+    fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
-        let node = Node::new(config.clone()).await?;
+        let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
         let rpc = if let Some(port) = config.rpc_port {
@@ -103,7 +103,7 @@ impl ClientBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<Client<FileDB>> {
+    pub fn build(self) -> Result<Client<FileDB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -164,7 +164,7 @@ impl ClientBuilder {
             forks: base_config.forks,
         };
 
-        Client::new(config).await
+        Client::new(config)
     }
 }
 
