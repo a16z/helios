@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use config::networks::Network;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
@@ -39,6 +40,71 @@ impl Client<FileDB> {
         let db = FileDB::new(data_dir.ok_or(eyre!("data dir not found"))?);
 
         Ok(Client { node, rpc, db })
+    }
+}
+
+pub struct ClientBuilder {
+    network: Option<Network>,
+    consensus_rpc: Option<String>,
+    execution_rpc: Option<String>,
+    checkpoint: Option<Vec<u8>>,
+    rpc_port: Option<u16>,
+}
+
+impl ClientBuilder {
+    pub fn new() -> Self {
+        Self {
+            network: None,
+            consensus_rpc: None,
+            execution_rpc: None,
+            checkpoint: None,
+            rpc_port: None,
+        }
+    }
+
+    pub fn network(mut self, network: Network) -> Self {
+        self.network = Some(network);
+        self
+    }
+
+    pub fn consensus_rpc(mut self, consensus_rpc: &str) -> Self {
+        self.consensus_rpc = Some(consensus_rpc.to_string());
+        self
+    }
+
+    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
+        self.execution_rpc = Some(execution_rpc.to_string());
+        self
+    }
+
+    pub fn checkpoint(mut self, checkpoint: &str) -> Self {
+        let checkpoint = hex::decode(checkpoint).expect("cannot parse checkpoint");
+        self.checkpoint = Some(checkpoint);
+        self
+    }
+
+    pub fn rpc_port(mut self, port: u16) -> Self {
+        self.rpc_port = Some(port);
+        self
+    }
+
+    pub async fn build(self) -> Result<Client<FileDB>> {
+        let base_config = self
+            .network
+            .ok_or(eyre!("missing network"))?
+            .to_base_config();
+
+        let config = Config {
+            consensus_rpc: self.consensus_rpc.ok_or(eyre!("missing consensus rpc"))?,
+            execution_rpc: self.execution_rpc.ok_or(eyre!("missing execution rpc"))?,
+            checkpoint: self.checkpoint.unwrap_or(base_config.checkpoint),
+            chain: base_config.chain,
+            forks: base_config.forks,
+            rpc_port: self.rpc_port,
+            data_dir: None,
+        };
+
+        Client::new(config).await
     }
 }
 
