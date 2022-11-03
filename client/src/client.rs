@@ -214,7 +214,7 @@ impl<DB: Database> Client<DB> {
         }
     }
 
-    pub async fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
+    pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
         self.node.read().await.call(opts, block).await
     }
 
@@ -222,15 +222,15 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.estimate_gas(opts).await
     }
 
-    pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
+    pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
         self.node.read().await.get_balance(address, block).await
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
         self.node.read().await.get_nonce(address, block).await
     }
 
-    pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
+    pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
         self.node.read().await.get_code(address, block).await
     }
 
@@ -275,7 +275,7 @@ impl<DB: Database> Client<DB> {
 
     pub async fn get_block_by_number(
         &self,
-        block: &BlockTag,
+        block: BlockTag,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>> {
         self.node

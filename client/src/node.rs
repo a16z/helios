@@ -98,8 +98,8 @@ impl Node {
         Ok(())
     }
 
-    pub async fn call(&self, opts: &CallOpts, block: &BlockTag) -> Result<Vec<u8>> {
-        self.check_blocktag_age(block)?;
+    pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
+        self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
@@ -109,29 +109,29 @@ impl Node {
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         self.check_head_age()?;
 
-        let payload = self.get_payload(&BlockTag::Latest)?;
+        let payload = self.get_payload(BlockTag::Latest)?;
         let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
         evm.estimate_gas(opts).await
     }
 
-    pub async fn get_balance(&self, address: &Address, block: &BlockTag) -> Result<U256> {
-        self.check_blocktag_age(block)?;
+    pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
+        self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: &BlockTag) -> Result<u64> {
-        self.check_blocktag_age(block)?;
+    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
+        self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, payload).await?;
         Ok(account.nonce)
     }
 
-    pub async fn get_code(&self, address: &Address, block: &BlockTag) -> Result<Vec<u8>> {
-        self.check_blocktag_age(block)?;
+    pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
+        self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
         let account = self.execution.get_account(&address, None, payload).await?;
@@ -141,7 +141,7 @@ impl Node {
     pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
         self.check_head_age()?;
 
-        let payload = self.get_payload(&BlockTag::Latest)?;
+        let payload = self.get_payload(BlockTag::Latest)?;
         let account = self
             .execution
             .get_account(address, Some(&[slot]), payload)
@@ -177,7 +177,7 @@ impl Node {
     pub fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age()?;
 
-        let payload = self.get_payload(&BlockTag::Latest)?;
+        let payload = self.get_payload(BlockTag::Latest)?;
         let base_fee = U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
         let tip = U256::from(10_u64.pow(9));
         Ok(base_fee + tip)
@@ -192,16 +192,16 @@ impl Node {
     pub fn get_block_number(&self) -> Result<u64> {
         self.check_head_age()?;
 
-        let payload = self.get_payload(&BlockTag::Latest)?;
+        let payload = self.get_payload(BlockTag::Latest)?;
         Ok(payload.block_number)
     }
 
     pub async fn get_block_by_number(
         &self,
-        block: &BlockTag,
+        block: BlockTag,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>> {
-        self.check_blocktag_age(block)?;
+        self.check_blocktag_age(&block)?;
 
         match self.get_payload(block) {
             Ok(payload) => self
@@ -247,7 +247,7 @@ impl Node {
         self.consensus.last_checkpoint.clone()
     }
 
-    fn get_payload(&self, block: &BlockTag) -> Result<&ExecutionPayload> {
+    fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload> {
         match block {
             BlockTag::Latest => {
                 let payload = self.payloads.last_key_value();
@@ -260,8 +260,8 @@ impl Node {
                     .1)
             }
             BlockTag::Number(num) => {
-                let payload = self.payloads.get(num);
-                payload.ok_or(BlockNotFoundError::new(BlockTag::Number(*num)).into())
+                let payload = self.payloads.get(&num);
+                payload.ok_or(BlockNotFoundError::new(BlockTag::Number(num)).into())
             }
         }
     }
