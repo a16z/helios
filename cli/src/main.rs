@@ -2,6 +2,7 @@ use std::{
     fs,
     path::PathBuf,
     process::exit,
+    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -82,6 +83,8 @@ struct Cli {
     execution_rpc: Option<String>,
     #[clap(short, long, env)]
     consensus_rpc: Option<String>,
+    #[clap(short, long, env)]
+    data_dir: Option<String>,
 }
 
 impl Cli {
@@ -116,8 +119,12 @@ impl Cli {
     }
 
     fn get_data_dir(&self) -> PathBuf {
-        home_dir()
-            .unwrap()
-            .join(format!(".helios/data/{}", self.network))
+        if let Some(dir) = &self.data_dir {
+            PathBuf::from_str(dir).expect("cannot find data dir")
+        } else {
+            home_dir()
+                .unwrap()
+                .join(format!(".helios/data/{}", self.network))
+        }
     }
 }
