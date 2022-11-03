@@ -23,6 +23,7 @@ triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum" }
 async-trait = "0.1.57"
 log = "0.4.17"
 thiserror = "1.0.37"
+openssl = { version = "0.10", features = ["vendored"] }
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }

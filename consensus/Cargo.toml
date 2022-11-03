@@ -21,6 +21,7 @@ async-trait = "0.1.57"
 log = "0.4.17"
 chrono = "0.4.22"
 thiserror = "1.0.37"
+openssl = { version = "0.10", features = ["vendored"] }
 
 common = { path = "../common" }
 config = { path = "../config" }

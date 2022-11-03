@@ -20,6 +20,7 @@ bytes = "1.2.1"
 futures = "0.3.23"
 toml = "0.5.9"
 log = "0.4.17"
+openssl = { version = "0.10", features = ["vendored"] }
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
