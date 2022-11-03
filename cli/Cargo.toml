@@ -1,7 +1,14 @@
+cargo-features = ["different-binary-name"]
+
 [package]
-name = "helios"
+name = "cli"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "cli"
+filename = "helios"
+path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
