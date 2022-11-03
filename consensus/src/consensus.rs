@@ -579,9 +579,11 @@ mod tests {
             ..Default::default()
         };
 
-        ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config))
-            .await
-            .unwrap()
+        let mut client =
+            ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config)).unwrap();
+        client.bootstrap().await.unwrap();
+
+        client
     }
 
     #[tokio::test]
