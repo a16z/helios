@@ -22,7 +22,7 @@ use crate::rpc::Rpc;
 pub struct Client<DB: Database> {
     node: Arc<RwLock<Node>>,
     rpc: Option<Rpc>,
-    db: DB,
+    db: Option<DB>,
 }
 
 impl Client<FileDB> {
@@ -38,7 +38,11 @@ impl Client<FileDB> {
         };
 
         let data_dir = config.data_dir.clone();
-        let db = FileDB::new(data_dir.ok_or(eyre!("data dir not found"))?);
+        let db = if let Some(dir) = data_dir {
+            Some(FileDB::new(dir))
+        } else {
+            None
+        };
 
         Ok(Client { node, rpc, db })
     }
@@ -114,29 +118,29 @@ impl ClientBuilder {
             config.to_base_config()
         };
 
-        let consensus_rpc = self.consensus_rpc.unwrap_or(
+        let consensus_rpc = self.consensus_rpc.unwrap_or_else(|| {
             self.config
                 .as_ref()
-                .ok_or(eyre!("missing consensus rpc"))?
+                .expect("missing consensus rpc")
                 .consensus_rpc
-                .clone(),
-        );
+                .clone()
+        });
 
-        let execution_rpc = self.execution_rpc.unwrap_or(
+        let execution_rpc = self.execution_rpc.unwrap_or_else(|| {
             self.config
                 .as_ref()
-                .ok_or(eyre!("missing execution rpc"))?
+                .expect("missing execution rpc")
                 .execution_rpc
-                .clone(),
-        );
+                .clone()
+        });
 
-        let checkpoint = self.checkpoint.unwrap_or(
-            self.config
-                .as_ref()
-                .ok_or(eyre!("missing checkpoint"))?
-                .checkpoint
-                .clone(),
-        );
+        let checkpoint = if let Some(checkpoint) = self.checkpoint {
+            checkpoint
+        } else if let Some(config) = &self.config {
+            config.checkpoint.clone()
+        } else {
+            base_config.checkpoint
+        };
 
         let rpc_port = if self.rpc_port.is_some() {
             self.rpc_port
@@ -170,15 +174,17 @@ impl ClientBuilder {
 
 impl<DB: Database> Client<DB> {
     pub async fn start(&mut self) -> Result<()> {
-        self.rpc.as_mut().unwrap().start().await?;
+        if let Some(rpc) = &mut self.rpc {
+            rpc.start().await?;
+        }
+
+        let res = self.node.write().await.sync().await;
+        if let Err(err) = res {
+            warn!("consensus error: {}", err);
+        }
 
         let node = self.node.clone();
         spawn(async move {
-            let res = node.write().await.sync().await;
-            if let Err(err) = res {
-                warn!("consensus error: {}", err);
-            }
-
             loop {
                 let res = node.write().await.advance().await;
                 if let Err(err) = res {
@@ -202,8 +208,8 @@ impl<DB: Database> Client<DB> {
         };
 
         info!("saving last checkpoint hash");
-        let res = self.db.save_checkpoint(checkpoint);
-        if res.is_err() {
+        let res = self.db.as_ref().map(|db| db.save_checkpoint(checkpoint));
+        if res.is_some() && res.unwrap().is_err() {
             warn!("checkpoint save failed");
         }
     }

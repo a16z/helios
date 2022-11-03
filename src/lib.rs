@@ -1,9 +1,13 @@
 pub mod client {
-    pub use client::{Client, ClientBuilder, database::FileDB};
+    pub use client::{database::FileDB, Client, ClientBuilder};
 }
 
 pub mod config {
-    pub use config::{Config, networks};
+    pub use config::{networks, Config};
+}
+
+pub mod types {
+    pub use common::types::BlockTag;
 }
 
 pub mod errors {
