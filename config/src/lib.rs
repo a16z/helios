@@ -85,6 +85,15 @@ impl Config {
             self.forks.genesis.fork_version.clone()
         }
     }
+
+    pub fn to_base_config(&self) -> BaseConfig {
+        BaseConfig {
+            rpc_port: self.rpc_port.unwrap_or(8545),
+            checkpoint: self.checkpoint.clone(),
+            chain: self.chain.clone(),
+            forks: self.forks.clone(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -122,7 +131,7 @@ impl CliConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct ChainConfig {
     pub chain_id: u64,
     pub genesis_time: u64,
@@ -133,14 +142,14 @@ pub struct ChainConfig {
     pub genesis_root: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Forks {
     pub genesis: Fork,
     pub altair: Fork,
     pub bellatrix: Fork,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Fork {
     pub epoch: u64,
     #[serde(

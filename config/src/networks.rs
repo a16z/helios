@@ -3,9 +3,23 @@ use serde::Serialize;
 use crate::{bytes_serialize, ChainConfig, Fork, Forks};
 use common::utils::hex_str_to_bytes;
 
+pub enum Network {
+    MAINNET,
+    GOERLI,
+}
+
+impl Network {
+    pub fn to_base_config(&self) -> BaseConfig {
+        match self {
+            Self::MAINNET => mainnet(),
+            Self::GOERLI => goerli(),
+        }
+    }
+}
+
 #[derive(Serialize, Default)]
 pub struct BaseConfig {
-    rpc_port: u16,
+    pub rpc_port: u16,
     #[serde(
         deserialize_with = "bytes_deserialize",
         serialize_with = "bytes_serialize"

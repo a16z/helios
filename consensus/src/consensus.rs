@@ -25,11 +25,12 @@ use super::utils::*;
 pub struct ConsensusClient<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
+    initial_checkpoint: Vec<u8>,
     pub last_checkpoint: Option<Vec<u8>>,
     pub config: Arc<Config>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct LightClientStore {
     finalized_header: Header,
     current_sync_committee: SyncCommittee,
@@ -40,50 +41,19 @@ struct LightClientStore {
 }
 
 impl<R: ConsensusRpc> ConsensusClient<R> {
-    pub async fn new(
+    pub fn new(
         rpc: &str,
         checkpoint_block_root: &Vec<u8>,
         config: Arc<Config>,
     ) -> Result<ConsensusClient<R>> {
         let rpc = R::new(rpc);
 
-        let mut bootstrap = rpc
-            .get_bootstrap(checkpoint_block_root)
-            .await
-            .map_err(|_| eyre!("could not fetch bootstrap"))?;
-
-        let committee_valid = is_current_committee_proof_valid(
-            &bootstrap.header,
-            &mut bootstrap.current_sync_committee,
-            &bootstrap.current_sync_committee_branch,
-        );
-
-        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
-        let expected_hash = format!("0x{}", hex::encode(checkpoint_block_root));
-        let header_valid = header_hash == expected_hash;
-
-        if !header_valid {
-            return Err(ConsensusError::InvalidHeaderHash(expected_hash, header_hash).into());
-        }
-
-        if !committee_valid {
-            return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
-        }
-
-        let store = LightClientStore {
-            finalized_header: bootstrap.header.clone(),
-            current_sync_committee: bootstrap.current_sync_committee,
-            next_sync_committee: None,
-            optimistic_header: bootstrap.header.clone(),
-            previous_max_active_participants: 0,
-            current_max_active_participants: 0,
-        };
-
         Ok(ConsensusClient {
             rpc,
-            store,
+            store: LightClientStore::default(),
             last_checkpoint: None,
             config,
+            initial_checkpoint: checkpoint_block_root.clone(),
         })
     }
 
@@ -123,6 +93,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn sync(&mut self) -> Result<()> {
+        self.bootstrap().await?;
+
         let current_period = calc_sync_period(self.store.finalized_header.slot);
         let updates = self.rpc.get_updates(current_period).await?;
 
@@ -166,6 +138,43 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    async fn bootstrap(&mut self) -> Result<()> {
+        let mut bootstrap = self
+            .rpc
+            .get_bootstrap(&self.initial_checkpoint)
+            .await
+            .map_err(|_| eyre!("could not fetch bootstrap"))?;
+
+        let committee_valid = is_current_committee_proof_valid(
+            &bootstrap.header,
+            &mut bootstrap.current_sync_committee,
+            &bootstrap.current_sync_committee_branch,
+        );
+
+        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
+        let expected_hash = format!("0x{}", hex::encode(&self.initial_checkpoint));
+        let header_valid = header_hash == expected_hash;
+
+        if !header_valid {
+            return Err(ConsensusError::InvalidHeaderHash(expected_hash, header_hash).into());
+        }
+
+        if !committee_valid {
+            return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
+        }
+
+        self.store = LightClientStore {
+            finalized_header: bootstrap.header.clone(),
+            current_sync_committee: bootstrap.current_sync_committee,
+            next_sync_committee: None,
+            optimistic_header: bootstrap.header.clone(),
+            previous_max_active_participants: 0,
+            current_max_active_participants: 0,
+        };
 
         Ok(())
     }
@@ -570,9 +579,11 @@ mod tests {
             ..Default::default()
         };
 
-        ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config))
-            .await
-            .unwrap()
+        let mut client =
+            ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config)).unwrap();
+        client.bootstrap().await.unwrap();
+
+        client
     }
 
     #[tokio::test]

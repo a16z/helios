@@ -2,6 +2,7 @@ use std::{
     fs,
     path::PathBuf,
     process::exit,
+    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -11,7 +12,7 @@ use dirs::home_dir;
 use env_logger::Env;
 use eyre::Result;
 
-use client::{database::FileDB, Client};
+use client::{database::FileDB, Client, ClientBuilder};
 use config::{CliConfig, Config};
 use futures::executor::block_on;
 use log::info;
@@ -21,7 +22,7 @@ async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config = get_config();
-    let mut client = Client::new(config).await?;
+    let mut client = ClientBuilder::new().config(config).build()?;
 
     client.start().await?;
 
@@ -82,6 +83,8 @@ struct Cli {
     execution_rpc: Option<String>,
     #[clap(short, long, env)]
     consensus_rpc: Option<String>,
+    #[clap(short, long, env)]
+    data_dir: Option<String>,
 }
 
 impl Cli {
@@ -116,8 +119,12 @@ impl Cli {
     }
 
     fn get_data_dir(&self) -> PathBuf {
-        home_dir()
-            .unwrap()
-            .join(format!(".helios/data/{}", self.network))
+        if let Some(dir) = &self.data_dir {
+            PathBuf::from_str(dir).expect("cannot find data dir")
+        } else {
+            home_dir()
+                .unwrap()
+                .join(format!(".helios/data/{}", self.network))
+        }
     }
 }

@@ -1,5 +1,7 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
+use config::networks::Network;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
@@ -24,9 +26,9 @@ pub struct Client<DB: Database> {
 }
 
 impl Client<FileDB> {
-    pub async fn new(config: Config) -> Result<Self> {
+    fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
-        let node = Node::new(config.clone()).await?;
+        let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
         let rpc = if let Some(port) = config.rpc_port {
@@ -39,6 +41,130 @@ impl Client<FileDB> {
         let db = FileDB::new(data_dir.ok_or(eyre!("data dir not found"))?);
 
         Ok(Client { node, rpc, db })
+    }
+}
+
+pub struct ClientBuilder {
+    network: Option<Network>,
+    consensus_rpc: Option<String>,
+    execution_rpc: Option<String>,
+    checkpoint: Option<Vec<u8>>,
+    rpc_port: Option<u16>,
+    data_dir: Option<PathBuf>,
+    config: Option<Config>,
+}
+
+impl ClientBuilder {
+    pub fn new() -> Self {
+        Self {
+            network: None,
+            consensus_rpc: None,
+            execution_rpc: None,
+            checkpoint: None,
+            rpc_port: None,
+            data_dir: None,
+            config: None,
+        }
+    }
+
+    pub fn network(mut self, network: Network) -> Self {
+        self.network = Some(network);
+        self
+    }
+
+    pub fn consensus_rpc(mut self, consensus_rpc: &str) -> Self {
+        self.consensus_rpc = Some(consensus_rpc.to_string());
+        self
+    }
+
+    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
+        self.execution_rpc = Some(execution_rpc.to_string());
+        self
+    }
+
+    pub fn checkpoint(mut self, checkpoint: &str) -> Self {
+        let checkpoint = hex::decode(checkpoint).expect("cannot parse checkpoint");
+        self.checkpoint = Some(checkpoint);
+        self
+    }
+
+    pub fn rpc_port(mut self, port: u16) -> Self {
+        self.rpc_port = Some(port);
+        self
+    }
+
+    pub fn data_dir(mut self, data_dir: PathBuf) -> Self {
+        self.data_dir = Some(data_dir);
+        self
+    }
+
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = Some(config);
+        self
+    }
+
+    pub fn build(self) -> Result<Client<FileDB>> {
+        let base_config = if let Some(network) = self.network {
+            network.to_base_config()
+        } else {
+            let config = self
+                .config
+                .as_ref()
+                .ok_or(eyre!("missing network config"))?;
+            config.to_base_config()
+        };
+
+        let consensus_rpc = self.consensus_rpc.unwrap_or(
+            self.config
+                .as_ref()
+                .ok_or(eyre!("missing consensus rpc"))?
+                .consensus_rpc
+                .clone(),
+        );
+
+        let execution_rpc = self.execution_rpc.unwrap_or(
+            self.config
+                .as_ref()
+                .ok_or(eyre!("missing execution rpc"))?
+                .execution_rpc
+                .clone(),
+        );
+
+        let checkpoint = self.checkpoint.unwrap_or(
+            self.config
+                .as_ref()
+                .ok_or(eyre!("missing checkpoint"))?
+                .checkpoint
+                .clone(),
+        );
+
+        let rpc_port = if self.rpc_port.is_some() {
+            self.rpc_port
+        } else if let Some(config) = &self.config {
+            config.rpc_port
+        } else {
+            None
+        };
+
+        let data_dir = if self.data_dir.is_some() {
+            self.data_dir
+        } else if let Some(config) = &self.config {
+            config.data_dir.clone()
+        } else {
+            None
+        };
+
+        let config = Config {
+            consensus_rpc,
+            execution_rpc,
+            checkpoint,
+            rpc_port,
+            data_dir,
+            chain: base_config.chain,
+            forks: base_config.forks,
+        };
+
+        Client::new(config)
     }
 }
 

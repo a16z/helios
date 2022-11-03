@@ -13,9 +13,7 @@ async fn setup() -> ConsensusClient<MockRpc> {
         ..Default::default()
     };
 
-    ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config))
-        .await
-        .unwrap()
+    ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config)).unwrap()
 }
 
 #[tokio::test]
