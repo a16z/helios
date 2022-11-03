@@ -488,6 +488,7 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "log",
+ "openssl",
  "reqwest",
  "revm",
  "serde",
@@ -593,6 +594,7 @@ dependencies = [
  "eyre",
  "hex",
  "log",
+ "openssl",
  "reqwest",
  "serde",
  "serde_json",
@@ -1145,6 +1147,7 @@ dependencies = [
  "futures",
  "hex",
  "log",
+ "openssl",
  "reqwest",
  "revm",
  "serde",
@@ -2043,7 +2046,7 @@ checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 [[package]]
 name = "keccak-hasher"
 version = "0.1.1"
-source = "git+https://github.com/openethereum/parity-ethereum#55c90d4016505317034e3e98f699af07f5404b63"
+source = "git+https://github.com/openethereum/parity-ethereum?rev=55c90d4016505317034e3e98f699af07f5404b63#55c90d4016505317034e3e98f699af07f5404b63"
 dependencies = [
  "ethereum-types 0.8.0",
  "hash-db",
@@ -2322,6 +2325,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "111.24.0+1.1.1s"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3498f259dab01178c6228c6b00dcef0ed2a2d5e20d648c017861227773ea4abd"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2330,6 +2342,7 @@ dependencies = [
  "autocfg",
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -3336,7 +3349,7 @@ dependencies = [
 [[package]]
 name = "ssz-rs"
 version = "0.8.0"
-source = "git+https://github.com/ralexstokes/ssz-rs#cb08f18ca919cc1b685b861d0fa9e2daabe89737"
+source = "git+https://github.com/ralexstokes/ssz-rs?rev=cb08f18ca919cc1b685b861d0fa9e2daabe89737#cb08f18ca919cc1b685b861d0fa9e2daabe89737"
 dependencies = [
  "bitvec 1.0.1",
  "hex",
@@ -3351,7 +3364,7 @@ dependencies = [
 [[package]]
 name = "ssz-rs-derive"
 version = "0.8.0"
-source = "git+https://github.com/ralexstokes/ssz-rs#cb08f18ca919cc1b685b861d0fa9e2daabe89737"
+source = "git+https://github.com/ralexstokes/ssz-rs?rev=cb08f18ca919cc1b685b861d0fa9e2daabe89737#cb08f18ca919cc1b685b861d0fa9e2daabe89737"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3691,7 +3704,7 @@ dependencies = [
 [[package]]
 name = "triehash-ethereum"
 version = "0.2.0"
-source = "git+https://github.com/openethereum/parity-ethereum#55c90d4016505317034e3e98f699af07f5404b63"
+source = "git+https://github.com/openethereum/parity-ethereum?rev=55c90d4016505317034e3e98f699af07f5404b63#55c90d4016505317034e3e98f699af07f5404b63"
 dependencies = [
  "ethereum-types 0.8.0",
  "keccak-hasher",
