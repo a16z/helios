@@ -1,3 +1,8 @@
+[package]
+name = "helios"
+version = "0.0.1"
+edition = "2021"
+
 [workspace]
 
 members = [
@@ -9,5 +14,13 @@ members = [
     "execution",
 ]
 
+[dependencies]
+client = { path = "./client" }
+config = { path = "./config" }
+common = { path = "./common" }
+consensus = { path = "./consensus" }
+execution = { path = "./execution" }
+
 [patch.crates-io]
 ethers = { git = "https://github.com/ncitron/ethers-rs", branch = "fix-retry" }
+

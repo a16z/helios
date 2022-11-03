@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap, fmt::Display, str::FromStr, sync::Arc, thread};
+use std::{cmp, collections::HashMap, str::FromStr, sync::Arc, thread};
 
 use bytes::Bytes;
 use ethers::{
@@ -6,7 +6,7 @@ use ethers::{
     prelude::{Address, H160, H256, U256},
     types::transaction::eip2930::AccessListItem,
 };
-use eyre::Result;
+use eyre::{Report, Result};
 use futures::future::join_all;
 use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
@@ -44,10 +44,9 @@ impl<R: ExecutionRpc> Evm<R> {
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
         self.evm.env = self.get_env(opts);
-        let tx = self.evm.transact();
-        let output = tx.1;
+        let tx = self.evm.transact().0;
 
-        match tx.0 {
+        match tx.exit_reason {
             revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
             revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
             revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
@@ -63,7 +62,7 @@ impl<R: ExecutionRpc> Evm<R> {
                     return Err(eyre::eyre!(err.clone()));
                 }
 
-                match output {
+                match tx.out {
                     TransactOut::None => Err(eyre::eyre!("Invalid Call")),
                     TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
                     TransactOut::Call(bytes) => Ok(bytes.to_vec()),
@@ -77,10 +76,10 @@ impl<R: ExecutionRpc> Evm<R> {
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
         self.evm.env = self.get_env(opts);
-        let tx = self.evm.transact();
-        let gas = tx.2;
+        let tx = self.evm.transact().0;
+        let gas = tx.gas_used;
 
-        match tx.0 {
+        match tx.exit_reason {
             revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
             revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
             revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
@@ -211,21 +210,11 @@ impl<R: ExecutionRpc> ProofDB<R> {
         }
     }
 
-    pub fn safe_unwrap<T: Default, E: Display>(&mut self, res: Result<T, E>) -> T {
-        match res {
-            Ok(value) => value,
-            Err(err) => {
-                self.error = Some(err.to_string());
-                T::default()
-            }
-        }
-    }
-
     pub fn set_accounts(&mut self, accounts: HashMap<Address, Account>) {
         self.accounts = accounts;
     }
 
-    fn get_account(&mut self, address: Address, slots: &[H256]) -> Account {
+    fn get_account(&mut self, address: Address, slots: &[H256]) -> Result<Account> {
         let execution = self.execution.clone();
         let addr = address.clone();
         let payload = self.payload.clone();
@@ -237,14 +226,16 @@ impl<R: ExecutionRpc> ProofDB<R> {
             runtime.block_on(account_fut)
         });
 
-        self.safe_unwrap(handle.join().unwrap())
+        handle.join().unwrap()
     }
 }
 
 impl<R: ExecutionRpc> Database for ProofDB<R> {
-    fn basic(&mut self, address: H160) -> AccountInfo {
+    type Error = Report;
+
+    fn basic(&mut self, address: H160) -> Result<Option<AccountInfo>, Report> {
         if is_precompile(&address) {
-            return AccountInfo::default();
+            return Ok(Some(AccountInfo::default()));
         }
 
         trace!(
@@ -254,18 +245,22 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
 
         let account = match self.accounts.get(&address) {
             Some(account) => account.clone(),
-            None => self.get_account(address, &[]),
+            None => self.get_account(address, &[])?,
         };
 
         let bytecode = Bytecode::new_raw(Bytes::from(account.code.clone()));
-        AccountInfo::new(account.balance, account.nonce, bytecode)
+        Ok(Some(AccountInfo::new(
+            account.balance,
+            account.nonce,
+            bytecode,
+        )))
     }
 
-    fn block_hash(&mut self, _number: U256) -> H256 {
-        H256::default()
+    fn block_hash(&mut self, _number: U256) -> Result<H256, Report> {
+        Ok(H256::default())
     }
 
-    fn storage(&mut self, address: H160, slot: U256) -> U256 {
+    fn storage(&mut self, address: H160, slot: U256) -> Result<U256, Report> {
         trace!(
             "fetch evm state for address=0x{}, slot={}",
             hex::encode(address.as_bytes()),
@@ -274,27 +269,27 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
 
         let slot = H256::from_uint(&slot);
 
-        match self.accounts.get(&address) {
+        Ok(match self.accounts.get(&address) {
             Some(account) => match account.slots.get(&slot) {
                 Some(slot) => slot.clone(),
                 None => self
-                    .get_account(address, &[slot])
+                    .get_account(address, &[slot])?
                     .slots
                     .get(&slot)
                     .unwrap()
                     .clone(),
             },
             None => self
-                .get_account(address, &[slot])
+                .get_account(address, &[slot])?
                 .slots
                 .get(&slot)
                 .unwrap()
                 .clone(),
-        }
+        })
     }
 
-    fn code_by_hash(&mut self, _code_hash: H256) -> Bytecode {
-        panic!("should never be called");
+    fn code_by_hash(&mut self, _code_hash: H256) -> Result<Bytecode, Report> {
+        Err(eyre::eyre!("should never be called"))
     }
 }
 

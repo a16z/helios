@@ -21,7 +21,7 @@ jobs:
         run: rustup target add aarch64-apple-darwin
 
       - name: build
-        run: cargo build --all --release --target aarch64-apple-darwin
+        run: cargo build --package cli --release --target aarch64-apple-darwin
 
       - name: archive
         run: gtar -czvf "helios_darwin_arm64.tar.gz" -C ./target/aarch64-apple-darwin/release helios
@@ -58,7 +58,7 @@ jobs:
         run: rustup target add x86_64-apple-darwin
 
       - name: build
-        run: cargo build --all --release --target x86_64-apple-darwin	
+        run: cargo build --package cli --release --target x86_64-apple-darwin	
 
       - name: archive
         run: gtar -czvf "helios_darwin_amd64.tar.gz" -C ./target/x86_64-apple-darwin/release helios
@@ -101,7 +101,7 @@ jobs:
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: build
-        run: cargo build --all --release --target aarch64-unknown-linux-gnu
+        run: cargo build --package cli --release --target aarch64-unknown-linux-gnu
 
       - name: archive
         run: tar -czvf "helios_linux_arm64.tar.gz" -C ./target/aarch64-unknown-linux-gnu/release helios
@@ -138,7 +138,7 @@ jobs:
         run: rustup target add x86_64-unknown-linux-gnu
 
       - name: build
-        run: cargo build --all --release --target x86_64-unknown-linux-gnu
+        run: cargo build --package cli --release --target x86_64-unknown-linux-gnu
 
       - name: archive
         run: tar -czvf "helios_linux_amd64.tar.gz" -C ./target/x86_64-unknown-linux-gnu/release helios

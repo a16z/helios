@@ -111,7 +111,7 @@ impl EthRpcServer for RpcInner {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
-        let balance = convert_err(node.get_balance(&address, &block).await)?;
+        let balance = convert_err(node.get_balance(&address, block).await)?;
 
         Ok(balance.encode_hex())
     }
@@ -119,7 +119,7 @@ impl EthRpcServer for RpcInner {
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
-        let nonce = convert_err(node.get_nonce(&address, &block).await)?;
+        let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
         Ok(nonce.encode_hex())
     }
@@ -127,14 +127,14 @@ impl EthRpcServer for RpcInner {
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
-        let code = convert_err(node.get_code(&address, &block).await)?;
+        let code = convert_err(node.get_code(&address, block).await)?;
 
         Ok(hex::encode(code))
     }
 
     async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {
         let node = self.node.read().await;
-        let res = convert_err(node.call(&opts, &block).await)?;
+        let res = convert_err(node.call(&opts, block).await)?;
 
         Ok(format!("0x{}", hex::encode(res)))
     }
@@ -176,7 +176,7 @@ impl EthRpcServer for RpcInner {
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>, Error> {
         let node = self.node.read().await;
-        let block = convert_err(node.get_block_by_number(&block, full_tx).await)?;
+        let block = convert_err(node.get_block_by_number(block, full_tx).await)?;
         Ok(block)
     }
 
