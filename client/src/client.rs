@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::networks::Network;
@@ -25,7 +26,7 @@ pub struct Client<DB: Database> {
 }
 
 impl Client<FileDB> {
-    pub async fn new(config: Config) -> Result<Self> {
+    async fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
         let node = Node::new(config.clone()).await?;
         let node = Arc::new(RwLock::new(node));
@@ -49,6 +50,8 @@ pub struct ClientBuilder {
     execution_rpc: Option<String>,
     checkpoint: Option<Vec<u8>>,
     rpc_port: Option<u16>,
+    data_dir: Option<PathBuf>,
+    config: Option<Config>,
 }
 
 impl ClientBuilder {
@@ -59,6 +62,8 @@ impl ClientBuilder {
             execution_rpc: None,
             checkpoint: None,
             rpc_port: None,
+            data_dir: None,
+            config: None,
         }
     }
 
@@ -88,20 +93,75 @@ impl ClientBuilder {
         self
     }
 
+    pub fn data_dir(mut self, data_dir: PathBuf) -> Self {
+        self.data_dir = Some(data_dir);
+        self
+    }
+
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = Some(config);
+        self
+    }
+
     pub async fn build(self) -> Result<Client<FileDB>> {
-        let base_config = self
-            .network
-            .ok_or(eyre!("missing network"))?
-            .to_base_config();
+        let base_config = if let Some(network) = self.network {
+            network.to_base_config()
+        } else {
+            let config = self
+                .config
+                .as_ref()
+                .ok_or(eyre!("missing network config"))?;
+            config.to_base_config()
+        };
+
+        let consensus_rpc = self.consensus_rpc.unwrap_or(
+            self.config
+                .as_ref()
+                .ok_or(eyre!("missing consensus rpc"))?
+                .consensus_rpc
+                .clone(),
+        );
+
+        let execution_rpc = self.execution_rpc.unwrap_or(
+            self.config
+                .as_ref()
+                .ok_or(eyre!("missing execution rpc"))?
+                .execution_rpc
+                .clone(),
+        );
+
+        let checkpoint = self.checkpoint.unwrap_or(
+            self.config
+                .as_ref()
+                .ok_or(eyre!("missing checkpoint"))?
+                .checkpoint
+                .clone(),
+        );
+
+        let rpc_port = if self.rpc_port.is_some() {
+            self.rpc_port
+        } else if let Some(config) = &self.config {
+            config.rpc_port
+        } else {
+            None
+        };
+
+        let data_dir = if self.data_dir.is_some() {
+            self.data_dir
+        } else if let Some(config) = &self.config {
+            config.data_dir.clone()
+        } else {
+            None
+        };
 
         let config = Config {
-            consensus_rpc: self.consensus_rpc.ok_or(eyre!("missing consensus rpc"))?,
-            execution_rpc: self.execution_rpc.ok_or(eyre!("missing execution rpc"))?,
-            checkpoint: self.checkpoint.unwrap_or(base_config.checkpoint),
+            consensus_rpc,
+            execution_rpc,
+            checkpoint,
+            rpc_port,
+            data_dir,
             chain: base_config.chain,
             forks: base_config.forks,
-            rpc_port: self.rpc_port,
-            data_dir: None,
         };
 
         Client::new(config).await

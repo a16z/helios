@@ -19,7 +19,7 @@ impl Network {
 
 #[derive(Serialize, Default)]
 pub struct BaseConfig {
-    rpc_port: u16,
+    pub rpc_port: u16,
     #[serde(
         deserialize_with = "bytes_deserialize",
         serialize_with = "bytes_serialize"
