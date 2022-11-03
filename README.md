@@ -28,6 +28,8 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
+`--data-dir` or `d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
+
 ### Configuration Files
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
 ```
@@ -40,6 +42,38 @@ checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68
 consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
 execution_rpc = "https://eth-goerli.g.alchemy.com/v2/XXXXX"
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
+```
+
+### Using Helios as a Library
+Helios can be imported into any Rust project. Helios requires the Rust nightly toolchain to compile.
+
+```rust
+use std::str::FromStr;
+
+use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
+use ethers::{types::Address, utils};
+use eyre::Result;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let mut client = ClientBuilder::new()
+        .network(Network::MAINNET)
+        .consensus_rpc("https://www.lightclientdata.org")
+        .execution_rpc("https://eth-mainnet.g.alchemy.com/v2/Q0BqQPbTQfSMzrCNl4x80XS_PLLB1RNf")
+        .build()?;
+
+    client.start().await?;
+
+    let head_block_num = client.get_block_number().await?;
+    let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
+    let block = BlockTag::Latest;
+    let balance = client.get_balance(&addr, block).await?;
+
+    println!("synced up to block: {}", head_block_num);
+    println!("balance of deposit contract: {}", utils::format_ether(balance));
+
+    Ok(())
+}
 ```
 
 ## Contributing
