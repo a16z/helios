@@ -48,7 +48,7 @@ checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495
 Helios can be imported into any Rust project. Helios requires the Rust nightly toolchain to compile.
 
 ```rust
-use std::str::FromStr;
+use std::{str::FromStr, env};
 
 use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
 use ethers::{types::Address, utils};
@@ -56,10 +56,12 @@ use eyre::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let untrusted_rpc_url = env::var("UNTRUSTED_RPC_URL")?;
+
     let mut client = ClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc("https://www.lightclientdata.org")
-        .execution_rpc("UNTRUSTED_RPC_URL")
+        .execution_rpc(&untrusted_rpc_url)
         .build()?;
 
     client.start().await?;
