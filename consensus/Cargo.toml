@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
@@ -22,6 +21,9 @@ log = "0.4.17"
 chrono = "0.4.22"
 thiserror = "1.0.37"
 openssl = { version = "0.10", features = ["vendored"] }
+reqwest = { version = "0.11.12", features = ["json"] }
+reqwest-middleware = "0.1.6"
+reqwest-retry = "0.1.5"
 
 common = { path = "../common" }
 config = { path = "../config" }

@@ -32,7 +32,7 @@ pub struct BaseConfig {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         checkpoint: hex_str_to_bytes(
-            "0x6d41048663adafa064bae3b3768a8448fa1f1b003118fa5887d06da266530cff",
+            "0x428ce0b5f5bbed1fc2b3feb5d4152ae0fe98a80b1bfa8de36681868e81e9222a",
         )
         .unwrap(),
         rpc_port: 8545,
@@ -64,7 +64,7 @@ pub fn mainnet() -> BaseConfig {
 pub fn goerli() -> BaseConfig {
     BaseConfig {
         checkpoint: hex_str_to_bytes(
-            "0x1e591af1e90f2db918b2a132991c7c2ee9a4ab26da496bd6e71e4f0bd65ea870",
+            "0xd4344682866dbede543395ecf5adf9443a27f423a4b00f270458e7932686ced1",
         )
         .unwrap(),
         rpc_port: 8545,
