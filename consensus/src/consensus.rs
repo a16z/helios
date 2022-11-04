@@ -579,8 +579,11 @@ mod tests {
             ..Default::default()
         };
 
-        let mut client =
-            ConsensusClient::new("testdata/", &base_config.checkpoint, Arc::new(config)).unwrap();
+        let checkpoint =
+            hex::decode("1e591af1e90f2db918b2a132991c7c2ee9a4ab26da496bd6e71e4f0bd65ea870")
+                .unwrap();
+
+        let mut client = ConsensusClient::new("testdata/", &checkpoint, Arc::new(config)).unwrap();
         client.bootstrap().await.unwrap();
 
         client
