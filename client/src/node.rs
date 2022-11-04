@@ -102,7 +102,12 @@ impl Node {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
-        let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
+        let mut evm = Evm::new(
+            self.execution.clone(),
+            &payload,
+            &self.payloads,
+            self.chain_id(),
+        );
         evm.call(opts).await
     }
 
@@ -110,7 +115,12 @@ impl Node {
         self.check_head_age()?;
 
         let payload = self.get_payload(BlockTag::Latest)?;
-        let mut evm = Evm::new(self.execution.clone(), payload.clone(), self.chain_id());
+        let mut evm = Evm::new(
+            self.execution.clone(),
+            &payload,
+            &self.payloads,
+            self.chain_id(),
+        );
         evm.estimate_gas(opts).await
     }
 
