@@ -32,7 +32,7 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 ### Configuration Files
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
-```
+```toml
 [mainnet]
 consensus_rpc = "https://www.lightclientdata.org"
 execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
