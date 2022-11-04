@@ -3,7 +3,7 @@ use ethers::{
     types::{Address, Transaction, TransactionReceipt, H256},
 };
 use eyre::Result;
-use log::{info, warn};
+use log::info;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -242,8 +242,5 @@ async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
 }
 
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
-    res.map_err(|err| {
-        warn!("{}", err);
-        Error::Custom(err.to_string())
-    })
+    res.map_err(|err| Error::Custom(err.to_string()))
 }
