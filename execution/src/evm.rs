@@ -1,6 +1,13 @@
-use std::{cmp, collections::HashMap, str::FromStr, sync::Arc, thread};
+use std::{
+    cmp,
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+    sync::Arc,
+    thread,
+};
 
 use bytes::Bytes;
+use common::{errors::BlockNotFoundError, types::BlockTag};
 use ethers::{
     abi::ethereum_types::BigEndianHash,
     prelude::{Address, H160, H256, U256},
@@ -21,19 +28,20 @@ use crate::{
 
 use super::ExecutionClient;
 
-pub struct Evm<R: ExecutionRpc> {
-    evm: EVM<ProofDB<R>>,
+pub struct Evm<'a, R: ExecutionRpc> {
+    evm: EVM<ProofDB<'a, R>>,
     chain_id: u64,
 }
 
-impl<R: ExecutionRpc> Evm<R> {
+impl<'a, R: ExecutionRpc> Evm<'a, R> {
     pub fn new(
         execution: Arc<ExecutionClient<R>>,
-        payload: ExecutionPayload,
+        current_payload: &'a ExecutionPayload,
+        payloads: &'a BTreeMap<u64, ExecutionPayload>,
         chain_id: u64,
     ) -> Self {
         let mut evm: EVM<ProofDB<R>> = EVM::new();
-        let db = ProofDB::new(execution, payload);
+        let db = ProofDB::new(execution, current_payload, payloads);
         evm.database(db);
 
         Evm { evm, chain_id }
@@ -105,9 +113,9 @@ impl<R: ExecutionRpc> Evm<R> {
     async fn batch_fetch_accounts(&self, opts: &CallOpts) -> Result<HashMap<Address, Account>> {
         let db = self.evm.db.as_ref().unwrap();
         let rpc = db.execution.rpc.clone();
-        let payload = db.payload.clone();
+        let payload = db.current_payload.clone();
         let execution = db.execution.clone();
-        let block = db.payload.block_number;
+        let block = db.current_payload.block_number;
 
         let opts_moved = CallOpts {
             from: opts.from,
@@ -173,7 +181,7 @@ impl<R: ExecutionRpc> Evm<R> {
 
     fn get_env(&self, opts: &CallOpts) -> Env {
         let mut env = Env::default();
-        let payload = &self.evm.db.as_ref().unwrap().payload;
+        let payload = &self.evm.db.as_ref().unwrap().current_payload;
 
         env.tx.transact_to = TransactTo::Call(opts.to);
         env.tx.caller = opts.from.unwrap_or(Address::zero());
@@ -193,18 +201,24 @@ impl<R: ExecutionRpc> Evm<R> {
     }
 }
 
-struct ProofDB<R: ExecutionRpc> {
+struct ProofDB<'a, R: ExecutionRpc> {
     execution: Arc<ExecutionClient<R>>,
-    payload: ExecutionPayload,
+    current_payload: &'a ExecutionPayload,
+    payloads: &'a BTreeMap<u64, ExecutionPayload>,
     accounts: HashMap<Address, Account>,
     error: Option<String>,
 }
 
-impl<R: ExecutionRpc> ProofDB<R> {
-    pub fn new(execution: Arc<ExecutionClient<R>>, payload: ExecutionPayload) -> Self {
+impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
+    pub fn new(
+        execution: Arc<ExecutionClient<R>>,
+        current_payload: &'a ExecutionPayload,
+        payloads: &'a BTreeMap<u64, ExecutionPayload>,
+    ) -> Self {
         ProofDB {
             execution,
-            payload,
+            current_payload,
+            payloads,
             accounts: HashMap::new(),
             error: None,
         }
@@ -217,7 +231,7 @@ impl<R: ExecutionRpc> ProofDB<R> {
     fn get_account(&mut self, address: Address, slots: &[H256]) -> Result<Account> {
         let execution = self.execution.clone();
         let addr = address.clone();
-        let payload = self.payload.clone();
+        let payload = self.current_payload.clone();
         let slots = slots.to_owned();
 
         let handle = thread::spawn(move || {
@@ -230,7 +244,7 @@ impl<R: ExecutionRpc> ProofDB<R> {
     }
 }
 
-impl<R: ExecutionRpc> Database for ProofDB<R> {
+impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
     type Error = Report;
 
     fn basic(&mut self, address: H160) -> Result<Option<AccountInfo>, Report> {
@@ -256,8 +270,13 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         )))
     }
 
-    fn block_hash(&mut self, _number: U256) -> Result<H256, Report> {
-        Ok(H256::default())
+    fn block_hash(&mut self, number: U256) -> Result<H256, Report> {
+        let number = number.as_u64();
+        let payload = self
+            .payloads
+            .get(&number)
+            .ok_or(BlockNotFoundError::new(BlockTag::Number(number)))?;
+        Ok(H256::from_slice(&payload.block_hash))
     }
 
     fn storage(&mut self, address: H160, slot: U256) -> Result<U256, Report> {

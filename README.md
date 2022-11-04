@@ -28,7 +28,7 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
-`--data-dir` or `d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
+`--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
 ### Configuration Files
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
