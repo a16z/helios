@@ -65,7 +65,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
             revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
             revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
             revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
-            _ => {
+            revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(eyre::eyre!(err.clone()));
                 }
@@ -76,6 +76,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                     TransactOut::Call(bytes) => Ok(bytes.to_vec()),
                 }
             }
+            _ => Err(eyre::eyre!("call failed")),
         }
     }
 
@@ -98,7 +99,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
             revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
             revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
             revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
-            _ => {
+            revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(eyre::eyre!(err.clone()));
                 }
@@ -107,6 +108,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 let gas_scaled = (1.10 * gas as f64) as u64;
                 Ok(gas_scaled)
             }
+            _ => Err(eyre::eyre!("call failed")),
         }
     }
 
