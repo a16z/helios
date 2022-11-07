@@ -89,6 +89,7 @@ impl Config {
     pub fn to_base_config(&self) -> BaseConfig {
         BaseConfig {
             rpc_port: self.rpc_port.unwrap_or(8545),
+            consensus_rpc: Some(self.consensus_rpc.clone()),
             checkpoint: self.checkpoint.clone(),
             chain: self.chain.clone(),
             forks: self.forks.clone(),

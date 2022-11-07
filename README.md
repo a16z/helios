@@ -17,11 +17,13 @@ To install Helios, run `heliosup`.
 ## Usage
 To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy or Infura:
 ```
-helios --consensus-rpc https://www.lightclientdata.org --execution-rpc $ETH_RPC_URL
+helios --execution-rpc $ETH_RPC_URL
 ```
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 ### Additional Options
+`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consenus node that supports the light client beaconchain api. We recomment using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
 `--network` or `-n` sets the network to sync to. Current valid option are `mainnet` and `goerli`, however users can add custom networks in their configurationf files.

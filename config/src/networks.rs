@@ -20,6 +20,7 @@ impl Network {
 #[derive(Serialize, Default)]
 pub struct BaseConfig {
     pub rpc_port: u16,
+    pub consensus_rpc: Option<String>,
     #[serde(
         deserialize_with = "bytes_deserialize",
         serialize_with = "bytes_serialize"
@@ -36,6 +37,7 @@ pub fn mainnet() -> BaseConfig {
         )
         .unwrap(),
         rpc_port: 8545,
+        consensus_rpc: Some("https://www.lightclientdata.org".to_string()),
         chain: ChainConfig {
             chain_id: 1,
             genesis_time: 1606824023,
@@ -68,6 +70,7 @@ pub fn goerli() -> BaseConfig {
         )
         .unwrap(),
         rpc_port: 8545,
+        consensus_rpc: None,
         chain: ChainConfig {
             chain_id: 5,
             genesis_time: 1616508000,
