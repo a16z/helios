@@ -10,7 +10,7 @@ The entire size of Helios's binary is 13Mb and should be easy to compile into We
 ## Installing
 First install `heliosup`, Helios's installer:
 ```
-curl https://github.com/a16z/helios/blob/master/heliosup/install | bash
+curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bash
 ```
 To install Helios, run `heliosup`.
 
