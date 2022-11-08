@@ -23,7 +23,7 @@ impl ConsensusRpc for MockRpc {
         Ok(serde_json::from_str(&bootstrap)?)
     }
 
-    async fn get_updates(&self, _period: u64, _count: u32) -> Result<Vec<Update>> {
+    async fn get_updates(&self, _period: u64, _count: u8) -> Result<Vec<Update>> {
         let updates = read_to_string(self.testdata.join("updates.json"))?;
         Ok(serde_json::from_str(&updates)?)
     }
