@@ -97,7 +97,10 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         self.bootstrap().await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
-        let updates = self.rpc.get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES).await?;
+        let updates = self
+            .rpc
+            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await?;
 
         for mut update in updates {
             self.verify_update(&mut update)?;
