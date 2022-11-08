@@ -13,6 +13,7 @@ use common::types::*;
 use common::utils::*;
 use config::Config;
 
+use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::errors::ConsensusError;
 
 use super::rpc::ConsensusRpc;
@@ -96,7 +97,10 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         self.bootstrap().await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
-        let updates = self.rpc.get_updates(current_period).await?;
+        let updates = self
+            .rpc
+            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await?;
 
         for mut update in updates {
             self.verify_update(&mut update)?;
@@ -126,7 +130,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         if self.store.next_sync_committee.is_none() {
             debug!("checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot);
-            let mut updates = self.rpc.get_updates(current_period).await?;
+            let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
                 let mut update = updates.get_mut(0).unwrap();
@@ -558,6 +562,7 @@ fn is_current_committee_proof_valid(
 mod tests {
     use std::sync::Arc;
 
+    use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
     use ssz_rs::Vector;
 
     use crate::{
@@ -593,7 +598,11 @@ mod tests {
     async fn test_verify_update() {
         let client = get_client().await;
         let period = calc_sync_period(client.store.finalized_header.slot);
-        let updates = client.rpc.get_updates(period).await.unwrap();
+        let updates = client
+            .rpc
+            .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await
+            .unwrap();
 
         let mut update = updates[0].clone();
         client.verify_update(&mut update).unwrap();
@@ -603,7 +612,11 @@ mod tests {
     async fn test_verify_update_invalid_committee() {
         let client = get_client().await;
         let period = calc_sync_period(client.store.finalized_header.slot);
-        let updates = client.rpc.get_updates(period).await.unwrap();
+        let updates = client
+            .rpc
+            .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await
+            .unwrap();
 
         let mut update = updates[0].clone();
         update.next_sync_committee.pubkeys[0] = Vector::default();
@@ -619,7 +632,11 @@ mod tests {
     async fn test_verify_update_invalid_finality() {
         let client = get_client().await;
         let period = calc_sync_period(client.store.finalized_header.slot);
-        let updates = client.rpc.get_updates(period).await.unwrap();
+        let updates = client
+            .rpc
+            .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await
+            .unwrap();
 
         let mut update = updates[0].clone();
         update.finalized_header = Header::default();
@@ -635,7 +652,11 @@ mod tests {
     async fn test_verify_update_invalid_sig() {
         let client = get_client().await;
         let period = calc_sync_period(client.store.finalized_header.slot);
-        let updates = client.rpc.get_updates(period).await.unwrap();
+        let updates = client
+            .rpc
+            .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await
+            .unwrap();
 
         let mut update = updates[0].clone();
         update.sync_aggregate.sync_committee_signature = Vector::default();
