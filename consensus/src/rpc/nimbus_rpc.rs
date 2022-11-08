@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use common::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use common::errors::RpcError;
 use eyre::Result;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -7,6 +6,7 @@ use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use std::cmp;
 
 use super::ConsensusRpc;
+use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
 
 pub struct NimbusRpc {

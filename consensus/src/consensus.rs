@@ -9,11 +9,11 @@ use eyre::Result;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
-use common::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use common::types::*;
 use common::utils::*;
 use config::Config;
 
+use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::errors::ConsensusError;
 
 use super::rpc::ConsensusRpc;
@@ -562,7 +562,7 @@ fn is_current_committee_proof_valid(
 mod tests {
     use std::sync::Arc;
 
-    use common::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
+    use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
     use ssz_rs::Vector;
 
     use crate::{
