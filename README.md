@@ -3,7 +3,7 @@
 
 Helios is a fully trustless, efficient, and portable Ethereum light client written in Rust.
 
-Helios converts an untrusted centralized RPC endoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
+Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
 
 The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
@@ -28,11 +28,11 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 Helios is still experimental software. While we hope you try it out, we do not suggest adding it as your main RPC in wallets yet. Sending high-value transactions from a wallet connected to Helios is discouraged.
 
 ### Additional Options
-`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consenus node that supports the light client beaconchain api. We recomment using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consenus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
-`--network` or `-n` sets the network to sync to. Current valid option are `mainnet` and `goerli`, however users can add custom networks in their configurationf files.
+`--network` or `-n` sets the network to sync to. Current valid options are `mainnet` and `goerli`, however users can add custom networks in their configuration files.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
