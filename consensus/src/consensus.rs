@@ -9,6 +9,7 @@ use eyre::Result;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
+use common::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use common::types::*;
 use common::utils::*;
 use config::Config;
@@ -96,7 +97,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         self.bootstrap().await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
-        let updates = self.rpc.get_updates(current_period).await?;
+        let updates = self.rpc.get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES).await?;
 
         for mut update in updates {
             self.verify_update(&mut update)?;
@@ -126,7 +127,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         if self.store.next_sync_committee.is_none() {
             debug!("checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot);
-            let mut updates = self.rpc.get_updates(current_period).await?;
+            let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
                 let mut update = updates.get_mut(0).unwrap();
