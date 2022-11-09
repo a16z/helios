@@ -135,6 +135,8 @@ fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>)
 
         if path_nibble == node_path_nibble {
             prefix_len += 1;
+        } else {
+            break;
         }
     }
 
@@ -173,4 +175,29 @@ pub fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
     stream.append(&proof.code_hash);
     let encoded = stream.out();
     encoded.to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::proof::shared_prefix_length;
+
+    #[tokio::test]
+    fn test_shared_prefix_length() {
+        // We compare the path starting from the 6th nibble i.e. the 6 in 0x6f
+        let path: Vec<u8> = vec![0x12, 0x13, 0x14, 0x6f, 0x6c, 0x64, 0x21];
+        let path_offset = 6;
+        // Our node path matches only the first 5 nibbles of the path
+        let node_path: Vec<u8> = vec![0x6f, 0x6c, 0x63, 0x21];
+        let shared_len = shared_prefix_length(&path, path_offset, &node_path);
+        assert_eq!(shared_len, 5);
+
+        // Now we compare the path starting from the 5th nibble i.e. the 4 in 0x14
+        let path: Vec<u8> = vec![0x12, 0x13, 0x14, 0x6f, 0x6c, 0x64, 0x21];
+        let path_offset = 6;
+        // Our node path matches only the first 7 nibbles of the path
+        // Note the first nibble is 1, so we skip 1 nibble
+        let node_path: Vec<u8> = vec![0x14, 0x6f, 0x6c, 0x64, 0x11];
+        let shared_len = shared_prefix_length(&path, path_offset, &node_path);
+        assert_eq!(shared_len, 7);
+    }
 }
