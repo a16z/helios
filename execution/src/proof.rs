@@ -118,7 +118,10 @@ fn is_empty_value(value: &Vec<u8>) -> bool {
 fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {
     let skip_length = skip_length(node_path);
 
-    let len = std::cmp::min(node_path.len() * 2 - skip_length, path.len() * 2 - path_offset);
+    let len = std::cmp::min(
+        node_path.len() * 2 - skip_length,
+        path.len() * 2 - path_offset,
+    );
     let mut prefix_len = 0;
 
     for i in 0..len {
