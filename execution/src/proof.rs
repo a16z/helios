@@ -177,7 +177,7 @@ mod tests {
     use crate::proof::shared_prefix_length;
 
     #[tokio::test]
-    fn test_shared_prefix_length() {
+    async fn test_shared_prefix_length() {
         // We compare the path starting from the 6th nibble i.e. the 6 in 0x6f
         let path: Vec<u8> = vec![0x12, 0x13, 0x14, 0x6f, 0x6c, 0x64, 0x21];
         let path_offset = 6;
