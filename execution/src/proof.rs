@@ -53,7 +53,7 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &Vec<u8>, path: &Vec<u8>, value: &
             } else {
                 let node_path = &node_list[0];
                 let prefix_length = shared_prefix_length(path, path_offset, node_path);
-                if prefix_len < node_path.len() * 2 - skip_length(node_path) {
+                if prefix_length < node_path.len() * 2 - skip_length(node_path) {
                     // The proof shows a divergent path, but we're not
                     // at the end of the proof, so something's wrong.
                     return false;
