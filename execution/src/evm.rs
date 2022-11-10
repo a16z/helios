@@ -9,7 +9,7 @@ use std::{
 use bytes::Bytes;
 use common::{errors::BlockNotFoundError, types::BlockTag};
 use ethers::{
-    abi::ethereum_types::BigEndianHash,
+    abi::{ethereum_types::BigEndianHash, ParamType},
     prelude::{Address, H160, H256, U256},
     types::transaction::eip2930::AccessListItem,
 };
@@ -55,7 +55,13 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let tx = self.evm.transact().0;
 
         match tx.exit_reason {
-            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
+            revm::Return::Revert => {
+                match tx.out {
+                    TransactOut::None => Err(eyre::eyre!("execution reverted")),
+                    TransactOut::Create(..) => Err(eyre::eyre!("execution reverted")),
+                    TransactOut::Call(bytes) => Err(eyre::eyre!("execution reverted: {}", decode_revert_reason(bytes)))
+                }
+            },
             revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
             revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
             revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
@@ -318,3 +324,9 @@ fn is_precompile(address: &Address) -> bool {
     address.le(&Address::from_str("0x0000000000000000000000000000000000000009").unwrap())
         && address.gt(&Address::zero())
 }
+
+fn decode_revert_reason(bytes: Bytes) -> String {
+    // first four bytes are function selector 
+    ethers::abi::decode(&[ParamType::String], &bytes[4..]).expect("String error code")[0].clone().to_string()
+}
+ 
