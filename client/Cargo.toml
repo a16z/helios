@@ -21,6 +21,7 @@ futures = "0.3.23"
 toml = "0.5.9"
 log = "0.4.17"
 openssl = { version = "0.10", features = ["vendored"] }
+thiserror = "1.0.37"
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }

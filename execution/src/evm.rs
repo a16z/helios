@@ -23,7 +23,7 @@ use consensus::types::ExecutionPayload;
 
 use crate::{
     rpc::ExecutionRpc,
-    types::{Account, CallOpts},
+    types::{Account, CallOpts}, errors::EvmError,
 };
 
 use super::ExecutionClient;
@@ -47,7 +47,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         Evm { evm, chain_id }
     }
 
-    pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
+    pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>, EvmError> {
         let account_map = self.batch_fetch_accounts(opts).await?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
@@ -55,32 +55,35 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let tx = self.evm.transact().0;
 
         match tx.exit_reason {
-            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
-            revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
-            revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
-            revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
-            revm::Return::InvalidJump => {
-                Err(eyre::eyre!("execution reverted: invalid jump destination"))
+            revm::Return::Revert => match tx.out {
+                TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
+                _ => Err(EvmError::Revert(None))
             }
-            revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
-            revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
-            revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
+            revm::Return::OutOfGas => Err(EvmError::Generic("execution reverted: out of gas".to_string())),
+            revm::Return::OutOfFund => Err(EvmError::Generic("not enough funds".to_string())),
+            revm::Return::CallTooDeep => Err(EvmError::Generic("execution reverted: call too deep".to_string())),
+            revm::Return::InvalidJump => {
+                Err(EvmError::Generic("execution reverted: invalid jump destination".to_string()))
+            }
+            revm::Return::InvalidOpcode => Err(EvmError::Generic("execution reverted: invalid opcode".to_string())),
+            revm::Return::LackOfFundForGasLimit => Err(EvmError::Generic("not enough funds".to_string())),
+            revm::Return::GasPriceLessThenBasefee => Err(EvmError::Generic("gas price too low".to_string())),
             revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-                    return Err(eyre::eyre!(err.clone()));
+                    return Err(EvmError::Generic(err.clone()));
                 }
 
                 match tx.out {
-                    TransactOut::None => Err(eyre::eyre!("Invalid Call")),
-                    TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
+                    TransactOut::None => Err(EvmError::Generic("Invalid Call".to_string())),
+                    TransactOut::Create(..) => Err(EvmError::Generic("Invalid Call".to_string())),
                     TransactOut::Call(bytes) => Ok(bytes.to_vec()),
                 }
             }
-            _ => Err(eyre::eyre!("call failed")),
+            _ => Err(EvmError::Generic("call failed".to_string())),
         }
     }
 
-    pub async fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
+    pub async fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64, EvmError> {
         let account_map = self.batch_fetch_accounts(opts).await?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
@@ -89,26 +92,29 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let gas = tx.gas_used;
 
         match tx.exit_reason {
-            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
-            revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
-            revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
-            revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
-            revm::Return::InvalidJump => {
-                Err(eyre::eyre!("execution reverted: invalid jump destination"))
+            revm::Return::Revert => match tx.out {
+                TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
+                _ => Err(EvmError::Revert(None))
             }
-            revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
-            revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
-            revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
+            revm::Return::OutOfGas => Err(EvmError::Generic("execution reverted: out of gas".to_string())),
+            revm::Return::OutOfFund => Err(EvmError::Generic("not enough funds".to_string())),
+            revm::Return::CallTooDeep => Err(EvmError::Generic("execution reverted: call too deep".to_string())),
+            revm::Return::InvalidJump => {
+                Err(EvmError::Generic("execution reverted: invalid jump destination".to_string()))
+            }
+            revm::Return::InvalidOpcode => Err(EvmError::Generic("execution reverted: invalid opcode".to_string())),
+            revm::Return::LackOfFundForGasLimit => Err(EvmError::Generic("not enough funds".to_string())),
+            revm::Return::GasPriceLessThenBasefee => Err(EvmError::Generic("gas price too low".to_string())),
             revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-                    return Err(eyre::eyre!(err.clone()));
+                    return Err(EvmError::Generic(err.clone()));
                 }
 
                 // overestimate to avoid out of gas reverts
                 let gas_scaled = (1.10 * gas as f64) as u64;
                 Ok(gas_scaled)
             }
-            _ => Err(eyre::eyre!("call failed")),
+            _ => Err(EvmError::Generic("call failed".to_string())),
         }
     }
 
