@@ -507,10 +507,6 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
 
         let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
-        warn!(
-            "slot_age: {} current_slot_timestamp: {} blockhash_slot_timestamp: {}",
-            slot_age, current_slot_timestamp, blockhash_slot_timestamp
-        );
 
         slot_age < 14 * 86_400 // this is 14 days in seconds
     }
