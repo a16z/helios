@@ -6,6 +6,7 @@ use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
+use log::warn;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
@@ -152,6 +153,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .get_bootstrap(&self.initial_checkpoint)
             .await
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
+
+        let is_valid = self.is_valid_blockhash(bootstrap.header.slot);
+        if !is_valid {
+            return Err(ConsensusError::InvalidTimestamp.into());
+        }
 
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
@@ -492,6 +498,21 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let next_update = time_to_next_slot + 4;
 
         Duration::seconds(next_update as i64)
+    }
+
+    // Determines blockhash_slot age and returns true if it is less than 14 days old
+    fn is_valid_blockhash(&self, blockhash_slot: u64) -> bool {
+        let current_slot = self.expected_current_slot();
+        let current_slot_timestamp = self.slot_timestamp(current_slot);
+        let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
+
+        let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
+        warn!(
+            "slot_age: {} current_slot_timestamp: {} blockhash_slot_timestamp: {}",
+            slot_age, current_slot_timestamp, blockhash_slot_timestamp
+        );
+
+        slot_age < 14 * 86_400 // this is 14 days in seconds
     }
 }
 
