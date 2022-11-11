@@ -26,6 +26,7 @@ pub struct Config {
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,
+    pub checkpoint_duration: u64,
 }
 
 impl Config {
@@ -93,6 +94,7 @@ impl Config {
             checkpoint: self.checkpoint.clone(),
             chain: self.chain.clone(),
             forks: self.forks.clone(),
+            checkpoint_duration: self.checkpoint_duration.clone(),
         }
     }
 }

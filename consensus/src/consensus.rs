@@ -6,7 +6,6 @@ use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
-use log::warn;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
@@ -156,7 +155,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         let is_valid = self.is_valid_blockhash(bootstrap.header.slot);
         if !is_valid {
-            return Err(ConsensusError::InvalidTimestamp.into());
+            return Err(ConsensusError::CheckpointTooOld.into());
         }
 
         let committee_valid = is_current_committee_proof_valid(
@@ -508,7 +507,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
 
-        slot_age < 14 * 86_400 // this is 14 days in seconds
+        slot_age < self.config.checkpoint_duration
     }
 }
 
@@ -598,6 +597,7 @@ mod tests {
             execution_rpc: String::new(),
             chain: base_config.chain,
             forks: base_config.forks,
+            checkpoint_duration: base_config.checkpoint_duration,
             ..Default::default()
         };
 

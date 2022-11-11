@@ -166,6 +166,7 @@ impl ClientBuilder {
             data_dir,
             chain: base_config.chain,
             forks: base_config.forks,
+            checkpoint_duration: base_config.checkpoint_duration,
         };
 
         Client::new(config)
