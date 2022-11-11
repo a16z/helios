@@ -153,7 +153,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .await
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
 
-        let is_valid = self.is_valid_blockhash(bootstrap.header.slot);
+        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
         if !is_valid {
             return Err(ConsensusError::CheckpointTooOld.into());
         }
@@ -500,7 +500,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old
-    fn is_valid_blockhash(&self, blockhash_slot: u64) -> bool {
+    fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
         let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
