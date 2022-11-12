@@ -34,8 +34,11 @@ impl Node {
         let checkpoint_hash = &config.checkpoint;
         let execution_rpc = &config.execution_rpc;
 
-        let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())?;
-        let execution = Arc::new(ExecutionClient::new(execution_rpc)?);
+        let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
+            .map_err(NodeError::ConsensusClientCreationError)?;
+        let execution = Arc::new(
+            ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,
+        );
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
@@ -51,12 +54,12 @@ impl Node {
     }
 
     pub async fn sync(&mut self) -> Result<(), NodeError> {
-        self.consensus.sync().await?;
+        self.consensus.sync().await.map_err(NodeError::ConsensusSyncError)?;
         self.update_payloads().await
     }
 
     pub async fn advance(&mut self) -> Result<(), NodeError> {
-        self.consensus.advance().await?;
+        self.consensus.advance().await.map_err(NodeError::ConsensusAdvanceError)?;
         self.update_payloads().await
     }
 
@@ -72,13 +75,15 @@ impl Node {
         let latest_payload = self
             .consensus
             .get_execution_payload(&Some(latest_header.slot))
-            .await?;
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
 
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
             .consensus
             .get_execution_payload(&Some(finalized_header.slot))
-            .await?;
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
 
         self.payloads
             .insert(latest_payload.block_number, latest_payload);
@@ -123,7 +128,9 @@ impl Node {
             &self.payloads,
             self.chain_id(),
         );
-        evm.estimate_gas(opts).await.map_err(NodeError::ExecutionError)
+        evm.estimate_gas(opts)
+            .await
+            .map_err(NodeError::ExecutionError)
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
@@ -259,7 +266,7 @@ impl Node {
         self.consensus.last_checkpoint.clone()
     }
 
-    fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload> {
+    fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload, BlockNotFoundError> {
         match block {
             BlockTag::Latest => {
                 let payload = self.payloads.last_key_value();

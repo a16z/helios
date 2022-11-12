@@ -4,7 +4,7 @@ mod client;
 pub use crate::client::*;
 
 pub mod database;
-pub mod rpc;
 pub mod errors;
+pub mod rpc;
 
 mod node;

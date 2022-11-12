@@ -13,7 +13,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 
-use crate::{node::Node, errors::NodeError};
+use crate::{errors::NodeError, node::Node};
 
 use common::{
     types::BlockTag,
@@ -136,14 +136,20 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
 
         // TODO: Make sure we have clean way of surfacing the error here
-        let res = node.call(&opts, block).await.map_err(NodeError::to_json_rpsee_error)?;
+        let res = node
+            .call(&opts, block)
+            .await
+            .map_err(NodeError::to_json_rpsee_error)?;
 
         Ok(format!("0x{}", hex::encode(res)))
     }
 
     async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
         let node = self.node.read().await;
-        let gas = node.estimate_gas(&opts).await.map_err(NodeError::to_json_rpsee_error)?;
+        let gas = node
+            .estimate_gas(&opts)
+            .await
+            .map_err(NodeError::to_json_rpsee_error)?;
 
         Ok(u64_to_hex_string(gas))
     }

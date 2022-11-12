@@ -1,7 +1,10 @@
-use ethers::{types::{Address, H256}, abi::AbiDecode};
-use thiserror::Error;
-use eyre::Report;
 use bytes::Bytes;
+use ethers::{
+    abi::AbiDecode,
+    types::{Address, H256},
+};
+use eyre::Report;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -24,11 +27,13 @@ pub enum EvmError {
     Revert(Option<Bytes>),
 
     #[error("evm error: {0:?}")]
-    Generic (String),
+    Generic(String),
 
-    // Casting existing errors
-    #[error(transparent)]
-    Eyre(#[from] Report)
+    #[error("evm execution failed: {0:?}")]
+    Revm(revm::Return),
+
+    #[error("rpc error: {0:?}")]
+    RpcError(Report),
 }
 
 impl EvmError {

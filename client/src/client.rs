@@ -215,11 +215,21 @@ impl<DB: Database> Client<DB> {
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
-        self.node.read().await.call(opts, block).await.map_err(|err| err.into())
+        self.node
+            .read()
+            .await
+            .call(opts, block)
+            .await
+            .map_err(|err| err.into())
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
-        self.node.read().await.estimate_gas(opts).await.map_err(|err| err.into())
+        self.node
+            .read()
+            .await
+            .estimate_gas(opts)
+            .await
+            .map_err(|err| err.into())
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {

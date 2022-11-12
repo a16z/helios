@@ -22,8 +22,9 @@ use tokio::runtime::Runtime;
 use consensus::types::ExecutionPayload;
 
 use crate::{
+    errors::EvmError,
     rpc::ExecutionRpc,
-    types::{Account, CallOpts}, errors::EvmError,
+    types::{Account, CallOpts},
 };
 
 use super::ExecutionClient;
@@ -57,17 +58,8 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         match tx.exit_reason {
             revm::Return::Revert => match tx.out {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
-                _ => Err(EvmError::Revert(None))
-            }
-            revm::Return::OutOfGas => Err(EvmError::Generic("execution reverted: out of gas".to_string())),
-            revm::Return::OutOfFund => Err(EvmError::Generic("not enough funds".to_string())),
-            revm::Return::CallTooDeep => Err(EvmError::Generic("execution reverted: call too deep".to_string())),
-            revm::Return::InvalidJump => {
-                Err(EvmError::Generic("execution reverted: invalid jump destination".to_string()))
-            }
-            revm::Return::InvalidOpcode => Err(EvmError::Generic("execution reverted: invalid opcode".to_string())),
-            revm::Return::LackOfFundForGasLimit => Err(EvmError::Generic("not enough funds".to_string())),
-            revm::Return::GasPriceLessThenBasefee => Err(EvmError::Generic("gas price too low".to_string())),
+                _ => Err(EvmError::Revert(None)),
+            },
             revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
@@ -79,7 +71,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                     TransactOut::Call(bytes) => Ok(bytes.to_vec()),
                 }
             }
-            _ => Err(EvmError::Generic("call failed".to_string())),
+            _ => Err(EvmError::Revm(tx.exit_reason)),
         }
     }
 
@@ -94,17 +86,8 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         match tx.exit_reason {
             revm::Return::Revert => match tx.out {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
-                _ => Err(EvmError::Revert(None))
-            }
-            revm::Return::OutOfGas => Err(EvmError::Generic("execution reverted: out of gas".to_string())),
-            revm::Return::OutOfFund => Err(EvmError::Generic("not enough funds".to_string())),
-            revm::Return::CallTooDeep => Err(EvmError::Generic("execution reverted: call too deep".to_string())),
-            revm::Return::InvalidJump => {
-                Err(EvmError::Generic("execution reverted: invalid jump destination".to_string()))
-            }
-            revm::Return::InvalidOpcode => Err(EvmError::Generic("execution reverted: invalid opcode".to_string())),
-            revm::Return::LackOfFundForGasLimit => Err(EvmError::Generic("not enough funds".to_string())),
-            revm::Return::GasPriceLessThenBasefee => Err(EvmError::Generic("gas price too low".to_string())),
+                _ => Err(EvmError::Revert(None)),
+            },
             revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
@@ -114,11 +97,14 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 let gas_scaled = (1.10 * gas as f64) as u64;
                 Ok(gas_scaled)
             }
-            _ => Err(EvmError::Generic("call failed".to_string())),
+            _ => Err(EvmError::Revm(tx.exit_reason)),
         }
     }
 
-    async fn batch_fetch_accounts(&self, opts: &CallOpts) -> Result<HashMap<Address, Account>> {
+    async fn batch_fetch_accounts(
+        &self,
+        opts: &CallOpts,
+    ) -> Result<HashMap<Address, Account>, EvmError> {
         let db = self.evm.db.as_ref().unwrap();
         let rpc = db.execution.rpc.clone();
         let payload = db.current_payload.clone();
@@ -135,7 +121,11 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let block_moved = block.clone();
-        let mut list = rpc.create_access_list(&opts_moved, block_moved).await?.0;
+        let mut list = rpc
+            .create_access_list(&opts_moved, block_moved)
+            .await
+            .map_err(EvmError::RpcError)?
+            .0;
 
         let from_access_entry = AccessListItem {
             address: opts_moved.from.unwrap_or_default(),
