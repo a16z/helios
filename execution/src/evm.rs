@@ -22,8 +22,9 @@ use tokio::runtime::Runtime;
 use consensus::types::ExecutionPayload;
 
 use crate::{
+    constants::PARALLEL_QUERY_BATCH_SIZE,
     rpc::ExecutionRpc,
-    types::{Account, CallOpts}, constants::PARALLEL_QUERY_BATCH_SIZE,
+    types::{Account, CallOpts},
 };
 
 use super::ExecutionClient;
@@ -163,7 +164,8 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
 
             let account_chunk = join_all(account_chunk_futs).await;
 
-            account_chunk.into_iter()
+            account_chunk
+                .into_iter()
                 .filter(|i| i.1.is_ok())
                 .for_each(|(key, value)| {
                     account_map.insert(key, value.ok().unwrap());
