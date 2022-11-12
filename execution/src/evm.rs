@@ -23,7 +23,7 @@ use consensus::types::ExecutionPayload;
 
 use crate::{
     rpc::ExecutionRpc,
-    types::{Account, CallOpts},
+    types::{Account, CallOpts}, constants::PARALLEL_QUERY_BATCH_SIZE,
 };
 
 use super::ExecutionClient;
@@ -150,33 +150,25 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         list.push(to_access_entry);
         list.push(producer_account);
 
-        let mut accounts = Vec::new();
-        let batch_size = 20;
-        for i in (0..list.len()).step_by(batch_size) {
-            let end = cmp::min(i + batch_size, list.len());
-            let chunk = &list[i..end];
-
-            let account_chunk_futs = chunk.iter().map(|account| {
-                let addr_fut = futures::future::ready(account.address);
+        let mut account_map = HashMap::new();
+        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
+            let account_chunk_futs = chunk.into_iter().map(|account| {
                 let account_fut = execution.get_account(
                     &account.address,
                     Some(account.storage_keys.as_slice()),
                     &payload,
                 );
-                async move { (addr_fut.await, account_fut.await) }
+                async move { (account.address, account_fut.await) }
             });
 
-            let mut account_chunk = join_all(account_chunk_futs).await;
-            accounts.append(&mut account_chunk);
-        }
+            let account_chunk = join_all(account_chunk_futs).await;
 
-        let mut account_map = HashMap::new();
-        accounts.iter().for_each(|account| {
-            let addr = account.0;
-            if let Ok(account) = &account.1 {
-                account_map.insert(addr, account.clone());
-            }
-        });
+            account_chunk.into_iter()
+                .filter(|i| i.1.is_ok())
+                .for_each(|(key, value)| {
+                    account_map.insert(key, value.ok().unwrap());
+                });
+        }
 
         Ok(account_map)
     }
