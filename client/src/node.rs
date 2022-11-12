@@ -54,12 +54,18 @@ impl Node {
     }
 
     pub async fn sync(&mut self) -> Result<(), NodeError> {
-        self.consensus.sync().await.map_err(NodeError::ConsensusSyncError)?;
+        self.consensus
+            .sync()
+            .await
+            .map_err(NodeError::ConsensusSyncError)?;
         self.update_payloads().await
     }
 
     pub async fn advance(&mut self) -> Result<(), NodeError> {
-        self.consensus.advance().await.map_err(NodeError::ConsensusAdvanceError)?;
+        self.consensus
+            .advance()
+            .await
+            .map_err(NodeError::ConsensusAdvanceError)?;
         self.update_payloads().await
     }
 

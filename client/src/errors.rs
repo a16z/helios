@@ -31,7 +31,7 @@ pub enum NodeError {
     ConsensusSyncError(Report),
 
     #[error(transparent)]
-    BlockNotFoundError(#[from] BlockNotFoundError)
+    BlockNotFoundError(#[from] BlockNotFoundError),
 }
 
 impl NodeError {
