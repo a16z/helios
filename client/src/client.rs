@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use config::networks::Network;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
@@ -259,6 +259,10 @@ impl<DB: Database> Client<DB> {
             .await
             .get_transaction_by_hash(tx_hash)
             .await
+    }
+
+    pub async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>> {
+        self.node.read().await.get_logs(&filter).await
     }
 
     pub async fn get_gas_price(&self) -> Result<U256> {

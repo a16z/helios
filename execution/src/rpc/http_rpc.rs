@@ -7,7 +7,7 @@ use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryCli
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
-    BlockId, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, Transaction,
+    BlockId, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, Filter, Log, Transaction,
     TransactionReceipt, H256, U256,
 };
 use eyre::Result;
@@ -119,5 +119,13 @@ impl ExecutionRpc for HttpRpc {
             .get_transaction(*tx_hash)
             .await
             .map_err(|e| RpcError::new("get_transaction", e))?)
+    }
+
+    async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+        Ok(self
+            .provider
+            .get_logs(filter)
+            .await
+            .map_err(|e| RpcError::new("get_logs", e))?)
     }
 }

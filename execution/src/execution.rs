@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, RlpStream};
+use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
@@ -261,6 +261,45 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
 
         Ok(Some(tx))
+    }
+
+    pub async fn get_logs(
+        &self,
+        filter: &Filter,
+        payloads: &BTreeMap<u64, ExecutionPayload>,
+    ) -> Result<Vec<Log>> {
+        let logs = self.rpc.get_logs(filter).await?;
+
+        for (_pos, log) in logs.iter().enumerate() {
+            // For every log
+            // Get the hash of the tx that generated it
+            let tx_hash = log.transaction_hash.unwrap();
+            // Get its proven receipt
+            let receipt_resp = self.get_transaction_receipt(&tx_hash, payloads).await?;
+            if receipt_resp.is_none() {
+                return Err(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()).into());
+            }
+
+            // Check if the receipt contains the desired log
+            // Encoding logs for comparison
+            let receipt = receipt_resp.unwrap();
+            let receipt_logs_encoded = receipt
+                .logs
+                .iter()
+                .map(|log| log.rlp_bytes())
+                .collect::<Vec<_>>();
+
+            let log_encoded = log.rlp_bytes();
+
+            if !receipt_logs_encoded.contains(&log_encoded) {
+                return Err(ExecutionError::MissingLog(
+                    tx_hash.to_string(),
+                    log.log_index.unwrap(),
+                )
+                .into());
+            }
+        }
+        return Ok(logs);
     }
 }
 

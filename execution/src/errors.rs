@@ -1,4 +1,4 @@
-use ethers::types::{Address, H256};
+use ethers::types::{Address, H256, U256};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -13,4 +13,8 @@ pub enum ExecutionError {
     ReceiptRootMismatch(String),
     #[error("missing transaction for tx: {0}")]
     MissingTransaction(String),
+    #[error("could not prove receipt for tx: {0}")]
+    NoReceiptForTransaction(String),
+    #[error("missing log for transaction: {0}, index: {1}")]
+    MissingLog(String, U256),
 }
