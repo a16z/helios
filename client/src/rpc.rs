@@ -135,7 +135,6 @@ impl EthRpcServer for RpcInner {
     async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {
         let node = self.node.read().await;
 
-        // TODO: Make sure we have clean way of surfacing the error here
         let res = node
             .call(&opts, block)
             .await
