@@ -511,6 +511,7 @@ dependencies = [
  "revm",
  "serde",
  "ssz-rs",
+ "thiserror",
  "tokio",
  "toml",
 ]

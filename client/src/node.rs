@@ -17,6 +17,8 @@ use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
 
+use crate::errors::NodeError;
+
 pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: Arc<ExecutionClient<HttpRpc>>,
@@ -27,13 +29,16 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(config: Arc<Config>) -> Result<Self> {
+    pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint;
         let execution_rpc = &config.execution_rpc;
 
-        let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())?;
-        let execution = Arc::new(ExecutionClient::new(execution_rpc)?);
+        let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
+            .map_err(NodeError::ConsensusClientCreationError)?;
+        let execution = Arc::new(
+            ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,
+        );
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
@@ -48,13 +53,19 @@ impl Node {
         })
     }
 
-    pub async fn sync(&mut self) -> Result<()> {
-        self.consensus.sync().await?;
+    pub async fn sync(&mut self) -> Result<(), NodeError> {
+        self.consensus
+            .sync()
+            .await
+            .map_err(NodeError::ConsensusSyncError)?;
         self.update_payloads().await
     }
 
-    pub async fn advance(&mut self) -> Result<()> {
-        self.consensus.advance().await?;
+    pub async fn advance(&mut self) -> Result<(), NodeError> {
+        self.consensus
+            .advance()
+            .await
+            .map_err(NodeError::ConsensusAdvanceError)?;
         self.update_payloads().await
     }
 
@@ -65,18 +76,20 @@ impl Node {
             .unwrap()
     }
 
-    async fn update_payloads(&mut self) -> Result<()> {
+    async fn update_payloads(&mut self) -> Result<(), NodeError> {
         let latest_header = self.consensus.get_header();
         let latest_payload = self
             .consensus
             .get_execution_payload(&Some(latest_header.slot))
-            .await?;
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
 
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
             .consensus
             .get_execution_payload(&Some(finalized_header.slot))
-            .await?;
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
 
         self.payloads
             .insert(latest_payload.block_number, latest_payload);
@@ -98,7 +111,7 @@ impl Node {
         Ok(())
     }
 
-    pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
+    pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
@@ -108,10 +121,10 @@ impl Node {
             &self.payloads,
             self.chain_id(),
         );
-        evm.call(opts).await
+        evm.call(opts).await.map_err(NodeError::ExecutionError)
     }
 
-    pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
+    pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
         self.check_head_age()?;
 
         let payload = self.get_payload(BlockTag::Latest)?;
@@ -121,7 +134,9 @@ impl Node {
             &self.payloads,
             self.chain_id(),
         );
-        evm.estimate_gas(opts).await
+        evm.estimate_gas(opts)
+            .await
+            .map_err(NodeError::ExecutionError)
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
@@ -257,7 +272,7 @@ impl Node {
         self.consensus.last_checkpoint.clone()
     }
 
-    fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload> {
+    fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload, BlockNotFoundError> {
         match block {
             BlockTag::Latest => {
                 let payload = self.payloads.last_key_value();
@@ -276,19 +291,19 @@ impl Node {
         }
     }
 
-    fn check_head_age(&self) -> Result<()> {
+    fn check_head_age(&self) -> Result<(), NodeError> {
         let synced_slot = self.consensus.get_header().slot;
         let expected_slot = self.consensus.expected_current_slot();
         let slot_delay = expected_slot - synced_slot;
 
         if slot_delay > 10 {
-            return Err(eyre!("out of sync"));
+            return Err(NodeError::OutOfSync(slot_delay));
         }
 
         Ok(())
     }
 
-    fn check_blocktag_age(&self, block: &BlockTag) -> Result<()> {
+    fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), NodeError> {
         match block {
             BlockTag::Latest => self.check_head_age(),
             BlockTag::Finalized => Ok(()),
