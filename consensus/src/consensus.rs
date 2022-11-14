@@ -598,11 +598,7 @@ mod tests {
             execution_rpc: String::new(),
             chain: base_config.chain,
             forks: base_config.forks,
-            checkpoint_duration: if large_checkpoint_age {
-                123123123
-            } else {
-                123
-            },
+            checkpoint_duration: if large_checkpoint_age { 123123123 } else { 123 },
             ..Default::default()
         };
 
