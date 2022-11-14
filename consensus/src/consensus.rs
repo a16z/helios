@@ -579,7 +579,6 @@ mod tests {
     use std::sync::Arc;
 
     use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-    use log::{debug, info};
     use ssz_rs::Vector;
 
     use crate::{
