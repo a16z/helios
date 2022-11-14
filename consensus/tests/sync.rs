@@ -10,7 +10,7 @@ async fn setup() -> ConsensusClient<MockRpc> {
         execution_rpc: String::new(),
         chain: base_config.chain,
         forks: base_config.forks,
-        checkpoint_duration: 123123123,
+        max_checkpoint_age: 123123123,
         ..Default::default()
     };
 

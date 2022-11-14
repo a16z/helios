@@ -507,7 +507,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
 
-        slot_age < self.config.checkpoint_duration
+        slot_age < self.config.max_checkpoint_age
     }
 }
 
@@ -597,7 +597,7 @@ mod tests {
             execution_rpc: String::new(),
             chain: base_config.chain,
             forks: base_config.forks,
-            checkpoint_duration: if large_checkpoint_age { 123123123 } else { 123 },
+            max_checkpoint_age: if large_checkpoint_age { 123123123 } else { 123 },
             ..Default::default()
         };
 
