@@ -166,6 +166,7 @@ impl ClientBuilder {
             data_dir,
             chain: base_config.chain,
             forks: base_config.forks,
+            max_checkpoint_age: base_config.max_checkpoint_age,
         };
 
         Client::new(config)

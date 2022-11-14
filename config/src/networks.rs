@@ -28,6 +28,7 @@ pub struct BaseConfig {
     pub checkpoint: Vec<u8>,
     pub chain: ChainConfig,
     pub forks: Forks,
+    pub max_checkpoint_age: u64,
 }
 
 pub fn mainnet() -> BaseConfig {
@@ -60,6 +61,7 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x02000000").unwrap(),
             },
         },
+        max_checkpoint_age: 1_209_600, // 14 days
     }
 }
 
@@ -93,5 +95,6 @@ pub fn goerli() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x02001020").unwrap(),
             },
         },
+        max_checkpoint_age: 1_209_600, // 14 days
     }
 }
