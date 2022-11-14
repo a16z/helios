@@ -748,4 +748,10 @@ mod tests {
             ConsensusError::InvalidSignature.to_string()
         );
     }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn test_verify_checkpoint_age_invalid() {
+        get_client(false).await;
+    }
 }
