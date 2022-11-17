@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     collections::{BTreeMap, HashMap},
     str::FromStr,
     sync::Arc,
