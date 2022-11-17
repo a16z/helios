@@ -261,8 +261,8 @@ impl<DB: Database> Client<DB> {
             .await
     }
 
-    pub async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>> {
-        self.node.read().await.get_logs(&filter).await
+    pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+        self.node.read().await.get_logs(filter).await
     }
 
     pub async fn get_gas_price(&self) -> Result<U256> {

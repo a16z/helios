@@ -21,6 +21,10 @@ use super::proof::{encode_account, verify_proof};
 use super::rpc::ExecutionRpc;
 use super::types::{Account, ExecutionBlock};
 
+// We currently limit the max number of logs to fetch,
+// to avoid blocking the client for too long.
+const MAX_SUPPORTED_LOGS_NUMBER: usize = 5;
+
 #[derive(Clone)]
 pub struct ExecutionClient<R: ExecutionRpc> {
     pub rpc: R,
@@ -269,20 +273,26 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         payloads: &BTreeMap<u64, ExecutionPayload>,
     ) -> Result<Vec<Log>> {
         let logs = self.rpc.get_logs(filter).await?;
+        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+            return Err(
+                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+            );
+        }
 
         for (_pos, log) in logs.iter().enumerate() {
             // For every log
             // Get the hash of the tx that generated it
-            let tx_hash = log.transaction_hash.unwrap();
+            let tx_hash = log
+                .transaction_hash
+                .ok_or(eyre::eyre!("tx hash not found in log"))?;
             // Get its proven receipt
-            let receipt_resp = self.get_transaction_receipt(&tx_hash, payloads).await?;
-            if receipt_resp.is_none() {
-                return Err(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()).into());
-            }
+            let receipt = self
+                .get_transaction_receipt(&tx_hash, payloads)
+                .await?
+                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
 
             // Check if the receipt contains the desired log
             // Encoding logs for comparison
-            let receipt = receipt_resp.unwrap();
             let receipt_logs_encoded = receipt
                 .logs
                 .iter()

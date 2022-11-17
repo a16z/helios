@@ -17,4 +17,6 @@ pub enum ExecutionError {
     NoReceiptForTransaction(String),
     #[error("missing log for transaction: {0}, index: {1}")]
     MissingLog(String, U256),
+    #[error("too many logs to prove: {0}, current limit is: {1}")]
+    TooManyLogsToProve(usize, usize),
 }
