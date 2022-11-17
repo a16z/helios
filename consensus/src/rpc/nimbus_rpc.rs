@@ -3,8 +3,10 @@ use common::errors::RpcError;
 use eyre::Result;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use std::cmp;
 
 use super::ConsensusRpc;
+use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
 
 pub struct NimbusRpc {
@@ -49,10 +51,11 @@ impl ConsensusRpc for NimbusRpc {
         Ok(res.data)
     }
 
-    async fn get_updates(&self, period: u64) -> Result<Vec<Update>> {
+    async fn get_updates(&self, period: u64, count: u8) -> Result<Vec<Update>> {
+        let count = cmp::min(count, MAX_REQUEST_LIGHT_CLIENT_UPDATES);
         let req = format!(
-            "{}/eth/v1/beacon/light_client/updates?start_period={}&count=1000",
-            self.rpc, period
+            "{}/eth/v1/beacon/light_client/updates?start_period={}&count={}",
+            self.rpc, period, count
         );
 
         let res = self

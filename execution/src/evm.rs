@@ -22,6 +22,8 @@ use tokio::runtime::Runtime;
 use consensus::types::ExecutionPayload;
 
 use crate::{
+    constants::PARALLEL_QUERY_BATCH_SIZE,
+    errors::EvmError,
     rpc::ExecutionRpc,
     types::{Account, CallOpts},
 };
@@ -47,7 +49,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         Evm { evm, chain_id }
     }
 
-    pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>> {
+    pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>, EvmError> {
         let account_map = self.batch_fetch_accounts(opts).await?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
@@ -55,32 +57,26 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let tx = self.evm.transact().0;
 
         match tx.exit_reason {
-            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
-            revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
-            revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
-            revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
-            revm::Return::InvalidJump => {
-                Err(eyre::eyre!("execution reverted: invalid jump destination"))
-            }
-            revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
-            revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
-            revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
+            revm::Return::Revert => match tx.out {
+                TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
+                _ => Err(EvmError::Revert(None)),
+            },
             revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-                    return Err(eyre::eyre!(err.clone()));
+                    return Err(EvmError::Generic(err.clone()));
                 }
 
                 match tx.out {
-                    TransactOut::None => Err(eyre::eyre!("Invalid Call")),
-                    TransactOut::Create(..) => Err(eyre::eyre!("Invalid Call")),
+                    TransactOut::None => Err(EvmError::Generic("Invalid Call".to_string())),
+                    TransactOut::Create(..) => Err(EvmError::Generic("Invalid Call".to_string())),
                     TransactOut::Call(bytes) => Ok(bytes.to_vec()),
                 }
             }
-            _ => Err(eyre::eyre!("call failed")),
+            _ => Err(EvmError::Revm(tx.exit_reason)),
         }
     }
 
-    pub async fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64> {
+    pub async fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64, EvmError> {
         let account_map = self.batch_fetch_accounts(opts).await?;
         self.evm.db.as_mut().unwrap().set_accounts(account_map);
 
@@ -89,30 +85,27 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let gas = tx.gas_used;
 
         match tx.exit_reason {
-            revm::Return::Revert => Err(eyre::eyre!("execution reverted")),
-            revm::Return::OutOfGas => Err(eyre::eyre!("execution reverted: out of gas")),
-            revm::Return::OutOfFund => Err(eyre::eyre!("not enough funds")),
-            revm::Return::CallTooDeep => Err(eyre::eyre!("execution reverted: call too deep")),
-            revm::Return::InvalidJump => {
-                Err(eyre::eyre!("execution reverted: invalid jump destination"))
-            }
-            revm::Return::InvalidOpcode => Err(eyre::eyre!("execution reverted: invalid opcode")),
-            revm::Return::LackOfFundForGasLimit => Err(eyre::eyre!("not enough funds")),
-            revm::Return::GasPriceLessThenBasefee => Err(eyre::eyre!("gas price too low")),
+            revm::Return::Revert => match tx.out {
+                TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
+                _ => Err(EvmError::Revert(None)),
+            },
             revm::Return::Return => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
-                    return Err(eyre::eyre!(err.clone()));
+                    return Err(EvmError::Generic(err.clone()));
                 }
 
                 // overestimate to avoid out of gas reverts
                 let gas_scaled = (1.10 * gas as f64) as u64;
                 Ok(gas_scaled)
             }
-            _ => Err(eyre::eyre!("call failed")),
+            _ => Err(EvmError::Revm(tx.exit_reason)),
         }
     }
 
-    async fn batch_fetch_accounts(&self, opts: &CallOpts) -> Result<HashMap<Address, Account>> {
+    async fn batch_fetch_accounts(
+        &self,
+        opts: &CallOpts,
+    ) -> Result<HashMap<Address, Account>, EvmError> {
         let db = self.evm.db.as_ref().unwrap();
         let rpc = db.execution.rpc.clone();
         let payload = db.current_payload.clone();
@@ -129,7 +122,11 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let block_moved = block.clone();
-        let mut list = rpc.create_access_list(&opts_moved, block_moved).await?.0;
+        let mut list = rpc
+            .create_access_list(&opts_moved, block_moved)
+            .await
+            .map_err(EvmError::RpcError)?
+            .0;
 
         let from_access_entry = AccessListItem {
             address: opts_moved.from.unwrap_or_default(),
@@ -150,33 +147,26 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         list.push(to_access_entry);
         list.push(producer_account);
 
-        let mut accounts = Vec::new();
-        let batch_size = 20;
-        for i in (0..list.len()).step_by(batch_size) {
-            let end = cmp::min(i + batch_size, list.len());
-            let chunk = &list[i..end];
-
-            let account_chunk_futs = chunk.iter().map(|account| {
-                let addr_fut = futures::future::ready(account.address);
+        let mut account_map = HashMap::new();
+        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
+            let account_chunk_futs = chunk.into_iter().map(|account| {
                 let account_fut = execution.get_account(
                     &account.address,
                     Some(account.storage_keys.as_slice()),
                     &payload,
                 );
-                async move { (addr_fut.await, account_fut.await) }
+                async move { (account.address, account_fut.await) }
             });
 
-            let mut account_chunk = join_all(account_chunk_futs).await;
-            accounts.append(&mut account_chunk);
-        }
+            let account_chunk = join_all(account_chunk_futs).await;
 
-        let mut account_map = HashMap::new();
-        accounts.iter().for_each(|account| {
-            let addr = account.0;
-            if let Ok(account) = &account.1 {
-                account_map.insert(addr, account.clone());
-            }
-        });
+            account_chunk
+                .into_iter()
+                .filter(|i| i.1.is_ok())
+                .for_each(|(key, value)| {
+                    account_map.insert(key, value.ok().unwrap());
+                });
+        }
 
         Ok(account_map)
     }
