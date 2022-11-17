@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethers::{
     abi::AbiDecode,
-    types::{Address, H256},
+    types::{Address, H256, U256},
 };
 use eyre::Report;
 use thiserror::Error;
@@ -18,6 +18,12 @@ pub enum ExecutionError {
     ReceiptRootMismatch(String),
     #[error("missing transaction for tx: {0}")]
     MissingTransaction(String),
+    #[error("could not prove receipt for tx: {0}")]
+    NoReceiptForTransaction(String),
+    #[error("missing log for transaction: {0}, index: {1}")]
+    MissingLog(String, U256),
+    #[error("too many logs to prove: {0}, current limit is: {1}")]
+    TooManyLogsToProve(usize, usize),
 }
 
 /// Errors that can occur during evm.rs calls

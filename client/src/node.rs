@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
-use ethers::types::{Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
@@ -196,6 +196,10 @@ impl Node {
         self.execution
             .get_transaction(tx_hash, &self.payloads)
             .await
+    }
+
+    pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+        self.execution.get_logs(filter, &self.payloads).await
     }
 
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block

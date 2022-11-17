@@ -1,6 +1,6 @@
 use ethers::{
     abi::AbiEncode,
-    types::{Address, Transaction, TransactionReceipt, H256},
+    types::{Address, Filter, Log, Transaction, TransactionReceipt, H256},
 };
 use eyre::Result;
 use log::info;
@@ -92,6 +92,8 @@ trait EthRpc {
     ) -> Result<Option<TransactionReceipt>, Error>;
     #[method(name = "getTransactionByHash")]
     async fn get_transaction_by_hash(&self, hash: &str) -> Result<Option<Transaction>, Error>;
+    #[method(name = "getLogs")]
+    async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -219,6 +221,11 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
         let hash = H256::from_slice(&convert_err(hex_str_to_bytes(hash))?);
         convert_err(node.get_transaction_by_hash(&hash).await)
+    }
+
+    async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {
+        let node = self.node.read().await;
+        convert_err(node.get_logs(&filter).await)
     }
 }
 

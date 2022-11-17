@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, RlpStream};
+use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
 
 use common::utils::hex_str_to_bytes;
@@ -20,6 +20,10 @@ use crate::types::Transactions;
 use super::proof::{encode_account, verify_proof};
 use super::rpc::ExecutionRpc;
 use super::types::{Account, ExecutionBlock};
+
+// We currently limit the max number of logs to fetch,
+// to avoid blocking the client for too long.
+const MAX_SUPPORTED_LOGS_NUMBER: usize = 5;
 
 #[derive(Clone)]
 pub struct ExecutionClient<R: ExecutionRpc> {
@@ -261,6 +265,51 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
 
         Ok(Some(tx))
+    }
+
+    pub async fn get_logs(
+        &self,
+        filter: &Filter,
+        payloads: &BTreeMap<u64, ExecutionPayload>,
+    ) -> Result<Vec<Log>> {
+        let logs = self.rpc.get_logs(filter).await?;
+        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+            return Err(
+                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+            );
+        }
+
+        for (_pos, log) in logs.iter().enumerate() {
+            // For every log
+            // Get the hash of the tx that generated it
+            let tx_hash = log
+                .transaction_hash
+                .ok_or(eyre::eyre!("tx hash not found in log"))?;
+            // Get its proven receipt
+            let receipt = self
+                .get_transaction_receipt(&tx_hash, payloads)
+                .await?
+                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
+
+            // Check if the receipt contains the desired log
+            // Encoding logs for comparison
+            let receipt_logs_encoded = receipt
+                .logs
+                .iter()
+                .map(|log| log.rlp_bytes())
+                .collect::<Vec<_>>();
+
+            let log_encoded = log.rlp_bytes();
+
+            if !receipt_logs_encoded.contains(&log_encoded) {
+                return Err(ExecutionError::MissingLog(
+                    tx_hash.to_string(),
+                    log.log_index.unwrap(),
+                )
+                .into());
+            }
+        }
+        return Ok(logs);
     }
 }
 
