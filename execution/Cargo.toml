@@ -7,15 +7,14 @@ edition = "2021"
 
 [dependencies]
 reqwest = { version = "0.11", features = ["json"] }
-tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1b685b861d0fa9e2daabe89737" }
+ssz-rs = { path = "../../ssz-rs/ssz-rs" }
 blst = "0.3.10"
 ethers = "1.0.0"
-revm = "2.1.0"
+revm = { version = "2.3", default-features = false, features = ["std", "k256", "with-serde"] }
 bytes = "1.2.1"
 futures = "0.3.23"
 toml = "0.5.9"
@@ -23,7 +22,6 @@ triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", r
 async-trait = "0.1.57"
 log = "0.4.17"
 thiserror = "1.0.37"
-openssl = { version = "0.10", features = ["vendored"] }
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }

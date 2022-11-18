@@ -9,14 +9,13 @@ use bytes::Bytes;
 use common::{errors::BlockNotFoundError, types::BlockTag};
 use ethers::{
     abi::ethereum_types::BigEndianHash,
-    prelude::{Address, H160, H256, U256},
+    types::{Address, H160, H256, U256},
     types::transaction::eip2930::AccessListItem,
 };
 use eyre::{Report, Result};
-use futures::future::join_all;
+use futures::{future::join_all, executor::block_on};
 use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
-use tokio::runtime::Runtime;
 
 use consensus::types::ExecutionPayload;
 
@@ -227,8 +226,9 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
 
         let handle = thread::spawn(move || {
             let account_fut = execution.get_account(&addr, Some(&slots), &payload);
-            let runtime = Runtime::new()?;
-            runtime.block_on(account_fut)
+            // let runtime = Runtime::new()?;
+            // runtime.block_on(account_fut)
+            block_on(account_fut)
         });
 
         handle.join().unwrap()

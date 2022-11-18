@@ -23,6 +23,7 @@ use super::utils::*;
 // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
 // does not implement force updates
 
+#[derive(Debug)]
 pub struct ConsensusClient<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
@@ -197,8 +198,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
 
         let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-        let valid_time = self.expected_current_slot() >= update.signature_slot
-            && update.signature_slot > update.attested_header.slot
+        let valid_time = // self.expected_current_slot() >= update.signature_slot
+            update.signature_slot > update.attested_header.slot
             && update.attested_header.slot >= update_finalized_slot;
 
         if !valid_time {
@@ -458,24 +459,25 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     fn age(&self, slot: u64) -> Duration {
-        let expected_time = self.slot_timestamp(slot);
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap();
-        let delay = now - std::time::Duration::from_secs(expected_time);
-        chrono::Duration::from_std(delay).unwrap()
+        // let expected_time = self.slot_timestamp(slot);
+        // let now = std::time::SystemTime::now()
+        //     .duration_since(UNIX_EPOCH)
+        //     .unwrap();
+        // let delay = now - std::time::Duration::from_secs(expected_time);
+        // chrono::Duration::from_std(delay).unwrap()
+        chrono::Duration::seconds(10)
     }
 
-    pub fn expected_current_slot(&self) -> u64 {
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap();
+    // pub fn expected_current_slot(&self) -> u64 {
+    //     let now = std::time::SystemTime::now()
+    //         .duration_since(UNIX_EPOCH)
+    //         .unwrap();
 
-        let genesis_time = self.config.chain.genesis_time;
-        let since_genesis = now - std::time::Duration::from_secs(genesis_time);
+    //     let genesis_time = self.config.chain.genesis_time;
+    //     let since_genesis = now - std::time::Duration::from_secs(genesis_time);
 
-        since_genesis.as_secs() / 12
-    }
+    //     since_genesis.as_secs() / 12
+    // }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
         slot * 12 + self.config.chain.genesis_time
@@ -484,30 +486,34 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     /// Gets the duration until the next update
     /// Updates are scheduled for 4 seconds into each slot
     pub fn duration_until_next_update(&self) -> Duration {
-        let current_slot = self.expected_current_slot();
-        let next_slot = current_slot + 1;
-        let next_slot_timestamp = self.slot_timestamp(next_slot);
+        // let current_slot = self.expected_current_slot();
+        // let next_slot = current_slot + 1;
+        // let next_slot_timestamp = self.slot_timestamp(next_slot);
 
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        // let now = std::time::SystemTime::now()
+        //     .duration_since(UNIX_EPOCH)
+        //     .unwrap()
+        //     .as_secs();
 
-        let time_to_next_slot = next_slot_timestamp - now;
-        let next_update = time_to_next_slot + 4;
+        // let time_to_next_slot = next_slot_timestamp - now;
+        // let next_update = time_to_next_slot + 4;
 
-        Duration::seconds(next_update as i64)
+        // Duration::seconds(next_update as i64)
+        
+        Duration::seconds(10)
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
-        let current_slot = self.expected_current_slot();
-        let current_slot_timestamp = self.slot_timestamp(current_slot);
-        let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
+        // let current_slot = self.expected_current_slot();
+        // let current_slot_timestamp = self.slot_timestamp(current_slot);
+        // let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
 
-        let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
+        // let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
 
-        slot_age < self.config.max_checkpoint_age
+        // slot_age < self.config.max_checkpoint_age
+
+        true
     }
 }
 

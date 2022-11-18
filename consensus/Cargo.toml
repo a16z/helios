@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
+# tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1b685b861d0fa9e2daabe89737" }
+ssz-rs = { path = "../../ssz-rs/ssz-rs" }
 blst = "0.3.10"
 ethers = "1.0.0"
 bytes = "1.2.1"
@@ -20,10 +20,8 @@ async-trait = "0.1.57"
 log = "0.4.17"
 chrono = "0.4.22"
 thiserror = "1.0.37"
-openssl = { version = "0.10", features = ["vendored"] }
-reqwest = { version = "0.11.12", features = ["json"] }
-reqwest-middleware = "0.1.6"
-reqwest-retry = "0.1.5"
+# openssl = { version = "0.10", features = ["vendored"] }
+reqwest = { version = "0.11.13", features = ["json"] }
 
 common = { path = "../common" }
 config = { path = "../config" }

@@ -10,7 +10,7 @@ pub struct MockRpc {
     testdata: PathBuf,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl ConsensusRpc for MockRpc {
     fn new(path: &str) -> Self {
         MockRpc {

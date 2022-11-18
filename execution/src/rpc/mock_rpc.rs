@@ -17,7 +17,7 @@ pub struct MockRpc {
     path: PathBuf,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl ExecutionRpc for MockRpc {
     fn new(rpc: &str) -> Result<Self> {
         let path = PathBuf::from(rpc);

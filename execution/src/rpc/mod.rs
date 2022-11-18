@@ -10,7 +10,7 @@ use crate::types::CallOpts;
 pub mod http_rpc;
 pub mod mock_rpc;
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     fn new(rpc: &str) -> Result<Self>
     where
