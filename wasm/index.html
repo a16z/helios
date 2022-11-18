@@ -6,10 +6,18 @@
   </head>
   <body>
     <script type="module">
-      import init, { get_balance } from "./pkg/wasm.js";
+      import init, { Client } from "./pkg/wasm.js";
       init().then(() => {
-        get_balance("0xf6401adc23faa6b9ad83ea8604ca7254cb7f53e7").then((slot) => {
-          console.log(slot);
+
+        let client = new Client(
+          "https://www.lightclientdata.org",
+          "https://eth-mainnet.g.alchemy.com/v2/23IavJytUwkTtBMpzt_TZKwgwAarocdT"
+        );
+
+        client.sync().then(() => {
+          client.get_balance("0xf6401adc23faa6b9ad83ea8604ca7254cb7f53e7").then((slot) => {
+            console.log(`balance: ${slot}`);
+          });
         });
       });
     </script>

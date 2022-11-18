@@ -1,4 +1,4 @@
-use std::{panic, str::FromStr};
+use std::str::FromStr;
 use std::sync::Arc;
 
 extern crate console_error_panic_hook;
@@ -7,9 +7,10 @@ extern crate web_sys;
 use config::{networks, Config};
 use consensus::{rpc::nimbus_rpc::NimbusRpc, ConsensusClient};
 use ethers::types::Address;
-use execution::{ExecutionClient, rpc::http_rpc::HttpRpc};
+use execution::{rpc::http_rpc::HttpRpc, ExecutionClient};
 use wasm_bindgen::prelude::*;
 
+#[allow(unused_macros)]
 macro_rules! log {
     ( $( $t:tt )* ) => {
         web_sys::console::log_1(&format!( $( $t )* ).into());
@@ -17,34 +18,63 @@ macro_rules! log {
 }
 
 #[wasm_bindgen]
-pub async fn get_balance(addr: &str) -> String {
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
-    log!("here");
+pub struct Client {
+    consensus: ConsensusClient<NimbusRpc>,
+    execution: ExecutionClient<HttpRpc>,
+}
 
-    let rpc = "https://www.lightclientdata.org".to_string();
+#[wasm_bindgen]
+impl Client {
+    #[wasm_bindgen(constructor)]
+    pub fn new(consensus_rpc: &str, execution_rpc: &str) -> Self {
+        console_error_panic_hook::set_once();
 
-    let base = networks::mainnet();
-    let config = Config {
-        checkpoint: base.checkpoint.clone(),
-        consensus_rpc: rpc.clone(),
-        rpc_port: None,
+        let base = networks::mainnet();
+        let config = Config {
+            checkpoint: base.checkpoint.clone(),
+            consensus_rpc: consensus_rpc.to_string(),
+            rpc_port: None,
 
-        data_dir: None,
-        execution_rpc: "".to_string(),
-        max_checkpoint_age: u64::MAX,
-        chain: base.chain,
-        forks: base.forks,
-    };
+            data_dir: None,
+            execution_rpc: "".to_string(),
+            max_checkpoint_age: u64::MAX,
+            chain: base.chain,
+            forks: base.forks,
+        };
 
-    let mut client = ConsensusClient::<NimbusRpc>::new(&rpc, &base.checkpoint, Arc::new(config)).unwrap();
-    client.sync().await.unwrap();
-    let header = client.get_header();
-    let payload = client.get_execution_payload(&Some(header.slot)).await.unwrap();
+        let consensus =
+            ConsensusClient::<NimbusRpc>::new(&consensus_rpc, &base.checkpoint, Arc::new(config))
+                .unwrap();
 
-    let execution = ExecutionClient::<HttpRpc>::new("https://eth-mainnet.g.alchemy.com/v2/23IavJytUwkTtBMpzt_TZKwgwAarocdT").unwrap();
+        let execution = ExecutionClient::<HttpRpc>::new(execution_rpc).unwrap();
 
-    let addr = Address::from_str(addr).unwrap();
-    let account = execution.get_account(&addr, None, &payload).await.unwrap();
+        Self {
+            consensus,
+            execution,
+        }
+    }
 
-    account.balance.to_string()
+    #[wasm_bindgen]
+    pub async fn sync(&mut self) {
+        self.consensus.sync().await.unwrap();
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_balance(&self, addr: &str) -> String {
+        let header = self.consensus.get_header();
+        let payload = self
+            .consensus
+            .get_execution_payload(&Some(header.slot))
+            .await
+            .unwrap();
+
+        let addr = Address::from_str(addr).unwrap();
+        let account = self
+            .execution
+            .get_account(&addr, None, &payload)
+            .await
+            .unwrap();
+
+        account.balance.to_string()
+    }
 }
