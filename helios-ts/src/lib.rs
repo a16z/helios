@@ -75,7 +75,7 @@ impl Node {
     }
 
     #[wasm_bindgen]
-    pub async fn block_number(&self) -> u32 {
+    pub async fn get_block_number(&self) -> u32 {
         return self.payloads.last().unwrap().block_number as u32;
     }
 
@@ -91,5 +91,15 @@ impl Node {
             .unwrap();
 
         account.balance.to_string()
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_code(&self, addr: &str) -> String {
+        let payload = self.payloads.last().unwrap();
+
+        let addr = Address::from_str(addr).unwrap();
+        let code = self.execution.get_account(&addr, None, &payload).await.unwrap().code;
+
+        format!("0x{}", hex::encode(code))
     }
 }

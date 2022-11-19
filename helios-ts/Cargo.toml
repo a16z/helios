@@ -14,6 +14,7 @@ wasm-bindgen-futures = "0.4.33"
 console_error_panic_hook = "0.1.7"
 
 ethers = "1.0.0"
+hex = "0.4.3"
 
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }

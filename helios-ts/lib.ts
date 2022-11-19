@@ -1,3 +1,4 @@
+import { BigNumber } from "ethers";
 import { Node } from "./pkg";
 
 
@@ -10,19 +11,20 @@ export class Client {
 
   async sync() {
     await this.#node.sync();
-    setInterval(async () => {
-      await this.#node.advance();
-      let num = await this.#node.block_number();
-      console.log(`block number: ${num}`);
-    }, 12_000)
+    setInterval(async () => await this.#node.advance(), 12_000);
   }
 
-  async getBalance(addr: string): Promise<string> {
-    return await this.#node.get_balance(addr);
+  async getBalance(addr: string): Promise<BigNumber> {
+    let balance = await this.#node.get_balance(addr);
+    return BigNumber.from(balance);
   }
 
-  async blockNumber(): Promise<number> {
-    return await this.#node.block_number();
+  async getBlockNumber(): Promise<number> {
+    return await this.#node.get_block_number();
+  }
+
+  async getCode(addr: string): Promise<string> {
+    return await this.#node.get_code(addr);
   }
 }
 

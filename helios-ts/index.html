@@ -14,11 +14,9 @@
         );
 
         client.sync().then(() => {
-          client.getBalance("0xf6401adc23faa6b9ad83ea8604ca7254cb7f53e7").then((slot) => {
-            console.log(`balance: ${slot}`);
-          });
+          window.client = client;
 
-          client.blockNumber().then((num) => {
+          client.getBlockNumber().then((num) => {
             console.log(`synced to block: ${num}`);
           });
         });
