@@ -1,1 +1,4 @@
-/target
+target
+wasm/pkg
+wasm/dist
+wasm/node_modules

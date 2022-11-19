@@ -18,13 +18,18 @@ macro_rules! log {
 }
 
 #[wasm_bindgen]
-pub struct Client {
+pub fn ret_five() -> u64 {
+    5
+}
+
+#[wasm_bindgen]
+pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient<HttpRpc>,
 }
 
 #[wasm_bindgen]
-impl Client {
+impl Node {
     #[wasm_bindgen(constructor)]
     pub fn new(consensus_rpc: &str, execution_rpc: &str) -> Self {
         console_error_panic_hook::set_once();
