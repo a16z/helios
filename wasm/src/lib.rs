@@ -5,7 +5,7 @@ extern crate console_error_panic_hook;
 extern crate web_sys;
 
 use config::{networks, Config};
-use consensus::{rpc::nimbus_rpc::NimbusRpc, ConsensusClient};
+use consensus::{rpc::nimbus_rpc::NimbusRpc, ConsensusClient, types::ExecutionPayload};
 use ethers::types::Address;
 use execution::{rpc::http_rpc::HttpRpc, ExecutionClient};
 use wasm_bindgen::prelude::*;
@@ -18,14 +18,10 @@ macro_rules! log {
 }
 
 #[wasm_bindgen]
-pub fn ret_five() -> u64 {
-    5
-}
-
-#[wasm_bindgen]
 pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient<HttpRpc>,
+    payloads: Vec<ExecutionPayload>,
 }
 
 #[wasm_bindgen]
@@ -56,22 +52,36 @@ impl Node {
         Self {
             consensus,
             execution,
+            payloads: vec![],
         }
     }
 
     #[wasm_bindgen]
     pub async fn sync(&mut self) {
         self.consensus.sync().await.unwrap();
+        self.update_payloads().await;
+    }
+
+    #[wasm_bindgen]
+    pub async fn advance(&mut self) {
+        self.consensus.advance().await.unwrap();
+        self.update_payloads().await;
+    }
+
+    async fn update_payloads(&mut self) {
+        let header = self.consensus.get_header();
+        let payload = self.consensus.get_execution_payload(&Some(header.slot)).await.unwrap();
+        self.payloads.push(payload);
+    }
+
+    #[wasm_bindgen]
+    pub async fn block_number(&self) -> u32 {
+        return self.payloads.last().unwrap().block_number as u32;
     }
 
     #[wasm_bindgen]
     pub async fn get_balance(&self, addr: &str) -> String {
-        let header = self.consensus.get_header();
-        let payload = self
-            .consensus
-            .get_execution_payload(&Some(header.slot))
-            .await
-            .unwrap();
+        let payload = self.payloads.last().unwrap();
 
         let addr = Address::from_str(addr).unwrap();
         let account = self
