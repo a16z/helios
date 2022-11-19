@@ -1,4 +1,4 @@
 target
-wasm/pkg
-wasm/dist
-wasm/node_modules
+helios-ts/pkg
+helios-ts/dist
+helios-ts/node_modules

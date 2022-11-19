@@ -12,7 +12,7 @@ members = [
     "config",
     "consensus",
     "execution",
-    "wasm",
+    "helios-ts",
 ]
 
 [dependencies]
