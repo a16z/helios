@@ -1,10 +1,22 @@
 const path = require("path");
 
 module.exports = {
-  entry: "./lib.js", // input file of the JS bundle
+  entry: "./lib.ts",
+  module: {
+    rules: [
+      {
+        test: /\.ts?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
   output: {
-    filename: "bundle.js", // output filename
-    path: path.resolve(__dirname, "dist"), // directory of where the bundle will be created at
+    filename: "bundle.js",
+    path: path.resolve(__dirname, "dist"),
     library: {
       name: "helios",
       type: "umd",
