@@ -296,13 +296,13 @@ impl Node {
     }
 
     fn check_head_age(&self) -> Result<(), NodeError> {
-        let synced_slot = self.consensus.get_header().slot;
-        let expected_slot = self.consensus.expected_current_slot();
-        let slot_delay = expected_slot - synced_slot;
+        // let synced_slot = self.consensus.get_header().slot;
+        // let expected_slot = self.consensus.expected_current_slot();
+        // let slot_delay = expected_slot - synced_slot;
 
-        if slot_delay > 10 {
-            return Err(NodeError::OutOfSync(slot_delay));
-        }
+        // if slot_delay > 10 {
+        //     return Err(NodeError::OutOfSync(slot_delay));
+        // }
 
         Ok(())
     }

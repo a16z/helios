@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use common::errors::RpcError;
 use ethers::prelude::{Address, Http};
-use ethers::providers::{Middleware, Provider};
+use ethers::providers::{Middleware, Provider, RetryClient, HttpRateLimitRetryPolicy};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
@@ -16,7 +18,7 @@ use super::ExecutionRpc;
 
 pub struct HttpRpc {
     url: String,
-    provider: Provider<Http>,
+    provider: Provider<RetryClient<Http>>,
 }
 
 impl Clone for HttpRpc {
@@ -25,10 +27,16 @@ impl Clone for HttpRpc {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
-        let provider = Provider::try_from(rpc)?;
+        let http = Http::from_str(rpc)?;
+        let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 50);
+        client.set_compute_units(300);
+
+        let provider = Provider::new(client);
+
         Ok(HttpRpc {
             url: rpc.to_string(),
             provider,
