@@ -24,4 +24,6 @@ execution = { path = "./execution" }
 
 [patch.crates-io]
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "a525659f5dac7a80615f1981e70c87f87b6d7b92" }
-ssz-rs = { path = "../ssz-rs/ssz-rs" }
+
+[patch."https://github.com/ralexstokes/ssz-rs"]
+ssz-rs = { git = "https://github.com/ncitron/ssz-rs", branch = "fix-wasm" }

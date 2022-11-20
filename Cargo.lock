@@ -510,7 +510,7 @@ dependencies = [
  "reqwest",
  "revm",
  "serde",
- "ssz-rs 0.8.0 (git+https://github.com/ralexstokes/ssz-rs?rev=cb08f18ca919cc1b685b861d0fa9e2daabe89737)",
+ "ssz-rs",
  "thiserror",
  "tokio",
  "toml",
@@ -591,7 +591,7 @@ dependencies = [
  "eyre",
  "hex",
  "serde",
- "ssz-rs 0.8.0",
+ "ssz-rs",
  "thiserror",
 ]
 
@@ -605,7 +605,7 @@ dependencies = [
  "figment",
  "hex",
  "serde",
- "ssz-rs 0.8.0",
+ "ssz-rs",
  "thiserror",
 ]
 
@@ -626,7 +626,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "ssz-rs 0.8.0",
+ "ssz-rs",
  "thiserror",
  "toml",
 ]
@@ -1232,7 +1232,7 @@ dependencies = [
  "revm",
  "serde",
  "serde_json",
- "ssz-rs 0.8.0",
+ "ssz-rs",
  "thiserror",
  "toml",
  "triehash-ethereum",
@@ -3483,6 +3483,7 @@ dependencies = [
 [[package]]
 name = "ssz-rs"
 version = "0.8.0"
+source = "git+https://github.com/ncitron/ssz-rs?branch=fix-wasm#6c7b57fa87eef7ccadde8cd6f74b8f9301d12828"
 dependencies = [
  "bitvec 1.0.1",
  "hex",
@@ -3490,38 +3491,14 @@ dependencies = [
  "num-bigint",
  "serde",
  "sha2 0.9.9",
- "ssz-rs-derive 0.8.0",
- "thiserror",
-]
-
-[[package]]
-name = "ssz-rs"
-version = "0.8.0"
-source = "git+https://github.com/ralexstokes/ssz-rs?rev=cb08f18ca919cc1b685b861d0fa9e2daabe89737#cb08f18ca919cc1b685b861d0fa9e2daabe89737"
-dependencies = [
- "bitvec 1.0.1",
- "hex",
- "lazy_static",
- "num-bigint",
- "serde",
- "sha2 0.9.9",
- "ssz-rs-derive 0.8.0 (git+https://github.com/ralexstokes/ssz-rs?rev=cb08f18ca919cc1b685b861d0fa9e2daabe89737)",
+ "ssz-rs-derive",
  "thiserror",
 ]
 
 [[package]]
 name = "ssz-rs-derive"
 version = "0.8.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "ssz-rs-derive"
-version = "0.8.0"
-source = "git+https://github.com/ralexstokes/ssz-rs?rev=cb08f18ca919cc1b685b861d0fa9e2daabe89737#cb08f18ca919cc1b685b861d0fa9e2daabe89737"
+source = "git+https://github.com/ncitron/ssz-rs?branch=fix-wasm#6c7b57fa87eef7ccadde8cd6f74b8f9301d12828"
 dependencies = [
  "proc-macro2",
  "quote",
