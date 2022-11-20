@@ -1,5 +1,5 @@
 ## Dependencies
-Building requires [emcc](https://emscripten.org/)
+Building requires [emcc](https://emscripten.org/) and [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
 
 Testing in the browser with `run.sh` requires [local-cors-proxy](https://www.npmjs.com/package/local-cors-proxy) and [simple-http-server](https://crates.io/crates/simple-http-server)
 
