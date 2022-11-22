@@ -5,7 +5,7 @@ extern crate console_error_panic_hook;
 extern crate web_sys;
 
 use config::{networks, Config};
-use consensus::{rpc::nimbus_rpc::NimbusRpc, ConsensusClient, types::ExecutionPayload};
+use consensus::{rpc::nimbus_rpc::NimbusRpc, types::ExecutionPayload, ConsensusClient};
 use ethers::types::Address;
 use execution::{rpc::http_rpc::HttpRpc, ExecutionClient};
 use wasm_bindgen::prelude::*;
@@ -70,7 +70,11 @@ impl Node {
 
     async fn update_payloads(&mut self) {
         let header = self.consensus.get_header();
-        let payload = self.consensus.get_execution_payload(&Some(header.slot)).await.unwrap();
+        let payload = self
+            .consensus
+            .get_execution_payload(&Some(header.slot))
+            .await
+            .unwrap();
         self.payloads.push(payload);
     }
 
@@ -98,7 +102,12 @@ impl Node {
         let payload = self.payloads.last().unwrap();
 
         let addr = Address::from_str(addr).unwrap();
-        let code = self.execution.get_account(&addr, None, &payload).await.unwrap().code;
+        let code = self
+            .execution
+            .get_account(&addr, None, &payload)
+            .await
+            .unwrap()
+            .code;
 
         format!("0x{}", hex::encode(code))
     }
