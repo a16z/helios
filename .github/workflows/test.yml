@@ -17,6 +17,13 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -31,6 +38,13 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -47,6 +61,13 @@ jobs:
           toolchain: nightly
           override: true
       - run: rustup component add rustfmt
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
