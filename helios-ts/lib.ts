@@ -27,5 +27,9 @@ export class Client {
   async getCode(addr: string, block: BlockTag = "latest"): Promise<string> {
     return await this.#node.get_code(addr, block.toString());
   }
+
+  async getNonce(addr: string, block: BlockTag = "latest"): Promise<number> {
+    return await this.#node.get_nonce(addr, block.toString());
+  }
 }
 

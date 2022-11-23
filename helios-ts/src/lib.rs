@@ -112,6 +112,21 @@ impl Node {
         format!("0x{}", hex::encode(code))
     }
 
+    #[wasm_bindgen]
+    pub async fn get_nonce(&self, addr: &str, block: &str) -> u32 {
+        let payload = self.get_payload(block);
+
+        let addr = Address::from_str(addr).unwrap();
+        let nonce = self
+            .execution
+            .get_account(&addr, None, &payload)
+            .await
+            .unwrap()
+            .nonce;
+
+        nonce as u32
+    }
+
     fn get_payload(&self, block: &str) -> ExecutionPayload {
         let num = self.decode_block(block);
         self.payloads
