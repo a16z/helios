@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use std::sync::Arc;
+use std::{collections::BTreeMap, str::FromStr};
 
 extern crate console_error_panic_hook;
 extern crate web_sys;
@@ -21,7 +21,7 @@ macro_rules! log {
 pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient<HttpRpc>,
-    payloads: Vec<ExecutionPayload>,
+    payloads: BTreeMap<u64, ExecutionPayload>,
 }
 
 #[wasm_bindgen]
@@ -52,7 +52,7 @@ impl Node {
         Self {
             consensus,
             execution,
-            payloads: vec![],
+            payloads: BTreeMap::new(),
         }
     }
 
@@ -75,12 +75,18 @@ impl Node {
             .get_execution_payload(&Some(header.slot))
             .await
             .unwrap();
-        self.payloads.push(payload);
+
+        self.payloads.insert(payload.block_number, payload);
+
+        while self.payloads.len() > 64 {
+            self.payloads.pop_first();
+        }
     }
 
     #[wasm_bindgen]
     pub async fn get_block_number(&self) -> u32 {
-        return self.payloads.last().unwrap().block_number as u32;
+        let payload = self.payloads.last_key_value().unwrap().1;
+        payload.block_number as u32
     }
 
     #[wasm_bindgen]
@@ -128,20 +134,11 @@ impl Node {
     }
 
     fn get_payload(&self, block: &str) -> ExecutionPayload {
-        let num = self.decode_block(block);
-        self.payloads
-            .iter()
-            .filter(|p| p.block_number == num)
-            .next()
-            .unwrap()
-            .clone()
-    }
-
-    fn decode_block(&self, block: &str) -> u64 {
         if block == "latest" {
-            self.payloads.last().unwrap().block_number
+            self.payloads.last_key_value().unwrap().1.clone()
         } else {
-            block.parse().unwrap()
+            let num = block.parse().unwrap();
+            self.payloads.get(&num).unwrap().clone()
         }
     }
 }
