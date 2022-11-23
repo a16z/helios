@@ -84,8 +84,8 @@ impl Node {
     }
 
     #[wasm_bindgen]
-    pub async fn get_balance(&self, addr: &str) -> String {
-        let payload = self.payloads.last().unwrap();
+    pub async fn get_balance(&self, addr: &str, block: &str) -> String {
+        let payload = self.get_payload(block);
 
         let addr = Address::from_str(addr).unwrap();
         let account = self
@@ -98,8 +98,8 @@ impl Node {
     }
 
     #[wasm_bindgen]
-    pub async fn get_code(&self, addr: &str) -> String {
-        let payload = self.payloads.last().unwrap();
+    pub async fn get_code(&self, addr: &str, block: &str) -> String {
+        let payload = self.get_payload(block);
 
         let addr = Address::from_str(addr).unwrap();
         let code = self
@@ -110,5 +110,23 @@ impl Node {
             .code;
 
         format!("0x{}", hex::encode(code))
+    }
+
+    fn get_payload(&self, block: &str) -> ExecutionPayload {
+        let num = self.decode_block(block);
+        self.payloads
+            .iter()
+            .filter(|p| p.block_number == num)
+            .next()
+            .unwrap()
+            .clone()
+    }
+
+    fn decode_block(&self, block: &str) -> u64 {
+        if block == "latest" {
+            self.payloads.last().unwrap().block_number
+        } else {
+            block.parse().unwrap()
+        }
     }
 }

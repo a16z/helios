@@ -1,6 +1,7 @@
 import { BigNumber } from "ethers";
 import { Node } from "./pkg";
 
+export type BlockTag = "latest" | number;
 
 export class Client {
   #node
@@ -14,17 +15,17 @@ export class Client {
     setInterval(async () => await this.#node.advance(), 12_000);
   }
 
-  async getBalance(addr: string): Promise<BigNumber> {
-    let balance = await this.#node.get_balance(addr);
-    return BigNumber.from(balance);
-  }
-
   async getBlockNumber(): Promise<number> {
     return await this.#node.get_block_number();
   }
 
-  async getCode(addr: string): Promise<string> {
-    return await this.#node.get_code(addr);
+  async getBalance(addr: string, block: BlockTag = "latest"): Promise<BigNumber> {
+    let balance = await this.#node.get_balance(addr, block.toString());
+    return BigNumber.from(balance);
+  }
+
+  async getCode(addr: string, block: BlockTag = "latest"): Promise<string> {
+    return await this.#node.get_code(addr, block.toString());
   }
 }
 
