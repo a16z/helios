@@ -43,7 +43,7 @@ All configuration options can be set on a per-network level in `~/.helios/helios
 ```toml
 [mainnet]
 consensus_rpc = "https://www.lightclientdata.org"
-execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX" //or https://api.zmok.io/mainnet/XXXXXXX
+execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
 
 [goerli]
