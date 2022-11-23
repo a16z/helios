@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber, Transaction } from "ethers";
 import { Node } from "./pkg";
 
 export type BlockTag = "latest" | number;
@@ -30,6 +30,26 @@ export class Client {
 
   async getNonce(addr: string, block: BlockTag = "latest"): Promise<number> {
     return await this.#node.get_nonce(addr, block.toString());
+  }
+
+  async getTransaction(hash: string): Promise<Transaction>  {
+    let tx = await this.#node.get_transaction_by_hash(hash);
+    return {
+      hash: tx.hash,
+      to: tx.to,
+      from: tx.from,
+      nonce: tx.nonce,
+      gasLimit: BigNumber.from(tx.gas_limit),
+      data: tx.data,
+      value: BigNumber.from(tx.value),
+      chainId: tx.chain_id,
+      gasPrice: tx.gas_price ? BigNumber.from(tx.gas_price) : null, 
+      maxFeePerGas: tx.max_fee_per_gas ? BigNumber.from(tx.max_fee_per_gas) : null,
+      maxPriorityFeePerGas: tx.max_priority_fee_per_gas ? BigNumber.from(tx.max_priority_fee_per_gas): null,
+      r: tx.r,
+      s: tx.s,
+      v: parseInt(tx.v),
+    }
   }
 }
 

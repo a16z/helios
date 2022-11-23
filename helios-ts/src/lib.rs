@@ -6,7 +6,7 @@ extern crate web_sys;
 
 use config::{networks, Config};
 use consensus::{rpc::nimbus_rpc::NimbusRpc, types::ExecutionPayload, ConsensusClient};
-use ethers::types::Address;
+use ethers::types::{Address, Transaction as EthersTransaction, H256};
 use execution::{rpc::http_rpc::HttpRpc, ExecutionClient};
 use wasm_bindgen::prelude::*;
 
@@ -22,6 +22,7 @@ pub struct Node {
     consensus: ConsensusClient<NimbusRpc>,
     execution: ExecutionClient<HttpRpc>,
     payloads: BTreeMap<u64, ExecutionPayload>,
+    config: Arc<Config>,
 }
 
 #[wasm_bindgen]
@@ -31,7 +32,7 @@ impl Node {
         console_error_panic_hook::set_once();
 
         let base = networks::mainnet();
-        let config = Config {
+        let config = Arc::new(Config {
             checkpoint: base.checkpoint.clone(),
             consensus_rpc: consensus_rpc.to_string(),
             rpc_port: None,
@@ -41,10 +42,10 @@ impl Node {
             max_checkpoint_age: u64::MAX,
             chain: base.chain,
             forks: base.forks,
-        };
+        });
 
         let consensus =
-            ConsensusClient::<NimbusRpc>::new(&consensus_rpc, &base.checkpoint, Arc::new(config))
+            ConsensusClient::<NimbusRpc>::new(&consensus_rpc, &base.checkpoint, config.clone())
                 .unwrap();
 
         let execution = ExecutionClient::<HttpRpc>::new(execution_rpc).unwrap();
@@ -53,6 +54,7 @@ impl Node {
             consensus,
             execution,
             payloads: BTreeMap::new(),
+            config,
         }
     }
 
@@ -81,6 +83,11 @@ impl Node {
         while self.payloads.len() > 64 {
             self.payloads.pop_first();
         }
+    }
+
+    #[wasm_bindgen]
+    pub async fn chain_id(&self) -> u32 {
+        self.config.chain.chain_id as u32
     }
 
     #[wasm_bindgen]
@@ -133,12 +140,122 @@ impl Node {
         nonce as u32
     }
 
+    #[wasm_bindgen]
+    pub async fn get_transaction_by_hash(&self, hash: &str) -> Option<Transaction> {
+        let hash = H256::from_str(hash).unwrap();
+        self.execution
+            .get_transaction(&hash, &self.payloads)
+            .await
+            .unwrap()
+            .map(|tx| Transaction::from_ethers(tx))
+    }
+
     fn get_payload(&self, block: &str) -> ExecutionPayload {
         if block == "latest" {
             self.payloads.last_key_value().unwrap().1.clone()
         } else {
             let num = block.parse().unwrap();
             self.payloads.get(&num).unwrap().clone()
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub struct Transaction {
+    hash: String,
+    to: String,
+    from: String,
+    value: String,
+    pub nonce: u32,
+    gas_limit: String,
+    gas_price: Option<String>,
+    max_fee_per_gas: Option<String>,
+    max_priority_fee_per_gas: Option<String>,
+    data: String,
+    r: String,
+    s: String,
+    v: String,
+    pub chain_id: u32,
+}
+
+#[wasm_bindgen]
+impl Transaction {
+    #[wasm_bindgen(getter)]
+    pub fn hash(&self) -> String {
+        self.hash.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn to(&self) -> String {
+        self.to.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn from(&self) -> String {
+        self.from.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn value(&self) -> String {
+        self.value.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn gas_limit(&self) -> String {
+        self.gas_limit.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn gas_price(&self) -> Option<String> {
+        self.gas_price.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn max_fee_per_gas(&self) -> Option<String> {
+        self.max_fee_per_gas.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn max_priority_fee_per_gas(&self) -> Option<String> {
+        self.max_priority_fee_per_gas.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn data(&self) -> String {
+        self.data.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn r(&self) -> String {
+        self.r.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn s(&self) -> String {
+        self.s.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn v(&self) -> String {
+        self.v.clone()
+    }
+
+    fn from_ethers(tx: EthersTransaction) -> Self {
+        Self {
+            hash: tx.hash.to_string(),
+            to: tx.to.unwrap().to_string(),
+            from: tx.from.to_string(),
+            value: tx.value.to_string(),
+            nonce: tx.nonce.as_u32(),
+            gas_limit: tx.gas.to_string(),
+            gas_price: tx.gas_price.map(|g| g.to_string()),
+            max_fee_per_gas: tx.max_fee_per_gas.map(|g| g.to_string()),
+            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.map(|g| g.to_string()),
+            data: tx.input.to_string(),
+            r: tx.r.to_string(),
+            s: tx.s.to_string(),
+            v: tx.v.to_string(),
+            chain_id: tx.chain_id.unwrap().as_u32(),
         }
     }
 }
