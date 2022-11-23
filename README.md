@@ -15,12 +15,12 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 To install Helios, run `heliosup`.
 
 ## Usage
-To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy or Infura:
+To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy, Infura or ZMOK:
 ```
 helios --execution-rpc $ETH_RPC_URL
 ```
 
-`$ETH_RPC_URL` must be an Ethereum provider that supports the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy.
+`$ETH_RPC_URL` must be an Ethereum provider that supports the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy or [ZMOK](https://zmok.io/).
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
@@ -43,7 +43,7 @@ All configuration options can be set on a per-network level in `~/.helios/helios
 ```toml
 [mainnet]
 consensus_rpc = "https://www.lightclientdata.org"
-execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
+execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX" //or https://api.zmok.io/mainnet/XXXXXXX
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
 
 [goerli]
