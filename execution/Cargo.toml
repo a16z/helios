@@ -14,7 +14,7 @@ hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
 blst = "0.3.10"
 ethers = "1.0.0"
-revm = { version = "2.3", default-features = false, features = ["std", "k256", "with-serde"] }
+revm = "2.3.1"
 bytes = "1.2.1"
 futures = "0.3.23"
 toml = "0.5.9"
