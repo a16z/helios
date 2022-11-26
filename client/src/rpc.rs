@@ -1,6 +1,6 @@
 use ethers::{
     abi::AbiEncode,
-    types::{Address, Filter, Log, Transaction, TransactionReceipt, H256},
+    types::{Address, Filter, Log, Transaction, TransactionReceipt, H256, U256},
 };
 use eyre::Result;
 use log::info;
@@ -115,7 +115,7 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
         let balance = convert_err(node.get_balance(&address, block).await)?;
 
-        Ok(balance.encode_hex())
+        Ok(format_hex(&balance))
     }
 
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -123,7 +123,7 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
         let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
-        Ok(nonce.encode_hex())
+        Ok(format!("0x{:x}", nonce))
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -164,13 +164,13 @@ impl EthRpcServer for RpcInner {
     async fn gas_price(&self) -> Result<String, Error> {
         let node = self.node.read().await;
         let gas_price = convert_err(node.get_gas_price())?;
-        Ok(gas_price.encode_hex())
+        Ok(format_hex(&gas_price))
     }
 
     async fn max_priority_fee_per_gas(&self) -> Result<String, Error> {
         let node = self.node.read().await;
         let tip = convert_err(node.get_priority_fee())?;
-        Ok(tip.encode_hex())
+        Ok(format_hex(&tip))
     }
 
     async fn block_number(&self) -> Result<String, Error> {
@@ -257,4 +257,15 @@ async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
 
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
     res.map_err(|err| Error::Custom(err.to_string()))
+}
+
+fn format_hex(num: &U256) -> String {
+    let stripped = num
+        .encode_hex()
+        .strip_prefix("0x")
+        .unwrap()
+        .trim_start_matches("0")
+        .to_string();
+
+    format!("0x{}", stripped)
 }
