@@ -43,7 +43,7 @@ impl ExecutionRpc for MockRpc {
         hex_str_to_bytes(&code[0..code.len() - 1])
     }
 
-    async fn send_raw_transaction(&self, _bytes: &Vec<u8>) -> Result<H256> {
+    async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<H256> {
         Err(eyre!("not implemented"))
     }
 

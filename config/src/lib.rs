@@ -53,7 +53,7 @@ impl Config {
             Err(err) => {
                 match err.kind {
                     figment::error::Kind::MissingField(field) => {
-                        let field = field.replace("_", "-");
+                        let field = field.replace('_', "-");
 
                         println!(
                             "\x1b[91merror\x1b[0m: missing configuration field: {}",
@@ -94,7 +94,7 @@ impl Config {
             checkpoint: self.checkpoint.clone(),
             chain: self.chain.clone(),
             forks: self.forks.clone(),
-            max_checkpoint_age: self.max_checkpoint_age.clone(),
+            max_checkpoint_age: self.max_checkpoint_age,
         }
     }
 }

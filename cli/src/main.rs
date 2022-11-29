@@ -90,7 +90,7 @@ struct Cli {
 impl Cli {
     fn as_cli_config(&self) -> CliConfig {
         let checkpoint = match &self.checkpoint {
-            Some(checkpoint) => Some(hex_str_to_bytes(&checkpoint).expect("invalid checkpoint")),
+            Some(checkpoint) => Some(hex_str_to_bytes(checkpoint).expect("invalid checkpoint")),
             None => self.get_cached_checkpoint(),
         };
 

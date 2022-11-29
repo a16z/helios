@@ -78,7 +78,7 @@ impl fmt::Debug for CallOpts {
             .field("from", &self.from)
             .field("to", &self.to)
             .field("value", &self.value)
-            .field("data", &hex::encode(&self.data.clone().unwrap_or_default()))
+            .field("data", &hex::encode(self.data.clone().unwrap_or_default()))
             .finish()
     }
 }

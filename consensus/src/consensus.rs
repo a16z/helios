@@ -44,7 +44,7 @@ struct LightClientStore {
 impl<R: ConsensusRpc> ConsensusClient<R> {
     pub fn new(
         rpc: &str,
-        checkpoint_block_root: &Vec<u8>,
+        checkpoint_block_root: &[u8],
         config: Arc<Config>,
     ) -> Result<ConsensusClient<R>> {
         let rpc = R::new(rpc);
@@ -54,13 +54,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             store: LightClientStore::default(),
             last_checkpoint: None,
             config,
-            initial_checkpoint: checkpoint_block_root.clone(),
+            initial_checkpoint: checkpoint_block_root.to_vec(),
         })
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
-        let mut block = self.rpc.get_block(slot).await?.clone();
+        let mut block = self.rpc.get_block(slot).await?;
         let block_hash = block.hash_tree_root()?;
 
         let latest_slot = self.store.optimistic_header.slot;
@@ -102,8 +102,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await?;
 
-        for mut update in updates {
-            self.verify_update(&mut update)?;
+        for update in updates {
+            self.verify_update(&update)?;
             self.apply_update(&update);
         }
 
@@ -133,12 +133,12 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
-                let mut update = updates.get_mut(0).unwrap();
-                let res = self.verify_update(&mut update);
+                let update = updates.get_mut(0).unwrap();
+                let res = self.verify_update(update);
 
                 if res.is_ok() {
                     info!("updating sync committee");
-                    self.apply_update(&update);
+                    self.apply_update(update);
                 }
             }
         }
@@ -427,13 +427,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     fn verify_sync_committee_signture(
         &self,
-        pks: &Vec<PublicKey>,
+        pks: &[PublicKey],
         attested_header: &Header,
         signature: &SignatureBytes,
         signature_slot: u64,
     ) -> bool {
         let res: Result<bool> = (move || {
-            let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+            let pks: Vec<&PublicKey> = pks.iter().collect();
             let header_root =
                 bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_bytes());
             let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
@@ -519,7 +519,7 @@ fn get_participating_keys(
     bitfield.iter().enumerate().for_each(|(i, bit)| {
         if bit == true {
             let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes(&pk).unwrap();
+            let pk = PublicKey::from_bytes(pk).unwrap();
             pks.push(pk);
         }
     });
@@ -541,7 +541,7 @@ fn get_bits(bitfield: &Bitvector<512>) -> u64 {
 fn is_finality_proof_valid(
     attested_header: &Header,
     finality_header: &mut Header,
-    finality_branch: &Vec<Bytes32>,
+    finality_branch: &[Bytes32],
 ) -> bool {
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
@@ -549,7 +549,7 @@ fn is_finality_proof_valid(
 fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
-    next_committee_branch: &Vec<Bytes32>,
+    next_committee_branch: &[Bytes32],
 ) -> bool {
     is_proof_valid(
         attested_header,
@@ -563,7 +563,7 @@ fn is_next_committee_proof_valid(
 fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
-    current_committee_branch: &Vec<Bytes32>,
+    current_committee_branch: &[Bytes32],
 ) -> bool {
     is_proof_valid(
         attested_header,
@@ -620,8 +620,8 @@ mod tests {
             .await
             .unwrap();
 
-        let mut update = updates[0].clone();
-        client.verify_update(&mut update).unwrap();
+        let update = updates[0].clone();
+        client.verify_update(&update).unwrap();
     }
 
     #[tokio::test]
@@ -637,7 +637,7 @@ mod tests {
         let mut update = updates[0].clone();
         update.next_sync_committee.pubkeys[0] = Vector::default();
 
-        let err = client.verify_update(&mut update).err().unwrap();
+        let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidNextSyncCommitteeProof.to_string()

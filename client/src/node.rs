@@ -117,7 +117,7 @@ impl Node {
         let payload = self.get_payload(block)?;
         let mut evm = Evm::new(
             self.execution.clone(),
-            &payload,
+            payload,
             &self.payloads,
             self.chain_id(),
         );
@@ -130,7 +130,7 @@ impl Node {
         let payload = self.get_payload(BlockTag::Latest)?;
         let mut evm = Evm::new(
             self.execution.clone(),
-            &payload,
+            payload,
             &self.payloads,
             self.chain_id(),
         );
@@ -143,7 +143,7 @@ impl Node {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, payload).await?;
+        let account = self.execution.get_account(address, None, payload).await?;
         Ok(account.balance)
     }
 
@@ -151,7 +151,7 @@ impl Node {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, payload).await?;
+        let account = self.execution.get_account(address, None, payload).await?;
         Ok(account.nonce)
     }
 
@@ -159,7 +159,7 @@ impl Node {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
-        let account = self.execution.get_account(&address, None, payload).await?;
+        let account = self.execution.get_account(address, None, payload).await?;
         Ok(account.code)
     }
 
@@ -179,7 +179,7 @@ impl Node {
         }
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
+    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
         self.execution.send_raw_transaction(bytes).await
     }
 
@@ -233,11 +233,7 @@ impl Node {
         self.check_blocktag_age(&block)?;
 
         match self.get_payload(block) {
-            Ok(payload) => self
-                .execution
-                .get_block(payload, full_tx)
-                .await
-                .map(|b| Some(b)),
+            Ok(payload) => self.execution.get_block(payload, full_tx).await.map(Some),
             Err(_) => Ok(None),
         }
     }
@@ -257,7 +253,7 @@ impl Node {
             self.execution
                 .get_block(payload_entry.1, full_tx)
                 .await
-                .map(|b| Some(b))
+                .map(Some)
         } else {
             Ok(None)
         }
@@ -290,7 +286,7 @@ impl Node {
             }
             BlockTag::Number(num) => {
                 let payload = self.payloads.get(&num);
-                payload.ok_or(BlockNotFoundError::new(BlockTag::Number(num)).into())
+                payload.ok_or(BlockNotFoundError::new(BlockTag::Number(num)))
             }
         }
     }
