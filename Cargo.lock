@@ -1207,7 +1207,6 @@ name = "execution"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "blst",
  "bytes",
  "common",
  "consensus",
