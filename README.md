@@ -8,6 +8,7 @@ Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable 
 The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
 ## Installing
+
 First install `heliosup`, Helios's installer:
 ```
 curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bash
@@ -15,6 +16,7 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 To install Helios, run `heliosup`.
 
 ## Usage
+
 To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy or Infura:
 ```
 helios --execution-rpc $ETH_RPC_URL
@@ -25,9 +27,11 @@ helios --execution-rpc $ETH_RPC_URL
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 ### Warning
+
 Helios is still experimental software. While we hope you try it out, we do not suggest adding it as your main RPC in wallets yet. Sending high-value transactions from a wallet connected to Helios is discouraged.
 
 ### Additional Options
+
 `--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consenus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
@@ -38,7 +42,14 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 `--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
+`--checkpoint-fallback` or `-f` sets the checkpoint fallback url. This is only used if the checkpoint provided by the `--checkpoint` flag is too outdated for Helios to use to sync. If none is provided and the `--load-checkpoint-fallback` flag is not set, Helios will error.
+
+`--load-checkpoint-fallback` or `-l` enables weak subjectivity checkpoint fallback. For example, say you set a checkpoint value that is too outdated and Helios cannot sync to it. If this flag is set, Helios will query all network apis in the community-maintained list at [ethpandaops/checkpoint-synz-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml) for their latest slots. The list of slots is filtered for healthy apis and the most frequent checkpoint occuring in the latest epoch will be returned. Note: this is a community-maintained list and thus no security guarantees are provided. Use this is a last resort if your checkpoint passed into `--checkpoint` fails. This is not recommened as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
+
+`--help` or `-h` prints the help message.
+
 ### Configuration Files
+
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
 ```toml
 [mainnet]
@@ -53,6 +64,7 @@ checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495
 ```
 
 ### Using Helios as a Library
+
 Helios can be imported into any Rust project. Helios requires the Rust nightly toolchain to compile.
 
 ```rust
@@ -83,6 +95,33 @@ async fn main() -> Result<()> {
     println!("balance of deposit contract: {}", utils::format_ether(balance));
 
     Ok(())
+}
+```
+
+Below we demonstrate fetching checkpoints from the community-maintained list of checkpoint sync apis maintained by [ethPandaOps](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
+
+> **Warning**
+>
+> This is a community-maintained list and thus no security guarantees are provided. Attacks on your light client can occur if malicious checkpoints are set in the list. Please use the explicit `checkpoint` flag, environment variable, or config setting with an updated, and verified checkpoint.
+
+```rust
+use eyre::Result;
+use helios::config::checkpoints;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Construct the checkpoint fallback services
+    let mut list = checkpoints::CheckpointFallbackList::new();
+    list.construct().await.unwrap();
+
+    // Fetch the latest goerli checkpoint
+    let goerli_checkpoint = list.fetch_latest_goerli_checkpoint().await.unwrap();
+    println!("Fetched latest goerli checkpoint: {}", goerli_checkpoint);
+
+    // Fetch the latest mainnet checkpoint
+    let mainnet_checkpoint = list.fetch_latest_goerli_checkpoint().await.unwrap();
+    println!("Fetched latest mainnet checkpoint: {}", mainnet_checkpoint);
+
 }
 ```
 

@@ -54,6 +54,9 @@ impl Node {
     }
 
     pub async fn sync(&mut self) -> Result<(), NodeError> {
+        // TODO: if this errors with ConsensusError::CheckpointTooOld.into()
+        // TODO: we need to switch the checkpoint to the fallback if configured,
+        // TODO: otherwise, error
         self.consensus
             .sync()
             .await

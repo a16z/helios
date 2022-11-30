@@ -164,6 +164,9 @@ impl<DB: Database> Client<DB> {
             rpc.start().await?;
         }
 
+        // TODO: node will error here when calling consensus getting ConsensusError::CheckpointTooOld.into()
+        // TODO: we need to use the fallback checkpoint if we see this error
+        // TODO: if none is provided or the fallback also fails, we should error here
         let res = self.node.write().await.sync().await;
         if let Err(err) = res {
             warn!("consensus error: {}", err);

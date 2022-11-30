@@ -11,6 +11,8 @@ pub struct CliConfig {
     pub checkpoint: Option<Vec<u8>>,
     pub rpc_port: Option<u16>,
     pub data_dir: PathBuf,
+    pub checkpoint_fallback: Option<String>,
+    pub load_checkpoint_fallback: bool,
 }
 
 impl CliConfig {
@@ -34,6 +36,18 @@ impl CliConfig {
         }
 
         user_dict.insert("data_dir", Value::from(self.data_dir.to_str().unwrap()));
+
+        if let Some(checkpoint_fallback) = &self.checkpoint_fallback {
+            user_dict.insert(
+                "checkpoint_fallback",
+                Value::from(checkpoint_fallback.clone()),
+            );
+        }
+
+        user_dict.insert(
+            "load_checkpoint_fallback",
+            Value::from(self.load_checkpoint_fallback),
+        );
 
         Serialized::from(user_dict, network)
     }

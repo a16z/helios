@@ -85,6 +85,10 @@ struct Cli {
     consensus_rpc: Option<String>,
     #[clap(short, long, env)]
     data_dir: Option<String>,
+    #[clap(short = 'f', long, env)]
+    checkpoint_fallback: Option<String>,
+    #[clap(short = 'z', long, env)]
+    load_checkpoint_fallback: bool,
 }
 
 impl Cli {
@@ -100,6 +104,8 @@ impl Cli {
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self.get_data_dir(),
             rpc_port: self.rpc_port,
+            checkpoint_fallback: self.checkpoint_fallback.clone(),
+            load_checkpoint_fallback: self.load_checkpoint_fallback,
         }
     }
 

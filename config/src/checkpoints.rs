@@ -19,8 +19,8 @@ pub struct RawSlotResponseData {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Slot {
     pub slot: u64,
-    pub block_root: H256,
-    pub state_root: H256,
+    pub block_root: Option<H256>,
+    pub state_root: Option<H256>,
     pub epoch: u64,
     pub time: StartEndTime,
 }
@@ -28,9 +28,9 @@ pub struct Slot {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartEndTime {
     /// An ISO 8601 formatted UTC timestamp.
-    pub start: String,
+    pub start_time: String,
     /// An ISO 8601 formatted UTC timestamp.
-    pub end: u64,
+    pub end_time: String,
 }
 
 /// A health check for the checkpoint sync service.
@@ -115,12 +115,19 @@ impl CheckpointFallbackList {
         // TODO: We can execute this in parallel and collect results into a slots vector.
         for service in services.iter() {
             let constructed_url = Self::construct_url(&service.endpoint);
-            let res = client.get(&constructed_url).send().await?;
-            let raw: RawSlotResponse = res.json().await?;
-            if raw.data.slots.is_empty() {
+            let res = client.get(&constructed_url).send().await;
+            if res.is_err() {
                 continue;
             }
-            slots.push(raw.data.slots[0].clone());
+            let raw: Result<RawSlotResponse, _> = res?.json().await;
+            if raw.is_err() {
+                continue;
+            }
+            let raw_slot_response = raw?;
+            if raw_slot_response.data.slots.is_empty() {
+                continue;
+            }
+            slots.push(raw_slot_response.data.slots[0].clone());
         }
 
         // Get the max epoch
@@ -137,7 +144,10 @@ impl CheckpointFallbackList {
             .collect::<Vec<_>>();
 
         // Return the most commonly verified checkpoint.
-        let checkpoints = slots.iter().map(|x| x.state_root).collect::<Vec<_>>();
+        let checkpoints = slots
+            .iter()
+            .filter_map(|x| x.state_root)
+            .collect::<Vec<_>>();
         let mut m: HashMap<H256, usize> = HashMap::new();
         for c in checkpoints {
             *m.entry(c).or_default() += 1;
