@@ -14,3 +14,8 @@ figment = { version = "0.10.7", features = ["toml", "env"] }
 thiserror = "1.0.37"
 
 common = { path = "../common" }
+reqwest = "0.11.13"
+serde_yaml = "0.9.14"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
