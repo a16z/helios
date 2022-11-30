@@ -264,7 +264,7 @@ fn format_hex(num: &U256) -> String {
         .encode_hex()
         .strip_prefix("0x")
         .unwrap()
-        .trim_start_matches("0")
+        .trim_start_matches('0')
         .to_string();
 
     format!("0x{}", stripped)

@@ -492,10 +492,8 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "blst",
- "bytes",
  "common",
  "config",
  "consensus",
@@ -506,14 +504,10 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "log",
- "openssl",
- "reqwest",
- "revm",
  "serde",
  "ssz-rs",
  "thiserror",
  "tokio",
- "toml",
 ]
 
 [[package]]
@@ -1213,7 +1207,6 @@ name = "execution"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "blst",
  "bytes",
  "common",
  "consensus",
@@ -1646,7 +1639,7 @@ checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
 
 [[package]]
 name = "helios"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "client",
  "common",

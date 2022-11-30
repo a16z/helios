@@ -44,4 +44,4 @@ fi
 TARBALL_URL="https://github.com/$REPO/releases/download/${TAG}/${NAME}_${PLATFORM}_${ARCHITECTURE}.tar.gz"
 curl -L $TARBALL_URL | tar -xzC $BIN_DIR
 
-echo "Installed $NAME" 
+echo "Installed $NAME"

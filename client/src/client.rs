@@ -31,23 +31,16 @@ impl Client<FileDB> {
         let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
-        let rpc = if let Some(port) = config.rpc_port {
-            Some(Rpc::new(node.clone(), port))
-        } else {
-            None
-        };
+        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
 
         let data_dir = config.data_dir.clone();
-        let db = if let Some(dir) = data_dir {
-            Some(FileDB::new(dir))
-        } else {
-            None
-        };
+        let db = data_dir.map(FileDB::new);
 
         Ok(Client { node, rpc, db })
     }
 }
 
+#[derive(Default)]
 pub struct ClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<String>,
@@ -60,15 +53,7 @@ pub struct ClientBuilder {
 
 impl ClientBuilder {
     pub fn new() -> Self {
-        Self {
-            network: None,
-            consensus_rpc: None,
-            execution_rpc: None,
-            checkpoint: None,
-            rpc_port: None,
-            data_dir: None,
-            config: None,
-        }
+        Self::default()
     }
 
     pub fn network(mut self, network: Network) -> Self {
@@ -249,7 +234,7 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_storage_at(address, slot).await
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
+    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
         self.node.read().await.send_raw_transaction(bytes).await
     }
 

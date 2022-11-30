@@ -92,8 +92,8 @@ impl ExecutionRpc for HttpRpc {
         Ok(code.to_vec())
     }
 
-    async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
-        let bytes = Bytes::from(bytes.as_slice().to_owned());
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
+        let bytes = Bytes::from(bytes.to_owned());
         let tx = self
             .provider
             .send_raw_transaction(bytes)

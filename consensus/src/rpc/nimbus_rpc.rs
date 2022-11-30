@@ -31,7 +31,7 @@ impl ConsensusRpc for NimbusRpc {
         }
     }
 
-    async fn get_bootstrap(&self, block_root: &Vec<u8>) -> Result<Bootstrap> {
+    async fn get_bootstrap(&self, block_root: &'_ [u8]) -> Result<Bootstrap> {
         let root_hex = hex::encode(block_root);
         let req = format!(
             "{}/eth/v1/beacon/light_client/bootstrap/0x{}",

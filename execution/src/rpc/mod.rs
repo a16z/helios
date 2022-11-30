@@ -25,7 +25,7 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
 
     async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessList>;
     async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>>;
-    async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256>;
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256>;
     async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>>;
     async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;

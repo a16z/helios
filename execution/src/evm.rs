@@ -120,9 +120,8 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
             gas_price: opts.gas_price,
         };
 
-        let block_moved = block.clone();
         let mut list = rpc
-            .create_access_list(&opts_moved, block_moved)
+            .create_access_list(&opts_moved, block)
             .await
             .map_err(EvmError::RpcError)?
             .0;
@@ -148,7 +147,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
 
         let mut account_map = HashMap::new();
         for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
-            let account_chunk_futs = chunk.into_iter().map(|account| {
+            let account_chunk_futs = chunk.iter().map(|account| {
                 let account_fut = execution.get_account(
                     &account.address,
                     Some(account.storage_keys.as_slice()),
@@ -221,12 +220,11 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
 
     fn get_account(&mut self, address: Address, slots: &[H256]) -> Result<Account> {
         let execution = self.execution.clone();
-        let addr = address.clone();
         let payload = self.current_payload.clone();
         let slots = slots.to_owned();
 
         let handle = thread::spawn(move || {
-            let account_fut = execution.get_account(&addr, Some(&slots), &payload);
+            let account_fut = execution.get_account(&address, Some(&slots), &payload);
             let runtime = Runtime::new()?;
             runtime.block_on(account_fut)
         });
@@ -281,20 +279,18 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
 
         Ok(match self.accounts.get(&address) {
             Some(account) => match account.slots.get(&slot) {
-                Some(slot) => slot.clone(),
-                None => self
+                Some(slot) => *slot,
+                None => *self
                     .get_account(address, &[slot])?
                     .slots
                     .get(&slot)
-                    .unwrap()
-                    .clone(),
+                    .unwrap(),
             },
-            None => self
+            None => *self
                 .get_account(address, &[slot])?
                 .slots
                 .get(&slot)
-                .unwrap()
-                .clone(),
+                .unwrap(),
         })
     }
 

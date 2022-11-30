@@ -271,7 +271,7 @@ impl From<&Update> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.clone(),
+            signature_slot: update.signature_slot,
             next_sync_committee: Some(update.next_sync_committee.clone()),
             next_sync_committee_branch: Some(update.next_sync_committee_branch.clone()),
             finalized_header: Some(update.finalized_header.clone()),
@@ -285,7 +285,7 @@ impl From<&FinalityUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.clone(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: Some(update.finalized_header.clone()),
@@ -299,7 +299,7 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.clone(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: None,
@@ -322,14 +322,13 @@ where
     D: serde::Deserializer<'de>,
 {
     let keys: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(keys
-        .iter()
+    keys.iter()
         .map(|key| {
             let key_bytes = hex_str_to_bytes(key)?;
             Ok(Vector::from_iter(key_bytes))
         })
         .collect::<Result<Vector<BLSPubKey, 512>>>()
-        .map_err(D::Error::custom)?)
+        .map_err(D::Error::custom)
 }
 
 fn bytes_vector_deserialize<'de, D>(deserializer: D) -> Result<Vector<Bytes32, 33>, D::Error>
@@ -337,14 +336,14 @@ where
     D: serde::Deserializer<'de>,
 {
     let elems: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(elems
+    elems
         .iter()
         .map(|elem| {
             let elem_bytes = hex_str_to_bytes(elem)?;
             Ok(Vector::from_iter(elem_bytes))
         })
         .collect::<Result<Vector<Bytes32, 33>>>()
-        .map_err(D::Error::custom)?)
+        .map_err(D::Error::custom)
 }
 
 fn signature_deserialize<'de, D>(deserializer: D) -> Result<SignatureBytes, D::Error>
@@ -361,14 +360,14 @@ where
     D: serde::Deserializer<'de>,
 {
     let branch: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(branch
+    branch
         .iter()
         .map(|elem| {
             let elem_bytes = hex_str_to_bytes(elem)?;
             Ok(Vector::from_iter(elem_bytes))
         })
         .collect::<Result<_>>()
-        .map_err(D::Error::custom)?)
+        .map_err(D::Error::custom)
 }
 
 fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
