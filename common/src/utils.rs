@@ -1,8 +1,21 @@
-use ethers::prelude::Address;
+use ethers::{
+    abi::AbiEncode,
+    types::{Address, U256},
+};
 use eyre::Result;
 use ssz_rs::{Node, Vector};
 
 use super::types::Bytes32;
+
+pub fn format_hex(num: &U256) -> String {
+    let stripped = num
+        .encode_hex()
+        .strip_prefix("0x")
+        .unwrap()
+        .trim_start_matches('0')
+        .to_string();
+    format!("0x{}", stripped)
+}
 
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
     let stripped = s.strip_prefix("0x").unwrap_or(s);

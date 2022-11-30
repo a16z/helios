@@ -19,41 +19,22 @@ use crate::database::{Database, FileDB};
 use crate::node::Node;
 use crate::rpc::Rpc;
 
-pub struct Client<DB: Database> {
-    node: Arc<RwLock<Node>>,
-    rpc: Option<Rpc>,
-    db: Option<DB>,
-}
-
-impl Client<FileDB> {
-    fn new(config: Config) -> Result<Self> {
-        let config = Arc::new(config);
-        let node = Node::new(config.clone())?;
-        let node = Arc::new(RwLock::new(node));
-
-        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
-
-        let data_dir = config.data_dir.clone();
-        let db = data_dir.map(FileDB::new);
-
-        Ok(Client { node, rpc, db })
-    }
-}
-
 #[derive(Default)]
 pub struct ClientBuilder {
-    network: Option<Network>,
-    consensus_rpc: Option<String>,
-    execution_rpc: Option<String>,
-    checkpoint: Option<Vec<u8>>,
-    rpc_port: Option<u16>,
-    data_dir: Option<PathBuf>,
-    config: Option<Config>,
+    pub network: Option<Network>,
+    pub consensus_rpc: Option<String>,
+    pub execution_rpc: Option<String>,
+    pub checkpoint: Option<Vec<u8>>,
+    pub rpc_port: Option<u16>,
+    pub data_dir: Option<PathBuf>,
+    pub config: Option<Config>,
+    pub with_ws: bool,
+    pub with_http: bool,
 }
 
 impl ClientBuilder {
     pub fn new() -> Self {
-        Self::default()
+        Self::default().with_http(true)
     }
 
     pub fn network(mut self, network: Network) -> Self {
@@ -74,6 +55,34 @@ impl ClientBuilder {
     pub fn checkpoint(mut self, checkpoint: &str) -> Self {
         let checkpoint = hex::decode(checkpoint).expect("cannot parse checkpoint");
         self.checkpoint = Some(checkpoint);
+        self
+    }
+
+    /// Enables the client to serve a websocket connection.
+    ///
+    /// # Example
+    /// ```rust
+    /// let mut client_builder = client::ClientBuilder::new().with_ws(true);
+    /// assert_eq!(client_builder.with_ws, true);
+    /// client_builder = client_builder.with_ws(false);
+    /// assert_eq!(client_builder.with_ws, false);
+    /// ```
+    pub fn with_ws(mut self, option: bool) -> Self {
+        self.with_ws = option;
+        self
+    }
+
+    /// Enables the client to serve an http connection (enabled by default).
+    ///
+    /// # Example
+    /// ```rust
+    /// let mut client_builder = client::ClientBuilder::new();
+    /// assert_eq!(client_builder.with_http, true);
+    /// client_builder = client_builder.with_http(false);
+    /// assert_eq!(client_builder.with_http, false);
+    /// ```
+    pub fn with_http(mut self, option: bool) -> Self {
+        self.with_http = option;
         self
     }
 
@@ -152,16 +161,43 @@ impl ClientBuilder {
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
+            with_ws: self.with_ws,
+            with_http: self.with_http,
         };
 
         Client::new(config)
     }
 }
 
+pub struct Client<DB: Database> {
+    node: Arc<RwLock<Node>>,
+    rpc: Option<Rpc>,
+    db: Option<DB>,
+}
+
+impl Client<FileDB> {
+    fn new(config: Config) -> Result<Self> {
+        let config = Arc::new(config);
+        let node = Node::new(config.clone())?;
+        let node = Arc::new(RwLock::new(node));
+
+        let rpc = config
+            .rpc_port
+            .map(|port| Rpc::new(node.clone(), config.with_http, config.with_ws, port));
+
+        let data_dir = config.data_dir.clone();
+        let db = data_dir.map(FileDB::new);
+
+        Ok(Client { node, rpc, db })
+    }
+}
+
 impl<DB: Database> Client<DB> {
     pub async fn start(&mut self) -> Result<()> {
         if let Some(rpc) = &mut self.rpc {
-            rpc.start().await?;
+            // We can start both ws and http servers since they only run if enabled in the config.
+            rpc.start_ws().await?;
+            rpc.start_http().await?;
         }
 
         let res = self.node.write().await.sync().await;
