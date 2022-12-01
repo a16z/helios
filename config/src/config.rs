@@ -25,6 +25,8 @@ pub struct Config {
     pub chain: ChainConfig,
     pub forks: Forks,
     pub max_checkpoint_age: u64,
+    pub fallback: Option<String>,
+    pub load_external_fallback: bool,
 }
 
 impl Config {

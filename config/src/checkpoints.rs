@@ -146,7 +146,7 @@ impl CheckpointFallbackList {
         // Return the most commonly verified checkpoint.
         let checkpoints = slots
             .iter()
-            .filter_map(|x| x.state_root)
+            .filter_map(|x| x.block_root)
             .collect::<Vec<_>>();
         let mut m: HashMap<H256, usize> = HashMap::new();
         for c in checkpoints {
@@ -156,6 +156,19 @@ impl CheckpointFallbackList {
 
         // Return the most commonly verified checkpoint for the latest epoch.
         most_common.ok_or_else(|| "No checkpoint found".into())
+    }
+
+    /// Associated function to fetch the latest checkpoint from a specific checkpoint sync fallback
+    /// service api url.
+    pub async fn fetch_checkpoint_from_api(url: &str) -> Result<H256, Box<dyn std::error::Error>> {
+        // Fetch the url
+        let client = reqwest::Client::new();
+        let constructed_url = Self::construct_url(url);
+        let res = client.get(constructed_url).send().await?;
+        let raw: RawSlotResponse = res.json().await?;
+        let slot = raw.data.slots[0].clone();
+        slot.block_root
+            .ok_or_else(|| "Checkpoint not in returned slot".into())
     }
 
     /// Associated function to construct the checkpoint fallback service url.

@@ -94,6 +94,10 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn sync(&mut self) -> Result<()> {
+        info!(
+            "Consensus client in sync with checkpoint: {:?}",
+            hex::encode(&self.initial_checkpoint)
+        );
         self.bootstrap().await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
