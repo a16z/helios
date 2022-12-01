@@ -47,7 +47,7 @@ Helios is still experimental software. While we hope you try it out, we do not s
 `--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
 `--fallback` or `-f` sets the checkpoint fallback url (a string). This is only used if the checkpoint provided by the `--checkpoint` flag is too outdated for Helios to use to sync.
-If none is provided and the `--load-checkpoint-fallback` flag is not set, Helios will error.
+If none is provided and the `--load-external-fallback` flag is not set, Helios will error.
 For example, you can specify the fallback like so: `helios --fallback "https://sync-mainnet.beaconcha.in"` (or using shorthand like so: `helios -f "https://sync-mainnet.beaconcha.in"`)
 
 `--load-external-fallback` or `-l` enables weak subjectivity checkpoint fallback (no value needed).
