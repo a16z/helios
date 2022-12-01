@@ -27,6 +27,8 @@ pub struct Config {
     pub chain: ChainConfig,
     pub forks: Forks,
     pub max_checkpoint_age: u64,
+    pub with_ws: bool,
+    pub with_http: bool,
 }
 
 impl Config {
