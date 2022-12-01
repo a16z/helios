@@ -7,7 +7,7 @@ use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
-use config::Config;
+use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{info, warn};
@@ -210,10 +210,7 @@ impl<DB: Database> Client<DB> {
             let fallback = if let Some(fallback) = &self.fallback {
                 info!("attempting to load checkpoint from fallback {}", fallback);
 
-                let checkpoint =
-                    config::checkpoints::CheckpointFallbackList::fetch_checkpoint_from_api(
-                        fallback,
-                    )
+                let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback)
                     .await
                     .map_err(|_| {
                         eyre::eyre!("Failed to fetch checkpoint from fallback: {}", fallback)
@@ -242,24 +239,27 @@ impl<DB: Database> Client<DB> {
 
             if fallback.is_err() && self.load_external_fallback {
                 info!("attempting to fetch checkpoint from external fallbacks...");
-                // Fetch the checkpoint from the external fallbacks
-                let mut list = config::checkpoints::CheckpointFallbackList::new();
-                list.construct().await.map_err(|_| {
+                // Build the list of external checkpoint fallback services
+                let list = CheckpointFallback::new().build().await.map_err(|_| {
                     eyre::eyre!("Failed to construct external checkpoint sync fallbacks")
                 })?;
 
                 let checkpoint = if self.node.read().await.config.chain.chain_id == 5 {
-                    list.fetch_latest_goerli_checkpoint().await.map_err(|_| {
-                        eyre::eyre!(
-                            "Failed to fetch latest goerli checkpoint from external fallbacks"
-                        )
-                    })?
+                    list.fetch_latest_checkpoint(&Network::GOERLI)
+                        .await
+                        .map_err(|_| {
+                            eyre::eyre!(
+                                "Failed to fetch latest goerli checkpoint from external fallbacks"
+                            )
+                        })?
                 } else {
-                    list.fetch_latest_mainnet_checkpoint().await.map_err(|_| {
-                        eyre::eyre!(
-                            "Failed to fetch latest mainnet checkpoint from external fallbacks"
-                        )
-                    })?
+                    list.fetch_latest_checkpoint(&Network::MAINNET)
+                        .await
+                        .map_err(|_| {
+                            eyre::eyre!(
+                                "Failed to fetch latest mainnet checkpoint from external fallbacks"
+                            )
+                        })?
                 };
 
                 info!(

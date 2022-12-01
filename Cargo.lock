@@ -603,6 +603,7 @@ dependencies = [
  "serde",
  "serde_yaml",
  "ssz-rs",
+ "strum",
  "thiserror",
  "tokio",
 ]

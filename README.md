@@ -120,22 +120,20 @@ Below we demonstrate fetching checkpoints from the community-maintained list of 
 
 ```rust
 use eyre::Result;
-use helios::config::checkpoints;
+use helios::config::{checkpoints, networks};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Construct the checkpoint fallback services
-    let mut list = checkpoints::CheckpointFallbackList::new();
-    list.construct().await.unwrap();
+    let cf = checkpoints::CheckpointFallback::new().build().await.unwrap();
 
     // Fetch the latest goerli checkpoint
-    let goerli_checkpoint = list.fetch_latest_goerli_checkpoint().await.unwrap();
+    let goerli_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::GOERLI).await.unwrap();
     println!("Fetched latest goerli checkpoint: {}", goerli_checkpoint);
 
     // Fetch the latest mainnet checkpoint
-    let mainnet_checkpoint = list.fetch_latest_goerli_checkpoint().await.unwrap();
+    let mainnet_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::MAINNET).await.unwrap();
     println!("Fetched latest mainnet checkpoint: {}", mainnet_checkpoint);
-
 }
 ```
 
