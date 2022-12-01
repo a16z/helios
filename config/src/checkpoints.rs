@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use ethers::types::H256;
 use serde::{Deserialize, Serialize};
 
+use crate::networks;
+
 /// The location where the list of checkpoint services are stored.
 pub const CHECKPOINT_SYNC_SERVICES_LIST: &str = "https://raw.githubusercontent.com/ethpandaops/checkpoint-sync-health-checks/master/_data/endpoints.yaml";
 
@@ -44,7 +46,7 @@ pub struct Health {
 
 /// A checkpoint fallback service.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CheckpointFallback {
+pub struct CheckpointFallbackService {
     /// The endpoint for the checkpoint sync service.
     pub endpoint: String,
     /// The checkpoint sync service name.
@@ -61,49 +63,69 @@ pub struct CheckpointFallback {
     pub health: Vec<Health>,
 }
 
-/// The CheckpointFallbackList is a list of checkpoint fallback services.
+/// The CheckpointFallback manages checkpoint fallback services.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CheckpointFallbackList {
-    /// The list of mainnet checkpoint fallback services.
-    pub mainnet: Vec<CheckpointFallback>,
-    /// The list of goerli checkpoint fallback services.
-    pub goerli: Vec<CheckpointFallback>,
+pub struct CheckpointFallback {
+    /// Services Map
+    pub services: HashMap<networks::Network, Vec<CheckpointFallbackService>>,
+    /// A list of supported networks to build.
+    /// Default: [mainnet, goerli]
+    pub networks: Vec<networks::Network>,
 }
 
-impl CheckpointFallbackList {
+impl CheckpointFallback {
     /// Constructs a new checkpoint fallback service.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            services: Default::default(),
+            networks: [networks::Network::MAINNET, networks::Network::GOERLI].to_vec(),
+        }
     }
 
-    /// Construct the checkpoint fallback service from the community-maintained list by [ethPandaOps](https://github.com/ethpandaops).
+    /// Build the checkpoint fallback service from the community-maintained list by [ethPandaOps](https://github.com/ethpandaops).
     ///
     /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
-    pub async fn construct(&mut self) -> eyre::Result<()> {
+    pub async fn build(mut self) -> eyre::Result<Self> {
+        // Fetch the services
         let client = reqwest::Client::new();
         let res = client.get(CHECKPOINT_SYNC_SERVICES_LIST).send().await?;
-
         let yaml = res.text().await?;
 
         // Parse the yaml content results.
-        let list: CheckpointFallbackList = serde_yaml::from_str(&yaml)?;
-        self.mainnet = list.mainnet;
-        self.goerli = list.goerli;
-        Ok(())
+        let list: serde_yaml::Value = serde_yaml::from_str(&yaml)?;
+        println!("Got services: {:?}", list);
+
+        // Construct the services mapping from network <> list of services
+        let mut services = HashMap::new();
+        for network in &self.networks {
+            // Try to parse list of checkpoint fallback services
+            let service_list = list
+                .get(network.to_string().to_lowercase())
+                .ok_or_else(|| {
+                    eyre::eyre!(format!("missing {} fallback checkpoint services", network))
+                })?;
+            let parsed: Vec<CheckpointFallbackService> =
+                serde_yaml::from_value(service_list.clone())?;
+            services.insert(*network, parsed);
+        }
+        self.services = services;
+
+        Ok(self)
     }
 
-    /// Fetch the latests mainnet checkpoint sync service checkpoint.
-    pub async fn fetch_latest_mainnet_checkpoint(&self) -> eyre::Result<H256> {
-        Self::fetch_latest_checkpoint(&self.mainnet).await
+    /// Fetch the latest checkpoint from the checkpoint fallback service.
+    pub async fn fetch_latest_checkpoint(
+        &self,
+        network: &crate::networks::Network,
+    ) -> eyre::Result<H256> {
+        let services = &self.services[network];
+        Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
 
-    /// Fetch the latests goerli checkpoint sync service checkpoint.
-    pub async fn fetch_latest_goerli_checkpoint(&self) -> eyre::Result<H256> {
-        Self::fetch_latest_checkpoint(&self.goerli).await
-    }
-
-    /// Fetch the latest checkpoint sync service health check.
-    pub async fn fetch_latest_checkpoint(services: &[CheckpointFallback]) -> eyre::Result<H256> {
+    /// Fetch the latest checkpoint from a list of checkpoint fallback services.
+    pub async fn fetch_latest_checkpoint_from_services(
+        services: &[CheckpointFallbackService],
+    ) -> eyre::Result<H256> {
         let client = reqwest::Client::new();
         let mut slots = Vec::new();
 
@@ -166,39 +188,39 @@ impl CheckpointFallbackList {
             .ok_or_else(|| eyre::eyre!("Checkpoint not in returned slot"))
     }
 
-    /// Associated function to construct the checkpoint fallback service url.
+    /// Constructs the checkpoint fallback service url for fetching a slot.
+    ///
+    /// This is an associated function and can be used like so:
+    ///
+    /// ```rust
+    /// use config::CheckpointFallback;
+    ///
+    /// let url = CheckpointFallback::construct_url("https://sync-mainnet.beaconcha.in");
+    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
+    /// ```
     pub fn construct_url(endpoint: &str) -> String {
         format!("{}/checkpointz/v1/beacon/slots", endpoint)
     }
 
-    /// Returns a list of mainnet checkpoint fallback urls.
-    pub fn mainnet_urls_unsafe(&self) -> Vec<String> {
-        self.mainnet
+    /// Returns a list of all checkpoint fallback endpoints.
+    ///
+    /// ### Warning
+    ///
+    /// These services are not healthchecked **nor** trustworthy and may act with malice by returning invalid checkpoints.
+    pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
+        self.services[network]
             .iter()
             .map(|service| service.endpoint.clone())
             .collect()
     }
 
-    /// Returns a list of healthchecked mainnet checkpoint fallback urls.
-    pub fn mainnet_urls(&self) -> Vec<String> {
-        self.mainnet
-            .iter()
-            .filter(|service| service.state)
-            .map(|service| service.endpoint.clone())
-            .collect()
-    }
-
-    /// Returns a list of goerli checkpoint fallback urls.
-    pub fn goerli_urls_unsafe(&self) -> Vec<String> {
-        self.goerli
-            .iter()
-            .map(|service| service.endpoint.clone())
-            .collect()
-    }
-
-    /// Returns a list of healthchecked goerli checkpoint fallback urls.
-    pub fn goerli_urls(&self) -> Vec<String> {
-        self.goerli
+    /// Returns a list of healthchecked checkpoint fallback endpoints.
+    ///
+    /// ### Warning
+    ///
+    /// These services are not trustworthy and may act with malice by returning invalid checkpoints.
+    pub fn get_healthy_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
+        self.services[network]
             .iter()
             .filter(|service| service.state)
             .map(|service| service.endpoint.clone())

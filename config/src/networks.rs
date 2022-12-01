@@ -1,8 +1,24 @@
 use common::utils::hex_str_to_bytes;
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter};
 
 use crate::base::BaseConfig;
 use crate::types::{ChainConfig, Fork, Forks};
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    EnumIter,
+    Display,
+    Hash,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+)]
 pub enum Network {
     MAINNET,
     GOERLI,
