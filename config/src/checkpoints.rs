@@ -79,7 +79,7 @@ impl CheckpointFallbackList {
     /// Construct the checkpoint fallback service from the community-maintained list by [ethPandaOps](https://github.com/ethpandaops).
     ///
     /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
-    pub async fn construct(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn construct(&mut self) -> eyre::Result<()> {
         let client = reqwest::Client::new();
         let res = client.get(CHECKPOINT_SYNC_SERVICES_LIST).send().await?;
 
@@ -93,21 +93,17 @@ impl CheckpointFallbackList {
     }
 
     /// Fetch the latests mainnet checkpoint sync service checkpoint.
-    pub async fn fetch_latest_mainnet_checkpoint(
-        &self,
-    ) -> Result<H256, Box<dyn std::error::Error>> {
+    pub async fn fetch_latest_mainnet_checkpoint(&self) -> eyre::Result<H256> {
         Self::fetch_latest_checkpoint(&self.mainnet).await
     }
 
     /// Fetch the latests goerli checkpoint sync service checkpoint.
-    pub async fn fetch_latest_goerli_checkpoint(&self) -> Result<H256, Box<dyn std::error::Error>> {
+    pub async fn fetch_latest_goerli_checkpoint(&self) -> eyre::Result<H256> {
         Self::fetch_latest_checkpoint(&self.goerli).await
     }
 
     /// Fetch the latest checkpoint sync service health check.
-    pub async fn fetch_latest_checkpoint(
-        services: &[CheckpointFallback],
-    ) -> Result<H256, Box<dyn std::error::Error>> {
+    pub async fn fetch_latest_checkpoint(services: &[CheckpointFallback]) -> eyre::Result<H256> {
         let client = reqwest::Client::new();
         let mut slots = Vec::new();
 
@@ -131,10 +127,9 @@ impl CheckpointFallbackList {
         }
 
         // Get the max epoch
-        let max_epoch_slot = slots
-            .iter()
-            .max_by_key(|x| x.epoch)
-            .ok_or("Failed to find max epoch from checkpoint slots")?;
+        let max_epoch_slot = slots.iter().max_by_key(|x| x.epoch).ok_or(eyre::eyre!(
+            "Failed to find max epoch from checkpoint slots"
+        ))?;
         let max_epoch = max_epoch_slot.epoch;
 
         // Filter out all the slots that are not the max epoch.
@@ -155,12 +150,12 @@ impl CheckpointFallbackList {
         let most_common = m.into_iter().max_by_key(|(_, v)| *v).map(|(k, _)| k);
 
         // Return the most commonly verified checkpoint for the latest epoch.
-        most_common.ok_or_else(|| "No checkpoint found".into())
+        most_common.ok_or_else(|| eyre::eyre!("No checkpoint found"))
     }
 
     /// Associated function to fetch the latest checkpoint from a specific checkpoint sync fallback
     /// service api url.
-    pub async fn fetch_checkpoint_from_api(url: &str) -> Result<H256, Box<dyn std::error::Error>> {
+    pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<H256> {
         // Fetch the url
         let client = reqwest::Client::new();
         let constructed_url = Self::construct_url(url);
@@ -168,7 +163,7 @@ impl CheckpointFallbackList {
         let raw: RawSlotResponse = res.json().await?;
         let slot = raw.data.slots[0].clone();
         slot.block_root
-            .ok_or_else(|| "Checkpoint not in returned slot".into())
+            .ok_or_else(|| eyre::eyre!("Checkpoint not in returned slot"))
     }
 
     /// Associated function to construct the checkpoint fallback service url.
