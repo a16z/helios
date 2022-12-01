@@ -125,27 +125,31 @@ impl CheckpointFallback {
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
     ) -> eyre::Result<H256> {
-        let client = reqwest::Client::new();
-        let mut slots = Vec::new();
-
         // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
-        // TODO: We can execute this in parallel and collect results into a slots vector.
-        for service in services.iter() {
-            let constructed_url = Self::construct_url(&service.endpoint);
-            let res = client.get(&constructed_url).send().await;
-            if res.is_err() {
-                continue;
-            }
-            let raw: Result<RawSlotResponse, _> = res?.json().await;
-            if raw.is_err() {
-                continue;
-            }
-            let raw_slot_response = raw?;
-            if raw_slot_response.data.slots.is_empty() {
-                continue;
-            }
-            slots.push(raw_slot_response.data.slots[0].clone());
-        }
+        let tasks: Vec<_> = services
+            .iter()
+            .map(|service| {
+                let service = service.clone();
+                tokio::spawn(async move {
+                    let client = reqwest::Client::new();
+                    let constructed_url = Self::construct_url(&service.endpoint);
+                    let res = client.get(&constructed_url).send().await?;
+                    let raw: RawSlotResponse = res.json().await?;
+                    if raw.data.slots.is_empty() {
+                        return Err(eyre::eyre!("no slots"));
+                    }
+                    Ok(raw.data.slots[0].clone())
+                })
+            })
+            .collect();
+        let slots = futures::future::join_all(tasks)
+            .await
+            .iter()
+            .filter_map(|slot| match &slot {
+                Ok(Ok(s)) => Some(s.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
 
         // Get the max epoch
         let max_epoch_slot = slots.iter().max_by_key(|x| x.epoch).ok_or(eyre::eyre!(
