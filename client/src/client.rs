@@ -200,83 +200,16 @@ impl<DB: Database> Client<DB> {
             rpc.start().await?;
         }
 
-        let res = self.node.write().await.sync().await;
-        if let Err(err) = res {
+        if self.node.write().await.sync().await.is_err() {
             warn!(
-                "failed to sync consensus node with checkpoint: {:?}. Error: {}",
-                self.node.read().await.config.checkpoint,
-                err
+                "failed to sync consensus node with checkpoint: 0x{}",
+                hex::encode(&self.node.read().await.config.checkpoint),
             );
-            let fallback = if let Some(fallback) = &self.fallback {
-                info!("attempting to load checkpoint from fallback {}", fallback);
-
-                let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback)
-                    .await
-                    .map_err(|_| {
-                        eyre::eyre!("Failed to fetch checkpoint from fallback: {}", fallback)
-                    })?;
-
-                info!(
-                    "external fallbacks responded with checkpoint {:?}",
-                    checkpoint
-                );
-
-                // Try to sync again with the new checkpoint by reconstructing the consensus client
-                // We fail fast here since the node is unrecoverable at this point
-                let config = self.node.read().await.config.clone();
-                let consensus = ConsensusClient::new(
-                    &config.consensus_rpc,
-                    checkpoint.as_bytes(),
-                    config.clone(),
-                )?;
-                self.node.write().await.consensus = consensus;
-                self.node.write().await.sync().await?;
-
-                Ok(())
-            } else {
-                Err("missing fallback")
-            };
-
+            let fallback = self.boot_from_fallback().await;
             if fallback.is_err() && self.load_external_fallback {
-                info!("attempting to fetch checkpoint from external fallbacks...");
-                // Build the list of external checkpoint fallback services
-                let list = CheckpointFallback::new().build().await.map_err(|_| {
-                    eyre::eyre!("Failed to construct external checkpoint sync fallbacks")
-                })?;
-
-                let checkpoint = if self.node.read().await.config.chain.chain_id == 5 {
-                    list.fetch_latest_checkpoint(&Network::GOERLI)
-                        .await
-                        .map_err(|_| {
-                            eyre::eyre!(
-                                "Failed to fetch latest goerli checkpoint from external fallbacks"
-                            )
-                        })?
-                } else {
-                    list.fetch_latest_checkpoint(&Network::MAINNET)
-                        .await
-                        .map_err(|_| {
-                            eyre::eyre!(
-                                "Failed to fetch latest mainnet checkpoint from external fallbacks"
-                            )
-                        })?
-                };
-
-                info!(
-                    "external fallbacks responded with checkpoint {:?}",
-                    checkpoint
-                );
-
-                // Try to sync again with the new checkpoint by reconstructing the consensus client
-                // We fail fast here since the node is unrecoverable at this point
-                let config = self.node.read().await.config.clone();
-                let consensus = ConsensusClient::new(
-                    &config.consensus_rpc,
-                    checkpoint.as_bytes(),
-                    config.clone(),
-                )?;
-                self.node.write().await.consensus = consensus;
-                self.node.write().await.sync().await?;
+                self.boot_from_external_fallbacks().await?
+            } else if fallback.is_err() {
+                return Err(eyre::eyre!("Checkpoint is too old. Please update your checkpoint. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENED). See https://github.com/a16z/helios#additional-options for more information."));
             }
         }
 
@@ -293,6 +226,75 @@ impl<DB: Database> Client<DB> {
             }
         });
 
+        Ok(())
+    }
+
+    async fn boot_from_fallback(&self) -> eyre::Result<()> {
+        if let Some(fallback) = &self.fallback {
+            info!(
+                "attempting to load checkpoint from fallback \"{}\"",
+                fallback
+            );
+
+            let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch checkpoint from fallback \"{}\"", fallback)
+                })?;
+
+            info!(
+                "external fallbacks responded with checkpoint 0x{:?}",
+                checkpoint
+            );
+
+            // Try to sync again with the new checkpoint by reconstructing the consensus client
+            // We fail fast here since the node is unrecoverable at this point
+            let config = self.node.read().await.config.clone();
+            let consensus =
+                ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+            self.node.write().await.consensus = consensus;
+            self.node.write().await.sync().await?;
+
+            Ok(())
+        } else {
+            Err(eyre::eyre!("no explicit fallback specified"))
+        }
+    }
+
+    async fn boot_from_external_fallbacks(&self) -> eyre::Result<()> {
+        info!("attempting to fetch checkpoint from external fallbacks...");
+        // Build the list of external checkpoint fallback services
+        let list = CheckpointFallback::new()
+            .build()
+            .await
+            .map_err(|_| eyre::eyre!("Failed to construct external checkpoint sync fallbacks"))?;
+
+        let checkpoint = if self.node.read().await.config.chain.chain_id == 5 {
+            list.fetch_latest_checkpoint(&Network::GOERLI)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch latest goerli checkpoint from external fallbacks")
+                })?
+        } else {
+            list.fetch_latest_checkpoint(&Network::MAINNET)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch latest mainnet checkpoint from external fallbacks")
+                })?
+        };
+
+        info!(
+            "external fallbacks responded with checkpoint {:?}",
+            checkpoint
+        );
+
+        // Try to sync again with the new checkpoint by reconstructing the consensus client
+        // We fail fast here since the node is unrecoverable at this point
+        let config = self.node.read().await.config.clone();
+        let consensus =
+            ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+        self.node.write().await.consensus = consensus;
+        self.node.write().await.sync().await?;
         Ok(())
     }
 

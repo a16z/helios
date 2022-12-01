@@ -93,7 +93,6 @@ impl CheckpointFallback {
 
         // Parse the yaml content results.
         let list: serde_yaml::Value = serde_yaml::from_str(&yaml)?;
-        println!("Got services: {:?}", list);
 
         // Construct the services mapping from network <> list of services
         let mut services = HashMap::new();

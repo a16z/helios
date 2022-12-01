@@ -95,7 +95,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     pub async fn sync(&mut self) -> Result<()> {
         info!(
-            "Consensus client in sync with checkpoint: {:?}",
+            "Consensus client in sync with checkpoint: 0x{}",
             hex::encode(&self.initial_checkpoint)
         );
         self.bootstrap().await?;
