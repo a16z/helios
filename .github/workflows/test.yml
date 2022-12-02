@@ -60,7 +60,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - run: rustup component add rustfmt
+          components: rustfmt
       - uses: actions/cache@v2
         with:
           path: |
@@ -72,3 +72,26 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: clippy
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all -- -D warnings
