@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use common::errors::RpcError;
-use ethers::prelude::{Address, Http};
+use ethers::prelude::{Address, Ws};
 use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
@@ -16,31 +16,29 @@ use crate::types::CallOpts;
 
 use super::ExecutionRpc;
 
-pub struct HttpRpc {
-    url: String,
-    provider: Provider<RetryClient<Http>>,
+pub struct WsRpc {
+    pub url: String,
+    pub provider: Option<Provider<Ws>>,
 }
 
-impl Clone for HttpRpc {
+impl Clone for WsRpc {
     fn clone(&self) -> Self {
         Self::new(&self.url).unwrap()
     }
 }
 
 #[async_trait]
-impl ExecutionRpc for HttpRpc {
+impl ExecutionRpc for WsRpc {
     fn new(rpc: &str) -> Result<Self> {
-        let http = Http::from_str(rpc)?;
-        let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 50);
-        client.set_compute_units(300);
-        let provider = Provider::new(client);
-        Ok(HttpRpc {
+        Ok(WsRpc {
             url: rpc.to_string(),
-            provider,
+            provider: None,
         })
     }
 
     async fn connect(&mut self) -> Result<()> {
+        let provider = Provider::<Ws>::connect(&self.url).await?;
+        self.provider = Some(provider);
         Ok(())
     }
 

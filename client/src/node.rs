@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use execution::rpc::ExecutionRpc;
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
@@ -13,22 +14,22 @@ use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
-use execution::rpc::http_rpc::HttpRpc;
+// use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
 
 use crate::errors::NodeError;
 
-pub struct Node {
+pub struct Node<R> where R: ExecutionRpc, {
     pub consensus: ConsensusClient<NimbusRpc>,
-    pub execution: Arc<ExecutionClient<HttpRpc>>,
+    pub execution: Arc<ExecutionClient<R>>,
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
     pub history_size: usize,
 }
 
-impl Node {
+impl<R> Node<R> where R: ExecutionRpc {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint;

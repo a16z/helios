@@ -16,6 +16,9 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     where
         Self: Sized;
 
+    /// Connect allows the rpc to connect if asynchronous connection is required (eg websockets).
+    async fn connect(&mut self) -> Result<()>;
+
     async fn get_proof(
         &self,
         address: &Address,
