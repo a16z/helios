@@ -1652,6 +1652,8 @@ dependencies = [
  "config",
  "consensus",
  "execution",
+ "eyre",
+ "tokio",
 ]
 
 [[package]]
