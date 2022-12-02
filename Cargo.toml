@@ -27,9 +27,17 @@ ethers = { git = "https://github.com/ncitron/ethers-rs", branch = "fix-retry" }
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
+home = "0.5.4"
 
 [[example]]
 name = "checkpoints"
 path = "examples/checkpoints.rs"
-required-features = []
+
+[[example]]
+name = "client"
+path = "examples/client.rs"
+
+[[example]]
+name = "config"
+path = "examples/config.rs"
 

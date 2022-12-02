@@ -142,6 +142,8 @@ async fn main() -> Result<()> {
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::MAINNET).await.unwrap();
     println!("Fetched latest mainnet checkpoint: {}", mainnet_checkpoint);
+
+    Ok(())
 }
 ```
 
