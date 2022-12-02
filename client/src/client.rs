@@ -7,8 +7,8 @@ use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
-use config::Config;
-use consensus::types::Header;
+use config::{CheckpointFallback, Config};
+use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{info, warn};
 use tokio::spawn;
@@ -19,27 +19,6 @@ use crate::database::{Database, FileDB};
 use crate::node::Node;
 use crate::rpc::Rpc;
 
-pub struct Client<DB: Database> {
-    node: Arc<RwLock<Node>>,
-    rpc: Option<Rpc>,
-    db: Option<DB>,
-}
-
-impl Client<FileDB> {
-    fn new(config: Config) -> Result<Self> {
-        let config = Arc::new(config);
-        let node = Node::new(config.clone())?;
-        let node = Arc::new(RwLock::new(node));
-
-        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
-
-        let data_dir = config.data_dir.clone();
-        let db = data_dir.map(FileDB::new);
-
-        Ok(Client { node, rpc, db })
-    }
-}
-
 #[derive(Default)]
 pub struct ClientBuilder {
     network: Option<Network>,
@@ -49,6 +28,8 @@ pub struct ClientBuilder {
     rpc_port: Option<u16>,
     data_dir: Option<PathBuf>,
     config: Option<Config>,
+    fallback: Option<String>,
+    load_external_fallback: bool,
 }
 
 impl ClientBuilder {
@@ -89,6 +70,16 @@ impl ClientBuilder {
 
     pub fn config(mut self, config: Config) -> Self {
         self.config = Some(config);
+        self
+    }
+
+    pub fn fallback(mut self, fallback: &str) -> Self {
+        self.fallback = Some(fallback.to_string());
+        self
+    }
+
+    pub fn load_external_fallback(mut self) -> Self {
+        self.load_external_fallback = true;
         self
     }
 
@@ -143,6 +134,20 @@ impl ClientBuilder {
             None
         };
 
+        let fallback = if self.fallback.is_some() {
+            self.fallback
+        } else if let Some(config) = &self.config {
+            config.fallback.clone()
+        } else {
+            None
+        };
+
+        let load_external_fallback = if let Some(config) = &self.config {
+            self.load_external_fallback || config.load_external_fallback
+        } else {
+            self.load_external_fallback
+        };
+
         let config = Config {
             consensus_rpc,
             execution_rpc,
@@ -152,9 +157,40 @@ impl ClientBuilder {
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
+            fallback,
+            load_external_fallback,
         };
 
         Client::new(config)
+    }
+}
+
+pub struct Client<DB: Database> {
+    node: Arc<RwLock<Node>>,
+    rpc: Option<Rpc>,
+    db: Option<DB>,
+    fallback: Option<String>,
+    load_external_fallback: bool,
+}
+
+impl Client<FileDB> {
+    fn new(config: Config) -> Result<Self> {
+        let config = Arc::new(config);
+        let node = Node::new(config.clone())?;
+        let node = Arc::new(RwLock::new(node));
+
+        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
+
+        let data_dir = config.data_dir.clone();
+        let db = data_dir.map(FileDB::new);
+
+        Ok(Client {
+            node,
+            rpc,
+            db,
+            fallback: config.fallback.clone(),
+            load_external_fallback: config.load_external_fallback,
+        })
     }
 }
 
@@ -164,9 +200,17 @@ impl<DB: Database> Client<DB> {
             rpc.start().await?;
         }
 
-        let res = self.node.write().await.sync().await;
-        if let Err(err) = res {
-            warn!("consensus error: {}", err);
+        if self.node.write().await.sync().await.is_err() {
+            warn!(
+                "failed to sync consensus node with checkpoint: 0x{}",
+                hex::encode(&self.node.read().await.config.checkpoint),
+            );
+            let fallback = self.boot_from_fallback().await;
+            if fallback.is_err() && self.load_external_fallback {
+                self.boot_from_external_fallbacks().await?
+            } else if fallback.is_err() {
+                return Err(eyre::eyre!("Checkpoint is too old. Please update your checkpoint. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENED). See https://github.com/a16z/helios#additional-options for more information."));
+            }
         }
 
         let node = self.node.clone();
@@ -182,6 +226,75 @@ impl<DB: Database> Client<DB> {
             }
         });
 
+        Ok(())
+    }
+
+    async fn boot_from_fallback(&self) -> eyre::Result<()> {
+        if let Some(fallback) = &self.fallback {
+            info!(
+                "attempting to load checkpoint from fallback \"{}\"",
+                fallback
+            );
+
+            let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch checkpoint from fallback \"{}\"", fallback)
+                })?;
+
+            info!(
+                "external fallbacks responded with checkpoint 0x{:?}",
+                checkpoint
+            );
+
+            // Try to sync again with the new checkpoint by reconstructing the consensus client
+            // We fail fast here since the node is unrecoverable at this point
+            let config = self.node.read().await.config.clone();
+            let consensus =
+                ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+            self.node.write().await.consensus = consensus;
+            self.node.write().await.sync().await?;
+
+            Ok(())
+        } else {
+            Err(eyre::eyre!("no explicit fallback specified"))
+        }
+    }
+
+    async fn boot_from_external_fallbacks(&self) -> eyre::Result<()> {
+        info!("attempting to fetch checkpoint from external fallbacks...");
+        // Build the list of external checkpoint fallback services
+        let list = CheckpointFallback::new()
+            .build()
+            .await
+            .map_err(|_| eyre::eyre!("Failed to construct external checkpoint sync fallbacks"))?;
+
+        let checkpoint = if self.node.read().await.config.chain.chain_id == 5 {
+            list.fetch_latest_checkpoint(&Network::GOERLI)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch latest goerli checkpoint from external fallbacks")
+                })?
+        } else {
+            list.fetch_latest_checkpoint(&Network::MAINNET)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch latest mainnet checkpoint from external fallbacks")
+                })?
+        };
+
+        info!(
+            "external fallbacks responded with checkpoint {:?}",
+            checkpoint
+        );
+
+        // Try to sync again with the new checkpoint by reconstructing the consensus client
+        // We fail fast here since the node is unrecoverable at this point
+        let config = self.node.read().await.config.clone();
+        let consensus =
+            ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+        self.node.write().await.consensus = consensus;
+        self.node.write().await.sync().await?;
         Ok(())
     }
 

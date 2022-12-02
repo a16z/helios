@@ -5,6 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
@@ -12,5 +13,12 @@ ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1
 ethers = "1.0.0"
 figment = { version = "0.10.7", features = ["toml", "env"] }
 thiserror = "1.0.37"
+log = "0.4.17"
 
 common = { path = "../common" }
+reqwest = "0.11.13"
+serde_yaml = "0.9.14"
+strum = "0.24.1"
+futures = "0.3.25"
+
+

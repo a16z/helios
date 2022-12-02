@@ -85,6 +85,10 @@ struct Cli {
     consensus_rpc: Option<String>,
     #[clap(short, long, env)]
     data_dir: Option<String>,
+    #[clap(short = 'f', long, env)]
+    fallback: Option<String>,
+    #[clap(short = 'l', long, env)]
+    load_external_fallback: bool,
 }
 
 impl Cli {
@@ -100,6 +104,8 @@ impl Cli {
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self.get_data_dir(),
             rpc_port: self.rpc_port,
+            fallback: self.fallback.clone(),
+            load_external_fallback: self.load_external_fallback,
         }
     }
 

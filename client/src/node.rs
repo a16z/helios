@@ -20,12 +20,12 @@ use execution::ExecutionClient;
 use crate::errors::NodeError;
 
 pub struct Node {
-    consensus: ConsensusClient<NimbusRpc>,
-    execution: Arc<ExecutionClient<HttpRpc>>,
-    config: Arc<Config>,
+    pub consensus: ConsensusClient<NimbusRpc>,
+    pub execution: Arc<ExecutionClient<HttpRpc>>,
+    pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
-    history_size: usize,
+    pub history_size: usize,
 }
 
 impl Node {
