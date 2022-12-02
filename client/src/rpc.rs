@@ -114,21 +114,23 @@ trait NetRpc {
 #[derive(Clone)]
 struct RpcInner<R> where R: ExecutionRpc {
     node: Arc<RwLock<Node<R>>>,
-    port: u16,
+    http_port: u16,
+    ws_port: u16,
 }
 
 impl<R> From<&Rpc<R>> for RpcInner<R> where R: ExecutionRpc {
     fn from(rpc: &Rpc<R>) -> Self {
         RpcInner {
             node: Arc::clone(&rpc.node),
-            port: rpc.port,
+            http_port: rpc.port,
+            ws_port: 4443,
         }
     }
 }
 
 impl<R> RpcInner<R> where R: ExecutionRpc {
     pub async fn start_http(&self) -> Result<(HttpServerHandle, SocketAddr)> {
-        let addr = format!("127.0.0.1:{}", self.port);
+        let addr = format!("127.0.0.1:{}", self.http_port);
         let server = HttpServerBuilder::default().build(addr).await?;
 
         let addr = server.local_addr()?;
@@ -146,7 +148,7 @@ impl<R> RpcInner<R> where R: ExecutionRpc {
     }
 
     pub async fn start_ws(&self) -> Result<(WsServerHandle, SocketAddr)> {
-        let addr = format!("127.0.0.1:{}", self.port);
+        let addr = format!("127.0.0.1:{}", self.ws_port);
         let server = WsServerBuilder::default().build(addr).await?;
 
         let addr = server.local_addr()?;

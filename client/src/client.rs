@@ -24,6 +24,8 @@ pub struct Client<DB: Database, R: ExecutionRpc> {
     db: Option<DB>,
     fallback: Option<String>,
     load_external_fallback: bool,
+    ws: bool,
+    http: bool,
 }
 
 impl<R> Client<FileDB, R> where R: ExecutionRpc {
@@ -45,6 +47,8 @@ impl<R> Client<FileDB, R> where R: ExecutionRpc {
             db,
             fallback: config.fallback.clone(),
             load_external_fallback: config.load_external_fallback,
+            ws: config.with_ws,
+            http: config.with_http,
         })
     }
 }
@@ -52,9 +56,8 @@ impl<R> Client<FileDB, R> where R: ExecutionRpc {
 impl<DB: Database, R: ExecutionRpc> Client<DB, R> {
     pub async fn start(&mut self) -> eyre::Result<()> {
         if let Some(rpc) = &mut self.rpc {
-            // We can start both ws and http servers since they only run if enabled in the config.
-            rpc.start_ws().await?;
-            rpc.start_http().await?;
+            if self.ws { rpc.start_ws().await?; }
+            if self.http { rpc.start_http().await?; }
         }
 
         if self.node.write().await.sync().await.is_err() {
