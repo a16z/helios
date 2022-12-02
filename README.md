@@ -8,6 +8,7 @@ Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable 
 
 The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
+
 ## Installing
 
 First install `heliosup`, Helios's installer:
@@ -17,6 +18,7 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 ```
 
 To install Helios, run `heliosup`.
+
 
 ## Usage
 
@@ -30,9 +32,13 @@ helios --execution-rpc $ETH_RPC_URL
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
+Helios also provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run --example <example_name>` from inside the helios repository.
+
+
 ### Warning
 
 Helios is still experimental software. While we hope you try it out, we do not suggest adding it as your main RPC in wallets yet. Sending high-value transactions from a wallet connected to Helios is discouraged.
+
 
 ### Additional Options
 
@@ -61,6 +67,7 @@ This can be run like so: `helios --load-external-fallback` (or `helios -l` with 
 
 `--help` or `-h` prints the help message.
 
+
 ### Configuration Files
 
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
@@ -76,6 +83,7 @@ consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
 execution_rpc = "https://eth-goerli.g.alchemy.com/v2/XXXXX"
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
 ```
+
 
 ### Using Helios as a Library
 
@@ -134,6 +142,8 @@ async fn main() -> Result<()> {
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::MAINNET).await.unwrap();
     println!("Fetched latest mainnet checkpoint: {}", mainnet_checkpoint);
+
+    Ok(())
 }
 ```
 
@@ -141,9 +151,11 @@ async fn main() -> Result<()> {
 
 All contributions to Helios are welcome. Before opening a PR, please submit an issue detailing the bug or feature. When opening a PR, please ensure that your contribution builds on the nightly rust toolchain, has been linted with `cargo fmt`, and contains tests when applicable.
 
+
 ## Telegram
 
 If you are having trouble with Helios or are considering contributing, feel free to join our telegram [here](https://t.me/+IntDY_gZJSRkNTJj).
+
 
 ## Disclaimer
 

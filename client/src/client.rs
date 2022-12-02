@@ -53,7 +53,8 @@ impl ClientBuilder {
     }
 
     pub fn checkpoint(mut self, checkpoint: &str) -> Self {
-        let checkpoint = hex::decode(checkpoint).expect("cannot parse checkpoint");
+        let checkpoint = hex::decode(checkpoint.strip_prefix("0x").unwrap_or(checkpoint))
+            .expect("cannot parse checkpoint");
         self.checkpoint = Some(checkpoint);
         self
     }

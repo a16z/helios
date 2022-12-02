@@ -229,4 +229,12 @@ impl CheckpointFallback {
             .map(|service| service.endpoint.clone())
             .collect()
     }
+
+    /// Returns the raw checkpoint fallback service objects for a given network.
+    pub fn get_fallback_services(
+        &self,
+        network: &networks::Network,
+    ) -> &Vec<CheckpointFallbackService> {
+        self.services[network].as_ref()
+    }
 }

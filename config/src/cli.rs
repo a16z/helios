@@ -1,10 +1,10 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use figment::{providers::Serialized, value::Value};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Cli Config
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CliConfig {
     pub execution_rpc: Option<String>,
     pub consensus_rpc: Option<String>,
