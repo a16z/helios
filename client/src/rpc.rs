@@ -1,9 +1,5 @@
-use ethers::{
-    abi::AbiEncode,
-    types::{Address, Filter, Log, Transaction, TransactionReceipt, H256, U256},
-};
+use ethers::types::{Address, Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::Result;
-use log::info;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -11,6 +7,7 @@ use jsonrpsee::{
     core::{async_trait, server::rpc_module::Methods, Error},
     http_server::{HttpServerBuilder, HttpServerHandle},
     proc_macros::rpc,
+    ws_server::{WsServerBuilder, WsServerHandle},
 };
 
 use crate::{errors::NodeError, node::Node};
@@ -23,31 +20,43 @@ use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc {
     node: Arc<RwLock<Node>>,
-    handle: Option<HttpServerHandle>,
+    http_handle: Option<HttpServerHandle>,
+    ws_handle: Option<WsServerHandle>,
+    pub with_http: bool,
+    pub with_ws: bool,
     port: u16,
 }
 
 impl Rpc {
-    pub fn new(node: Arc<RwLock<Node>>, port: u16) -> Self {
+    pub fn new(node: Arc<RwLock<Node>>, with_http: bool, with_ws: bool, port: u16) -> Self {
         Rpc {
             node,
-            handle: None,
+            http_handle: None,
+            ws_handle: None,
+            with_http,
+            with_ws,
             port,
         }
     }
 
-    pub async fn start(&mut self) -> Result<SocketAddr> {
-        let rpc_inner = RpcInner {
-            node: self.node.clone(),
-            port: self.port,
-        };
+    pub async fn start_http(&mut self) -> Result<Option<SocketAddr>> {
+        if self.with_http {
+            let (handle, addr) = RpcInner::from(&*self).start_http().await?;
+            self.http_handle = Some(handle);
+            log::info!("http rpc server started at {}", addr);
+            return Ok(Some(addr));
+        }
+        Ok(None)
+    }
 
-        let (handle, addr) = start(rpc_inner).await?;
-        self.handle = Some(handle);
-
-        info!("rpc server started at {}", addr);
-
-        Ok(addr)
+    pub async fn start_ws(&mut self) -> Result<Option<SocketAddr>> {
+        if self.with_ws {
+            let (handle, addr) = RpcInner::from(&*self).start_ws().await?;
+            self.ws_handle = Some(handle);
+            log::info!("http rpc server started at {}", addr);
+            return Ok(Some(addr));
+        }
+        Ok(None)
     }
 }
 
@@ -108,6 +117,53 @@ struct RpcInner {
     port: u16,
 }
 
+impl From<&Rpc> for RpcInner {
+    fn from(rpc: &Rpc) -> Self {
+        RpcInner {
+            node: Arc::clone(&rpc.node),
+            port: rpc.port,
+        }
+    }
+}
+
+impl RpcInner {
+    pub async fn start_http(&self) -> Result<(HttpServerHandle, SocketAddr)> {
+        let addr = format!("127.0.0.1:{}", self.port);
+        let server = HttpServerBuilder::default().build(addr).await?;
+
+        let addr = server.local_addr()?;
+
+        let mut methods = Methods::new();
+        let eth_methods: Methods = EthRpcServer::into_rpc(self.clone()).into();
+        let net_methods: Methods = NetRpcServer::into_rpc(self.clone()).into();
+
+        methods.merge(eth_methods)?;
+        methods.merge(net_methods)?;
+
+        let handle = server.start(methods)?;
+
+        Ok((handle, addr))
+    }
+
+    pub async fn start_ws(&self) -> Result<(WsServerHandle, SocketAddr)> {
+        let addr = format!("127.0.0.1:{}", self.port);
+        let server = WsServerBuilder::default().build(addr).await?;
+
+        let addr = server.local_addr()?;
+
+        let mut methods = Methods::new();
+        let eth_methods: Methods = EthRpcServer::into_rpc(self.clone()).into();
+        let net_methods: Methods = NetRpcServer::into_rpc(self.clone()).into();
+
+        methods.merge(eth_methods)?;
+        methods.merge(net_methods)?;
+
+        let handle = server.start(methods)?;
+
+        Ok((handle, addr))
+    }
+}
+
 #[async_trait]
 impl EthRpcServer for RpcInner {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -115,7 +171,7 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
         let balance = convert_err(node.get_balance(&address, block).await)?;
 
-        Ok(format_hex(&balance))
+        Ok(common::utils::format_hex(&balance))
     }
 
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -164,13 +220,13 @@ impl EthRpcServer for RpcInner {
     async fn gas_price(&self) -> Result<String, Error> {
         let node = self.node.read().await;
         let gas_price = convert_err(node.get_gas_price())?;
-        Ok(format_hex(&gas_price))
+        Ok(common::utils::format_hex(&gas_price))
     }
 
     async fn max_priority_fee_per_gas(&self) -> Result<String, Error> {
         let node = self.node.read().await;
         let tip = convert_err(node.get_priority_fee())?;
-        Ok(format_hex(&tip))
+        Ok(common::utils::format_hex(&tip))
     }
 
     async fn block_number(&self) -> Result<String, Error> {
@@ -237,35 +293,6 @@ impl NetRpcServer for RpcInner {
     }
 }
 
-async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
-    let addr = format!("127.0.0.1:{}", rpc.port);
-    let server = HttpServerBuilder::default().build(addr).await?;
-
-    let addr = server.local_addr()?;
-
-    let mut methods = Methods::new();
-    let eth_methods: Methods = EthRpcServer::into_rpc(rpc.clone()).into();
-    let net_methods: Methods = NetRpcServer::into_rpc(rpc).into();
-
-    methods.merge(eth_methods)?;
-    methods.merge(net_methods)?;
-
-    let handle = server.start(methods)?;
-
-    Ok((handle, addr))
-}
-
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
     res.map_err(|err| Error::Custom(err.to_string()))
-}
-
-fn format_hex(num: &U256) -> String {
-    let stripped = num
-        .encode_hex()
-        .strip_prefix("0x")
-        .unwrap()
-        .trim_start_matches('0')
-        .to_string();
-
-    format!("0x{}", stripped)
 }

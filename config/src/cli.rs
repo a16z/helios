@@ -13,6 +13,8 @@ pub struct CliConfig {
     pub data_dir: PathBuf,
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
+    pub with_ws: bool,
+    pub with_http: bool,
 }
 
 impl CliConfig {
@@ -45,6 +47,10 @@ impl CliConfig {
             "load_external_fallback",
             Value::from(self.load_external_fallback),
         );
+
+        user_dict.insert("with_ws", Value::from(self.with_ws));
+
+        user_dict.insert("with_http", Value::from(self.with_http));
 
         Serialized::from(user_dict, network)
     }

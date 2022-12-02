@@ -27,6 +27,8 @@ pub struct Config {
     pub max_checkpoint_age: u64,
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
+    pub with_ws: bool,
+    pub with_http: bool,
 }
 
 impl Config {
