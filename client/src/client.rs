@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::process::exit;
+use std::sync::{Arc, Mutex};
 
 use config::networks::Network;
 use ethers::prelude::{Address, U256};
@@ -7,8 +8,9 @@ use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
-use execution::rpc::ExecutionRpc;
+use execution::rpc::{ExecutionRpc, WsRpc};
 use execution::types::{CallOpts, ExecutionBlock};
+use futures::executor::block_on;
 use log::{info, warn};
 use tokio::spawn;
 use tokio::sync::RwLock;
@@ -28,9 +30,10 @@ pub struct Client<DB: Database, R: ExecutionRpc> {
     http: bool,
 }
 
-impl<R> Client<FileDB, R> where R: ExecutionRpc {
+impl Client<FileDB, WsRpc> {
     pub fn new(config: Config) -> eyre::Result<Self> {
         let config = Arc::new(config);
+
         let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
@@ -53,11 +56,48 @@ impl<R> Client<FileDB, R> where R: ExecutionRpc {
     }
 }
 
+impl Client<FileDB, WsRpc> {
+    pub fn register_shutdown_handler(client: Client<FileDB, WsRpc>) {
+        let client = Arc::new(client);
+        let shutdown_counter = Arc::new(Mutex::new(0));
+
+        ctrlc::set_handler(move || {
+            let mut counter = shutdown_counter.lock().unwrap();
+            *counter += 1;
+
+            let counter_value = *counter;
+
+            if counter_value == 3 {
+                info!("forced shutdown");
+                exit(0);
+            }
+
+            info!(
+                "shutting down... press ctrl-c {} more times to force quit",
+                3 - counter_value
+            );
+
+            if counter_value == 1 {
+                let client = client.clone();
+                std::thread::spawn(move || {
+                    block_on(client.shutdown());
+                    exit(0);
+                });
+            }
+        })
+        .expect("could not register shutdown handler");
+    }
+}
+
 impl<DB: Database, R: ExecutionRpc> Client<DB, R> {
     pub async fn start(&mut self) -> eyre::Result<()> {
         if let Some(rpc) = &mut self.rpc {
-            if self.ws { rpc.start_ws().await?; }
-            if self.http { rpc.start_http().await?; }
+            if self.ws {
+                rpc.start_ws().await?;
+            }
+            if self.http {
+                rpc.start_http().await?;
+            }
         }
 
         if self.node.write().await.sync().await.is_err() {
@@ -222,7 +262,10 @@ impl<DB: Database, R: ExecutionRpc> Client<DB, R> {
             .await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: &H256) -> eyre::Result<Option<Transaction>> {
+    pub async fn get_transaction_by_hash(
+        &self,
+        tx_hash: &H256,
+    ) -> eyre::Result<Option<Transaction>> {
         self.node
             .read()
             .await

@@ -20,7 +20,7 @@ impl Display for BlockTag {
             Self::Number(num) => num.to_string(),
         };
 
-        write!(f, "{}", formatted)
+        write!(f, "{formatted}")
     }
 }
 

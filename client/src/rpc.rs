@@ -16,9 +16,12 @@ use common::{
     types::BlockTag,
     utils::{hex_str_to_bytes, u64_to_hex_string},
 };
-use execution::{types::{CallOpts, ExecutionBlock}, rpc::ExecutionRpc};
+use execution::{
+    rpc::ExecutionRpc,
+    types::{CallOpts, ExecutionBlock},
+};
 
-pub struct Rpc<R> where R: ExecutionRpc {
+pub struct Rpc<R: ExecutionRpc> {
     node: Arc<RwLock<Node<R>>>,
     http_handle: Option<HttpServerHandle>,
     ws_handle: Option<WsServerHandle>,
@@ -27,7 +30,7 @@ pub struct Rpc<R> where R: ExecutionRpc {
     port: u16,
 }
 
-impl<R> Rpc<R> where R: ExecutionRpc {
+impl<R: ExecutionRpc> Rpc<R> {
     pub fn new(node: Arc<RwLock<Node<R>>>, with_http: bool, with_ws: bool, port: u16) -> Self {
         Rpc {
             node,
@@ -112,13 +115,13 @@ trait NetRpc {
 }
 
 #[derive(Clone)]
-struct RpcInner<R> where R: ExecutionRpc {
+struct RpcInner<R: ExecutionRpc> {
     node: Arc<RwLock<Node<R>>>,
     http_port: u16,
     ws_port: u16,
 }
 
-impl<R> From<&Rpc<R>> for RpcInner<R> where R: ExecutionRpc {
+impl<R: ExecutionRpc> From<&Rpc<R>> for RpcInner<R> {
     fn from(rpc: &Rpc<R>) -> Self {
         RpcInner {
             node: Arc::clone(&rpc.node),
@@ -128,7 +131,7 @@ impl<R> From<&Rpc<R>> for RpcInner<R> where R: ExecutionRpc {
     }
 }
 
-impl<R> RpcInner<R> where R: ExecutionRpc {
+impl<R: ExecutionRpc> RpcInner<R> {
     pub async fn start_http(&self) -> Result<(HttpServerHandle, SocketAddr)> {
         let addr = format!("127.0.0.1:{}", self.http_port);
         let server = HttpServerBuilder::default().build(addr).await?;
@@ -167,7 +170,7 @@ impl<R> RpcInner<R> where R: ExecutionRpc {
 }
 
 #[async_trait]
-impl<R> EthRpcServer for RpcInner<R> where R: ExecutionRpc {
+impl<R: ExecutionRpc> EthRpcServer for RpcInner<R> {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
@@ -181,7 +184,7 @@ impl<R> EthRpcServer for RpcInner<R> where R: ExecutionRpc {
         let node = self.node.read().await;
         let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
-        Ok(format!("0x{:x}", nonce))
+        Ok(format!("0x{nonce:x}"))
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -288,7 +291,7 @@ impl<R> EthRpcServer for RpcInner<R> where R: ExecutionRpc {
 }
 
 #[async_trait]
-impl<R> NetRpcServer for RpcInner<R> where R: ExecutionRpc {
+impl<R: ExecutionRpc> NetRpcServer for RpcInner<R> {
     async fn version(&self) -> Result<String, Error> {
         let node = self.node.read().await;
         Ok(node.chain_id().to_string())

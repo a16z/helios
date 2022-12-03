@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use config::{Network, Config};
-use execution::rpc::ExecutionRpc;
+use config::{Config, Network};
+use execution::rpc::WsRpc;
 
 use crate::{database::FileDB, Client};
 
@@ -100,7 +100,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build(self) -> eyre::Result<Client<FileDB, _>> {
+    fn build_base_config(&self) -> eyre::Result<Config> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -111,7 +111,7 @@ impl ClientBuilder {
             config.to_base_config()
         };
 
-        let consensus_rpc = self.consensus_rpc.unwrap_or_else(|| {
+        let consensus_rpc = self.consensus_rpc.clone().unwrap_or_else(|| {
             self.config
                 .as_ref()
                 .expect("missing consensus rpc")
@@ -119,7 +119,7 @@ impl ClientBuilder {
                 .clone()
         });
 
-        let execution_rpc = self.execution_rpc.unwrap_or_else(|| {
+        let execution_rpc = self.execution_rpc.clone().unwrap_or_else(|| {
             self.config
                 .as_ref()
                 .expect("missing execution rpc")
@@ -127,8 +127,8 @@ impl ClientBuilder {
                 .clone()
         });
 
-        let checkpoint = if let Some(checkpoint) = self.checkpoint {
-            checkpoint
+        let checkpoint = if let Some(checkpoint) = &self.checkpoint {
+            checkpoint.clone()
         } else if let Some(config) = &self.config {
             config.checkpoint.clone()
         } else {
@@ -144,7 +144,7 @@ impl ClientBuilder {
         };
 
         let data_dir = if self.data_dir.is_some() {
-            self.data_dir
+            self.data_dir.clone()
         } else if let Some(config) = &self.config {
             config.data_dir.clone()
         } else {
@@ -152,7 +152,7 @@ impl ClientBuilder {
         };
 
         let fallback = if self.fallback.is_some() {
-            self.fallback
+            self.fallback.clone()
         } else if let Some(config) = &self.config {
             config.fallback.clone()
         } else {
@@ -177,7 +177,7 @@ impl ClientBuilder {
             self.with_http
         };
 
-        let config = Config {
+        Ok(Config {
             consensus_rpc,
             execution_rpc,
             checkpoint,
@@ -190,8 +190,13 @@ impl ClientBuilder {
             load_external_fallback,
             with_ws,
             with_http,
-        };
+        })
+    }
+}
 
+impl ClientBuilder {
+    pub fn build(self) -> eyre::Result<Client<FileDB, WsRpc>> {
+        let config = self.build_base_config()?;
         Client::new(config)
     }
 }

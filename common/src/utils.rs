@@ -14,7 +14,7 @@ pub fn format_hex(num: &U256) -> String {
         .unwrap()
         .trim_start_matches('0')
         .to_string();
-    format!("0x{}", stripped)
+    format!("0x{stripped}")
 }
 
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
@@ -35,5 +35,5 @@ pub fn address_to_hex_string(address: &Address) -> String {
 }
 
 pub fn u64_to_hex_string(val: u64) -> String {
-    format!("0x{:x}", val)
+    format!("0x{val:x}")
 }

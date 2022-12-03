@@ -8,6 +8,9 @@ use eyre::Result;
 use crate::types::CallOpts;
 
 pub mod http_rpc;
+pub use http_rpc::*;
+pub mod ws_rpc;
+pub use ws_rpc::*;
 pub mod mock_rpc;
 
 #[async_trait]

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
-use execution::rpc::ExecutionRpc;
+use execution::rpc::{ExecutionRpc, WsRpc};
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
@@ -20,7 +20,7 @@ use execution::ExecutionClient;
 
 use crate::errors::NodeError;
 
-pub struct Node<R> where R: ExecutionRpc, {
+pub struct Node<R: ExecutionRpc> {
     pub consensus: ConsensusClient<NimbusRpc>,
     pub execution: Arc<ExecutionClient<R>>,
     pub config: Arc<Config>,
@@ -29,7 +29,7 @@ pub struct Node<R> where R: ExecutionRpc, {
     pub history_size: usize,
 }
 
-impl<R> Node<R> where R: ExecutionRpc {
+impl Node<WsRpc> {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint;
@@ -37,9 +37,18 @@ impl<R> Node<R> where R: ExecutionRpc {
 
         let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
             .map_err(NodeError::ConsensusClientCreationError)?;
-        let execution = Arc::new(
-            ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,
-        );
+
+        let execution = if config.with_ws {
+            Arc::new(
+                ExecutionClient::new_with_ws(execution_rpc)
+                    .map_err(NodeError::ExecutionClientCreationError)?,
+            )
+        } else {
+            Arc::new(
+                ExecutionClient::new(execution_rpc)
+                    .map_err(NodeError::ExecutionClientCreationError)?,
+            )
+        };
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
@@ -53,7 +62,12 @@ impl<R> Node<R> where R: ExecutionRpc {
             history_size: 64,
         })
     }
+}
 
+impl<R> Node<R>
+where
+    R: ExecutionRpc,
+{
     pub async fn sync(&mut self) -> Result<(), NodeError> {
         self.consensus
             .sync()
