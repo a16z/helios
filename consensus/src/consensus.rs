@@ -661,7 +661,7 @@ mod tests {
         let mut update = updates[0].clone();
         update.finalized_header = Header::default();
 
-        let err = client.verify_update(&mut update).err().unwrap();
+        let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidFinalityProof.to_string()
@@ -681,7 +681,7 @@ mod tests {
         let mut update = updates[0].clone();
         update.sync_aggregate.sync_committee_signature = Vector::default();
 
-        let err = client.verify_update(&mut update).err().unwrap();
+        let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidSignature.to_string()

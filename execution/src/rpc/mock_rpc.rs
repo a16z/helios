@@ -24,6 +24,10 @@ impl ExecutionRpc for MockRpc {
         Ok(MockRpc { path })
     }
 
+    async fn connect(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     async fn get_proof(
         &self,
         _address: &Address,

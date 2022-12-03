@@ -90,7 +90,7 @@ fn get_rest_path(p: &Vec<u8>, s: usize) -> String {
     let mut ret = String::new();
     for i in s..p.len() * 2 {
         let n = get_nibble(p, i);
-        ret += &format!("{:01x}", n);
+        ret += &format!("{n:01x}");
     }
     ret
 }

@@ -50,9 +50,9 @@ async fn test_get_all_fallback_endpoints() {
         .await
         .unwrap();
     let urls = cf.get_all_fallback_endpoints(&networks::Network::MAINNET);
-    assert!(urls.len() > 0);
+    assert!(!urls.is_empty());
     let urls = cf.get_all_fallback_endpoints(&networks::Network::GOERLI);
-    assert!(urls.len() > 0);
+    assert!(!urls.is_empty());
 }
 
 #[tokio::test]
@@ -62,7 +62,7 @@ async fn test_get_healthy_fallback_endpoints() {
         .await
         .unwrap();
     let urls = cf.get_healthy_fallback_endpoints(&networks::Network::MAINNET);
-    assert!(urls.len() > 0);
+    assert!(!urls.is_empty());
     let urls = cf.get_healthy_fallback_endpoints(&networks::Network::GOERLI);
-    assert!(urls.len() > 0);
+    assert!(!urls.is_empty());
 }

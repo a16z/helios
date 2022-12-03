@@ -101,7 +101,7 @@ impl CheckpointFallback {
             let service_list = list
                 .get(network.to_string().to_lowercase())
                 .ok_or_else(|| {
-                    eyre::eyre!(format!("missing {} fallback checkpoint services", network))
+                    eyre::eyre!(format!("missing {network} fallback checkpoint services"))
                 })?;
             let parsed: Vec<CheckpointFallbackService> =
                 serde_yaml::from_value(service_list.clone())?;
@@ -202,7 +202,7 @@ impl CheckpointFallback {
     /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
     /// ```
     pub fn construct_url(endpoint: &str) -> String {
-        format!("{}/checkpointz/v1/beacon/slots", endpoint)
+        format!("{endpoint}/checkpointz/v1/beacon/slots")
     }
 
     /// Returns a list of all checkpoint fallback endpoints.

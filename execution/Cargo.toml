@@ -11,7 +11,7 @@ serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1b685b861d0fa9e2daabe89737" }
-ethers = "1.0.0"
+ethers = { version = "1.0.2", features = [ "ws", "default" ] }
 revm = "2.1.0"
 bytes = "1.2.1"
 futures = "0.3.23"

@@ -15,6 +15,7 @@ use revm::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
 use crate::errors::ExecutionError;
+use crate::rpc::WsRpc;
 use crate::types::Transactions;
 
 use super::proof::{encode_account, verify_proof};
@@ -28,6 +29,13 @@ const MAX_SUPPORTED_LOGS_NUMBER: usize = 5;
 #[derive(Clone)]
 pub struct ExecutionClient<R: ExecutionRpc> {
     pub rpc: R,
+}
+
+impl ExecutionClient<WsRpc> {
+    pub fn new_with_ws(rpc: &str) -> Result<Self> {
+        let rpc = WsRpc::new(rpc)?;
+        Ok(Self { rpc })
+    }
 }
 
 impl<R: ExecutionRpc> ExecutionClient<R> {

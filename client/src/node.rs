@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use execution::rpc::{ExecutionRpc, WsRpc};
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
@@ -13,22 +14,22 @@ use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
-use execution::rpc::http_rpc::HttpRpc;
+// use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
 
 use crate::errors::NodeError;
 
-pub struct Node {
+pub struct Node<R: ExecutionRpc> {
     pub consensus: ConsensusClient<NimbusRpc>,
-    pub execution: Arc<ExecutionClient<HttpRpc>>,
+    pub execution: Arc<ExecutionClient<R>>,
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
     pub history_size: usize,
 }
 
-impl Node {
+impl Node<WsRpc> {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint;
@@ -36,9 +37,18 @@ impl Node {
 
         let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
             .map_err(NodeError::ConsensusClientCreationError)?;
-        let execution = Arc::new(
-            ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,
-        );
+
+        let execution = if config.with_ws {
+            Arc::new(
+                ExecutionClient::new_with_ws(execution_rpc)
+                    .map_err(NodeError::ExecutionClientCreationError)?,
+            )
+        } else {
+            Arc::new(
+                ExecutionClient::new(execution_rpc)
+                    .map_err(NodeError::ExecutionClientCreationError)?,
+            )
+        };
 
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
@@ -52,7 +62,12 @@ impl Node {
             history_size: 64,
         })
     }
+}
 
+impl<R> Node<R>
+where
+    R: ExecutionRpc,
+{
     pub async fn sync(&mut self) -> Result<(), NodeError> {
         self.consensus
             .sync()
