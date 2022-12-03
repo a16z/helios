@@ -192,7 +192,7 @@ impl<R: ExecutionRpc> EthRpcServer for RpcInner<R> {
         let node = self.node.read().await;
         let code = convert_err(node.get_code(&address, block).await)?;
 
-        Ok(hex::encode(code))
+        Ok(format!("0x{:}", hex::encode(code)))
     }
 
     async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {

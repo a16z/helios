@@ -20,14 +20,7 @@ jobs:
       - name: install target
         run: rustup target add aarch64-apple-darwin
 
-      - name: cargo cache artifacts
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
 
       - name: build
         run: cargo build --package cli --release --target aarch64-apple-darwin
@@ -66,14 +59,7 @@ jobs:
       - name: install target
         run: rustup target add x86_64-apple-darwin
 
-      - name: cargo cache artifacts
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
 
       - name: build
         run: cargo build --package cli --release --target x86_64-apple-darwin	
@@ -118,14 +104,7 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
-      - name: cargo cache artifacts
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
 
       - name: build
         run: cargo build --package cli --release --target aarch64-unknown-linux-gnu
@@ -164,14 +143,7 @@ jobs:
       - name: install target
         run: rustup target add x86_64-unknown-linux-gnu
 
-      - name: cargo cache artifacts
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
 
       - name: build
         run: cargo build --package cli --release --target x86_64-unknown-linux-gnu

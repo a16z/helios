@@ -17,13 +17,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -38,13 +32,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -61,13 +49,7 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -84,13 +66,7 @@ jobs:
           toolchain: nightly
           override: true
           components: clippy
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
