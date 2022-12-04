@@ -9,7 +9,7 @@ eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1b685b861d0fa9e2daabe89737" }
-ethers = "1.0.0"
+ethers = "1.0.2"
 jsonrpsee = { version = "0.15.1", features = ["full"] }
 futures = "0.3.23"
 log = "0.4.17"

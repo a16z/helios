@@ -21,17 +21,21 @@ common = { path = "./common" }
 consensus = { path = "./consensus" }
 execution = { path = "./execution" }
 
-[patch.crates-io]
-ethers = { git = "https://github.com/ncitron/ethers-rs", branch = "fix-retry" }
-
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 home = "0.5.4"
+ethers = "1.0.2"
+env_logger = "0.9.0"
+log = "0.4.17"
 
 [[example]]
 name = "checkpoints"
 path = "examples/checkpoints.rs"
+
+[[example]]
+name = "readme"
+path = "examples/readme.rs"
 
 [[example]]
 name = "client"

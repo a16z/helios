@@ -123,7 +123,7 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
         let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
-        Ok(format!("0x{:x}", nonce))
+        Ok(format!("0x{nonce:x}"))
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -267,5 +267,5 @@ fn format_hex(num: &U256) -> String {
         .trim_start_matches('0')
         .to_string();
 
-    format!("0x{}", stripped)
+    format!("0x{stripped}")
 }
