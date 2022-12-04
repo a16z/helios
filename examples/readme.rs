@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use env_logger::Env;
-use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
 use ethers::{types::Address, utils};
 use eyre::Result;
+use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +21,10 @@ async fn main() -> Result<()> {
         .execution_rpc(untrusted_rpc_url)
         .load_external_fallback()
         .build()?;
-    log::info!("Built client on network \"{}\" with external checkpoint fallbacks", Network::MAINNET);
+    log::info!(
+        "Built client on network \"{}\" with external checkpoint fallbacks",
+        Network::MAINNET
+    );
 
     client.start().await?;
 
@@ -31,7 +34,10 @@ async fn main() -> Result<()> {
     let balance = client.get_balance(&addr, block).await?;
 
     log::info!("synced up to block: {}", head_block_num);
-    log::info!("balance of deposit contract: {}", utils::format_ether(balance));
+    log::info!(
+        "balance of deposit contract: {}",
+        utils::format_ether(balance)
+    );
 
     Ok(())
 }

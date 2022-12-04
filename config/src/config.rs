@@ -55,13 +55,9 @@ impl Config {
                     figment::error::Kind::MissingField(field) => {
                         let field = field.replace('_', "-");
 
-                        println!(
-                            "\x1b[91merror\x1b[0m: missing configuration field: {field}"
-                        );
+                        println!("\x1b[91merror\x1b[0m: missing configuration field: {field}");
 
-                        println!(
-                            "\n\ttry supplying the propoper command line argument: --{field}"
-                        );
+                        println!("\n\ttry supplying the propoper command line argument: --{field}");
 
                         println!("\talternatively, you can add the field to your helios.toml file or as an environment variable");
                         println!("\nfor more information, check the github README");

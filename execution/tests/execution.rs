@@ -20,9 +20,9 @@ async fn test_get_account() {
 
     let payload = ExecutionPayload {
         state_root: Vector::from_iter(
-        hex_str_to_bytes("0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d")
-            .unwrap(),
-    ),
+            hex_str_to_bytes("0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d")
+                .unwrap(),
+        ),
         ..ExecutionPayload::default()
     };
 
@@ -105,10 +105,10 @@ async fn test_get_tx_not_included() {
 async fn test_get_logs() {
     let execution = get_client();
     let mut payload = ExecutionPayload {
-        state_root: Vector::from_iter(
-        hex_str_to_bytes("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f")
-            .unwrap(),
-    ),
+        receipts_root: Vector::from_iter(
+            hex_str_to_bytes("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f")
+                .unwrap(),
+        ),
         ..ExecutionPayload::default()
     };
 
@@ -135,10 +135,10 @@ async fn test_get_receipt() {
         H256::from_str("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f").unwrap();
 
     let mut payload = ExecutionPayload {
-        state_root: Vector::from_iter(
-        hex_str_to_bytes("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f")
-            .unwrap(),
-    ),
+        receipts_root: Vector::from_iter(
+            hex_str_to_bytes("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f")
+                .unwrap(),
+        ),
         ..ExecutionPayload::default()
     };
 
