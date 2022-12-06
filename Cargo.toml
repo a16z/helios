@@ -1,10 +1,10 @@
 [package]
 name = "helios"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
+autobenches = false
 
 [workspace]
-
 members = [
     "cli",
     "client",
@@ -28,6 +28,9 @@ home = "0.5.4"
 ethers = "1.0.2"
 env_logger = "0.9.0"
 log = "0.4.17"
+tracing-test = "0.2.3"
+criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
+plotters = "0.3.3"
 
 [[example]]
 name = "checkpoints"
@@ -45,3 +48,10 @@ path = "examples/client.rs"
 name = "config"
 path = "examples/config.rs"
 
+[[bench]]
+name = "get_code"
+harness = false
+
+[[bench]]
+name = "get_balance"
+harness = false
