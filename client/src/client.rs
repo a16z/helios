@@ -343,8 +343,17 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_code(address, block).await
     }
 
-    pub async fn get_storage_at(&self, address: &Address, slot: H256, block: BlockTag) -> Result<U256> {
-        self.node.read().await.get_storage_at(address, slot, block).await
+    pub async fn get_storage_at(
+        &self,
+        address: &Address,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<U256> {
+        self.node
+            .read()
+            .await
+            .get_storage_at(address, slot, block)
+            .await
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
