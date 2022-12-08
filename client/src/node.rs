@@ -163,10 +163,10 @@ impl Node {
         Ok(account.code)
     }
 
-    pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
+    pub async fn get_storage_at(&self, address: &Address, slot: H256, block: BlockTag) -> Result<U256> {
         self.check_head_age()?;
 
-        let payload = self.get_payload(BlockTag::Latest)?;
+        let payload = self.get_payload(block)?;
         let account = self
             .execution
             .get_account(address, Some(&[slot]), payload)
