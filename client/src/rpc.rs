@@ -94,6 +94,13 @@ trait EthRpc {
     async fn get_transaction_by_hash(&self, hash: &str) -> Result<Option<Transaction>, Error>;
     #[method(name = "getLogs")]
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error>;
+    #[method(name = "getStorageAt")]
+    async fn get_storage_at(
+        &self,
+        address: &str,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<String, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -226,6 +233,19 @@ impl EthRpcServer for RpcInner {
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {
         let node = self.node.read().await;
         convert_err(node.get_logs(&filter).await)
+    }
+
+    async fn get_storage_at(
+        &self,
+        address: &str,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<String, Error> {
+        let address = convert_err(Address::from_str(address))?;
+        let node = self.node.read().await;
+        let storage = convert_err(node.get_storage_at(&address, slot, block).await)?;
+
+        Ok(format_hex(&storage))
     }
 }
 
