@@ -28,6 +28,11 @@ home = "0.5.4"
 ethers = "1.0.2"
 env_logger = "0.9.0"
 log = "0.4.17"
+dotenv = "0.15.0"
+
+[[example]]
+name = "call"
+path = "examples/call.rs"
 
 [[example]]
 name = "checkpoints"
