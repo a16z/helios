@@ -14,7 +14,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `chain_id` | Returns the chain ID of the current network. | `client.chain_id(&self)` |
 | `gas_price` | Returns the current price per gas in wei. | `client.gas_price(&self)` |
 | `max_priority_fee_per_gas` | Returns the current max priority fee per gas in wei. | `client.max_priority_fee_per_gas(&self)` |
-| `block_number` | Returns the number of most recent block. | `client.block_number(&self)` |
+| `block_number` | Returns the number of the most recent block. | `client.block_number(&self)` |
 | `get_block_by_number` | Returns the information of a block by number. | `get_block_by_number(&self, block: BlockTag, full_tx: bool)` |
 | `get_block_by_hash` | Returns the information of a block by hash. | `get_block_by_hash(&self, hash: &str, full_tx: bool)` |
 | `send_raw_transaction` | Submits a raw transaction to the network. | `client.send_raw_transaction(&self, bytes: &str)` |
