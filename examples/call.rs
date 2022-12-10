@@ -1,9 +1,9 @@
 #![allow(deprecated)]
 
-use std::sync::Arc;
 use dotenv::dotenv;
 use env_logger::Env;
 use ethers::prelude::*;
+use std::sync::Arc;
 
 use helios::{
     client::ClientBuilder,
@@ -41,7 +41,10 @@ async fn main() -> eyre::Result<()> {
         .execution_rpc(&eth_rpc_url)
         .load_external_fallback()
         .build()?;
-    log::info!("[\"{}\"] Client built with external checkpoint fallbacks", Network::MAINNET);
+    log::info!(
+        "[\"{}\"] Client built with external checkpoint fallbacks",
+        Network::MAINNET
+    );
 
     // Start the client
     client.start().await?;
@@ -62,12 +65,21 @@ async fn main() -> eyre::Result<()> {
 
     // Call using abigen
     let provider = Provider::<Http>::try_from(eth_rpc_url)?;
-    let render  = Renderer::new(address, Arc::new(provider.clone()));
+    let render = Renderer::new(address, Arc::new(provider.clone()));
     let result = render.render_broker_0(argument).call().await?;
-    log::info!("[ABIGEN] {account}::{method} -> Response Length: {:?}", result.len());
-    let render  = Renderer::new(address, Arc::new(provider.clone()));
-    let result = render.render_broker_1(argument, U256::from(10)).call().await?;
-    log::info!("[ABIGEN] {account}::{method2} -> Response Length: {:?}", result.len());
+    log::info!(
+        "[ABIGEN] {account}::{method} -> Response Length: {:?}",
+        result.len()
+    );
+    let render = Renderer::new(address, Arc::new(provider.clone()));
+    let result = render
+        .render_broker_1(argument, U256::from(10))
+        .call()
+        .await?;
+    log::info!(
+        "[ABIGEN] {account}::{method2} -> Response Length: {:?}",
+        result.len()
+    );
 
     // Call on helios client
     log::debug!("Calling helios client on block: {block:?}");
