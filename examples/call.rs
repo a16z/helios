@@ -1,12 +1,9 @@
 #![allow(deprecated)]
 
-use std::str::FromStr;
-
 use dotenv::dotenv;
-
 use env_logger::Env;
 use ethers::prelude::*;
-use eyre::Result;
+
 use helios::{
     client::ClientBuilder,
     config::networks::Network,
@@ -23,7 +20,7 @@ use helios::{
 // );
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> eyre::Result<()> {
     // Load the .env file
     dotenv().ok();
 
@@ -74,9 +71,11 @@ async fn main() -> Result<()> {
     };
     let encoded = function.encode_input(&args)?;
     log::debug!("Encoded function input: {:?}", encoded);
+    let to = "8bb9a8baeec177ae55ac410c429cbbbbb9198cac".parse::<Address>()?;
+    log::debug!("To: {:?}", to);
     let call_opts = CallOpts {
         from: None,
-        to: Address::from_str(account)?,
+        to,
         gas: None,
         gas_price: None,
         value: None,
@@ -88,7 +87,7 @@ async fn main() -> Result<()> {
     // Call on ethers-rs client
     let mut tx = ethers::types::Eip1559TransactionRequest::new();
     tx = tx.chain_id(1);
-    tx = tx.to(account);
+    tx = tx.to(to);
     tx = tx.data(encoded.clone());
     let provider = Provider::<Http>::try_from(eth_rpc_url)?;
     log::debug!("[ETHERS] Calling on block: {:?}", block);
