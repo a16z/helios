@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 
+use std::sync::Arc;
 use dotenv::dotenv;
 use env_logger::Env;
 use ethers::prelude::*;
@@ -11,13 +12,14 @@ use helios::{
 };
 
 // Generate the type-safe contract bindings with an ABI
-// abigen!(
-//     Renderer,
-//     r#"[
-//         function renderBroker(uint256, uint256) external view returns (string memory, uint256)
-//     ]"#,
-//     event_derives(serde::Deserialize, serde::Serialize)
-// );
+abigen!(
+    Renderer,
+    r#"[
+        function renderBroker(uint256) external view returns (string memory)
+        function renderBroker(uint256, uint256) external view returns (string memory)
+    ]"#,
+    event_derives(serde::Deserialize, serde::Serialize)
+);
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -44,60 +46,42 @@ async fn main() -> eyre::Result<()> {
     // Start the client
     client.start().await?;
 
+    // TODO: Wait until the client is synced
+    // client.wait_for_sync().await?;
 
     // Call the erroneous account method
     // The expected asset is: https://0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac.w3eth.io/renderBroker/5
     // Retrieved by calling `renderBroker(5)` on the contract: https://etherscan.io/address/0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac#code
-    // let contract = Renderer::new(account, client.clone());
     let account = "0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac";
     let method = "renderBroker(uint256)";
-    log::debug!("Calling {}::{}", account, method);
-    let args = vec![ethers::abi::Token::Uint(U256::from(5))];
-    log::debug!("Arguments: {:?}", args);
-    let function: ethers::abi::Function = ethers::abi::Function {
-        name: method.to_string(),
-        inputs: vec![ethers::abi::Param {
-            name: "brokerId".to_string(),
-            kind: ethers::abi::ParamType::Uint(256),
-            internal_type: None
-        }],
-        outputs: vec![ethers::abi::Param {
-            name: "brokerName".to_string(),
-            kind: ethers::abi::ParamType::String,
-            internal_type: Some("memory".to_string())
-        }, ethers::abi::Param {name:"brokerId".to_string(),kind:ethers::abi::ParamType::Uint(256), internal_type: None }],
-        constant: None,
-        state_mutability: ethers::abi::StateMutability::View,
-    };
-    let encoded = function.encode_input(&args)?;
-    log::debug!("Encoded function input: {:?}", encoded);
-    let to = "8bb9a8baeec177ae55ac410c429cbbbbb9198cac".parse::<Address>()?;
-    log::debug!("To: {:?}", to);
-    let call_opts = CallOpts {
-        from: None,
-        to,
-        gas: None,
-        gas_price: None,
-        value: None,
-        data: Some(encoded.clone()),
-    };
-    log::debug!("Constructed CallOpts: {:?}", call_opts);
+    let method2 = "renderBroker(uint256, uint256)";
+    let argument = U256::from(5);
+    let address = account.parse::<Address>()?;
     let block = BlockTag::Latest;
+    log::debug!("Context: call @ {account}::{method} <{argument}>");
 
-    // Call on ethers-rs client
-    let mut tx = ethers::types::Eip1559TransactionRequest::new();
-    tx = tx.chain_id(1);
-    tx = tx.to(to);
-    tx = tx.data(encoded.clone());
+    // Call using abigen
     let provider = Provider::<Http>::try_from(eth_rpc_url)?;
-    log::debug!("[ETHERS] Calling on block: {:?}", block);
-    let result = provider.call(&tx.into(), None).await?;
-    log::debug!("[ETHERS] {}::{}\n  ->{:?}", account, method, result);
+    let render  = Renderer::new(address, Arc::new(provider.clone()));
+    let result = render.render_broker_0(argument).call().await?;
+    log::info!("[ABIGEN] {account}::{method} -> Response Length: {:?}", result.len());
+    let render  = Renderer::new(address, Arc::new(provider.clone()));
+    let result = render.render_broker_1(argument, U256::from(10)).call().await?;
+    log::info!("[ABIGEN] {account}::{method2} -> Response Length: {:?}", result.len());
 
     // Call on helios client
-    log::debug!("[HELIOS] Calling on block: {:?}", block);
+    log::debug!("Calling helios client on block: {block:?}");
+    let encoded_call = render.render_broker_0(argument).calldata().unwrap();
+    let call_opts = CallOpts {
+        from: Some("0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8".parse::<Address>()?),
+        to: address,
+        gas: Some(U256::from(U64::MAX.as_u64())),
+        gas_price: None,
+        value: None,
+        data: Some(encoded_call.to_vec()),
+    };
     let result = client.call(&call_opts, block).await?;
-    log::info!("[HELIOS] {}::{}\n  ->{:?}", account, method, result);
+    log::info!("[HELIOS] {account}::{method}  ->{:?}", result.len());
 
     Ok(())
 }

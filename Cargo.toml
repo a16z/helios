@@ -25,10 +25,11 @@ execution = { path = "./execution" }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 home = "0.5.4"
-ethers = "1.0.2"
+ethers = { version = "1.0.2", features = [ "abigen" ] }
 env_logger = "0.9.0"
 log = "0.4.17"
 dotenv = "0.15.0"
+serde = "1.0.149"
 
 [[example]]
 name = "call"
