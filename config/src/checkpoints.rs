@@ -117,7 +117,7 @@ impl CheckpointFallback {
         &self,
         network: &crate::networks::Network,
     ) -> eyre::Result<H256> {
-        let services = &self.services[network];
+        let services = &self.get_healthy_fallback_services(network);
         Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
 
@@ -228,6 +228,22 @@ impl CheckpointFallback {
             .filter(|service| service.state)
             .map(|service| service.endpoint.clone())
             .collect()
+    }
+
+    /// Returns a list of healthchecked checkpoint fallback services.
+    ///
+    /// ### Warning
+    ///
+    /// These services are not trustworthy and may act with malice by returning invalid checkpoints.
+    pub fn get_healthy_fallback_services(
+        &self,
+        network: &networks::Network,
+    ) -> Vec<CheckpointFallbackService> {
+        self.services[network]
+            .iter()
+            .filter(|service| service.state)
+            .cloned()
+            .collect::<Vec<CheckpointFallbackService>>()
     }
 
     /// Returns the raw checkpoint fallback service objects for a given network.

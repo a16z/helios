@@ -31,6 +31,11 @@ log = "0.4.17"
 tracing-test = "0.2.3"
 criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
 plotters = "0.3.3"
+tempfile = "3.3.0"
+
+######################################
+# Examples
+######################################
 
 [[example]]
 name = "checkpoints"
@@ -48,10 +53,18 @@ path = "examples/client.rs"
 name = "config"
 path = "examples/config.rs"
 
+######################################
+# Benchmarks
+######################################
+
 [[bench]]
 name = "get_code"
 harness = false
 
 [[bench]]
 name = "get_balance"
+harness = false
+
+[[bench]]
+name = "file_db"
 harness = false

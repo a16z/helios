@@ -1,12 +1,12 @@
-use std::str::FromStr;
-use ethers::prelude::*;
 use criterion::{criterion_group, criterion_main, Criterion};
+use ethers::prelude::*;
 use helios::types::BlockTag;
+use std::str::FromStr;
 
 mod harness;
 
 criterion_main!(get_code);
-criterion_group!{
+criterion_group! {
     name = get_code;
     config = Criterion::default().sample_size(10);
     targets = bench_mainnet_get_code, bench_goerli_get_code
@@ -30,10 +30,9 @@ pub fn bench_mainnet_get_code(c: &mut Criterion) {
         let block = BlockTag::Latest;
 
         // Execute the benchmark asynchronously.
-        b.to_async(rt)
-            .iter(|| async {
-                let inner = std::sync::Arc::clone(&client);
-                inner.get_code(&addr, block).await.unwrap()
+        b.to_async(rt).iter(|| async {
+            let inner = std::sync::Arc::clone(&client);
+            inner.get_code(&addr, block).await.unwrap()
         })
     });
 }
@@ -56,11 +55,9 @@ pub fn bench_goerli_get_code(c: &mut Criterion) {
         let block = BlockTag::Latest;
 
         // Execute the benchmark asynchronously.
-        b.to_async(rt)
-            .iter(|| async {
-                let inner = std::sync::Arc::clone(&client);
-                inner.get_code(&addr, block).await.unwrap()
+        b.to_async(rt).iter(|| async {
+            let inner = std::sync::Arc::clone(&client);
+            inner.get_code(&addr, block).await.unwrap()
         })
     });
 }
-

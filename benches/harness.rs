@@ -1,7 +1,11 @@
+#![allow(dead_code)]
+
 use helios::{client, config::networks};
 
 /// Constructs a mainnet client for benchmark usage.
-pub fn construct_mainnet_client(rt: &tokio::runtime::Runtime) -> eyre::Result<client::Client<client::FileDB>> {
+pub fn construct_mainnet_client(
+    rt: &tokio::runtime::Runtime,
+) -> eyre::Result<client::Client<client::FileDB>> {
     rt.block_on(async {
         let benchmark_rpc_url = std::env::var("BENCHMARK_MAINNET_RPC_URL")?;
         let mut client = client::ClientBuilder::new()
@@ -16,7 +20,9 @@ pub fn construct_mainnet_client(rt: &tokio::runtime::Runtime) -> eyre::Result<cl
 }
 
 /// Constructs a goerli client for benchmark usage.
-pub fn construct_goerli_client(rt: &tokio::runtime::Runtime) -> eyre::Result<client::Client<client::FileDB>> {
+pub fn construct_goerli_client(
+    rt: &tokio::runtime::Runtime,
+) -> eyre::Result<client::Client<client::FileDB>> {
     rt.block_on(async {
         let benchmark_rpc_url = std::env::var("BENCHMARK_GOERLI_RPC_URL")?;
         let mut client = client::ClientBuilder::new()
