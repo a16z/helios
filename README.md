@@ -32,8 +32,9 @@ helios --execution-rpc $ETH_RPC_URL
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
-Helios also provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run --example <example_name>` from inside the helios repository.
+Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run --example <example_name>` from inside the helios repository.
 
+Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 
 ### Warning
 
