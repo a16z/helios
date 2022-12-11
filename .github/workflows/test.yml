@@ -7,8 +7,8 @@ on:
     branches: [ "master" ]
 
 env:
-  BENCHMARK_MAINNET_RPC_URL: ${{ secrets.BENCHMARK_MAINNET_RPC_URL }}
-  BENCHMARK_GOERLI_RPC_URL: ${{ secrets.BENCHMARK_MAINNET_RPC_URL }}
+  MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+  GOERLI_RPC_URL: ${{ secrets.GOERLI_RPC_URL }}
 
 jobs:
   check:
