@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
-use std::{sync::Arc, str::FromStr};
+use std::{str::FromStr, sync::Arc};
 
 use ::client::Client;
-use ethers::{types::{H256, U256}, abi::Address};
+use ethers::{
+    abi::Address,
+    types::{H256, U256},
+};
 use helios::{client, config::networks, prelude::FileDB, types::BlockTag};
 
 /// Fetches the latest mainnet checkpoint from the fallback service.
@@ -91,7 +94,11 @@ pub fn construct_goerli_client(
 }
 
 /// Gets the balance of the given address on mainnet.
-pub fn get_balance(rt: &tokio::runtime::Runtime, client: Arc<Client<FileDB>>, address: &str) -> eyre::Result<U256> {
+pub fn get_balance(
+    rt: &tokio::runtime::Runtime,
+    client: Arc<Client<FileDB>>,
+    address: &str,
+) -> eyre::Result<U256> {
     rt.block_on(async {
         let block = BlockTag::Latest;
         let address = Address::from_str(address)?;
