@@ -32,6 +32,7 @@ tracing-test = "0.2.3"
 criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
 plotters = "0.3.3"
 tempfile = "3.3.0"
+hex = "0.4.3"
 
 ######################################
 # Examples
@@ -58,7 +59,7 @@ path = "examples/config.rs"
 ######################################
 
 [[bench]]
-name = "get_code"
+name = "file_db"
 harness = false
 
 [[bench]]
@@ -66,5 +67,9 @@ name = "get_balance"
 harness = false
 
 [[bench]]
-name = "file_db"
+name = "get_code"
+harness = false
+
+[[bench]]
+name = "sync"
 harness = false

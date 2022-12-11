@@ -1990,6 +1990,7 @@ dependencies = [
  "ethers",
  "execution",
  "eyre",
+ "hex",
  "home",
  "log",
  "plotters",

@@ -121,6 +121,14 @@ impl CheckpointFallback {
         Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
 
+    async fn query_service(endpoint: &str) -> Option<RawSlotResponse> {
+        let client = reqwest::Client::new();
+        let constructed_url = Self::construct_url(endpoint);
+        let res = client.get(&constructed_url).send().await.ok()?;
+        let raw: RawSlotResponse = res.json().await.ok()?;
+        Some(raw)
+    }
+
     /// Fetch the latest checkpoint from a list of checkpoint fallback services.
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
@@ -131,14 +139,15 @@ impl CheckpointFallback {
             .map(|service| {
                 let service = service.clone();
                 tokio::spawn(async move {
-                    let client = reqwest::Client::new();
-                    let constructed_url = Self::construct_url(&service.endpoint);
-                    let res = client.get(&constructed_url).send().await?;
-                    let raw: RawSlotResponse = res.json().await?;
-                    if raw.data.slots.is_empty() {
-                        return Err(eyre::eyre!("no slots"));
+                    match Self::query_service(&service.endpoint).await {
+                        Some(raw) => {
+                            if raw.data.slots.is_empty() {
+                                return Err(eyre::eyre!("no slots"));
+                            }
+                            Ok(raw.data.slots[0].clone())
+                        }
+                        None => Err(eyre::eyre!("failed to query service")),
                     }
-                    Ok(raw.data.slots[0].clone())
                 })
             })
             .collect();
