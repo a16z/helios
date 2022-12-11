@@ -7,7 +7,7 @@ pub fn construct_mainnet_client(
     rt: &tokio::runtime::Runtime,
 ) -> eyre::Result<client::Client<client::FileDB>> {
     rt.block_on(async {
-        let benchmark_rpc_url = std::env::var("BENCHMARK_MAINNET_RPC_URL")?;
+        let benchmark_rpc_url = std::env::var("MAINNET_RPC_URL")?;
         let mut client = client::ClientBuilder::new()
             .network(networks::Network::MAINNET)
             .consensus_rpc("https://www.lightclientdata.org")
@@ -24,7 +24,7 @@ pub fn construct_goerli_client(
     rt: &tokio::runtime::Runtime,
 ) -> eyre::Result<client::Client<client::FileDB>> {
     rt.block_on(async {
-        let benchmark_rpc_url = std::env::var("BENCHMARK_GOERLI_RPC_URL")?;
+        let benchmark_rpc_url = std::env::var("GOERLI_RPC_URL")?;
         let mut client = client::ClientBuilder::new()
             .network(networks::Network::GOERLI)
             .consensus_rpc("http://testing.prater.beacon-api.nimbus.team")
