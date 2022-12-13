@@ -156,7 +156,7 @@ impl Node {
     }
 
     pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
-        let payload = self.get_payload_by_hash(&hash)?;
+        let payload = self.get_payload_by_hash(hash)?;
         let transaction_count = payload.1.transactions.len();
 
         Ok(U256::from(transaction_count))
@@ -262,7 +262,7 @@ impl Node {
         hash: &Vec<u8>,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>> {
-        let payload = self.get_payload_by_hash(&hash);
+        let payload = self.get_payload_by_hash(hash);
 
         match payload {
             Ok(payload) => self.execution.get_block(payload.1, full_tx).await.map(Some),
