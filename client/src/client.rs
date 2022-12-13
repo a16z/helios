@@ -337,11 +337,7 @@ impl<DB: Database> Client<DB> {
     }
 
     pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
-        self.node
-            .read()
-            .await
-            .get_nonce(address, block)
-            .await
+        self.node.read().await.get_nonce(address, block).await
     }
 
     pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
