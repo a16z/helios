@@ -6,12 +6,15 @@ on:
   pull_request:
     branches: [ "master" ]
 
+env:
+  MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+  GOERLI_RPC_URL: ${{ secrets.GOERLI_RPC_URL }}
+
 jobs:
   check:
-    name: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -23,10 +26,9 @@ jobs:
           command: check
 
   test:
-    name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -39,10 +41,9 @@ jobs:
           args: --all
 
   fmt:
-    name: fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -55,11 +56,25 @@ jobs:
           command: fmt
           args: --all -- --check
 
-  clippy:
-    name: clippy
+  benches:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions-rs/cargo@v1
+        with:
+          command: bench
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
