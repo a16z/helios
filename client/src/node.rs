@@ -155,18 +155,19 @@ impl Node {
         Ok(account.nonce)
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>,full_tx: bool) -> Result<Option<U256>> {
+    pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
         let payloads = self
             .payloads
             .iter()
             .filter(|entry| &entry.1.block_hash.to_vec() == hash)
             .collect::<Vec<(&u64, &ExecutionPayload)>>();
-
-        
-        if let Some(payload_entry) = payloads.get(0) {
-            Ok(Some(U256::from(payload_entry.1.transactions.len())))
-        } else {
-            Ok(None)
+        let payload = payloads.get(0);
+        match payload {
+            Some(payload) => {
+                let transaction_count = payload.1.transactions.len();
+                Ok(U256::from(transaction_count))
+            }
+            None => Err(eyre!("slot not found")),
         }
     }
 

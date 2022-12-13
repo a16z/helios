@@ -138,9 +138,9 @@ impl EthRpcServer for RpcInner {
     async fn get_block_transaction_count_by_hash(&self, hash: &str) -> Result<String, Error> {
         let hash = convert_err(hex_str_to_bytes(hash))?;
         let node = self.node.read().await;
-        let transactions = convert_err(node.get_block_transaction_count_by_hash(&hash, true).await)?;
-
-
+        let transactions = convert_err(node.get_block_transaction_count_by_hash(&hash))?;
+        // Return transactions
+        Ok(format_hex(&transactions))
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
