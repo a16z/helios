@@ -139,7 +139,7 @@ impl EthRpcServer for RpcInner {
         let hash = convert_err(hex_str_to_bytes(hash))?;
         let node = self.node.read().await;
         let transactions = convert_err(node.get_block_transaction_count_by_hash(&hash))?;
-        // Return transactions
+        
         Ok(format_hex(&transactions))
     }
 
