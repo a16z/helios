@@ -344,20 +344,18 @@ impl<DB: Database> Client<DB> {
             .await
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &H256) {
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
         self.node
             .read()
             .await
-            .get_block_transaction_count_by_hash()
-            .await
+            .get_block_transaction_count_by_hash(hash)
     }
 
-    pub fn get_block_transaction_count_by_number(&self, block: BlockTag) {
+    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<U256> {
         self.node
             .read()
             .await
-            .get_block_transaction_count_by_number()
-            .await
+            .get_block_transaction_count_by_number(block)
     }
 
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
