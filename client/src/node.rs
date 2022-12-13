@@ -271,7 +271,7 @@ impl Node {
                     .await
                     .map(Some)
             },
-            Err(payload) => Ok(None)
+            Err(_) => Ok(None)
         }
 
     }
