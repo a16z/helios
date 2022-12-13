@@ -147,7 +147,7 @@ impl Node {
         Ok(account.balance)
     }
 
-    pub async fn get_transaction_count(&self, address: &Address, block: BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
@@ -155,18 +155,18 @@ impl Node {
         Ok(account.nonce)
     }
 
-    pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
+    pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
         let payload = self.get_payload_by_hash(hash)?;
         let transaction_count = payload.1.transactions.len();
 
-        Ok(U256::from(transaction_count))
+        Ok(transaction_count as u64)
     }
 
-    pub fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<U256> {
+    pub fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
         let payload = self.get_payload(block)?;
         let transaction_count = payload.transactions.len();
 
-        Ok(U256::from(transaction_count))
+        Ok(transaction_count as u64)
     }
 
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {

@@ -133,7 +133,7 @@ impl EthRpcServer for RpcInner {
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
-        let nonce = convert_err(node.get_transaction_count(&address, block).await)?;
+        let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
         Ok(format!("0x{nonce:x}"))
     }
@@ -143,7 +143,7 @@ impl EthRpcServer for RpcInner {
         let node = self.node.read().await;
         let transaction_count = convert_err(node.get_block_transaction_count_by_hash(&hash))?;
 
-        Ok(format_hex(&transaction_count))
+        Ok(u64_to_hex_string(transaction_count))
     }
 
     async fn get_block_transaction_count_by_number(
@@ -152,7 +152,7 @@ impl EthRpcServer for RpcInner {
     ) -> Result<String, Error> {
         let node = self.node.read().await;
         let transaction_count = convert_err(node.get_block_transaction_count_by_number(block))?;
-        Ok(format_hex(&transaction_count))
+        Ok(u64_to_hex_string(transaction_count))
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {

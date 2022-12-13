@@ -336,22 +336,22 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_balance(address, block).await
     }
 
-    pub async fn get_transaction_count(&self, address: &Address, block: BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
         self.node
             .read()
             .await
-            .get_transaction_count(address, block)
+            .get_nonce(address, block)
             .await
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
         self.node
             .read()
             .await
             .get_block_transaction_count_by_hash(hash)
     }
 
-    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<U256> {
+    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
         self.node
             .read()
             .await
