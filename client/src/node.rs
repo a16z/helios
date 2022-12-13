@@ -158,11 +158,11 @@ impl Node {
     pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
         let payload = self.get_payload_by_hash(&hash)?;
         let transaction_count = payload.1.transactions.len();
-        
+
         Ok(U256::from(transaction_count))
     }
 
-    pub fn get_block_transaction_count_by_number(&self, block:BlockTag) -> Result<U256> {
+    pub fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<U256> {
         let payload = self.get_payload(block)?;
         let transaction_count = payload.transactions.len();
 
@@ -265,15 +265,9 @@ impl Node {
         let payload = self.get_payload_by_hash(&hash);
 
         match payload {
-            Ok(payload) => {
-                self.execution
-                    .get_block(payload.1, full_tx)
-                    .await
-                    .map(Some)
-            },
-            Err(_) => Ok(None)
+            Ok(payload) => self.execution.get_block(payload.1, full_tx).await.map(Some),
+            Err(_) => Ok(None),
         }
-
     }
 
     pub fn chain_id(&self) -> u64 {
@@ -315,7 +309,10 @@ impl Node {
             .filter(|entry| &entry.1.block_hash.to_vec() == hash)
             .collect::<Vec<(&u64, &ExecutionPayload)>>();
 
-        payloads.get(0).cloned().ok_or(eyre!("Block not found by hash"))
+        payloads
+            .get(0)
+            .cloned()
+            .ok_or(eyre!("Block not found by hash"))
     }
 
     fn check_head_age(&self) -> Result<(), NodeError> {
