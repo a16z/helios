@@ -57,6 +57,10 @@ trait EthRpc {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "getTransactionCount")]
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error>;
+    #[method(name = "getBlockTransactionCountByHash")]
+    async fn get_block_transaction_count_by_hash(&self, hash: &str) -> Result<String, Error>;
+    #[method(name = "getBlockTransactionCountByNumber")]
+    async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<String, Error>;
     #[method(name = "getCode")]
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "call")]
@@ -131,6 +135,20 @@ impl EthRpcServer for RpcInner {
         let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
         Ok(format!("0x{nonce:x}"))
+    }
+
+    async fn get_block_transaction_count_by_hash(&self, hash: &str) -> Result<String, Error> {
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let node = self.node.read().await;
+        let transaction_count = convert_err(node.get_block_transaction_count_by_hash(&hash))?;
+        
+        Ok(format_hex(&transaction_count))
+    }
+
+    async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<String, Error> {
+        let node = self.node.read().await;
+        let transaction_count = convert_err(node.get_block_transaction_count_by_number(block))?;
+        Ok(format_hex(&transaction_count))
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {

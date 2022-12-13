@@ -9,7 +9,7 @@ use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let untrusted_rpc_url = "https://mainnet.infura.io/v3/<YOUR_API_KEY>";
+    let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>";
     log::info!("Using untrusted RPC URL [REDACTED]");
 
     let consensus_rpc = "https://www.lightclientdata.org";
