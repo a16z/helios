@@ -133,7 +133,7 @@ impl EthRpcServer for RpcInner {
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
-        let nonce = convert_err(node.get_nonce(&address, block).await)?;
+        let nonce = convert_err(node.get_transaction_count(&address, block).await)?;
 
         Ok(format!("0x{nonce:x}"))
     }

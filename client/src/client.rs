@@ -336,8 +336,16 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_balance(address, block).await
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
-        self.node.read().await.get_nonce(address, block).await
+    pub async fn get_transaction_count(&self, address: &Address, block: BlockTag) -> Result<u64> {
+        self.node.read().await.get_transaction_count(address, block).await
+    }
+
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &H256) {
+        self.node.read().await.get_block_transaction_count_by_hash().await
+    }
+
+    pub fn get_block_transaction_count_by_number(&self, block: BlockTag) {
+        self.node.read().await.get_block_transaction_count_by_number().await
     }
 
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {

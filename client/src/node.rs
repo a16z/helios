@@ -147,7 +147,7 @@ impl Node {
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
+    pub async fn get_transaction_count(&self, address: &Address, block: BlockTag) -> Result<u64> {
         self.check_blocktag_age(&block)?;
 
         let payload = self.get_payload(block)?;
