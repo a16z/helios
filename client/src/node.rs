@@ -156,19 +156,17 @@ impl Node {
     }
 
     pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<U256> {
-        let payloads = self
-            .payloads
-            .iter()
-            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
-            .collect::<Vec<(&u64, &ExecutionPayload)>>();
-        let payload = payloads.get(0);
-        match payload {
-            Some(payload) => {
-                let transaction_count = payload.1.transactions.len();
-                Ok(U256::from(transaction_count))
-            }
-            None => Err(eyre!("slot not found")),
-        }
+        let payload = self.get_payload_by_hash(&hash)?;
+        let transaction_count = payload.1.transactions.len();
+        
+        Ok(U256::from(transaction_count))
+    }
+
+    pub fn get_block_transaction_count_by_number(&self, block:BlockTag) -> Result<U256> {
+        let payload = self.get_payload(block)?;
+        let transaction_count = payload.transactions.len();
+
+        Ok(U256::from(transaction_count))
     }
 
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
@@ -264,20 +262,18 @@ impl Node {
         hash: &Vec<u8>,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>> {
-        let payloads = self
-            .payloads
-            .iter()
-            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
-            .collect::<Vec<(&u64, &ExecutionPayload)>>();
+        let payload = self.get_payload_by_hash(&hash);
 
-        if let Some(payload_entry) = payloads.get(0) {
-            self.execution
-                .get_block(payload_entry.1, full_tx)
-                .await
-                .map(Some)
-        } else {
-            Ok(None)
+        match payload {
+            Ok(payload) => {
+                self.execution
+                    .get_block(payload.1, full_tx)
+                    .await
+                    .map(Some)
+            },
+            Err(payload) => Ok(None)
         }
+
     }
 
     pub fn chain_id(&self) -> u64 {
@@ -310,6 +306,16 @@ impl Node {
                 payload.ok_or(BlockNotFoundError::new(BlockTag::Number(num)))
             }
         }
+    }
+
+    fn get_payload_by_hash(&self, hash: &Vec<u8>) -> Result<(&u64, &ExecutionPayload)> {
+        let payloads = self
+            .payloads
+            .iter()
+            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
+            .collect::<Vec<(&u64, &ExecutionPayload)>>();
+
+        payloads.get(0).cloned().ok_or(eyre!("Block not found by hash"))
     }
 
     fn check_head_age(&self) -> Result<(), NodeError> {
