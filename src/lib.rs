@@ -55,12 +55,12 @@ pub mod client {
 }
 
 pub mod config {
-    pub use config::{networks, Config};
+    pub use config::{checkpoints, networks, Config};
 }
 
 pub mod types {
     pub use common::types::BlockTag;
-    pub use execution::types::CallOpts;
+    pub use execution::types::{Account, CallOpts, ExecutionBlock, Transactions};
 }
 
 pub mod errors {
