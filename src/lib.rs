@@ -60,7 +60,7 @@ pub mod config {
 
 pub mod types {
     pub use common::types::BlockTag;
-    pub use execution::types::{CallOpts, ExecutionBlock};
+    pub use execution::types::{Account, CallOpts, ExecutionBlock, Transactions};
 }
 
 pub mod errors {
