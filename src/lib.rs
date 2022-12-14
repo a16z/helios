@@ -55,7 +55,7 @@ pub mod client {
 }
 
 pub mod config {
-    pub use config::{checkpoints, networks, Config,};
+    pub use config::{checkpoints, networks, Config};
 }
 
 pub mod types {
