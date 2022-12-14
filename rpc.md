@@ -7,7 +7,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | RPC Method | Client Function | Description | Example |
 | ---------- | --------------- | ----------- | ------- |
 | `eth_getBalance` | `get_balance` | Returns the balance of the account given an address. | `client.get_balance(&self, address: &str, block: BlockTag)` |
-| `eth_getTransactionCount` | `get_transaction_count` | Returns the number of transactions sent from the given address. | `client.get_transaction_count(&self, address: &str, block: BlockTag)` |
+| `eth_getTransactionCount` | `get_nonce` | Returns the number of transactions sent from the given address. | `client.get_nonce(&self, address: &str, block: BlockTag)` |
 | `eth_getCode` | `get_code` | Returns the code at a given address. | `client.get_code(&self, address: &str, block: BlockTag)` |
 | `eth_call` | `call` | Executes a new message call immediately without creating a transaction on the blockchain. | `client.call(&self, opts: CallOpts, block: BlockTag)` |
 | `eth_estimateGas` | `estimate_gas` | Generates and returns an estimate of how much gas is necessary to allow the transaction to complete. | `client.estimate_gas(&self, opts: CallOpts)` |
@@ -21,3 +21,5 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getTransactionReceipt` | `get_transaction_receipt` | Returns the receipt of a transaction by transaction hash. | `client.get_transaction_receipt(&self, hash: &str)` |
 | `eth_getLogs` | `get_logs` | Returns an array of logs matching the filter. | `client.get_logs(&self, filter: Filter)` |
 | `eth_getStorageAt` | `get_storage_at` | Returns the value from a storage position at a given address. | `client.get_storage_at(&self, address: &str, slot: H256, block: BlockTag)` |
+| `eth_getBlockTransactionCountByHash` | `get_block_transaction_count_by_hash` | Returns the number of transactions in a block from a block matching the transaction hash. | `client.get_block_transaction_count_by_hash(&self, hash: &str)` |
+| `eth_getBlockTransactionCountByNumber` | `get_block_transaction_count_by_number` | Returns the number of transactions in a block from a block matching the block number. | `client.get_block_transaction_count_by_number(&self, block: BlockTag)` |
