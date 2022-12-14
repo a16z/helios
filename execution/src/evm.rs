@@ -54,6 +54,8 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
 
         self.evm.env = self.get_env(opts);
         let tx = self.evm.transact().0;
+        log::debug!("tx: {:#?}", tx);
+        log::debug!("tx.exit_reason: {:?}", tx.exit_reason);
 
         match tx.exit_reason {
             revm::Return::Revert => match tx.out {
@@ -64,7 +66,6 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
-
                 match tx.out {
                     TransactOut::None => Err(EvmError::Generic("Invalid Call".to_string())),
                     TransactOut::Create(..) => Err(EvmError::Generic("Invalid Call".to_string())),
@@ -277,21 +278,23 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
 
         let slot = H256::from_uint(&slot);
 
-        Ok(match self.accounts.get(&address) {
+        match self.accounts.get(&address) {
             Some(account) => match account.slots.get(&slot) {
-                Some(slot) => *slot,
-                None => *self
+                Some(slot) => Ok(*slot),
+                None => self
                     .get_account(address, &[slot])?
                     .slots
                     .get(&slot)
-                    .unwrap(),
+                    .cloned()
+                    .ok_or(eyre::eyre!("account missing slot")),
             },
-            None => *self
+            None => self
                 .get_account(address, &[slot])?
                 .slots
                 .get(&slot)
-                .unwrap(),
-        })
+                .cloned()
+                .ok_or(eyre::eyre!("account missing slot")),
+        }
     }
 
     fn code_by_hash(&mut self, _code_hash: H256) -> Result<Bytecode, Report> {
