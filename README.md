@@ -81,6 +81,9 @@ execution_rpc = "https://eth-goerli.g.alchemy.com/v2/XXXXX"
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
 ```
 
+A comprehensive breakdown of config options is available in the [config.md](./config.md) file.
+
+
 ### Using Helios as a Library
 
 Helios can be imported into any Rust project. Helios requires the Rust nightly toolchain to compile.
