@@ -340,12 +340,35 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_nonce(address, block).await
     }
 
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
+        self.node
+            .read()
+            .await
+            .get_block_transaction_count_by_hash(hash)
+    }
+
+    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
+        self.node
+            .read()
+            .await
+            .get_block_transaction_count_by_number(block)
+    }
+
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
         self.node.read().await.get_code(address, block).await
     }
 
-    pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
-        self.node.read().await.get_storage_at(address, slot).await
+    pub async fn get_storage_at(
+        &self,
+        address: &Address,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<U256> {
+        self.node
+            .read()
+            .await
+            .get_storage_at(address, slot, block)
+            .await
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
