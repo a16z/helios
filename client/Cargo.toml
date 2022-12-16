@@ -14,8 +14,11 @@ jsonrpsee = { version = "0.15.1", features = ["full"] }
 futures = "0.3.23"
 log = "0.4.17"
 thiserror = "1.0.37"
+discv5 = { version = "0.1.0" }
+libp2p = { version = "0.50.0", features = ["full"] }
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }
 config = { path = "../config" }
+

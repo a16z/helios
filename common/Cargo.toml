@@ -10,3 +10,5 @@ hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1b685b861d0fa9e2daabe89737" }
 ethers = "1.0.2"
 thiserror = "1.0.37"
+libp2p-core = { version = "0.38.0", features = ["secp256k1"] }
+discv5 = { version = "0.1.0", features = ["libp2p", "libp2p-core"] }

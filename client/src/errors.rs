@@ -30,6 +30,9 @@ pub enum NodeError {
     #[error("consensus sync error: {0}")]
     ConsensusSyncError(Report),
 
+    #[error("p2p error: {0}")]
+    P2PError(Report),
+
     #[error(transparent)]
     BlockNotFoundError(#[from] BlockNotFoundError),
 }

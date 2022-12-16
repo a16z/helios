@@ -12,20 +12,27 @@ use config::Config;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
+use discv5::{enr, Discv5, Discv5ConfigBuilder, Discv5Event};
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
+use futures::StreamExt;
+use libp2p::swarm::SwarmEvent;
+use libp2p::{identity, ping, Multiaddr, PeerId, Swarm};
+use std::net::SocketAddr;
 
 use crate::errors::NodeError;
 
 pub struct Node {
+    key: identity::Keypair,
     pub consensus: ConsensusClient<NimbusRpc>,
     pub execution: Arc<ExecutionClient<HttpRpc>>,
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
     pub history_size: usize,
+    disc: Option<Arc<Discv5>>,
 }
 
 impl Node {
@@ -43,16 +50,139 @@ impl Node {
         let payloads = BTreeMap::new();
         let finalized_payloads = BTreeMap::new();
 
+        let key = identity::Keypair::generate_ed25519();
+
         Ok(Node {
+            key,
             consensus,
             execution,
             config,
             payloads,
             finalized_payloads,
             history_size: 64,
+            disc: None,
         })
     }
 
+    #[cfg(feature = "p2p")]
+    /// Syncs
+    pub async fn sync(&mut self) -> Result<(), NodeError> {
+        self.start_p2p().await;
+        self.consensus
+            .sync()
+            .await
+            .map_err(NodeError::ConsensusSyncError)?;
+        self.update_payloads().await
+    }
+
+    /// Starts the p2p discovery server
+    pub async fn start_p2p(&mut self) -> Result<(), NodeError> {
+        // listening address and port
+        let listen_addr = "0.0.0.0:9000"
+            .parse::<SocketAddr>()
+            .map_err(|e| NodeError::P2PError(eyre::eyre!(e)))?;
+
+        // construct a local ENR
+        let enr_key = common::utils::from_libp2p(&self.key)
+            .map_err(|e| NodeError::P2PError(eyre::eyre!(e)))?;
+        let enr = enr::EnrBuilder::new("v4")
+            .build(&enr_key)
+            .map_err(|e| NodeError::P2PError(eyre::eyre!(e)))?;
+
+        // default configuration
+        let config = Discv5ConfigBuilder::new().build();
+
+        // construct the discv5 server
+        let discv5 =
+            Discv5::new(enr, enr_key, config).map_err(|e| NodeError::P2PError(eyre::eyre!(e)))?;
+
+        // Set the server
+        let server = Arc::new(discv5);
+        self.disc = Some(Arc::clone(&server));
+
+        // Start
+        let mut cloned = Arc::clone(&server);
+        tokio::spawn(async move {
+            if let Some(serv) = Arc::get_mut(&mut cloned) {
+                if let Err(e) = serv.start(listen_addr).await {
+                    log::warn!("Failed to start p2p discovery server. Error: {:?}", e);
+                }
+
+                let mut event_stream = serv.event_stream().await.unwrap();
+                loop {
+                    match event_stream.recv().await {
+                        Some(Discv5Event::SocketUpdated(addr)) => {
+                            println!("Nodes ENR socket address has been updated to: {addr:?}");
+                        }
+                        Some(Discv5Event::Discovered(enr)) => {
+                            println!("A peer has been discovered: {}", enr.node_id());
+                        }
+                        _ => {}
+                    }
+                }
+            } else {
+                log::warn!("Failed to get mutable reference to the discv5 p2p discovery server inside client node.");
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Swarm all connected peers on the discovery server
+    pub async fn p2p_connect(&self) -> Result<(), NodeError> {
+        // Transform the local keypair to a CombinedKey
+        let local_key = &self.key;
+        let local_peer_id = PeerId::from(local_key.public());
+        log::info!("Local peer id: {:?}", local_peer_id);
+
+        let transport = libp2p::development_transport(local_key.clone())
+            .await
+            .map_err(|_| NodeError::P2PError(eyre::eyre!("Failed to create libp2p transport")))?;
+        log::debug!("Created libp2p transport");
+
+        // Create a ping network behaviour.
+        //
+        // For illustrative purposes, the ping protocol is configured to
+        // keep the connection alive, so a continuous sequence of pings
+        // can be observed.
+        let behaviour = ping::Behaviour::new(ping::Config::new());
+        let mut swarm = Swarm::with_threadpool_executor(transport, behaviour, local_peer_id);
+        log::debug!("Created libp2p swarm");
+
+        // Tell the swarm to listen on all interfaces and a random, OS-assigned
+        // port.
+        let addr = "/ip4/0.0.0.0/tcp/0"
+            .parse()
+            .map_err(|_| NodeError::P2PError(eyre::eyre!("Failed to parse Multiaddr string.")))?;
+        log::debug!("Swarm listening on {addr:?}");
+        swarm
+            .listen_on(addr)
+            .map_err(|e| NodeError::P2PError(eyre::eyre!(e)))?;
+
+        // Dial the peer identified by the multi-address given as the second
+        // command-line argument, if any.
+        if let Some(addr) = std::env::args().nth(1) {
+            let remote: Multiaddr = addr.parse().map_err(|_| {
+                NodeError::P2PError(eyre::eyre!("Failed to parse Multiaddr string."))
+            })?;
+            swarm
+                .dial(remote)
+                .map_err(|e| NodeError::P2PError(eyre::eyre!(e)))?;
+            log::info!("Dialed {}", addr)
+        }
+
+        loop {
+            match swarm.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    log::info!("Listening on {address:?}")
+                }
+                SwarmEvent::Behaviour(event) => log::info!("{event:?}"),
+                _ => {}
+            }
+        }
+    }
+
+    #[cfg(not(feature = "p2p"))]
     pub async fn sync(&mut self) -> Result<(), NodeError> {
         self.consensus
             .sync()
