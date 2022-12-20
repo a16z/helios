@@ -224,10 +224,9 @@ impl Node {
     ) -> Result<Option<Transaction>> {
         let payload = self.get_payload_by_hash(hash)?;
 
-        Ok(self
-            .execution
+        self.execution
             .get_transaction_by_block_hash_and_index(payload.1, index)
-            .await?)
+            .await
     }
 
     pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
