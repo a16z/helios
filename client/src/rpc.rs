@@ -270,7 +270,6 @@ impl EthRpcServer for RpcInner {
                 .await,
         )
     }
-
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {
         let node = self.node.read().await;
         convert_err(node.get_logs(&filter).await)
