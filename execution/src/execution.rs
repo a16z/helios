@@ -184,18 +184,15 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         payload: &ExecutionPayload,
         index: usize,
     ) -> Result<Option<Transaction>> {
-
-
         let tx = payload.transactions[index].clone();
         let tx_hash = H256::from_slice(&keccak256(tx));
         let mut payloads = BTreeMap::new();
         payloads.insert(payload.block_number, payload.clone());
         let tx_option = self.get_transaction(&tx_hash, &payloads).await?;
         let tx = tx_option.ok_or(eyre::eyre!("not reachable"))?;
-    
-        Ok(Some(tx))
 
-    }    
+        Ok(Some(tx))
+    }
 
     pub async fn get_transaction_receipt(
         &self,
@@ -248,7 +245,6 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         hash: &H256,
         payloads: &BTreeMap<u64, ExecutionPayload>,
     ) -> Result<Option<Transaction>> {
-        
         let tx = self.rpc.get_transaction(hash).await?;
         if tx.is_none() {
             return Ok(None);

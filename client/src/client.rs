@@ -434,6 +434,18 @@ impl<DB: Database> Client<DB> {
             .await
     }
 
+    pub async fn get_transaction_by_block_hash_and_index(
+        &self,
+        block_hash: &Vec<u8>,
+        index: usize,
+    ) -> Result<Option<Transaction>> {
+        self.node
+            .read()
+            .await
+            .get_transaction_by_block_hash_and_index(block_hash, index)
+            .await
+    }
+
     pub async fn chain_id(&self) -> u64 {
         self.node.read().await.chain_id()
     }
