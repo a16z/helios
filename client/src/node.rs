@@ -83,6 +83,7 @@ impl Node {
             .get_execution_payload(&Some(latest_header.slot))
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
+        log::debug!("latest payload: {:?}", latest_payload.block_number);
 
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
@@ -90,6 +91,7 @@ impl Node {
             .get_execution_payload(&Some(finalized_header.slot))
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
+        log::debug!("finalized payload: {:?}", finalized_payload.block_number);
 
         self.payloads
             .insert(latest_payload.block_number, latest_payload);
@@ -99,6 +101,7 @@ impl Node {
             .insert(finalized_payload.block_number, finalized_payload);
 
         while self.payloads.len() > self.history_size {
+            log::debug!("Popping first payload...");
             self.payloads.pop_first();
         }
 
@@ -107,6 +110,8 @@ impl Node {
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
+
+        log::debug!("Successfully updated payloads");
 
         Ok(())
     }

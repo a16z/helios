@@ -25,18 +25,25 @@ execution = { path = "./execution" }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 home = "0.5.4"
-ethers = "1.0.2"
+ethers = { version = "1.0.2", features = [ "abigen" ] }
 env_logger = "0.9.0"
 log = "0.4.17"
+dotenv = "0.15.0"
+serde = "1.0.149"
 tracing-test = "0.2.3"
 criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
 plotters = "0.3.3"
 tempfile = "3.3.0"
 hex = "0.4.3"
 
+
 ######################################
 # Examples
 ######################################
+
+[[example]]
+name = "call"
+path = "examples/call.rs"
 
 [[example]]
 name = "checkpoints"
