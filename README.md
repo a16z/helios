@@ -146,6 +146,48 @@ async fn main() -> Result<()> {
 }
 ```
 
+## Architecture
+```mermaid
+graph LR
+
+Client --rpc--> Rpc
+Client --node--> Node
+Node --consensus--> ConsensusClient
+Node --execution--> ExecutionClient
+ExecutionClient --executionRpc--> ExecutionRpc
+ConsensusClient --consensusRpc--> ConsensusRpc
+Node --evm--> Evm
+
+classDef node fill:#f9f,stroke:#333,stroke-width:4px;
+class Node,Client node
+classDef execution fill:#f0f,stroke:#333,stroke-width:4px;
+class ExecutionClient,ExecutionRpc execution
+classDef consensus fill:#ff0,stroke:#333,stroke-width:4px;
+class ConsensusClient,ConsensusRpc consensus
+classDef evm fill:#0ff,stroke:#333,stroke-width:4px;
+class Evm evm
+
+subgraph "Ethereum Network"
+BeaconChain
+Eth1State
+end
+
+ConsensusClient --> BeaconChain
+ExecutionClient --> Eth1State
+ExecutionRpc --> Eth1State
+ConsensusRpc --> BeaconChain
+
+style Client fill:#f00,stroke:#333,stroke-width:4px;
+style Node fill:#000,stroke:#fff,stroke-width:4px;
+style ExecutionClient fill:#f00,stroke:#333,stroke-width:4px;
+style ExecutionRpc fill:#000,stroke:#fff,stroke-width:4px;
+style ConsensusClient fill:#f00,stroke:#333,stroke-width:4px;
+style ConsensusRpc fill:#000,stroke:#fff,stroke-width:4px;
+style Evm fill:#f00,stroke:#333,stroke-width:4px;
+style Rpc fill:#000,stroke:#fff,stroke-width:4px;
+style blockchain fill:#000,stroke:#fff,stroke-width:4px;
+```
+
 ## Benchmarks
 
 Benchmarks are defined in the [benches](./benches/) subdirectory. They are built using the [criterion](https://github.com/bheisler/criterion.rs) statistics-driven benchmarking library.
