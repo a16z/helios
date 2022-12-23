@@ -150,13 +150,13 @@ async fn main() -> Result<()> {
 ```mermaid
 graph LR
 
-Client --rpc--> Rpc
-Client --node--> Node
-Node --consensus--> ConsensusClient
-Node --execution--> ExecutionClient
-ExecutionClient --executionRpc--> ExecutionRpc
-ConsensusClient --consensusRpc--> ConsensusRpc
-Node --evm--> Evm
+Client ----> Rpc
+Client ----> Node
+Node ----> ConsensusClient
+Node ----> ExecutionClient
+ExecutionClient ----> ExecutionRpc
+ConsensusClient ----> ConsensusRpc
+Node ----> Evm
 
 classDef node fill:#f9f,stroke:#333,stroke-width:4px;
 class Node,Client node
@@ -178,13 +178,13 @@ ExecutionRpc --> Eth1State
 ConsensusRpc --> BeaconChain
 
 style Client fill:#f00,stroke:#333,stroke-width:4px;
-style Node fill:#000,stroke:#fff,stroke-width:4px;
+style Node fill:#000,stroke:#000,stroke-width:4px;
 style ExecutionClient fill:#f00,stroke:#333,stroke-width:4px;
-style ExecutionRpc fill:#000,stroke:#fff,stroke-width:4px;
+style ExecutionRpc fill:#000,stroke:#000,stroke-width:4px;
 style ConsensusClient fill:#f00,stroke:#333,stroke-width:4px;
-style ConsensusRpc fill:#000,stroke:#fff,stroke-width:4px;
-style Evm fill:#f00,stroke:#333,stroke-width:4px;
-style Rpc fill:#000,stroke:#fff,stroke-width:4px;
+style ConsensusRpc fill:#000,stroke:#000,stroke-width:4px;
+style Evm fill:#f00,stroke:#000,stroke-width:4px;
+style Rpc fill:#000,stroke:#DDD,stroke-width:4px;
 ```
 
 ## Benchmarks
