@@ -34,6 +34,13 @@ plotters = "0.3.3"
 tempfile = "3.3.0"
 hex = "0.4.3"
 
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
 ######################################
 # Examples
 ######################################
