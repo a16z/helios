@@ -60,7 +60,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
                 _ => Err(EvmError::Revert(None)),
             },
-            revm::Return::Return => {
+            revm::Return::Return | revm::Return::Stop => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
@@ -88,7 +88,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
                 _ => Err(EvmError::Revert(None)),
             },
-            revm::Return::Return => {
+            revm::Return::Return | revm::Return::Stop => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
