@@ -185,7 +185,6 @@ style ConsensusClient fill:#f00,stroke:#333,stroke-width:4px;
 style ConsensusRpc fill:#000,stroke:#fff,stroke-width:4px;
 style Evm fill:#f00,stroke:#333,stroke-width:4px;
 style Rpc fill:#000,stroke:#fff,stroke-width:4px;
-style blockchain fill:#000,stroke:#fff,stroke-width:4px;
 ```
 
 ## Benchmarks
