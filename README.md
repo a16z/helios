@@ -157,6 +157,7 @@ Node ----> ExecutionClient
 ExecutionClient ----> ExecutionRpc
 ConsensusClient ----> ConsensusRpc
 Node ----> Evm
+Evm ----> ExecutionClient
 
 classDef node fill:#f9f,stroke:#333,stroke-width:4px;
 class Node,Client node
@@ -166,16 +167,19 @@ classDef consensus fill:#ff0,stroke:#333,stroke-width:4px;
 class ConsensusClient,ConsensusRpc consensus
 classDef evm fill:#0ff,stroke:#333,stroke-width:4px;
 class Evm evm
+classDef provider fill:#012
+class UntrustedRpcProvider, provider
+classDef rpc fill:#e10
+class Rpc rpc
 
-subgraph "Ethereum Network"
-BeaconChain
-Eth1State
+
+subgraph "External Network"
+UntrustedRpcProvider
 end
 
-ConsensusClient --> BeaconChain
-ExecutionClient --> Eth1State
-ExecutionRpc --> Eth1State
-ConsensusRpc --> BeaconChain
+
+ExecutionRpc --> UntrustedRpcProvider
+ConsensusRpc --> UntrustedRpcProvider
 
 style Client fill:#f00,stroke:#333,stroke-width:4px;
 style Node fill:#000,stroke:#000,stroke-width:4px;
@@ -184,7 +188,7 @@ style ExecutionRpc fill:#000,stroke:#000,stroke-width:4px;
 style ConsensusClient fill:#f00,stroke:#333,stroke-width:4px;
 style ConsensusRpc fill:#000,stroke:#000,stroke-width:4px;
 style Evm fill:#f00,stroke:#000,stroke-width:4px;
-style Rpc fill:#000,stroke:#DDD,stroke-width:4px;
+style Rpc fill:#f00,stroke:#000,stroke-width:4px;
 ```
 
 ## Benchmarks
