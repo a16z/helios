@@ -159,7 +159,7 @@ ConsensusClient ----> ConsensusRpc
 Node ----> Evm
 Evm ----> ExecutionClient
 
-classDef node fill:#f9f,stroke:#333,stroke-width:4px;
+classDef node fill:#f9f,stroke:#333,stroke-width:4px, color:black;
 class Node,Client node
 classDef execution fill:#f0f,stroke:#333,stroke-width:4px;
 class ExecutionClient,ExecutionRpc execution
