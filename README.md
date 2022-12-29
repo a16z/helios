@@ -158,6 +158,8 @@ ExecutionClient ----> ExecutionRpc
 ConsensusClient ----> ConsensusRpc
 Node ----> Evm
 Evm ----> ExecutionClient
+ExecutionRpc --> UntrustedExecutionRpc
+ConsensusRpc --> UntrustedConsensusRpc
 
 classDef node fill:#f9f,stroke:#333,stroke-width:4px, color:black;
 class Node,Client node
@@ -167,28 +169,18 @@ classDef consensus fill:#ff0,stroke:#333,stroke-width:4px;
 class ConsensusClient,ConsensusRpc consensus
 classDef evm fill:#0ff,stroke:#333,stroke-width:4px;
 class Evm evm
-classDef provider fill:#012
-class UntrustedRpcProvider, provider
+classDef providerC fill:#ffc
+class UntrustedConsensusRpc providerC
+classDef providerE fill:#fbf
+class UntrustedExecutionRpc providerE
 classDef rpc fill:#e10
 class Rpc rpc
 
 
 subgraph "External Network"
-UntrustedRpcProvider
+UntrustedExecutionRpc
+UntrustedConsensusRpc
 end
-
-
-ExecutionRpc --> UntrustedRpcProvider
-ConsensusRpc --> UntrustedRpcProvider
-
-style Client fill:#f00,stroke:#333,stroke-width:4px;
-style Node fill:#000,stroke:#000,stroke-width:4px;
-style ExecutionClient fill:#f00,stroke:#333,stroke-width:4px;
-style ExecutionRpc fill:#000,stroke:#000,stroke-width:4px;
-style ConsensusClient fill:#f00,stroke:#333,stroke-width:4px;
-style ConsensusRpc fill:#000,stroke:#000,stroke-width:4px;
-style Evm fill:#f00,stroke:#000,stroke-width:4px;
-style Rpc fill:#f00,stroke:#000,stroke-width:4px;
 ```
 
 ## Benchmarks
