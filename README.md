@@ -6,7 +6,7 @@ Helios is a fully trustless, efficient, and portable Ethereum light client writt
 
 Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
 
-The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
+The entire size of Helios's binary is 5.3Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
 ## Installing
 
