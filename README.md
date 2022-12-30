@@ -146,6 +146,43 @@ async fn main() -> Result<()> {
 }
 ```
 
+## Architecture
+```mermaid
+graph LR
+
+Client ----> Rpc
+Client ----> Node
+Node ----> ConsensusClient
+Node ----> ExecutionClient
+ExecutionClient ----> ExecutionRpc
+ConsensusClient ----> ConsensusRpc
+Node ----> Evm
+Evm ----> ExecutionClient
+ExecutionRpc --> UntrustedExecutionRpc
+ConsensusRpc --> UntrustedConsensusRpc
+
+classDef node fill:#f9f,stroke:#333,stroke-width:4px, color:black;
+class Node,Client node
+classDef execution fill:#f0f,stroke:#333,stroke-width:4px;
+class ExecutionClient,ExecutionRpc execution
+classDef consensus fill:#ff0,stroke:#333,stroke-width:4px;
+class ConsensusClient,ConsensusRpc consensus
+classDef evm fill:#0ff,stroke:#333,stroke-width:4px;
+class Evm evm
+classDef providerC fill:#ffc
+class UntrustedConsensusRpc providerC
+classDef providerE fill:#fbf
+class UntrustedExecutionRpc providerE
+classDef rpc fill:#e10
+class Rpc rpc
+
+
+subgraph "External Network"
+UntrustedExecutionRpc
+UntrustedConsensusRpc
+end
+```
+
 ## Benchmarks
 
 Benchmarks are defined in the [benches](./benches/) subdirectory. They are built using the [criterion](https://github.com/bheisler/criterion.rs) statistics-driven benchmarking library.
