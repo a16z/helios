@@ -97,6 +97,12 @@ trait EthRpc {
     ) -> Result<Option<TransactionReceipt>, Error>;
     #[method(name = "getTransactionByHash")]
     async fn get_transaction_by_hash(&self, hash: &str) -> Result<Option<Transaction>, Error>;
+    #[method(name = "getTransactionByBlockHashAndIndex")]
+    async fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: &str,
+        index: usize,
+    ) -> Result<Option<Transaction>, Error>;
     #[method(name = "getLogs")]
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error>;
     #[method(name = "getStorageAt")]
@@ -252,6 +258,18 @@ impl EthRpcServer for RpcInner {
         convert_err(node.get_transaction_by_hash(&hash).await)
     }
 
+    async fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: &str,
+        index: usize,
+    ) -> Result<Option<Transaction>, Error> {
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let node = self.node.read().await;
+        convert_err(
+            node.get_transaction_by_block_hash_and_index(&hash, index)
+                .await,
+        )
+    }
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {
         let node = self.node.read().await;
         convert_err(node.get_logs(&filter).await)

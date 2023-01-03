@@ -179,6 +179,21 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         })
     }
 
+    pub async fn get_transaction_by_block_hash_and_index(
+        &self,
+        payload: &ExecutionPayload,
+        index: usize,
+    ) -> Result<Option<Transaction>> {
+        let tx = payload.transactions[index].clone();
+        let tx_hash = H256::from_slice(&keccak256(tx));
+        let mut payloads = BTreeMap::new();
+        payloads.insert(payload.block_number, payload.clone());
+        let tx_option = self.get_transaction(&tx_hash, &payloads).await?;
+        let tx = tx_option.ok_or(eyre::eyre!("not reachable"))?;
+
+        Ok(Some(tx))
+    }
+
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: &H256,
@@ -260,7 +275,6 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         if !txs_encoded.contains(&tx_encoded) {
             return Err(ExecutionError::MissingTransaction(hash.to_string()).into());
         }
-
         Ok(Some(tx))
     }
 
