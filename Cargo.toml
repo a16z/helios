@@ -14,6 +14,12 @@ members = [
     "execution",
 ]
 
+[profile.release]
+debug = true
+
+[profile.bench]
+debug = true
+
 [dependencies]
 client = { path = "./client" }
 config = { path = "./config" }
