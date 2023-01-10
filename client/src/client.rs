@@ -8,7 +8,10 @@ use eyre::{eyre, Result};
 
 use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
-use consensus::{types::Header, ConsensusClient};
+use consensus::{
+    types::{Address as CoinbaseAddress, Header},
+    ConsensusClient,
+};
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{info, warn};
 use tokio::spawn;
@@ -452,5 +455,9 @@ impl<DB: Database> Client<DB> {
 
     pub async fn get_header(&self) -> Result<Header> {
         self.node.read().await.get_header()
+    }
+
+    pub async fn get_coinbase(&self) -> Result<CoinbaseAddress> {
+        self.node.read().await.get_coinbase()
     }
 }

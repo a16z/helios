@@ -10,7 +10,7 @@ use common::errors::BlockNotFoundError;
 use common::types::BlockTag;
 use config::Config;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
-use consensus::types::{ExecutionPayload, Header};
+use consensus::types::{Address as CoinbaseAddress, ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
@@ -289,6 +289,13 @@ impl Node {
     pub fn get_header(&self) -> Result<Header> {
         self.check_head_age()?;
         Ok(self.consensus.get_header().clone())
+    }
+
+    pub fn get_coinbase(&self) -> Result<CoinbaseAddress> {
+        self.check_head_age()?;
+        let payload = self.get_payload(BlockTag::Latest)?;
+
+        Ok(payload.fee_recipient.clone())
     }
 
     pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
