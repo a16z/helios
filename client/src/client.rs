@@ -210,7 +210,7 @@ impl<DB: Database> Client<DB> {
             if fallback.is_err() && self.load_external_fallback {
                 self.boot_from_external_fallbacks().await?
             } else if fallback.is_err() {
-                return Err(eyre::eyre!("Checkpoint is too old. Please update your checkpoint. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENED). See https://github.com/a16z/helios#additional-options for more information."));
+                return Err(eyre::eyre!("Checkpoint is too old. Please update your checkpoint. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENDED). See https://github.com/a16z/helios#additional-options for more information."));
             }
         }
 
