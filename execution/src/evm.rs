@@ -242,7 +242,7 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
         }
 
         trace!(
-            "fetch basic evm state for addess=0x{}",
+            "fetch basic evm state for address=0x{}",
             hex::encode(address.as_bytes())
         );
 

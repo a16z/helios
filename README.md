@@ -40,7 +40,7 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 ### Additional Options
 
-`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consenus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
@@ -58,9 +58,9 @@ For example, you can specify the fallback like so: `helios --fallback "https://s
 For example, say you set a checkpoint value that is too outdated and Helios cannot sync to it.
 If this flag is set, Helios will query all network apis in the community-maintained list
 at [ethpandaops/checkpoint-synz-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml) for their latest slots.
-The list of slots is filtered for healthy apis and the most frequent checkpoint occuring in the latest epoch will be returned.
+The list of slots is filtered for healthy apis and the most frequent checkpoint occurring in the latest epoch will be returned.
 Note: this is a community-maintained list and thus no security guarantees are provided. Use this is a last resort if your checkpoint passed into `--checkpoint` fails.
-This is not recommened as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
+This is not recommended as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
 This can be run like so: `helios --load-external-fallback` (or `helios -l` with the shorthand).
 
 `--help` or `-h` prints the help message.

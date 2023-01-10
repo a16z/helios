@@ -103,7 +103,7 @@ impl Node {
         }
 
         // only save one finalized block per epoch
-        // finality updates only occur on epoch boundries
+        // finality updates only occur on epoch boundaries
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
