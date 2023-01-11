@@ -220,3 +220,20 @@ async fn test_get_tx_by_block_hash_and_index() {
         .unwrap();
     assert_eq!(tx.hash(), tx_hash);
 }
+
+#[tokio::test]
+async fn test_get_transaction_count() {
+    let execution = get_client();
+    let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
+    let payload = ExecutionPayload {
+        block_number: 12345,
+        ..ExecutionPayload::default()
+    };
+
+    let tx_count = execution
+        .get_transaction_count(&address, payload.block_number)
+        .await
+        .unwrap();
+
+    assert_eq!(tx_count, U256::from_str_radix("123", 16).unwrap());
+}
