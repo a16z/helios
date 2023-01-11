@@ -233,6 +233,15 @@ impl Node {
         self.execution.get_logs(filter, &self.payloads).await
     }
 
+    pub async fn get_transaction_count(&self, address: &Address, block: BlockTag) -> Result<U256> {
+        self.check_blocktag_age(&block)?;
+
+        let payload = self.get_payload(block)?;
+        self.execution
+            .get_transaction_count(address, payload.block_number)
+            .await
+    }
+
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age()?;

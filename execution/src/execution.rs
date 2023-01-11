@@ -119,6 +119,10 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
+    pub async fn get_transaction_count(&self, address: &Address, block: u64) -> Result<U256> {
+        self.rpc.get_transaction_count(address, block).await
+    }
+
     pub async fn get_block(
         &self,
         payload: &ExecutionPayload,

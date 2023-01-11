@@ -128,4 +128,12 @@ impl ExecutionRpc for HttpRpc {
             .await
             .map_err(|e| RpcError::new("get_logs", e))?)
     }
+
+    async fn get_transaction_count(&self, address: &Address, block: u64) -> Result<U256> {
+        Ok(self
+            .provider
+            .get_transaction_count(*address, Some(BlockId::from(block)))
+            .await
+            .map_err(|e| RpcError::new("get_transaction_count", e))?)
+    }
 }

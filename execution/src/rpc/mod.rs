@@ -1,11 +1,10 @@
+use crate::types::CallOpts;
 use async_trait::async_trait;
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, Filter, Log, Transaction,
-    TransactionReceipt, H256,
+    TransactionReceipt, H256, U256,
 };
 use eyre::Result;
-
-use crate::types::CallOpts;
 
 pub mod http_rpc;
 pub mod mock_rpc;
@@ -26,6 +25,7 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessList>;
     async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>>;
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256>;
+    async fn get_transaction_count(&self, address: &Address, block: u64) -> Result<U256>;
     async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>>;
     async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;

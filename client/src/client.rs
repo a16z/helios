@@ -398,6 +398,14 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_logs(filter).await
     }
 
+    pub async fn get_transaction_count(&self, address: &Address, block: BlockTag) -> Result<U256> {
+        self.node
+            .read()
+            .await
+            .get_transaction_count(address, block)
+            .await
+    }
+
     pub async fn get_gas_price(&self) -> Result<U256> {
         self.node.read().await.get_gas_price()
     }
