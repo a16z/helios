@@ -8,10 +8,7 @@ use eyre::{eyre, Result};
 
 use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
-use consensus::{
-    types::{Header},
-    ConsensusClient,
-};
+use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{info, warn};
 use tokio::spawn;
