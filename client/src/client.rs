@@ -9,7 +9,7 @@ use eyre::{eyre, Result};
 use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
 use consensus::{
-    types::{Address as CoinbaseAddress, Header},
+    types::{Header},
     ConsensusClient,
 };
 use execution::types::{CallOpts, ExecutionBlock};
@@ -457,7 +457,7 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_header()
     }
 
-    pub async fn get_coinbase(&self) -> Result<CoinbaseAddress> {
+    pub async fn get_coinbase(&self) -> Result<Address> {
         self.node.read().await.get_coinbase()
     }
 }

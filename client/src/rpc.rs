@@ -19,7 +19,6 @@ use common::{
     types::BlockTag,
     utils::{hex_str_to_bytes, u64_to_hex_string},
 };
-use consensus::types::Address as CoinbaseAddress;
 use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc {
@@ -114,7 +113,7 @@ trait EthRpc {
         block: BlockTag,
     ) -> Result<String, Error>;
     #[method(name = "getCoinbase")]
-    async fn get_coinbase(&self) -> Result<CoinbaseAddress, Error>;
+    async fn get_coinbase(&self) -> Result<Address, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -274,7 +273,7 @@ impl EthRpcServer for RpcInner {
         )
     }
 
-    async fn get_coinbase(&self) -> Result<CoinbaseAddress, Error> {
+    async fn get_coinbase(&self) -> Result<Address, Error> {
         let node = self.node.read().await;
         Ok(node.get_coinbase().unwrap())
     }
