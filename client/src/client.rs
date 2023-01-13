@@ -453,4 +453,8 @@ impl<DB: Database> Client<DB> {
     pub async fn get_header(&self) -> Result<Header> {
         self.node.read().await.get_header()
     }
+
+    pub async fn get_coinbase(&self) -> Result<Address> {
+        self.node.read().await.get_coinbase()
+    }
 }
