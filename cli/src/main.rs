@@ -89,6 +89,8 @@ struct Cli {
     fallback: Option<String>,
     #[clap(short = 'l', long, env)]
     load_external_fallback: bool,
+    #[clap(short = 's', long, env)]
+    strict_checkpoint_age: bool,
 }
 
 impl Cli {
@@ -106,6 +108,7 @@ impl Cli {
             rpc_port: self.rpc_port,
             fallback: self.fallback.clone(),
             load_external_fallback: self.load_external_fallback,
+            strict_checkpoint_age: self.strict_checkpoint_age,
         }
     }
 
