@@ -50,8 +50,8 @@ name = "checkpoints"
 path = "examples/checkpoints.rs"
 
 [[example]]
-name = "readme"
-path = "examples/readme.rs"
+name = "basic"
+path = "examples/basic.rs"
 
 [[example]]
 name = "client"
