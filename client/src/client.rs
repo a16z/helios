@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::networks::Network;
+use consensus::errors::ConsensusError;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
@@ -10,12 +11,13 @@ use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
-use log::{info, warn};
+use log::{error, info, warn};
 use tokio::spawn;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use crate::database::{Database, FileDB};
+use crate::errors::NodeError;
 use crate::node::Node;
 use crate::rpc::Rpc;
 
@@ -30,6 +32,7 @@ pub struct ClientBuilder {
     config: Option<Config>,
     fallback: Option<String>,
     load_external_fallback: bool,
+    strict_checkpoint_age: bool,
 }
 
 impl ClientBuilder {
@@ -81,6 +84,11 @@ impl ClientBuilder {
 
     pub fn load_external_fallback(mut self) -> Self {
         self.load_external_fallback = true;
+        self
+    }
+
+    pub fn strict_checkpoint_age(mut self) -> Self {
+        self.strict_checkpoint_age = true;
         self
     }
 
@@ -149,6 +157,12 @@ impl ClientBuilder {
             self.load_external_fallback
         };
 
+        let strict_checkpoint_age = if let Some(config) = &self.config {
+            self.strict_checkpoint_age || config.strict_checkpoint_age
+        } else {
+            self.strict_checkpoint_age
+        };
+
         let config = Config {
             consensus_rpc,
             execution_rpc,
@@ -160,6 +174,7 @@ impl ClientBuilder {
             max_checkpoint_age: base_config.max_checkpoint_age,
             fallback,
             load_external_fallback,
+            strict_checkpoint_age,
         };
 
         Client::new(config)
@@ -201,16 +216,28 @@ impl<DB: Database> Client<DB> {
             rpc.start().await?;
         }
 
-        if self.node.write().await.sync().await.is_err() {
-            warn!(
-                "failed to sync consensus node with checkpoint: 0x{}",
-                hex::encode(&self.node.read().await.config.checkpoint),
-            );
-            let fallback = self.boot_from_fallback().await;
-            if fallback.is_err() && self.load_external_fallback {
-                self.boot_from_external_fallbacks().await?
-            } else if fallback.is_err() {
-                return Err(eyre::eyre!("Checkpoint is too old. Please update your checkpoint. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENDED). See https://github.com/a16z/helios#additional-options for more information."));
+        let sync_res = self.node.write().await.sync().await;
+
+        if let Err(err) = sync_res {
+            match err {
+                NodeError::ConsensusSyncError(err) => match err.downcast_ref().unwrap() {
+                    ConsensusError::CheckpointTooOld => {
+                        warn!(
+                            "failed to sync consensus node with checkpoint: 0x{}",
+                            hex::encode(&self.node.read().await.config.checkpoint),
+                        );
+
+                        let fallback = self.boot_from_fallback().await;
+                        if fallback.is_err() && self.load_external_fallback {
+                            self.boot_from_external_fallbacks().await?
+                        } else if fallback.is_err() {
+                            error!("Invalid checkpoint. Please update your checkpoint too a more recent block. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENDED). See https://github.com/a16z/helios#additional-options for more information.");
+                            return Err(err);
+                        }
+                    }
+                    _ => return Err(err),
+                },
+                _ => return Err(err.into()),
             }
         }
 

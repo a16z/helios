@@ -6,6 +6,7 @@ use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
+use log::warn;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
@@ -94,10 +95,6 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn sync(&mut self) -> Result<()> {
-        info!(
-            "Consensus client in sync with checkpoint: 0x{}",
-            hex::encode(&self.initial_checkpoint)
-        );
         self.bootstrap().await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
@@ -118,6 +115,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let optimistic_update = self.rpc.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
+
+        info!(
+            "consensus client in sync with checkpoint: 0x{}",
+            hex::encode(&self.initial_checkpoint)
+        );
 
         Ok(())
     }
@@ -158,8 +160,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
 
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
+
         if !is_valid {
-            return Err(ConsensusError::CheckpointTooOld.into());
+            if self.config.strict_checkpoint_age {
+                return Err(ConsensusError::CheckpointTooOld.into());
+            } else {
+                warn!("checkpoint too old, consider using a more recent block");
+            }
         }
 
         let committee_valid = is_current_committee_proof_valid(
