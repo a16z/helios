@@ -201,8 +201,7 @@ impl<DB: Database> Client<DB> {
             rpc.start().await?;
         }
 
-        if let Err(err) = self.node.write().await.sync().await {
-            println!("{}", err);
+        if self.node.write().await.sync().await.is_err() {
             warn!(
                 "failed to sync consensus node with checkpoint: 0x{}",
                 hex::encode(&self.node.read().await.config.checkpoint),
