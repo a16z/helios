@@ -44,7 +44,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             .map_err(ExecutionError::RpcError)?
             != chain_id
         {
-            Err(ExecutionError::IncorrectRpcNetwork().into())
+            Err(ExecutionError::IncorrectRpcNetwork())
         } else {
             Ok(())
         }
