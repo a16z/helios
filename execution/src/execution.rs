@@ -32,8 +32,22 @@ pub struct ExecutionClient<R: ExecutionRpc> {
 
 impl<R: ExecutionRpc> ExecutionClient<R> {
     pub fn new(rpc: &str) -> Result<Self> {
-        let rpc = ExecutionRpc::new(rpc)?;
+        let rpc: R = ExecutionRpc::new(rpc)?;
         Ok(ExecutionClient { rpc })
+    }
+
+    pub async fn check_rpc(&self, chain_id: u64) -> Result<(), ExecutionError> {
+        if self
+            .rpc
+            .chain_id()
+            .await
+            .map_err(ExecutionError::RpcError)?
+            != chain_id
+        {
+            Err(ExecutionError::IncorrectRpcNetwork())
+        } else {
+            Ok(())
+        }
     }
 
     pub async fn get_account(

@@ -54,10 +54,17 @@ impl Node {
     }
 
     pub async fn sync(&mut self) -> Result<(), NodeError> {
+        let chain_id = self.config.chain.chain_id;
+        self.execution
+            .check_rpc(chain_id)
+            .await
+            .map_err(NodeError::ExecutionError)?;
+
         self.consensus
             .sync()
             .await
             .map_err(NodeError::ConsensusSyncError)?;
+
         self.update_payloads().await
     }
 
@@ -121,7 +128,7 @@ impl Node {
             &self.payloads,
             self.chain_id(),
         );
-        evm.call(opts).await.map_err(NodeError::ExecutionError)
+        evm.call(opts).await.map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
@@ -136,7 +143,7 @@ impl Node {
         );
         evm.estimate_gas(opts)
             .await
-            .map_err(NodeError::ExecutionError)
+            .map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {

@@ -61,4 +61,8 @@ impl ExecutionRpc for MockRpc {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
     }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Err(eyre!("not implemented"))
+    }
 }

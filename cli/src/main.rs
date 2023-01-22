@@ -15,16 +15,25 @@ use eyre::Result;
 use client::{database::FileDB, Client, ClientBuilder};
 use config::{CliConfig, Config};
 use futures::executor::block_on;
-use log::info;
+use log::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config = get_config();
-    let mut client = ClientBuilder::new().config(config).build()?;
+    let mut client = match ClientBuilder::new().config(config).build() {
+        Ok(client) => client,
+        Err(err) => {
+            error!("{}", err);
+            exit(1);
+        }
+    };
 
-    client.start().await?;
+    if let Err(err) = client.start().await {
+        error!("{}", err);
+        exit(1);
+    }
 
     register_shutdown_handler(client);
     std::future::pending().await

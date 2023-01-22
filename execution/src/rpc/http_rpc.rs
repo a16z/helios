@@ -128,4 +128,13 @@ impl ExecutionRpc for HttpRpc {
             .await
             .map_err(|e| RpcError::new("get_logs", e))?)
     }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Ok(self
+            .provider
+            .get_chainid()
+            .await
+            .map_err(|e| RpcError::new("chain_id", e))?
+            .as_u64())
+    }
 }
