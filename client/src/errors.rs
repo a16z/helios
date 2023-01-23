@@ -1,5 +1,5 @@
 use common::errors::BlockNotFoundError;
-use execution::errors::{EvmError, ExecutionError};
+use execution::errors::EvmError;
 use eyre::Report;
 use thiserror::Error;
 
@@ -9,8 +9,8 @@ pub enum NodeError {
     #[error(transparent)]
     ExecutionEvmError(#[from] EvmError),
 
-    #[error(transparent)]
-    ExecutionError(#[from] ExecutionError),
+    #[error("execution error: {0}")]
+    ExecutionError(Report),
 
     #[error("out of sync: {0} slots behind")]
     OutOfSync(u64),

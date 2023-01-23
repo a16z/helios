@@ -60,11 +60,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn check_rpc(&self) -> Result<()> {
-        let chain_id = self
-            .rpc
-            .chain_id()
-            .await
-            .map_err(ConsensusError::RpcError)?;
+        let chain_id = self.rpc.chain_id().await?;
+
         if chain_id != self.config.chain.chain_id {
             Err(ConsensusError::IncorrectRpcNetwork.into())
         } else {

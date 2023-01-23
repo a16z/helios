@@ -1,4 +1,3 @@
-use eyre::Report;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -27,6 +26,4 @@ pub enum ConsensusError {
     CheckpointTooOld,
     #[error("consensus rpc is for the incorrect network")]
     IncorrectRpcNetwork,
-    #[error("consensus rpc error: {0}")]
-    RpcError(Report),
 }
