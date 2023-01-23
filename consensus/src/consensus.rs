@@ -59,6 +59,19 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         })
     }
 
+    pub async fn check_rpc(&self) -> Result<()> {
+        let chain_id = self
+            .rpc
+            .chain_id()
+            .await
+            .map_err(ConsensusError::RpcError)?;
+        if chain_id != self.config.chain.chain_id {
+            Err(ConsensusError::IncorrectRpcNetwork.into())
+        } else {
+            Ok(())
+        }
+    }
+
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
         let mut block = self.rpc.get_block(slot).await?;

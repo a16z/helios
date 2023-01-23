@@ -1,3 +1,4 @@
+use eyre::Report;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -24,4 +25,8 @@ pub enum ConsensusError {
     PayloadNotFound(u64),
     #[error("checkpoint is too old")]
     CheckpointTooOld,
+    #[error("consensus rpc is for the incorrect network")]
+    IncorrectRpcNetwork,
+    #[error("consensus rpc error: {0}")]
+    RpcError(Report),
 }
