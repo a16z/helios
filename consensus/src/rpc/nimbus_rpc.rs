@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use common::errors::RpcError;
 use eyre::Result;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
@@ -8,6 +7,7 @@ use std::cmp;
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
+use common::errors::RpcError;
 
 pub struct NimbusRpc {
     rpc: String,
@@ -115,6 +115,21 @@ impl ConsensusRpc for NimbusRpc {
 
         Ok(res.data.message)
     }
+
+    async fn chain_id(&self) -> Result<u64> {
+        let req = format!("{}/eth/v1/config/spec", self.rpc);
+        let res = self
+            .client
+            .get(req)
+            .send()
+            .await
+            .map_err(|e| RpcError::new("spec", e))?
+            .json::<SpecResponse>()
+            .await
+            .map_err(|e| RpcError::new("spec", e))?;
+
+        Ok(res.data.chain_id)
+    }
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -147,4 +162,15 @@ struct OptimisticUpdateResponse {
 #[derive(serde::Deserialize, Debug)]
 struct BootstrapResponse {
     data: Bootstrap,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct SpecResponse {
+    data: Spec,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct Spec {
+    #[serde(rename = "DEPOSIT_NETWORK_ID", deserialize_with = "u64_deserialize")]
+    chain_id: u64,
 }

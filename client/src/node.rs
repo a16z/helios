@@ -61,6 +61,11 @@ impl Node {
             .map_err(NodeError::ExecutionError)?;
 
         self.consensus
+            .check_rpc()
+            .await
+            .map_err(NodeError::ConsensusSyncError)?;
+
+        self.consensus
             .sync()
             .await
             .map_err(NodeError::ConsensusSyncError)?;

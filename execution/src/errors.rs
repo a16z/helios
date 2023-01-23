@@ -24,8 +24,6 @@ pub enum ExecutionError {
     MissingLog(String, U256),
     #[error("too many logs to prove: {0}, current limit is: {1}")]
     TooManyLogsToProve(usize, usize),
-    #[error("rpc error: {0:?}")]
-    RpcError(Report),
     #[error("execution rpc is for the incorect network")]
     IncorrectRpcNetwork(),
 }

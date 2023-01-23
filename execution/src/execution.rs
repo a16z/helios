@@ -36,15 +36,9 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(ExecutionClient { rpc })
     }
 
-    pub async fn check_rpc(&self, chain_id: u64) -> Result<(), ExecutionError> {
-        if self
-            .rpc
-            .chain_id()
-            .await
-            .map_err(ExecutionError::RpcError)?
-            != chain_id
-        {
-            Err(ExecutionError::IncorrectRpcNetwork())
+    pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
+        if self.rpc.chain_id().await? != chain_id {
+            Err(ExecutionError::IncorrectRpcNetwork().into())
         } else {
             Ok(())
         }

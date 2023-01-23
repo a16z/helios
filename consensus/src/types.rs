@@ -376,7 +376,7 @@ where
         .map_err(D::Error::custom)
 }
 
-fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+pub fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

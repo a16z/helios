@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use common::errors::RpcError;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
@@ -13,6 +12,7 @@ use ethers::types::{
 use eyre::Result;
 
 use crate::types::CallOpts;
+use common::errors::RpcError;
 
 use super::ExecutionRpc;
 
