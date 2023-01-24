@@ -223,7 +223,7 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
         let slots = slots.to_owned();
 
         let handle = thread::spawn(move || {
-            let account_fut = execution.get_account(&addr, Some(&slots), &payload);
+            let account_fut = execution.get_account(&address, Some(&slots), &payload);
             // let runtime = Runtime::new()?;
             // runtime.block_on(account_fut)
             block_on(account_fut)

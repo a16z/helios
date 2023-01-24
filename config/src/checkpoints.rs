@@ -137,8 +137,8 @@ impl CheckpointFallback {
         let tasks: Vec<_> = services
             .iter()
             .map(|service| {
-                let service = service.clone();
-                tokio::spawn(async move {
+                async move {
+                    let service = service.clone();
                     match Self::query_service(&service.endpoint).await {
                         Some(raw) => {
                             if raw.data.slots.is_empty() {
@@ -148,14 +148,15 @@ impl CheckpointFallback {
                         }
                         None => Err(eyre::eyre!("failed to query service")),
                     }
-                })
+                }
             })
             .collect();
+
         let slots = futures::future::join_all(tasks)
             .await
             .iter()
             .filter_map(|slot| match &slot {
-                Ok(Ok(s)) => Some(s.clone()),
+                Ok(s) => Some(s.clone()),
                 _ => None,
             })
             .collect::<Vec<_>>();

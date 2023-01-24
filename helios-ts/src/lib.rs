@@ -37,6 +37,9 @@ impl Node {
             consensus_rpc: consensus_rpc.to_string(),
             rpc_port: None,
 
+            fallback: None,
+            load_external_fallback: false,
+            strict_checkpoint_age: false,
             data_dir: None,
             execution_rpc: "".to_string(),
             max_checkpoint_age: u64::MAX,

@@ -99,10 +99,7 @@ impl ConsensusRpc for NimbusRpc {
 
     async fn chain_id(&self) -> Result<u64> {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
-        let res = self
-            .client
-            .get(req)
-            .send()
+        let res = reqwest::get(req)
             .await
             .map_err(|e| RpcError::new("spec", e))?
             .json::<SpecResponse>()

@@ -7,6 +7,6 @@ edition = "2021"
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
-ethers = "1.0.2"
+ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
+ethers = "1.0.0"
 thiserror = "1.0.37"

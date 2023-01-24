@@ -5,12 +5,12 @@ version = "0.1.3"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
+# tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs" }
-ethers = "1.0.2"
+ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
+ethers = "1.0.0"
 figment = { version = "0.10.7", features = ["toml", "env"] }
 thiserror = "1.0.37"
 log = "0.4.17"
