@@ -8,15 +8,15 @@
     <script src="./dist/bundle.js"></script>
     <script>
       helios.then((helios) => {
-        let client = new helios.Client(
+        let provider = new helios.HeliosProvider(
           "http://localhost:9001/proxy",
           "http://localhost:9002/proxy",
         );
 
-        client.sync().then(() => {
-          window.client = client;
+        provider.sync().then(() => {
+          window.provider = provider;
 
-          client.getBlockNumber().then((num) => {
+          provider.getBlockNumber().then((num) => {
             console.log(`synced to block: ${num}`);
           });
         });
