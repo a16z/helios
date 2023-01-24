@@ -3,3 +3,5 @@ target
 helios-ts/pkg
 helios-ts/dist
 helios-ts/node_modules
+/target
+*.env

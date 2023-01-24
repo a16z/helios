@@ -2,52 +2,26 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::networks::Network;
+use consensus::errors::ConsensusError;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
-use config::Config;
-use consensus::types::Header;
+use config::{CheckpointFallback, Config};
+use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
-use log::{info, warn};
+use log::{error, info, warn};
 use tokio::spawn;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use crate::database::{Database, FileDB};
+use crate::errors::NodeError;
 use crate::node::Node;
 use crate::rpc::Rpc;
 
-pub struct Client<DB: Database> {
-    node: Arc<RwLock<Node>>,
-    rpc: Option<Rpc>,
-    db: Option<DB>,
-}
-
-impl Client<FileDB> {
-    fn new(config: Config) -> Result<Self> {
-        let config = Arc::new(config);
-        let node = Node::new(config.clone())?;
-        let node = Arc::new(RwLock::new(node));
-
-        let rpc = if let Some(port) = config.rpc_port {
-            Some(Rpc::new(node.clone(), port))
-        } else {
-            None
-        };
-
-        let data_dir = config.data_dir.clone();
-        let db = if let Some(dir) = data_dir {
-            Some(FileDB::new(dir))
-        } else {
-            None
-        };
-
-        Ok(Client { node, rpc, db })
-    }
-}
-
+#[derive(Default)]
 pub struct ClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<String>,
@@ -56,19 +30,14 @@ pub struct ClientBuilder {
     rpc_port: Option<u16>,
     data_dir: Option<PathBuf>,
     config: Option<Config>,
+    fallback: Option<String>,
+    load_external_fallback: bool,
+    strict_checkpoint_age: bool,
 }
 
 impl ClientBuilder {
     pub fn new() -> Self {
-        Self {
-            network: None,
-            consensus_rpc: None,
-            execution_rpc: None,
-            checkpoint: None,
-            rpc_port: None,
-            data_dir: None,
-            config: None,
-        }
+        Self::default()
     }
 
     pub fn network(mut self, network: Network) -> Self {
@@ -87,7 +56,8 @@ impl ClientBuilder {
     }
 
     pub fn checkpoint(mut self, checkpoint: &str) -> Self {
-        let checkpoint = hex::decode(checkpoint).expect("cannot parse checkpoint");
+        let checkpoint = hex::decode(checkpoint.strip_prefix("0x").unwrap_or(checkpoint))
+            .expect("cannot parse checkpoint");
         self.checkpoint = Some(checkpoint);
         self
     }
@@ -104,6 +74,21 @@ impl ClientBuilder {
 
     pub fn config(mut self, config: Config) -> Self {
         self.config = Some(config);
+        self
+    }
+
+    pub fn fallback(mut self, fallback: &str) -> Self {
+        self.fallback = Some(fallback.to_string());
+        self
+    }
+
+    pub fn load_external_fallback(mut self) -> Self {
+        self.load_external_fallback = true;
+        self
+    }
+
+    pub fn strict_checkpoint_age(mut self) -> Self {
+        self.strict_checkpoint_age = true;
         self
     }
 
@@ -158,6 +143,26 @@ impl ClientBuilder {
             None
         };
 
+        let fallback = if self.fallback.is_some() {
+            self.fallback
+        } else if let Some(config) = &self.config {
+            config.fallback.clone()
+        } else {
+            None
+        };
+
+        let load_external_fallback = if let Some(config) = &self.config {
+            self.load_external_fallback || config.load_external_fallback
+        } else {
+            self.load_external_fallback
+        };
+
+        let strict_checkpoint_age = if let Some(config) = &self.config {
+            self.strict_checkpoint_age || config.strict_checkpoint_age
+        } else {
+            self.strict_checkpoint_age
+        };
+
         let config = Config {
             consensus_rpc,
             execution_rpc,
@@ -167,9 +172,41 @@ impl ClientBuilder {
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
+            fallback,
+            load_external_fallback,
+            strict_checkpoint_age,
         };
 
         Client::new(config)
+    }
+}
+
+pub struct Client<DB: Database> {
+    node: Arc<RwLock<Node>>,
+    rpc: Option<Rpc>,
+    db: Option<DB>,
+    fallback: Option<String>,
+    load_external_fallback: bool,
+}
+
+impl Client<FileDB> {
+    fn new(config: Config) -> Result<Self> {
+        let config = Arc::new(config);
+        let node = Node::new(config.clone())?;
+        let node = Arc::new(RwLock::new(node));
+
+        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
+
+        let data_dir = config.data_dir.clone();
+        let db = data_dir.map(FileDB::new);
+
+        Ok(Client {
+            node,
+            rpc,
+            db,
+            fallback: config.fallback.clone(),
+            load_external_fallback: config.load_external_fallback,
+        })
     }
 }
 
@@ -179,9 +216,29 @@ impl<DB: Database> Client<DB> {
             rpc.start().await?;
         }
 
-        let res = self.node.write().await.sync().await;
-        if let Err(err) = res {
-            warn!("consensus error: {}", err);
+        let sync_res = self.node.write().await.sync().await;
+
+        if let Err(err) = sync_res {
+            match err {
+                NodeError::ConsensusSyncError(err) => match err.downcast_ref().unwrap() {
+                    ConsensusError::CheckpointTooOld => {
+                        warn!(
+                            "failed to sync consensus node with checkpoint: 0x{}",
+                            hex::encode(&self.node.read().await.config.checkpoint),
+                        );
+
+                        let fallback = self.boot_from_fallback().await;
+                        if fallback.is_err() && self.load_external_fallback {
+                            self.boot_from_external_fallbacks().await?
+                        } else if fallback.is_err() {
+                            error!("Invalid checkpoint. Please update your checkpoint too a more recent block. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENDED). See https://github.com/a16z/helios#additional-options for more information.");
+                            return Err(err);
+                        }
+                    }
+                    _ => return Err(err),
+                },
+                _ => return Err(err.into()),
+            }
         }
 
         let node = self.node.clone();
@@ -197,6 +254,75 @@ impl<DB: Database> Client<DB> {
             }
         });
 
+        Ok(())
+    }
+
+    async fn boot_from_fallback(&self) -> eyre::Result<()> {
+        if let Some(fallback) = &self.fallback {
+            info!(
+                "attempting to load checkpoint from fallback \"{}\"",
+                fallback
+            );
+
+            let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch checkpoint from fallback \"{}\"", fallback)
+                })?;
+
+            info!(
+                "external fallbacks responded with checkpoint 0x{:?}",
+                checkpoint
+            );
+
+            // Try to sync again with the new checkpoint by reconstructing the consensus client
+            // We fail fast here since the node is unrecoverable at this point
+            let config = self.node.read().await.config.clone();
+            let consensus =
+                ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+            self.node.write().await.consensus = consensus;
+            self.node.write().await.sync().await?;
+
+            Ok(())
+        } else {
+            Err(eyre::eyre!("no explicit fallback specified"))
+        }
+    }
+
+    async fn boot_from_external_fallbacks(&self) -> eyre::Result<()> {
+        info!("attempting to fetch checkpoint from external fallbacks...");
+        // Build the list of external checkpoint fallback services
+        let list = CheckpointFallback::new()
+            .build()
+            .await
+            .map_err(|_| eyre::eyre!("Failed to construct external checkpoint sync fallbacks"))?;
+
+        let checkpoint = if self.node.read().await.config.chain.chain_id == 5 {
+            list.fetch_latest_checkpoint(&Network::GOERLI)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch latest goerli checkpoint from external fallbacks")
+                })?
+        } else {
+            list.fetch_latest_checkpoint(&Network::MAINNET)
+                .await
+                .map_err(|_| {
+                    eyre::eyre!("Failed to fetch latest mainnet checkpoint from external fallbacks")
+                })?
+        };
+
+        info!(
+            "external fallbacks responded with checkpoint {:?}",
+            checkpoint
+        );
+
+        // Try to sync again with the new checkpoint by reconstructing the consensus client
+        // We fail fast here since the node is unrecoverable at this point
+        let config = self.node.read().await.config.clone();
+        let consensus =
+            ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+        self.node.write().await.consensus = consensus;
+        self.node.write().await.sync().await?;
         Ok(())
     }
 
@@ -241,15 +367,38 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_nonce(address, block).await
     }
 
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
+        self.node
+            .read()
+            .await
+            .get_block_transaction_count_by_hash(hash)
+    }
+
+    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
+        self.node
+            .read()
+            .await
+            .get_block_transaction_count_by_number(block)
+    }
+
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
         self.node.read().await.get_code(address, block).await
     }
 
-    pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
-        self.node.read().await.get_storage_at(address, slot).await
+    pub async fn get_storage_at(
+        &self,
+        address: &Address,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<U256> {
+        self.node
+            .read()
+            .await
+            .get_storage_at(address, slot, block)
+            .await
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &Vec<u8>) -> Result<H256> {
+    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
         self.node.read().await.send_raw_transaction(bytes).await
     }
 
@@ -312,11 +461,27 @@ impl<DB: Database> Client<DB> {
             .await
     }
 
+    pub async fn get_transaction_by_block_hash_and_index(
+        &self,
+        block_hash: &Vec<u8>,
+        index: usize,
+    ) -> Result<Option<Transaction>> {
+        self.node
+            .read()
+            .await
+            .get_transaction_by_block_hash_and_index(block_hash, index)
+            .await
+    }
+
     pub async fn chain_id(&self) -> u64 {
         self.node.read().await.chain_id()
     }
 
     pub async fn get_header(&self) -> Result<Header> {
         self.node.read().await.get_header()
+    }
+
+    pub async fn get_coinbase(&self) -> Result<Address> {
+        self.node.read().await.get_coinbase()
     }
 }

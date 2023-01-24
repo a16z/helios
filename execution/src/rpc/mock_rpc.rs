@@ -44,7 +44,7 @@ impl ExecutionRpc for MockRpc {
         hex_str_to_bytes(&code[0..code.len() - 1])
     }
 
-    async fn send_raw_transaction(&self, _bytes: &Vec<u8>) -> Result<H256> {
+    async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<H256> {
         Err(eyre!("not implemented"))
     }
 
@@ -61,5 +61,9 @@ impl ExecutionRpc for MockRpc {
     async fn get_logs(&self, _filter: &Filter) -> Result<Vec<Log>> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Err(eyre!("not implemented"))
     }
 }

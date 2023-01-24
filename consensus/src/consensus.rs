@@ -6,6 +6,7 @@ use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
+use log::warn;
 use log::{debug, info};
 use ssz_rs::prelude::*;
 
@@ -45,7 +46,7 @@ struct LightClientStore {
 impl<R: ConsensusRpc> ConsensusClient<R> {
     pub fn new(
         rpc: &str,
-        checkpoint_block_root: &Vec<u8>,
+        checkpoint_block_root: &[u8],
         config: Arc<Config>,
     ) -> Result<ConsensusClient<R>> {
         let rpc = R::new(rpc);
@@ -55,13 +56,23 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             store: LightClientStore::default(),
             last_checkpoint: None,
             config,
-            initial_checkpoint: checkpoint_block_root.clone(),
+            initial_checkpoint: checkpoint_block_root.to_vec(),
         })
+    }
+
+    pub async fn check_rpc(&self) -> Result<()> {
+        let chain_id = self.rpc.chain_id().await?;
+
+        if chain_id != self.config.chain.chain_id {
+            Err(ConsensusError::IncorrectRpcNetwork.into())
+        } else {
+            Ok(())
+        }
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
-        let mut block = self.rpc.get_block(slot).await?.clone();
+        let mut block = self.rpc.get_block(slot).await?;
         let block_hash = block.hash_tree_root()?;
 
         let latest_slot = self.store.optimistic_header.slot;
@@ -103,8 +114,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await?;
 
-        for mut update in updates {
-            self.verify_update(&mut update)?;
+        for update in updates {
+            self.verify_update(&update)?;
             self.apply_update(&update);
         }
 
@@ -115,6 +126,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let optimistic_update = self.rpc.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
+
+        info!(
+            "consensus client in sync with checkpoint: 0x{}",
+            hex::encode(&self.initial_checkpoint)
+        );
 
         Ok(())
     }
@@ -134,12 +150,12 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
-                let mut update = updates.get_mut(0).unwrap();
-                let res = self.verify_update(&mut update);
+                let update = updates.get_mut(0).unwrap();
+                let res = self.verify_update(update);
 
                 if res.is_ok() {
                     info!("updating sync committee");
-                    self.apply_update(&update);
+                    self.apply_update(update);
                 }
             }
         }
@@ -155,8 +171,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
 
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
+
         if !is_valid {
-            return Err(ConsensusError::CheckpointTooOld.into());
+            if self.config.strict_checkpoint_age {
+                return Err(ConsensusError::CheckpointTooOld.into());
+            } else {
+                warn!("checkpoint too old, consider using a more recent block");
+            }
         }
 
         let committee_valid = is_current_committee_proof_valid(
@@ -428,13 +449,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     fn verify_sync_committee_signture(
         &self,
-        pks: &Vec<PublicKey>,
+        pks: &[PublicKey],
         attested_header: &Header,
         signature: &SignatureBytes,
         signature_slot: u64,
     ) -> bool {
         let res: Result<bool> = (move || {
-            let pks: Vec<&PublicKey> = pks.iter().map(|pk| pk).collect();
+            let pks: Vec<&PublicKey> = pks.iter().collect();
             let header_root =
                 bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_bytes());
             let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
@@ -525,7 +546,7 @@ fn get_participating_keys(
     bitfield.iter().enumerate().for_each(|(i, bit)| {
         if bit == true {
             let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes(&pk).unwrap();
+            let pk = PublicKey::from_bytes(pk).unwrap();
             pks.push(pk);
         }
     });
@@ -547,7 +568,7 @@ fn get_bits(bitfield: &Bitvector<512>) -> u64 {
 fn is_finality_proof_valid(
     attested_header: &Header,
     finality_header: &mut Header,
-    finality_branch: &Vec<Bytes32>,
+    finality_branch: &[Bytes32],
 ) -> bool {
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
@@ -555,7 +576,7 @@ fn is_finality_proof_valid(
 fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
-    next_committee_branch: &Vec<Bytes32>,
+    next_committee_branch: &[Bytes32],
 ) -> bool {
     is_proof_valid(
         attested_header,
@@ -569,7 +590,7 @@ fn is_next_committee_proof_valid(
 fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
-    current_committee_branch: &Vec<Bytes32>,
+    current_committee_branch: &[Bytes32],
 ) -> bool {
     is_proof_valid(
         attested_header,
@@ -596,14 +617,14 @@ mod tests {
     };
     use config::{networks, Config};
 
-    async fn get_client(large_checkpoint_age: bool) -> ConsensusClient<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool) -> ConsensusClient<MockRpc> {
         let base_config = networks::goerli();
         let config = Config {
             consensus_rpc: String::new(),
             execution_rpc: String::new(),
             chain: base_config.chain,
             forks: base_config.forks,
-            max_checkpoint_age: if large_checkpoint_age { 123123123 } else { 123 },
+            strict_checkpoint_age,
             ..Default::default()
         };
 
@@ -618,7 +639,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -626,13 +647,13 @@ mod tests {
             .await
             .unwrap();
 
-        let mut update = updates[0].clone();
-        client.verify_update(&mut update).unwrap();
+        let update = updates[0].clone();
+        client.verify_update(&update).unwrap();
     }
 
     #[tokio::test]
     async fn test_verify_update_invalid_committee() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -643,7 +664,7 @@ mod tests {
         let mut update = updates[0].clone();
         update.next_sync_committee.pubkeys[0] = Vector::default();
 
-        let err = client.verify_update(&mut update).err().unwrap();
+        let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidNextSyncCommitteeProof.to_string()
@@ -652,7 +673,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update_invalid_finality() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -663,7 +684,7 @@ mod tests {
         let mut update = updates[0].clone();
         update.finalized_header = Header::default();
 
-        let err = client.verify_update(&mut update).err().unwrap();
+        let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidFinalityProof.to_string()
@@ -672,7 +693,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update_invalid_sig() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -683,7 +704,7 @@ mod tests {
         let mut update = updates[0].clone();
         update.sync_aggregate.sync_committee_signature = Vector::default();
 
-        let err = client.verify_update(&mut update).err().unwrap();
+        let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidSignature.to_string()
@@ -692,7 +713,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_finality() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let update = client.rpc.get_finality_update().await.unwrap();
@@ -702,7 +723,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_finality_invalid_finality() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
@@ -717,7 +738,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_finality_invalid_sig() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
@@ -732,7 +753,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_optimistic() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let update = client.rpc.get_optimistic_update().await.unwrap();
@@ -741,7 +762,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_optimistic_invalid_sig() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_optimistic_update().await.unwrap();
@@ -757,6 +778,6 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_verify_checkpoint_age_invalid() {
-        get_client(false).await;
+        get_client(true).await;
     }
 }

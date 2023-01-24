@@ -15,16 +15,25 @@ use eyre::Result;
 use client::{database::FileDB, Client, ClientBuilder};
 use config::{CliConfig, Config};
 use futures::executor::block_on;
-use log::info;
+use log::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config = get_config();
-    let mut client = ClientBuilder::new().config(config).build()?;
+    let mut client = match ClientBuilder::new().config(config).build() {
+        Ok(client) => client,
+        Err(err) => {
+            error!("{}", err);
+            exit(1);
+        }
+    };
 
-    client.start().await?;
+    if let Err(err) = client.start().await {
+        error!("{}", err);
+        exit(1);
+    }
 
     register_shutdown_handler(client);
     std::future::pending().await
@@ -85,12 +94,18 @@ struct Cli {
     consensus_rpc: Option<String>,
     #[clap(short, long, env)]
     data_dir: Option<String>,
+    #[clap(short = 'f', long, env)]
+    fallback: Option<String>,
+    #[clap(short = 'l', long, env)]
+    load_external_fallback: bool,
+    #[clap(short = 's', long, env)]
+    strict_checkpoint_age: bool,
 }
 
 impl Cli {
     fn as_cli_config(&self) -> CliConfig {
         let checkpoint = match &self.checkpoint {
-            Some(checkpoint) => Some(hex_str_to_bytes(&checkpoint).expect("invalid checkpoint")),
+            Some(checkpoint) => Some(hex_str_to_bytes(checkpoint).expect("invalid checkpoint")),
             None => self.get_cached_checkpoint(),
         };
 
@@ -100,6 +115,9 @@ impl Cli {
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self.get_data_dir(),
             rpc_port: self.rpc_port,
+            fallback: self.fallback.clone(),
+            load_external_fallback: self.load_external_fallback,
+            strict_checkpoint_age: self.strict_checkpoint_age,
         }
     }
 

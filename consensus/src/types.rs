@@ -188,6 +188,7 @@ pub struct Eth1Data {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Bootstrap {
+    #[serde(deserialize_with = "header_deserialize")]
     pub header: Header,
     pub current_sync_committee: SyncCommittee,
     #[serde(deserialize_with = "branch_deserialize")]
@@ -196,10 +197,12 @@ pub struct Bootstrap {
 
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Update {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
     pub next_sync_committee: SyncCommittee,
     #[serde(deserialize_with = "branch_deserialize")]
     pub next_sync_committee_branch: Vec<Bytes32>,
+    #[serde(deserialize_with = "header_deserialize")]
     pub finalized_header: Header,
     #[serde(deserialize_with = "branch_deserialize")]
     pub finality_branch: Vec<Bytes32>,
@@ -210,7 +213,9 @@ pub struct Update {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct FinalityUpdate {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
+    #[serde(deserialize_with = "header_deserialize")]
     pub finalized_header: Header,
     #[serde(deserialize_with = "branch_deserialize")]
     pub finality_branch: Vec<Bytes32>,
@@ -221,6 +226,7 @@ pub struct FinalityUpdate {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct OptimisticUpdate {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
     #[serde(deserialize_with = "u64_deserialize")]
@@ -271,7 +277,7 @@ impl From<&Update> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.clone(),
+            signature_slot: update.signature_slot,
             next_sync_committee: Some(update.next_sync_committee.clone()),
             next_sync_committee_branch: Some(update.next_sync_committee_branch.clone()),
             finalized_header: Some(update.finalized_header.clone()),
@@ -285,7 +291,7 @@ impl From<&FinalityUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.clone(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: Some(update.finalized_header.clone()),
@@ -299,7 +305,7 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.clone(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: None,
@@ -322,14 +328,13 @@ where
     D: serde::Deserializer<'de>,
 {
     let keys: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(keys
-        .iter()
+    keys.iter()
         .map(|key| {
             let key_bytes = hex_str_to_bytes(key)?;
             Ok(Vector::from_iter(key_bytes))
         })
         .collect::<Result<Vector<BLSPubKey, 512>>>()
-        .map_err(D::Error::custom)?)
+        .map_err(D::Error::custom)
 }
 
 fn bytes_vector_deserialize<'de, D>(deserializer: D) -> Result<Vector<Bytes32, 33>, D::Error>
@@ -337,14 +342,14 @@ where
     D: serde::Deserializer<'de>,
 {
     let elems: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(elems
+    elems
         .iter()
         .map(|elem| {
             let elem_bytes = hex_str_to_bytes(elem)?;
             Ok(Vector::from_iter(elem_bytes))
         })
         .collect::<Result<Vector<Bytes32, 33>>>()
-        .map_err(D::Error::custom)?)
+        .map_err(D::Error::custom)
 }
 
 fn signature_deserialize<'de, D>(deserializer: D) -> Result<SignatureBytes, D::Error>
@@ -361,17 +366,17 @@ where
     D: serde::Deserializer<'de>,
 {
     let branch: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    Ok(branch
+    branch
         .iter()
         .map(|elem| {
             let elem_bytes = hex_str_to_bytes(elem)?;
             Ok(Vector::from_iter(elem_bytes))
         })
         .collect::<Result<_>>()
-        .map_err(D::Error::custom)?)
+        .map_err(D::Error::custom)
 }
 
-fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+pub fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -453,4 +458,28 @@ where
         .collect::<List<u64, 2048>>();
 
     Ok(attesting_indices)
+}
+
+fn header_deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let header: LightClientHeader = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(match header {
+        LightClientHeader::Unwrapped(header) => header,
+        LightClientHeader::Wrapped(header) => header.beacon,
+    })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum LightClientHeader {
+    Unwrapped(Header),
+    Wrapped(Beacon),
+}
+
+#[derive(serde::Deserialize)]
+struct Beacon {
+    beacon: Header,
 }

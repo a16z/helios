@@ -1,8 +1,24 @@
-use serde::Serialize;
-
-use crate::{bytes_serialize, ChainConfig, Fork, Forks};
 use common::utils::hex_str_to_bytes;
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter};
 
+use crate::base::BaseConfig;
+use crate::types::{ChainConfig, Fork, Forks};
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    EnumIter,
+    Display,
+    Hash,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+)]
 pub enum Network {
     MAINNET,
     GOERLI,
@@ -15,20 +31,6 @@ impl Network {
             Self::GOERLI => goerli(),
         }
     }
-}
-
-#[derive(Serialize, Default)]
-pub struct BaseConfig {
-    pub rpc_port: u16,
-    pub consensus_rpc: Option<String>,
-    #[serde(
-        deserialize_with = "bytes_deserialize",
-        serialize_with = "bytes_serialize"
-    )]
-    pub checkpoint: Vec<u8>,
-    pub chain: ChainConfig,
-    pub forks: Forks,
-    pub max_checkpoint_age: u64,
 }
 
 pub fn mainnet() -> BaseConfig {

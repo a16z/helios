@@ -7,7 +7,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum NodeError {
     #[error(transparent)]
-    ExecutionError(#[from] EvmError),
+    ExecutionEvmError(#[from] EvmError),
+
+    #[error("execution error: {0}")]
+    ExecutionError(Report),
 
     #[error("out of sync: {0} slots behind")]
     OutOfSync(u64),
@@ -37,7 +40,7 @@ pub enum NodeError {
 impl NodeError {
     pub fn to_json_rpsee_error(self) -> jsonrpsee::core::Error {
         match self {
-            NodeError::ExecutionError(evm_err) => match evm_err {
+            NodeError::ExecutionEvmError(evm_err) => match evm_err {
                 EvmError::Revert(data) => {
                     let mut msg = "execution reverted".to_string();
                     if let Some(reason) = data.as_ref().and_then(EvmError::decode_revert_reason) {

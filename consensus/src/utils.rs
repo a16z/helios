@@ -15,9 +15,9 @@ pub fn calc_sync_period(slot: u64) -> u64 {
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
     let dst: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
-    let sig_res = Signature::from_bytes(&sig_bytes);
+    let sig_res = Signature::from_bytes(sig_bytes);
     match sig_res {
-        Ok(sig) => sig.fast_aggregate_verify(true, msg, dst, &pks) == BLST_ERROR::BLST_SUCCESS,
+        Ok(sig) => sig.fast_aggregate_verify(true, msg, dst, pks) == BLST_ERROR::BLST_SUCCESS,
         Err(_) => false,
     }
 }
@@ -25,7 +25,7 @@ pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&Public
 pub fn is_proof_valid<L: Merkleized>(
     attested_header: &Header,
     leaf_object: &mut L,
-    branch: &Vec<Bytes32>,
+    branch: &[Bytes32],
     depth: usize,
     index: usize,
 ) -> bool {
@@ -81,7 +81,6 @@ fn compute_fork_data_root(
     current_version: Vector<u8, 4>,
     genesis_validator_root: Bytes32,
 ) -> Result<Node> {
-    let current_version = current_version.try_into()?;
     let mut fork_data = ForkData {
         current_version,
         genesis_validator_root,
@@ -92,6 +91,6 @@ fn compute_fork_data_root(
 pub fn branch_to_nodes(branch: Vec<Bytes32>) -> Result<Vec<Node>> {
     branch
         .iter()
-        .map(|elem| bytes32_to_node(elem))
+        .map(bytes32_to_node)
         .collect::<Result<Vec<Node>>>()
 }

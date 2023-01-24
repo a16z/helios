@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use common::errors::RpcError;
 use eyre::Result;
 use std::cmp;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
+use common::errors::RpcError;
 
 #[derive(Debug)]
 pub struct NimbusRpc {
@@ -21,7 +21,7 @@ impl ConsensusRpc for NimbusRpc {
         }
     }
 
-    async fn get_bootstrap(&self, block_root: &Vec<u8>) -> Result<Bootstrap> {
+    async fn get_bootstrap(&self, block_root: &'_ [u8]) -> Result<Bootstrap> {
         let root_hex = hex::encode(block_root);
         let req = format!(
             "{}/eth/v1/beacon/light_client/bootstrap/0x{}",
@@ -96,6 +96,21 @@ impl ConsensusRpc for NimbusRpc {
 
         Ok(res.data.message)
     }
+
+    async fn chain_id(&self) -> Result<u64> {
+        let req = format!("{}/eth/v1/config/spec", self.rpc);
+        let res = self
+            .client
+            .get(req)
+            .send()
+            .await
+            .map_err(|e| RpcError::new("spec", e))?
+            .json::<SpecResponse>()
+            .await
+            .map_err(|e| RpcError::new("spec", e))?;
+
+        Ok(res.data.chain_id)
+    }
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -128,4 +143,15 @@ struct OptimisticUpdateResponse {
 #[derive(serde::Deserialize, Debug)]
 struct BootstrapResponse {
     data: Bootstrap,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct SpecResponse {
+    data: Spec,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct Spec {
+    #[serde(rename = "DEPOSIT_NETWORK_ID", deserialize_with = "u64_deserialize")]
+    chain_id: u64,
 }

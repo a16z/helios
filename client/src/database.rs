@@ -1,9 +1,14 @@
-use std::{fs, io::Write, path::PathBuf};
+use std::{
+    fs,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 use eyre::Result;
 
 pub trait Database {
     fn save_checkpoint(&self, checkpoint: Vec<u8>) -> Result<()>;
+    fn load_checkpoint(&self) -> Result<Vec<u8>>;
 }
 
 pub struct FileDB {
@@ -29,5 +34,16 @@ impl Database for FileDB {
         f.write_all(checkpoint.as_slice())?;
 
         Ok(())
+    }
+
+    fn load_checkpoint(&self) -> Result<Vec<u8>> {
+        let mut f = fs::OpenOptions::new()
+            .read(true)
+            .open(self.data_dir.join("checkpoint"))?;
+
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf)?;
+
+        Ok(buf)
     }
 }

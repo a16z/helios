@@ -59,7 +59,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
                 _ => Err(EvmError::Revert(None)),
             },
-            revm::Return::Return => {
+            revm::Return::Return | revm::Return::Stop => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
@@ -87,7 +87,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
                 _ => Err(EvmError::Revert(None)),
             },
-            revm::Return::Return => {
+            revm::Return::Return | revm::Return::Stop => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
@@ -119,9 +119,8 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
             gas_price: opts.gas_price,
         };
 
-        let block_moved = block.clone();
         let mut list = rpc
-            .create_access_list(&opts_moved, block_moved)
+            .create_access_list(&opts_moved, block)
             .await
             .map_err(EvmError::RpcError)?
             .0;
@@ -147,7 +146,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
 
         let mut account_map = HashMap::new();
         for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
-            let account_chunk_futs = chunk.into_iter().map(|account| {
+            let account_chunk_futs = chunk.iter().map(|account| {
                 let account_fut = execution.get_account(
                     &account.address,
                     Some(account.storage_keys.as_slice()),
@@ -220,7 +219,6 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
 
     fn get_account(&mut self, address: Address, slots: &[H256]) -> Result<Account> {
         let execution = self.execution.clone();
-        let addr = address.clone();
         let payload = self.current_payload.clone();
         let slots = slots.to_owned();
 
@@ -244,7 +242,7 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
         }
 
         trace!(
-            "fetch basic evm state for addess=0x{}",
+            "fetch basic evm state for address=0x{}",
             hex::encode(address.as_bytes())
         );
 
@@ -281,20 +279,18 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
 
         Ok(match self.accounts.get(&address) {
             Some(account) => match account.slots.get(&slot) {
-                Some(slot) => slot.clone(),
-                None => self
+                Some(slot) => *slot,
+                None => *self
                     .get_account(address, &[slot])?
                     .slots
                     .get(&slot)
-                    .unwrap()
-                    .clone(),
+                    .unwrap(),
             },
-            None => self
+            None => *self
                 .get_account(address, &[slot])?
                 .slots
                 .get(&slot)
-                .unwrap()
-                .clone(),
+                .unwrap(),
         })
     }
 

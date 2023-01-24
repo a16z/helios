@@ -22,5 +22,5 @@ pub fn address_to_hex_string(address: &Address) -> String {
 }
 
 pub fn u64_to_hex_string(val: u64) -> String {
-    format!("0x{:x}", val)
+    format!("0x{val:x}")
 }

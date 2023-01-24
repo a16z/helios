@@ -19,7 +19,7 @@ pub struct Account {
     pub slots: HashMap<H256, U256>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionBlock {
     #[serde(serialize_with = "serialize_u64_string")]
@@ -54,13 +54,13 @@ pub struct ExecutionBlock {
     pub uncles: Vec<H256>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum Transactions {
     Hashes(Vec<H256>),
     Full(Vec<Transaction>),
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CallOpts {
     pub from: Option<Address>,
@@ -78,7 +78,7 @@ impl fmt::Debug for CallOpts {
             .field("from", &self.from)
             .field("to", &self.to)
             .field("value", &self.value)
-            .field("data", &hex::encode(&self.data.clone().unwrap_or_default()))
+            .field("data", &hex::encode(self.data.clone().unwrap_or_default()))
             .finish()
     }
 }
