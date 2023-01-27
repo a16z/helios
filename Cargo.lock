@@ -1676,6 +1676,7 @@ dependencies = [
 name = "helios-ts"
 version = "0.1.0"
 dependencies = [
+ "client",
  "config",
  "consensus",
  "console_error_panic_hook",

@@ -37,6 +37,7 @@ pub enum NodeError {
     BlockNotFoundError(#[from] BlockNotFoundError),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl NodeError {
     pub fn to_json_rpsee_error(self) -> jsonrpsee::core::Error {
         match self {

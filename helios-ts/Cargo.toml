@@ -16,6 +16,7 @@ console_error_panic_hook = "0.1.7"
 ethers = "1.0.0"
 hex = "0.4.3"
 
+client = { path = "../client" }
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }
 config = { path = "../config" }

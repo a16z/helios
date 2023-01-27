@@ -1,7 +1,7 @@
 import { BigNumber, Transaction, providers } from "ethers";
 const { Web3Provider } = providers;
 
-import { Node } from "./pkg";
+import { Client, RpcRequest } from "./pkg";
 
 export type BlockTag = "latest" | number;
 
@@ -17,34 +17,37 @@ export class HeliosProvider extends Web3Provider {
 }
 
 class HeliosExternal {
-  #node;
+  #client;
 
   constructor(executionRpc: string, consensusRpc: string) {
-    this.#node = new Node(executionRpc, consensusRpc);
+    this.#client = new Client(executionRpc, consensusRpc);
   }
 
   async sync() {
-    await this.#node.sync();
-    setInterval(async () => await this.#node.advance(), 12_000);
+    await this.#client.sync();
+    setInterval(async () => await this.#client.advance(), 12_000);
   }
 
   async request(req: Request): Promise<any> {
     console.log(req);
 
-    switch(req.method) {
-      case "eth_getBalance": {
-        return "0x123";
-      };
-      case "eth_chainId": {
-        return "0x1";
-      };
-      case "eth_getBalance": {
-        return "0x500";
-      };
-      case "eth_blockNumber": {
-        return await this.#node.get_block_number();
-      }
-    }
+    
+    // this.#client.request(req)
+
+    // switch(req.method) {
+    //   case "eth_getBalance": {
+    //     return "0x123";
+    //   };
+    //   case "eth_chainId": {
+    //     return "0x1";
+    //   };
+    //   case "eth_getBalance": {
+    //     return "0x500";
+    //   };
+    //   case "eth_blockNumber": {
+    //     return this.#client.get_block_number();
+    //   }
+    // }
   }
 }
 
