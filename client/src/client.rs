@@ -37,7 +37,6 @@ pub struct ClientBuilder {
     checkpoint: Option<Vec<u8>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
-    #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
     fallback: Option<String>,
@@ -148,7 +147,6 @@ impl ClientBuilder {
             None
         };
 
-        #[cfg(not(target_arch = "wasm32"))]
         let data_dir = if self.data_dir.is_some() {
             self.data_dir
         } else if let Some(config) = &self.config {
@@ -185,10 +183,7 @@ impl ClientBuilder {
             rpc_port,
             #[cfg(target_arch = "wasm32")]
             rpc_port: None,
-            #[cfg(not(target_arch = "wasm32"))]
             data_dir,
-            #[cfg(target_arch = "wasm32")]
-            data_dir: None,
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,

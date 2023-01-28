@@ -1,7 +1,7 @@
 import { BigNumber, Transaction, providers } from "ethers";
 const { Web3Provider } = providers;
 
-import { Client, RpcRequest } from "./pkg";
+import { Client } from "./pkg";
 
 export type BlockTag = "latest" | number;
 
@@ -34,20 +34,20 @@ class HeliosExternal {
     
     // this.#client.request(req)
 
-    // switch(req.method) {
-    //   case "eth_getBalance": {
-    //     return "0x123";
-    //   };
-    //   case "eth_chainId": {
-    //     return "0x1";
-    //   };
-    //   case "eth_getBalance": {
-    //     return "0x500";
-    //   };
-    //   case "eth_blockNumber": {
-    //     return this.#client.get_block_number();
-    //   }
-    // }
+    switch(req.method) {
+      case "eth_getBalance": {
+        return "0x123";
+      };
+      case "eth_chainId": {
+        return "0x1";
+      };
+      case "eth_getBalance": {
+        return "0x500";
+      };
+      case "eth_blockNumber": {
+        return this.#client.get_block_number();
+      }
+    }
   }
 }
 

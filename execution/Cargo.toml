@@ -23,3 +23,7 @@ thiserror = "1.0.37"
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+tokio = { version = "1", features = ["full"] }

@@ -1,9 +1,11 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::BTreeMap, str::FromStr};
 
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
+use client::database::FileDB;
 use client::node::Node;
 use config::{networks, Config};
 use consensus::{rpc::nimbus_rpc::NimbusRpc, types::ExecutionPayload, ConsensusClient};
@@ -20,7 +22,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    node: Node,
+    node: client::Client<FileDB>,
 }
 
 #[wasm_bindgen(constructor)]
@@ -30,7 +32,7 @@ impl Client {
         console_error_panic_hook::set_once();
 
         let base = networks::mainnet();
-        let config = Arc::new(Config {
+        let config = Config {
             checkpoint: base.checkpoint.clone(),
             execution_rpc: execution_rpc.to_string(),
             consensus_rpc: consensus_rpc.to_string(),
@@ -39,25 +41,25 @@ impl Client {
             fallback: None,
             load_external_fallback: false,
             strict_checkpoint_age: false,
-            data_dir: None,
+            data_dir: Some(PathBuf::new()),
             max_checkpoint_age: u64::MAX,
             chain: base.chain,
             forks: base.forks,
-        });
+        };
 
-        let node = Node::new(config).unwrap();
+        let node: client::Client<FileDB> = client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { node }
     }
 
     #[wasm_bindgen]
     pub async fn sync(&mut self) {
-        self.node.sync().await.unwrap()
+        self.node.start().await.unwrap()
     }
 
     #[wasm_bindgen]
     pub async fn advance(&mut self) {
-        self.node.advance().await.unwrap()
+        // self.node.advance().await.unwrap()
     }
 
     #[wasm_bindgen]
@@ -66,13 +68,13 @@ impl Client {
     }
 
     #[wasm_bindgen]
-    pub fn chain_id(&self) -> u32 {
-        self.node.chain_id() as u32
+    pub async fn chain_id(&self) -> u32 {
+        self.node.chain_id().await as u32
     }
 
     #[wasm_bindgen]
-    pub fn get_block_number(&self) -> u32 {
-        self.node.get_block_number().unwrap() as u32
+    pub async fn get_block_number(&self) -> u32 {
+        self.node.get_block_number().await.unwrap() as u32
     }
 }
 
