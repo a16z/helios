@@ -47,7 +47,8 @@ impl Client {
             forks: base.forks,
         };
 
-        let node: client::Client<FileDB> = client::ClientBuilder::new().config(config).build().unwrap();
+        let node: client::Client<FileDB> =
+            client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { node }
     }
@@ -91,19 +92,19 @@ pub struct RpcRequest {
 //     payloads: BTreeMap<u64, ExecutionPayload>,
 //     config: Arc<Config>,
 // }
-// 
+//
 // #[wasm_bindgen]
 // impl Node {
 //     #[wasm_bindgen(constructor)]
 //     pub fn new(consensus_rpc: &str, execution_rpc: &str) -> Self {
 //         console_error_panic_hook::set_once();
-// 
+//
 //         let base = networks::mainnet();
 //         let config = Arc::new(Config {
 //             checkpoint: base.checkpoint.clone(),
 //             consensus_rpc: consensus_rpc.to_string(),
 //             rpc_port: None,
-// 
+//
 //             fallback: None,
 //             load_external_fallback: false,
 //             strict_checkpoint_age: false,
@@ -113,13 +114,13 @@ pub struct RpcRequest {
 //             chain: base.chain,
 //             forks: base.forks,
 //         });
-// 
+//
 //         let consensus =
 //             ConsensusClient::<NimbusRpc>::new(&consensus_rpc, &base.checkpoint, config.clone())
 //                 .unwrap();
-// 
+//
 //         let execution = ExecutionClient::<HttpRpc>::new(execution_rpc).unwrap();
-// 
+//
 //         Self {
 //             consensus,
 //             execution,
@@ -127,19 +128,19 @@ pub struct RpcRequest {
 //             config,
 //         }
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn sync(&mut self) {
 //         self.consensus.sync().await.unwrap();
 //         self.update_payloads().await;
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn advance(&mut self) {
 //         self.consensus.advance().await.unwrap();
 //         self.update_payloads().await;
 //     }
-// 
+//
 //     async fn update_payloads(&mut self) {
 //         let header = self.consensus.get_header();
 //         let payload = self
@@ -147,43 +148,43 @@ pub struct RpcRequest {
 //             .get_execution_payload(&Some(header.slot))
 //             .await
 //             .unwrap();
-// 
+//
 //         self.payloads.insert(payload.block_number, payload);
-// 
+//
 //         while self.payloads.len() > 64 {
 //             self.payloads.pop_first();
 //         }
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn chain_id(&self) -> u32 {
 //         self.config.chain.chain_id as u32
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn get_block_number(&self) -> u32 {
 //         let payload = self.payloads.last_key_value().unwrap().1;
 //         payload.block_number as u32
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn get_balance(&self, addr: &str, block: &str) -> String {
 //         let payload = self.get_payload(block);
-// 
+//
 //         let addr = Address::from_str(addr).unwrap();
 //         let account = self
 //             .execution
 //             .get_account(&addr, None, &payload)
 //             .await
 //             .unwrap();
-// 
+//
 //         account.balance.to_string()
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn get_code(&self, addr: &str, block: &str) -> String {
 //         let payload = self.get_payload(block);
-// 
+//
 //         let addr = Address::from_str(addr).unwrap();
 //         let code = self
 //             .execution
@@ -191,14 +192,14 @@ pub struct RpcRequest {
 //             .await
 //             .unwrap()
 //             .code;
-// 
+//
 //         format!("0x{}", hex::encode(code))
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn get_nonce(&self, addr: &str, block: &str) -> u32 {
 //         let payload = self.get_payload(block);
-// 
+//
 //         let addr = Address::from_str(addr).unwrap();
 //         let nonce = self
 //             .execution
@@ -206,10 +207,10 @@ pub struct RpcRequest {
 //             .await
 //             .unwrap()
 //             .nonce;
-// 
+//
 //         nonce as u32
 //     }
-// 
+//
 //     #[wasm_bindgen]
 //     pub async fn get_transaction_by_hash(&self, hash: &str) -> Option<Transaction> {
 //         let hash = H256::from_str(hash).unwrap();
@@ -219,7 +220,7 @@ pub struct RpcRequest {
 //             .unwrap()
 //             .map(|tx| Transaction::from_ethers(tx))
 //     }
-// 
+//
 //     fn get_payload(&self, block: &str) -> ExecutionPayload {
 //         if block == "latest" {
 //             self.payloads.last_key_value().unwrap().1.clone()
@@ -229,7 +230,7 @@ pub struct RpcRequest {
 //         }
 //     }
 // }
-// 
+//
 // #[wasm_bindgen]
 // pub struct Transaction {
 //     hash: String,
@@ -247,69 +248,69 @@ pub struct RpcRequest {
 //     v: String,
 //     pub chain_id: u32,
 // }
-// 
+//
 // #[wasm_bindgen]
 // impl Transaction {
 //     #[wasm_bindgen(getter)]
 //     pub fn hash(&self) -> String {
 //         self.hash.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn to(&self) -> String {
 //         self.to.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn from(&self) -> String {
 //         self.from.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn value(&self) -> String {
 //         self.value.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn gas_limit(&self) -> String {
 //         self.gas_limit.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn gas_price(&self) -> Option<String> {
 //         self.gas_price.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn max_fee_per_gas(&self) -> Option<String> {
 //         self.max_fee_per_gas.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn max_priority_fee_per_gas(&self) -> Option<String> {
 //         self.max_priority_fee_per_gas.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn data(&self) -> String {
 //         self.data.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn r(&self) -> String {
 //         self.r.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn s(&self) -> String {
 //         self.s.clone()
 //     }
-// 
+//
 //     #[wasm_bindgen(getter)]
 //     pub fn v(&self) -> String {
 //         self.v.clone()
 //     }
-// 
+//
 //     fn from_ethers(tx: EthersTransaction) -> Self {
 //         Self {
 //             hash: tx.hash.to_string(),

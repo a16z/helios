@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use ethers::prelude::{Address, Http};
-use ethers::providers::{Middleware, Provider, RetryClient, HttpRateLimitRetryPolicy};
+use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{

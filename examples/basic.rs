@@ -3,7 +3,7 @@ use std::str::FromStr;
 use env_logger::Env;
 use ethers::{types::Address, utils};
 use eyre::Result;
-use helios::{prelude::*, config::networks::Network};
+use helios::{config::networks::Network, prelude::*};
 
 #[tokio::main]
 async fn main() -> Result<()> {

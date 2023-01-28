@@ -9,11 +9,11 @@ use bytes::Bytes;
 use common::{errors::BlockNotFoundError, types::BlockTag};
 use ethers::{
     abi::ethereum_types::BigEndianHash,
-    types::{Address, H160, H256, U256},
     types::transaction::eip2930::AccessListItem,
+    types::{Address, H160, H256, U256},
 };
 use eyre::{Report, Result};
-use futures::{future::join_all, executor::block_on};
+use futures::{executor::block_on, future::join_all};
 use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
 

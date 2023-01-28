@@ -256,7 +256,9 @@ impl<DB: Database> Client<DB> {
         let node = NodeLock::new(node);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let rpc = config.rpc_port.map(|port| Rpc::new(node.node.clone(), port));
+        let rpc = config
+            .rpc_port
+            .map(|port| Rpc::new(node.node.clone(), port));
 
         Ok(Client {
             node,

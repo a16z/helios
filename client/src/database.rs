@@ -8,7 +8,9 @@ use config::Config;
 use eyre::Result;
 
 pub trait Database {
-    fn new(config: &Config) -> Result<Self> where Self: Sized;
+    fn new(config: &Config) -> Result<Self>
+    where
+        Self: Sized;
     fn save_checkpoint(&self, checkpoint: Vec<u8>) -> Result<()>;
     fn load_checkpoint(&self) -> Result<Vec<u8>>;
 }
@@ -20,7 +22,9 @@ pub struct FileDB {
 impl Database for FileDB {
     fn new(config: &Config) -> Result<Self> {
         if let Some(data_dir) = &config.data_dir {
-            return Ok(FileDB { data_dir: data_dir.to_path_buf() })
+            return Ok(FileDB {
+                data_dir: data_dir.to_path_buf(),
+            });
         }
 
         eyre::bail!("data dir not in config")
