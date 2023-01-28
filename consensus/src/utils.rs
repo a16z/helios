@@ -1,9 +1,6 @@
-use blst::{
-    min_pk::{PublicKey, Signature},
-    BLST_ERROR,
-};
 use common::{types::Bytes32, utils::bytes32_to_node};
 use eyre::Result;
+use milagro_bls::{ PublicKey, AggregateSignature};
 use ssz_rs::prelude::*;
 
 use crate::types::{Header, SignatureBytes};
@@ -14,10 +11,9 @@ pub fn calc_sync_period(slot: u64) -> u64 {
 }
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
-    let dst: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
-    let sig_res = Signature::from_bytes(sig_bytes);
+    let sig_res = AggregateSignature::from_bytes(sig_bytes);
     match sig_res {
-        Ok(sig) => sig.fast_aggregate_verify(true, msg, dst, pks) == BLST_ERROR::BLST_SUCCESS,
+        Ok(sig) => sig.fast_aggregate_verify(msg, pks),
         Err(_) => false,
     }
 }

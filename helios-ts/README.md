@@ -1,22 +1,15 @@
 ## Dependencies
-Building requires [emcc](https://emscripten.org/) and [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
+Building requires [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
 
 Testing in the browser with `run.sh` requires [local-cors-proxy](https://www.npmjs.com/package/local-cors-proxy) and [simple-http-server](https://crates.io/crates/simple-http-server)
 
 ## Build Instructions
-All commands must be run from the `helios-ts` directory
-
-on first build run (this will fail)
+To build run:
 ```
 wasm-pack build
 ```
 
-then run (future builds will only need this command)
-```
-CC=emcc AR=emar wasm-pack build
-```
-
-or (you may need to do `chmod +x run.sh` to make it executable)
+To build and start run:
 ```
 ./run.sh
 ```

@@ -10,7 +10,6 @@ serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
-blst = "0.3.10"
 revm = { version = "2.3", default-features = false, features = ["std", "k256", "with-serde"] }
 ethers = "1.0.0"
 bytes = "1.2.1"

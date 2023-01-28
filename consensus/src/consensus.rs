@@ -1,7 +1,7 @@
 use std::cmp;
 use std::sync::Arc;
 
-use blst::min_pk::PublicKey;
+use milagro_bls::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
