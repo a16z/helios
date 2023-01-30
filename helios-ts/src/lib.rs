@@ -1,16 +1,10 @@
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::{collections::BTreeMap, str::FromStr};
 
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
 use client::database::FileDB;
-use client::node::Node;
 use config::{networks, Config};
-use consensus::{rpc::nimbus_rpc::NimbusRpc, types::ExecutionPayload, ConsensusClient};
-use ethers::types::{Address, Transaction as EthersTransaction, H256};
-use execution::{rpc::http_rpc::HttpRpc, ExecutionClient};
 use wasm_bindgen::prelude::*;
 
 #[allow(unused_macros)]

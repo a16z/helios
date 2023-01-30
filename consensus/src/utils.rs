@@ -1,6 +1,6 @@
 use common::{types::Bytes32, utils::bytes32_to_node};
 use eyre::Result;
-use milagro_bls::{ PublicKey, AggregateSignature};
+use milagro_bls::{AggregateSignature, PublicKey};
 use ssz_rs::prelude::*;
 
 use crate::types::{Header, SignatureBytes};

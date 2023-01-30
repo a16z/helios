@@ -1,12 +1,12 @@
 use std::cmp;
 use std::sync::Arc;
 
-use milagro_bls::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use log::warn;
 use log::{debug, info};
+use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 
 use common::types::*;

@@ -12,15 +12,17 @@ use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{error, info, warn};
+use tokio::sync::RwLock;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::spawn;
 #[cfg(not(target_arch = "wasm32"))]
-use tokio::sync::RwLock;
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
-#[cfg(not(target_arch = "wasm32"))]
 use tokio::time::sleep;
+
+#[cfg(target_arch = "wasm32")]
+use gloo_timers::callback::Interval;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::spawn_local;
 
 use crate::database::Database;
 use crate::errors::NodeError;
@@ -197,54 +199,12 @@ impl ClientBuilder {
 }
 
 pub struct Client<DB: Database> {
-    node: NodeLock,
+    node: Arc<RwLock<Node>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
     db: Option<DB>,
     fallback: Option<String>,
     load_external_fallback: bool,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Clone)]
-struct NodeLock {
-    node: Arc<RwLock<Node>>,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl NodeLock {
-    pub fn new(node: Node) -> Self {
-        let node = Arc::new(RwLock::new(node));
-        Self { node }
-    }
-
-    pub async fn read(&self) -> RwLockReadGuard<Node> {
-        self.node.read().await
-    }
-
-    pub async fn write(&self) -> RwLockWriteGuard<Node> {
-        self.node.write().await
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-struct NodeLock {
-    node: Node,
-}
-
-#[cfg(target_arch = "wasm32")]
-impl NodeLock {
-    pub fn new(node: Node) -> Self {
-        Self { node }
-    }
-
-    pub async fn read(&self) -> &Node {
-        &self.node
-    }
-
-    pub async fn write(&mut self) -> &mut Node {
-        &mut self.node
-    }
 }
 
 impl<DB: Database> Client<DB> {
@@ -253,12 +213,10 @@ impl<DB: Database> Client<DB> {
 
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
-        let node = NodeLock::new(node);
+        let node = Arc::new(RwLock::new(node));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let rpc = config
-            .rpc_port
-            .map(|port| Rpc::new(node.node.clone(), port));
+        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
 
         Ok(Client {
             node,
@@ -301,20 +259,41 @@ impl<DB: Database> Client<DB> {
             }
         }
 
-        // let node = self.node.clone();
-        // spawn(async move {
-        //     loop {
-        //         let res = node.write().await.advance().await;
-        //         if let Err(err) = res {
-        //             warn!("consensus error: {}", err);
-        //         }
-
-        //         let next_update = node.read().await.duration_until_next_update();
-        //         sleep(next_update).await;
-        //     }
-        // });
+        self.start_advance_thread();
 
         Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn start_advance_thread(&self) {
+        let node = self.node.clone();
+        spawn(async move {
+            loop {
+                let res = node.write().await.advance().await;
+                if let Err(err) = res {
+                    warn!("consensus error: {}", err);
+                }
+
+                let next_update = node.read().await.duration_until_next_update();
+
+                sleep(next_update).await;
+            }
+        });
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn start_advance_thread(&self) {
+        let node = self.node.clone();
+        Interval::new(12000, move || {
+            let node = node.clone();
+            spawn_local(async move {
+                let res = node.write().await.advance().await;
+                if let Err(err) = res {
+                    warn!("consensus error: {}", err);
+                }
+            });
+        })
+        .forget();
     }
 
     async fn boot_from_fallback(&mut self) -> eyre::Result<()> {
