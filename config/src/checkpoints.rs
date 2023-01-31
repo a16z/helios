@@ -157,6 +157,7 @@ impl CheckpointFallback {
                 Ok(s) => Some(s.clone()),
                 _ => None,
             })
+            .filter(|s| s.block_root.is_some())
             .collect::<Vec<_>>();
 
         // Get the max epoch
