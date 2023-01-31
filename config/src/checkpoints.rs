@@ -172,8 +172,6 @@ impl CheckpointFallback {
             .filter(|x| x.block_root.is_some())
             .collect::<Vec<_>>();
 
-        println!("{:?}", slots);
-
         // Return the most commonly verified checkpoint.
         let checkpoints = slots
             .iter()
