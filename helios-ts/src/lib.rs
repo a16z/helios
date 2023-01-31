@@ -19,7 +19,7 @@ pub struct Client {
     node: client::Client<FileDB>,
 }
 
-#[wasm_bindgen(constructor)]
+#[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
     pub fn new(consensus_rpc: &str, execution_rpc: &str) -> Self {
@@ -71,12 +71,6 @@ impl Client {
     pub async fn get_block_number(&self) -> u32 {
         self.node.get_block_number().await.unwrap() as u32
     }
-}
-
-#[derive(Debug)]
-pub struct RpcRequest {
-    method: String,
-    params: Vec<JsValue>,
 }
 
 // #[wasm_bindgen]
