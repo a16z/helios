@@ -304,7 +304,7 @@ impl<DB: Database> Client<DB> {
         .forget();
     }
 
-    async fn boot_from_fallback(&mut self) -> eyre::Result<()> {
+    async fn boot_from_fallback(&self) -> eyre::Result<()> {
         if let Some(fallback) = &self.fallback {
             info!(
                 "attempting to load checkpoint from fallback \"{}\"",
@@ -336,7 +336,7 @@ impl<DB: Database> Client<DB> {
         }
     }
 
-    async fn boot_from_external_fallbacks(&mut self) -> eyre::Result<()> {
+    async fn boot_from_external_fallbacks(&self) -> eyre::Result<()> {
         info!("attempting to fetch checkpoint from external fallbacks...");
         // Build the list of external checkpoint fallback services
         let list = CheckpointFallback::new()
