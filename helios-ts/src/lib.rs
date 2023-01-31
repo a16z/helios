@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
-use client::database::FileDB;
+use client::database::ConfigDB;
 use config::{networks, Config};
 use wasm_bindgen::prelude::*;
 
@@ -16,7 +14,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    node: client::Client<FileDB>,
+    node: client::Client<ConfigDB>,
 }
 
 #[wasm_bindgen]
@@ -30,18 +28,13 @@ impl Client {
             checkpoint: base.checkpoint.clone(),
             execution_rpc: execution_rpc.to_string(),
             consensus_rpc: consensus_rpc.to_string(),
-
-            rpc_port: None,
-            fallback: None,
-            load_external_fallback: false,
-            strict_checkpoint_age: false,
-            data_dir: Some(PathBuf::new()),
-            max_checkpoint_age: u64::MAX,
             chain: base.chain,
             forks: base.forks,
+
+            ..Default::default()
         };
 
-        let node: client::Client<FileDB> =
+        let node: client::Client<ConfigDB> =
             client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { node }

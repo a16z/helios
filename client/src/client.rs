@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::networks::Network;
@@ -14,6 +13,8 @@ use execution::types::{CallOpts, ExecutionBlock};
 use log::{error, info, warn};
 use tokio::sync::RwLock;
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::spawn;
 #[cfg(not(target_arch = "wasm32"))]
@@ -39,6 +40,7 @@ pub struct ClientBuilder {
     checkpoint: Option<Vec<u8>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
+    #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
     fallback: Option<String>,
@@ -149,6 +151,7 @@ impl ClientBuilder {
             None
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let data_dir = if self.data_dir.is_some() {
             self.data_dir
         } else if let Some(config) = &self.config {
@@ -185,7 +188,10 @@ impl ClientBuilder {
             rpc_port,
             #[cfg(target_arch = "wasm32")]
             rpc_port: None,
+            #[cfg(not(target_arch = "wasm32"))]
             data_dir,
+            #[cfg(target_arch = "wasm32")]
+            data_dir: None,
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
@@ -202,14 +208,16 @@ pub struct Client<DB: Database> {
     node: Arc<RwLock<Node>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
-    db: Option<DB>,
+    db: DB,
     fallback: Option<String>,
     load_external_fallback: bool,
 }
 
 impl<DB: Database> Client<DB> {
-    fn new(config: Config) -> Result<Self> {
-        let db = Some(DB::new(&config)?);
+    fn new(mut config: Config) -> Result<Self> {
+        let db = DB::new(&config)?;
+        let checkpoint = db.load_checkpoint()?;
+        config.checkpoint = checkpoint;
 
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
@@ -374,8 +382,8 @@ impl<DB: Database> Client<DB> {
         };
 
         info!("saving last checkpoint hash");
-        let res = self.db.as_ref().map(|db| db.save_checkpoint(checkpoint));
-        if res.is_some() && res.unwrap().is_err() {
+        let res = self.db.save_checkpoint(checkpoint);
+        if res.is_err() {
             warn!("checkpoint save failed");
         }
     }

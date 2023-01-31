@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::{
     fs,
     io::{Read, Write},
@@ -15,15 +16,19 @@ pub trait Database {
     fn load_checkpoint(&self) -> Result<Vec<u8>>;
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub struct FileDB {
     data_dir: PathBuf,
+    default_checkpoint: Vec<u8>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Database for FileDB {
     fn new(config: &Config) -> Result<Self> {
         if let Some(data_dir) = &config.data_dir {
             return Ok(FileDB {
                 data_dir: data_dir.to_path_buf(),
+                default_checkpoint: config.checkpoint.clone(),
             });
         }
 
@@ -52,6 +57,30 @@ impl Database for FileDB {
         let mut buf = Vec::new();
         f.read_to_end(&mut buf)?;
 
-        Ok(buf)
+        if buf.len() == 32 {
+            Ok(buf)
+        } else {
+            Ok(self.default_checkpoint.clone())
+        }
+    }
+}
+
+pub struct ConfigDB {
+    checkpoint: Vec<u8>,
+}
+
+impl Database for ConfigDB {
+    fn new(config: &Config) -> Result<Self> {
+        Ok(Self {
+            checkpoint: config.checkpoint.clone(),
+        })
+    }
+
+    fn load_checkpoint(&self) -> Result<Vec<u8>> {
+        Ok(self.checkpoint.clone())
+    }
+
+    fn save_checkpoint(&self, _checkpoint: Vec<u8>) -> Result<()> {
+        Ok(())
     }
 }
