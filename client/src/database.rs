@@ -50,14 +50,14 @@ impl Database for FileDB {
     }
 
     fn load_checkpoint(&self) -> Result<Vec<u8>> {
-        let mut f = fs::OpenOptions::new()
-            .read(true)
-            .open(self.data_dir.join("checkpoint"))?;
-
         let mut buf = Vec::new();
-        f.read_to_end(&mut buf)?;
 
-        if buf.len() == 32 {
+        let res = fs::OpenOptions::new()
+            .read(true)
+            .open(self.data_dir.join("checkpoint"))
+            .map(|mut f| f.read_to_end(&mut buf));
+
+        if buf.len() == 32 && res.is_ok() {
             Ok(buf)
         } else {
             Ok(self.default_checkpoint.clone())
