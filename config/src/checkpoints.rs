@@ -169,7 +169,10 @@ impl CheckpointFallback {
         let slots = slots
             .into_iter()
             .filter(|x| x.epoch == max_epoch)
+            .filter(|x| x.block_root.is_some())
             .collect::<Vec<_>>();
+
+        println!("{:?}", slots);
 
         // Return the most commonly verified checkpoint.
         let checkpoints = slots
