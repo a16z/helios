@@ -3,7 +3,7 @@ use std::str::FromStr;
 use env_logger::Env;
 use ethers::{types::Address, utils};
 use eyre::Result;
-use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
+use helios::{config::networks::Network, prelude::*};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,12 +15,13 @@ async fn main() -> Result<()> {
     let consensus_rpc = "https://www.lightclientdata.org";
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
 
-    let mut client = ClientBuilder::new()
+    let mut client: Client<FileDB> = ClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc(consensus_rpc)
         .execution_rpc(untrusted_rpc_url)
         .load_external_fallback()
         .build()?;
+
     log::info!(
         "Built client on network \"{}\" with external checkpoint fallbacks",
         Network::MAINNET

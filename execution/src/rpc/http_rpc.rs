@@ -27,13 +27,16 @@ impl Clone for HttpRpc {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
         let http = Http::from_str(rpc)?;
         let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 50);
         client.set_compute_units(300);
+
         let provider = Provider::new(client);
+
         Ok(HttpRpc {
             url: rpc.to_string(),
             provider,

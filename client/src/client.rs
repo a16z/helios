@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::networks::Network;
@@ -12,13 +11,25 @@ use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{error, info, warn};
-use tokio::spawn;
 use tokio::sync::RwLock;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::spawn;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::time::sleep;
 
-use crate::database::{Database, FileDB};
+#[cfg(target_arch = "wasm32")]
+use gloo_timers::callback::Interval;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::spawn_local;
+
+use crate::database::Database;
 use crate::errors::NodeError;
 use crate::node::Node;
+
+#[cfg(not(target_arch = "wasm32"))]
 use crate::rpc::Rpc;
 
 #[derive(Default)]
@@ -27,7 +38,9 @@ pub struct ClientBuilder {
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
     checkpoint: Option<Vec<u8>>,
+    #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
+    #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
     fallback: Option<String>,
@@ -62,11 +75,13 @@ impl ClientBuilder {
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn rpc_port(mut self, port: u16) -> Self {
         self.rpc_port = Some(port);
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn data_dir(mut self, data_dir: PathBuf) -> Self {
         self.data_dir = Some(data_dir);
         self
@@ -92,7 +107,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Client<FileDB>> {
+    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -127,6 +142,7 @@ impl ClientBuilder {
             base_config.checkpoint
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let rpc_port = if self.rpc_port.is_some() {
             self.rpc_port
         } else if let Some(config) = &self.config {
@@ -135,6 +151,7 @@ impl ClientBuilder {
             None
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let data_dir = if self.data_dir.is_some() {
             self.data_dir
         } else if let Some(config) = &self.config {
@@ -167,8 +184,14 @@ impl ClientBuilder {
             consensus_rpc,
             execution_rpc,
             checkpoint,
+            #[cfg(not(target_arch = "wasm32"))]
             rpc_port,
+            #[cfg(target_arch = "wasm32")]
+            rpc_port: None,
+            #[cfg(not(target_arch = "wasm32"))]
             data_dir,
+            #[cfg(target_arch = "wasm32")]
+            data_dir: None,
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
@@ -183,35 +206,38 @@ impl ClientBuilder {
 
 pub struct Client<DB: Database> {
     node: Arc<RwLock<Node>>,
+    #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
-    db: Option<DB>,
+    db: DB,
     fallback: Option<String>,
     load_external_fallback: bool,
 }
 
-impl Client<FileDB> {
-    fn new(config: Config) -> Result<Self> {
+impl<DB: Database> Client<DB> {
+    fn new(mut config: Config) -> Result<Self> {
+        let db = DB::new(&config)?;
+        let checkpoint = db.load_checkpoint()?;
+        config.checkpoint = checkpoint;
+
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
+        #[cfg(not(target_arch = "wasm32"))]
         let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
-
-        let data_dir = config.data_dir.clone();
-        let db = data_dir.map(FileDB::new);
 
         Ok(Client {
             node,
+            #[cfg(not(target_arch = "wasm32"))]
             rpc,
             db,
             fallback: config.fallback.clone(),
             load_external_fallback: config.load_external_fallback,
         })
     }
-}
 
-impl<DB: Database> Client<DB> {
     pub async fn start(&mut self) -> Result<()> {
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(rpc) = &mut self.rpc {
             rpc.start().await?;
         }
@@ -241,6 +267,13 @@ impl<DB: Database> Client<DB> {
             }
         }
 
+        self.start_advance_thread();
+
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn start_advance_thread(&self) {
         let node = self.node.clone();
         spawn(async move {
             loop {
@@ -250,11 +283,25 @@ impl<DB: Database> Client<DB> {
                 }
 
                 let next_update = node.read().await.duration_until_next_update();
+
                 sleep(next_update).await;
             }
         });
+    }
 
-        Ok(())
+    #[cfg(target_arch = "wasm32")]
+    fn start_advance_thread(&self) {
+        let node = self.node.clone();
+        Interval::new(12000, move || {
+            let node = node.clone();
+            spawn_local(async move {
+                let res = node.write().await.advance().await;
+                if let Err(err) = res {
+                    warn!("consensus error: {}", err);
+                }
+            });
+        })
+        .forget();
     }
 
     async fn boot_from_fallback(&self) -> eyre::Result<()> {
@@ -335,8 +382,8 @@ impl<DB: Database> Client<DB> {
         };
 
         info!("saving last checkpoint hash");
-        let res = self.db.as_ref().map(|db| db.save_checkpoint(checkpoint));
-        if res.is_some() && res.unwrap().is_err() {
+        let res = self.db.save_checkpoint(checkpoint);
+        if res.is_err() {
             warn!("checkpoint save failed");
         }
     }

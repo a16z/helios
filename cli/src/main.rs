@@ -1,5 +1,4 @@
 use std::{
-    fs,
     path::PathBuf,
     process::exit,
     str::FromStr,
@@ -104,10 +103,10 @@ struct Cli {
 
 impl Cli {
     fn as_cli_config(&self) -> CliConfig {
-        let checkpoint = match &self.checkpoint {
-            Some(checkpoint) => Some(hex_str_to_bytes(checkpoint).expect("invalid checkpoint")),
-            None => self.get_cached_checkpoint(),
-        };
+        let checkpoint = self
+            .checkpoint
+            .as_ref()
+            .map(|c| hex_str_to_bytes(c).expect("invalid checkpoint"));
 
         CliConfig {
             checkpoint,
@@ -118,21 +117,6 @@ impl Cli {
             fallback: self.fallback.clone(),
             load_external_fallback: self.load_external_fallback,
             strict_checkpoint_age: self.strict_checkpoint_age,
-        }
-    }
-
-    fn get_cached_checkpoint(&self) -> Option<Vec<u8>> {
-        let data_dir = self.get_data_dir();
-        let checkpoint_file = data_dir.join("checkpoint");
-
-        if checkpoint_file.exists() {
-            let checkpoint_res = fs::read(checkpoint_file);
-            match checkpoint_res {
-                Ok(checkpoint) => Some(checkpoint),
-                Err(_) => None,
-            }
-        } else {
-            None
         }
     }
 

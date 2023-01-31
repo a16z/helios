@@ -136,26 +136,25 @@ impl CheckpointFallback {
         // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
         let tasks: Vec<_> = services
             .iter()
-            .map(|service| {
+            .map(|service| async move {
                 let service = service.clone();
-                tokio::spawn(async move {
-                    match Self::query_service(&service.endpoint).await {
-                        Some(raw) => {
-                            if raw.data.slots.is_empty() {
-                                return Err(eyre::eyre!("no slots"));
-                            }
-                            Ok(raw.data.slots[0].clone())
+                match Self::query_service(&service.endpoint).await {
+                    Some(raw) => {
+                        if raw.data.slots.is_empty() {
+                            return Err(eyre::eyre!("no slots"));
                         }
-                        None => Err(eyre::eyre!("failed to query service")),
+                        Ok(raw.data.slots[0].clone())
                     }
-                })
+                    None => Err(eyre::eyre!("failed to query service")),
+                }
             })
             .collect();
+
         let slots = futures::future::join_all(tasks)
             .await
             .iter()
             .filter_map(|slot| match &slot {
-                Ok(Ok(s)) => Some(s.clone()),
+                Ok(s) => Some(s.clone()),
                 _ => None,
             })
             .collect::<Vec<_>>();

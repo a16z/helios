@@ -36,7 +36,7 @@ impl Network {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         checkpoint: hex_str_to_bytes(
-            "0x428ce0b5f5bbed1fc2b3feb5d4152ae0fe98a80b1bfa8de36681868e81e9222a",
+            "0x766647f3c4e1fc91c0db9a9374032ae038778411fbff222974e11f2e3ce7dadf",
         )
         .unwrap(),
         rpc_port: 8545,

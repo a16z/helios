@@ -1,13 +1,12 @@
 use std::cmp;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
 
-use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use log::warn;
 use log::{debug, info};
+use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 
 use common::types::*;
@@ -21,9 +20,20 @@ use super::rpc::ConsensusRpc;
 use super::types::*;
 use super::utils::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::SystemTime;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::UNIX_EPOCH;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_timer::SystemTime;
+#[cfg(target_arch = "wasm32")]
+use wasm_timer::UNIX_EPOCH;
+
 // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
 // does not implement force updates
 
+#[derive(Debug)]
 pub struct ConsensusClient<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
@@ -480,18 +490,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     fn age(&self, slot: u64) -> Duration {
         let expected_time = self.slot_timestamp(slot);
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
         chrono::Duration::from_std(delay).unwrap()
     }
 
     pub fn expected_current_slot(&self) -> u64 {
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap();
-
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let genesis_time = self.config.chain.genesis_time;
         let since_genesis = now - std::time::Duration::from_secs(genesis_time);
 
@@ -509,7 +514,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let next_slot = current_slot + 1;
         let next_slot_timestamp = self.slot_timestamp(next_slot);
 
-        let now = std::time::SystemTime::now()
+        let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
@@ -540,7 +545,7 @@ fn get_participating_keys(
     bitfield.iter().enumerate().for_each(|(i, bit)| {
         if bit == true {
             let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes(pk).unwrap();
+            let pk = PublicKey::from_bytes_unchecked(pk).unwrap();
             pks.push(pk);
         }
     });

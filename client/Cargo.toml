@@ -1,16 +1,14 @@
 [package]
 name = "client"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "cb08f18ca919cc1b685b861d0fa9e2daabe89737" }
-ethers = "1.0.2"
-jsonrpsee = { version = "0.15.1", features = ["full"] }
+ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
+ethers = "1.0.0"
 futures = "0.3.23"
 log = "0.4.17"
 thiserror = "1.0.37"
@@ -19,3 +17,13 @@ common = { path = "../common" }
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }
 config = { path = "../config" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+jsonrpsee = { version = "0.15.1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-timers = "0.2.6"
+wasm-bindgen-futures = "0.4.33"
+tokio = { version = "1", features = ["sync"] }
+
