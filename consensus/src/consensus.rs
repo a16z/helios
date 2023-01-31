@@ -228,8 +228,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
 
         let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-        let valid_time = // self.expected_current_slot() >= update.signature_slot
-            update.signature_slot > update.attested_header.slot
+        let valid_time = self.expected_current_slot() >= update.signature_slot
+            && update.signature_slot > update.attested_header.slot
             && update.attested_header.slot >= update_finalized_slot;
 
         if !valid_time {
