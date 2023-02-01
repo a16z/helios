@@ -260,7 +260,7 @@ impl<DB: Database> Client<DB> {
                         warn!(
                             "failed to sync consensus node with checkpoint: 0x{}",
                             hex::encode(
-                                &self
+                                self
                                     .node
                                     .read()
                                     .await
