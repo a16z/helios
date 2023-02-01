@@ -226,8 +226,6 @@ impl<DB: Database> Client<DB> {
         if config.checkpoint.is_none() {
             let checkpoint = db.load_checkpoint()?;
             config.checkpoint = Some(checkpoint);
-        } else {
-            config.checkpoint = Some(config.default_checkpoint.clone());
         }
 
         let config = Arc::new(config);
@@ -261,7 +259,16 @@ impl<DB: Database> Client<DB> {
                     ConsensusError::CheckpointTooOld => {
                         warn!(
                             "failed to sync consensus node with checkpoint: 0x{}",
-                            hex::encode(&self.node.read().await.config.checkpoint.clone().unwrap_or_default()),
+                            hex::encode(
+                                &self
+                                    .node
+                                    .read()
+                                    .await
+                                    .config
+                                    .checkpoint
+                                    .clone()
+                                    .unwrap_or_default()
+                            ),
                         );
 
                         let fallback = self.boot_from_fallback().await;

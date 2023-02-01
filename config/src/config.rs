@@ -2,26 +2,25 @@ use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{path::PathBuf, process::exit};
 
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
 use crate::networks;
 use crate::types::{ChainConfig, Forks};
-use crate::utils::{bytes_deserialize, bytes_serialize};
+use crate::utils::{bytes_deserialize, bytes_opt_deserialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default)]
 pub struct Config {
     pub consensus_rpc: String,
     pub execution_rpc: String,
     pub rpc_port: Option<u16>,
-    #[serde(
-        deserialize_with = "bytes_deserialize",
-        serialize_with = "bytes_serialize"
-    )]
+    #[serde(deserialize_with = "bytes_deserialize")]
     pub default_checkpoint: Vec<u8>,
-    pub checkpoint:  Option<Vec<u8>>,
+    #[serde(default)]
+    #[serde(deserialize_with = "bytes_opt_deserialize")]
+    pub checkpoint: Option<Vec<u8>>,
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,

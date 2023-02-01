@@ -72,7 +72,10 @@ pub struct ConfigDB {
 impl Database for ConfigDB {
     fn new(config: &Config) -> Result<Self> {
         Ok(Self {
-            checkpoint: config.checkpoint.clone().unwrap_or(config.default_checkpoint.clone()),
+            checkpoint: config
+                .checkpoint
+                .clone()
+                .unwrap_or(config.default_checkpoint.clone()),
         })
     }
 
