@@ -20,7 +20,8 @@ pub struct Config {
         deserialize_with = "bytes_deserialize",
         serialize_with = "bytes_serialize"
     )]
-    pub checkpoint: Vec<u8>,
+    pub default_checkpoint: Vec<u8>,
+    pub checkpoint:  Option<Vec<u8>>,
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,
@@ -86,7 +87,7 @@ impl Config {
         BaseConfig {
             rpc_port: self.rpc_port.unwrap_or(8545),
             consensus_rpc: Some(self.consensus_rpc.clone()),
-            checkpoint: self.checkpoint.clone(),
+            default_checkpoint: self.default_checkpoint.clone(),
             chain: self.chain.clone(),
             forks: self.forks.clone(),
             max_checkpoint_age: self.max_checkpoint_age,

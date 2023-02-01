@@ -35,7 +35,7 @@ impl Network {
 
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
-        checkpoint: hex_str_to_bytes(
+        default_checkpoint: hex_str_to_bytes(
             "0x766647f3c4e1fc91c0db9a9374032ae038778411fbff222974e11f2e3ce7dadf",
         )
         .unwrap(),
@@ -69,7 +69,7 @@ pub fn mainnet() -> BaseConfig {
 
 pub fn goerli() -> BaseConfig {
     BaseConfig {
-        checkpoint: hex_str_to_bytes(
+        default_checkpoint: hex_str_to_bytes(
             "0xd4344682866dbede543395ecf5adf9443a27f423a4b00f270458e7932686ced1",
         )
         .unwrap(),

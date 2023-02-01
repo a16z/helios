@@ -31,7 +31,7 @@ pub struct Node {
 impl Node {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
-        let checkpoint_hash = &config.checkpoint;
+        let checkpoint_hash = &config.checkpoint.as_ref().unwrap();
         let execution_rpc = &config.execution_rpc;
 
         let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())

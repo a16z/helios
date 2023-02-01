@@ -135,11 +135,17 @@ impl ClientBuilder {
         });
 
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
-            checkpoint
+            Some(checkpoint)
         } else if let Some(config) = &self.config {
             config.checkpoint.clone()
         } else {
-            base_config.checkpoint
+            None
+        };
+
+        let default_checkpoint = if let Some(config) = &self.config {
+            config.default_checkpoint.clone()
+        } else {
+            base_config.default_checkpoint.clone()
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -184,6 +190,7 @@ impl ClientBuilder {
             consensus_rpc,
             execution_rpc,
             checkpoint,
+            default_checkpoint,
             #[cfg(not(target_arch = "wasm32"))]
             rpc_port,
             #[cfg(target_arch = "wasm32")]
@@ -216,8 +223,12 @@ pub struct Client<DB: Database> {
 impl<DB: Database> Client<DB> {
     fn new(mut config: Config) -> Result<Self> {
         let db = DB::new(&config)?;
-        let checkpoint = db.load_checkpoint()?;
-        config.checkpoint = checkpoint;
+        if config.checkpoint.is_none() {
+            let checkpoint = db.load_checkpoint()?;
+            config.checkpoint = Some(checkpoint);
+        } else {
+            config.checkpoint = Some(config.default_checkpoint.clone());
+        }
 
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
@@ -250,7 +261,7 @@ impl<DB: Database> Client<DB> {
                     ConsensusError::CheckpointTooOld => {
                         warn!(
                             "failed to sync consensus node with checkpoint: 0x{}",
-                            hex::encode(&self.node.read().await.config.checkpoint),
+                            hex::encode(&self.node.read().await.config.checkpoint.clone().unwrap_or_default()),
                         );
 
                         let fallback = self.boot_from_fallback().await;
