@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 use env_logger::Env;
 use ethers::{types::Address, utils};
@@ -20,6 +20,7 @@ async fn main() -> Result<()> {
         .consensus_rpc(consensus_rpc)
         .execution_rpc(untrusted_rpc_url)
         .load_external_fallback()
+        .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
 
     log::info!(
