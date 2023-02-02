@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use common::errors::RpcError;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
@@ -13,6 +12,7 @@ use ethers::types::{
 use eyre::Result;
 
 use crate::types::CallOpts;
+use common::errors::RpcError;
 
 use super::ExecutionRpc;
 
@@ -27,13 +27,16 @@ impl Clone for HttpRpc {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
         let http = Http::from_str(rpc)?;
         let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 50);
         client.set_compute_units(300);
+
         let provider = Provider::new(client);
+
         Ok(HttpRpc {
             url: rpc.to_string(),
             provider,
@@ -127,5 +130,14 @@ impl ExecutionRpc for HttpRpc {
             .get_logs(filter)
             .await
             .map_err(|e| RpcError::new("get_logs", e))?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Ok(self
+            .provider
+            .get_chainid()
+            .await
+            .map_err(|e| RpcError::new("chain_id", e))?
+            .as_u64())
     }
 }

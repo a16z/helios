@@ -31,7 +31,7 @@ pub struct Node {
 impl Node {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
-        let checkpoint_hash = &config.checkpoint;
+        let checkpoint_hash = &config.checkpoint.as_ref().unwrap();
         let execution_rpc = &config.execution_rpc;
 
         let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
@@ -54,10 +54,22 @@ impl Node {
     }
 
     pub async fn sync(&mut self) -> Result<(), NodeError> {
+        let chain_id = self.config.chain.chain_id;
+        self.execution
+            .check_rpc(chain_id)
+            .await
+            .map_err(NodeError::ExecutionError)?;
+
+        self.consensus
+            .check_rpc()
+            .await
+            .map_err(NodeError::ConsensusSyncError)?;
+
         self.consensus
             .sync()
             .await
             .map_err(NodeError::ConsensusSyncError)?;
+
         self.update_payloads().await
     }
 
@@ -103,7 +115,7 @@ impl Node {
         }
 
         // only save one finalized block per epoch
-        // finality updates only occur on epoch boundries
+        // finality updates only occur on epoch boundaries
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
@@ -121,7 +133,7 @@ impl Node {
             &self.payloads,
             self.chain_id(),
         );
-        evm.call(opts).await.map_err(NodeError::ExecutionError)
+        evm.call(opts).await.map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
@@ -136,7 +148,7 @@ impl Node {
         );
         evm.estimate_gas(opts)
             .await
-            .map_err(NodeError::ExecutionError)
+            .map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
@@ -217,6 +229,18 @@ impl Node {
             .await
     }
 
+    pub async fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: &Vec<u8>,
+        index: usize,
+    ) -> Result<Option<Transaction>> {
+        let payload = self.get_payload_by_hash(hash)?;
+
+        self.execution
+            .get_transaction_by_block_hash_and_index(payload.1, index)
+            .await
+    }
+
     pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         self.execution.get_logs(filter, &self.payloads).await
     }
@@ -277,6 +301,13 @@ impl Node {
     pub fn get_header(&self) -> Result<Header> {
         self.check_head_age()?;
         Ok(self.consensus.get_header().clone())
+    }
+
+    pub fn get_coinbase(&self) -> Result<Address> {
+        self.check_head_age()?;
+        let payload = self.get_payload(BlockTag::Latest)?;
+        let coinbase_address = Address::from_slice(&payload.fee_recipient);
+        Ok(coinbase_address)
     }
 
     pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {

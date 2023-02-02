@@ -10,7 +10,8 @@ use crate::types::CallOpts;
 pub mod http_rpc;
 pub mod mock_rpc;
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     fn new(rpc: &str) -> Result<Self>
     where
@@ -29,4 +30,5 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>>;
     async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
+    async fn chain_id(&self) -> Result<u64>;
 }

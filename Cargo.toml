@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 autobenches = false
 
@@ -21,11 +21,11 @@ common = { path = "./common" }
 consensus = { path = "./consensus" }
 execution = { path = "./execution" }
 
-[dev-dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 home = "0.5.4"
-ethers = "1.0.2"
+ethers = "1.0.0"
 env_logger = "0.9.0"
 log = "0.4.17"
 tracing-test = "0.2.3"
@@ -33,6 +33,9 @@ criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
 plotters = "0.3.3"
 tempfile = "3.3.0"
 hex = "0.4.3"
+
+[patch.crates-io]
+ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "c17c0c3c956f12d205a5ede3176599d8a30ca739" }
 
 [profile.release]
 strip = true
@@ -50,8 +53,8 @@ name = "checkpoints"
 path = "examples/checkpoints.rs"
 
 [[example]]
-name = "readme"
-path = "examples/readme.rs"
+name = "basic"
+path = "examples/basic.rs"
 
 [[example]]
 name = "client"

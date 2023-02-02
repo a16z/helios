@@ -17,7 +17,8 @@ pub struct MockRpc {
     path: PathBuf,
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for MockRpc {
     fn new(rpc: &str) -> Result<Self> {
         let path = PathBuf::from(rpc);
@@ -60,5 +61,9 @@ impl ExecutionRpc for MockRpc {
     async fn get_logs(&self, _filter: &Filter) -> Result<Vec<Log>> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Err(eyre!("not implemented"))
     }
 }

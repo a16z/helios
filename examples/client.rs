@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
     builder = builder.load_external_fallback();
 
     // Build the client
-    let _client = builder.build().unwrap();
+    let _client: Client<FileDB> = builder.build().unwrap();
     println!("Constructed client!");
 
     Ok(())

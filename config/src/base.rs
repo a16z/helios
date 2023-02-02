@@ -12,7 +12,7 @@ pub struct BaseConfig {
         deserialize_with = "bytes_deserialize",
         serialize_with = "bytes_serialize"
     )]
-    pub checkpoint: Vec<u8>,
+    pub default_checkpoint: Vec<u8>,
     pub chain: ChainConfig,
     pub forks: Forks,
     pub max_checkpoint_age: u64,
