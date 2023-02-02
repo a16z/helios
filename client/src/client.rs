@@ -3,7 +3,7 @@ use std::sync::Arc;
 use config::networks::Network;
 use consensus::errors::ConsensusError;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
@@ -539,6 +539,10 @@ impl<DB: Database> Client<DB> {
 
     pub async fn chain_id(&self) -> u64 {
         self.node.read().await.chain_id()
+    }
+
+    pub async fn syncing(&self) -> Result<SyncingStatus> {
+        self.node.read().await.syncing()
     }
 
     pub async fn get_header(&self) -> Result<Header> {
