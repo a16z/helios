@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ethers::prelude::k256::elliptic_curve::bigint::U64;
 use ethers::prelude::{Address, U256};
 use ethers::types::{
     Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
@@ -313,12 +312,12 @@ impl Node {
         } else {
             let latest_synced_block = self.get_block_number().unwrap();
             let oldest_payload = self.payloads.first_key_value();
-            let oldest_synced_block = Ok(oldest_payload.ok_or("First block not found")?.1);
-            let highest_block = self.consensus.expected_current_slot() / 16;
+            let oldest_synced_block = *oldest_payload.ok_or(eyre!("First block not found"))?.0;
+            let highest_block = self.consensus.expected_current_slot();
             Ok(SyncingStatus::IsSyncing(Box::new(SyncProgress {
                 current_block: (latest_synced_block.into()),
-                highest_block: (highest_block), 
-                starting_block: (oldest_synced_block),
+                highest_block: (highest_block.into()), 
+                starting_block: (oldest_synced_block.into()),
                 pulled_states: None,
                 known_states: None,
                 healed_bytecode_bytes: None,
