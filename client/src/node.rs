@@ -16,6 +16,7 @@ use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
+use log::{info, warn};
 
 use crate::errors::NodeError;
 
@@ -25,6 +26,7 @@ pub struct Node {
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
+    current_slot: Option<u64>,
     pub history_size: usize,
 }
 
@@ -49,6 +51,7 @@ impl Node {
             config,
             payloads,
             finalized_payloads,
+            current_slot: None,
             history_size: 64,
         })
     }
@@ -90,11 +93,29 @@ impl Node {
 
     async fn update_payloads(&mut self) -> Result<(), NodeError> {
         let latest_header = self.consensus.get_header();
-        let latest_payload = self
-            .consensus
-            .get_execution_payload(&Some(latest_header.slot))
-            .await
-            .map_err(NodeError::ConsensusPayloadError)?;
+        let start_slot = self.current_slot.unwrap_or(latest_header.slot);
+        info!(
+            "updating payloads   payloads_before={:?}",
+            self.payloads.keys(),
+        );
+
+        for slot in start_slot..=latest_header.slot {
+            let execution_payload = self
+                .consensus
+                .get_execution_payload(&Some(slot))
+                .await
+                .map_err(NodeError::ConsensusPayloadError);
+            match execution_payload {
+                Ok(payload) => {
+                    self.payloads
+                        .insert(payload.block_number, payload);
+                    info!("Successfully loaded payload for slot: {}", slot);
+                }
+                Err(err) => {
+                    warn!("{}", err);
+                }
+            }
+        }
 
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
@@ -102,9 +123,6 @@ impl Node {
             .get_execution_payload(&Some(finalized_header.slot))
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
-
-        self.payloads
-            .insert(latest_payload.block_number, latest_payload);
         self.payloads
             .insert(finalized_payload.block_number, finalized_payload.clone());
         self.finalized_payloads
@@ -119,6 +137,13 @@ impl Node {
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
+
+        info!(
+            "updated payloads   payloads_after={:?}",
+            self.payloads.keys(),
+        );
+
+        self.current_slot = Some(latest_header.slot);
 
         Ok(())
     }
