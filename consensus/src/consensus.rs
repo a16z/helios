@@ -81,7 +81,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
-        let mut block = self.rpc.get_block(slot).await?;
+        let mut block = self.get_block_from_rpc(slot).await?;
         let block_hash = block.hash_tree_root()?;
 
         let latest_slot = self.store.optimistic_header.slot;
@@ -104,6 +104,10 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         } else {
             Ok(block.body.execution_payload)
         }
+    }
+
+    pub async fn get_block_from_rpc(&self, slot: u64) -> Result<BeaconBlock> {
+        self.rpc.get_block(slot).await
     }
 
     pub fn get_header(&self) -> &Header {

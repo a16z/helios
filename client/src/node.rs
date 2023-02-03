@@ -94,19 +94,12 @@ impl Node {
     }
 
     async fn update_payloads(&mut self) -> Result<(), NodeError> {
-        let latest_header = self.consensus.get_header().clone();
-        let start_slot = self
-            .current_slot
-            .unwrap_or(latest_header.slot - self.history_size as u64);
-        info!(
-            "updating payloads   payloads_before={:?}",
-            self.payloads.keys(),
-        );
-
-        let payloads = self.get_payloads(start_slot, latest_header.slot).await?;
-        for payload in payloads {
-            self.payloads.insert(payload.block_number, payload);
-        }
+        let latest_header = self.consensus.get_header();
+        let latest_payload = self
+            .consensus
+            .get_execution_payload(&Some(latest_header.slot))
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
 
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
@@ -114,40 +107,46 @@ impl Node {
             .get_execution_payload(&Some(finalized_header.slot))
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
+
+        self.payloads
+            .insert(latest_payload.block_number, latest_payload);
         self.payloads
             .insert(finalized_payload.block_number, finalized_payload.clone());
         self.finalized_payloads
             .insert(finalized_payload.block_number, finalized_payload);
+
+        let start_slot = self.current_slot.unwrap_or(latest_header.slot - self.history_size as u64);
+        let backfill_payloads = self.get_payloads(start_slot, latest_header.slot).await?;
+        for payload in backfill_payloads {
+            self.payloads.insert(payload.block_number, payload);
+        }
+
+        self.current_slot = Some(latest_header.slot);
+
+        while self.payloads.len() > self.history_size {
+            self.payloads.pop_first();
+        }
+
         // only save one finalized block per epoch
         // finality updates only occur on epoch boundaries
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
 
-
-        while self.payloads.len() > self.history_size {
-            self.payloads.pop_first();
-        }
-
-        self.current_slot = Some(latest_header.slot);
-
-        info!(
-            "updated payloads   payloads_after={:?}",
-            self.payloads.keys(),
-        );
-
         Ok(())
     }
 
     async fn get_payloads(&self, start_slot: u64, end_slot: u64) -> Result<Vec<ExecutionPayload>, NodeError> {
-        let payloads_fut = (start_slot..=end_slot).rev().into_iter().map(|slot| async move {
+        let payloads_fut = (start_slot..end_slot).rev().into_iter().map(|slot| async move {
             let self_ref = self;
             let inner_closure = async move {
                 let payload = self_ref
                     .consensus
-                    .get_execution_payload(&Some(slot))
+                    .get_block_from_rpc(slot)
                     .await
-                    .map_err(NodeError::ConsensusPayloadError)?;
+                    .map_err(NodeError::ConsensusPayloadError)?
+                    .body
+                    .execution_payload;
                 Ok::<ExecutionPayload, NodeError>(payload)
             };
             inner_closure.await
