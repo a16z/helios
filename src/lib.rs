@@ -51,7 +51,10 @@
 //! Errors used across helios.
 
 pub mod client {
-    pub use client::{database::{FileDB,ConfigDB}, Client, ClientBuilder};
+    pub use client::{
+        database::{ConfigDB, FileDB},
+        Client, ClientBuilder,
+    };
 }
 
 pub mod config {
