@@ -1,7 +1,7 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use super::ConsensusRpc;
-use crate::types::{BeaconBlock, BeaconHeader, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use async_trait::async_trait;
 use eyre::Result;
 pub struct MockRpc {
@@ -40,11 +40,6 @@ impl ConsensusRpc for MockRpc {
     async fn get_block(&self, _slot: u64) -> Result<BeaconBlock> {
         let block = read_to_string(self.testdata.join("blocks.json"))?;
         Ok(serde_json::from_str(&block)?)
-    }
-
-    async fn get_header(&self, _slot: u64) -> Result<BeaconHeader> {
-        let header = read_to_string(self.testdata.join("headers.json"))?;
-        Ok(serde_json::from_str(&header)?)
     }
 
     async fn chain_id(&self) -> Result<u64> {
