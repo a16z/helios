@@ -7,11 +7,12 @@ use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
-use common::types::BlockTag;
+use common::types::{BlockTag, Bytes32};
 use config::Config;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
+use consensus::errors::ConsensusError;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
@@ -99,22 +100,23 @@ impl Node {
             self.payloads.keys(),
         );
 
-        for slot in start_slot..=latest_header.slot {
-            let execution_payload = self
+        let mut prev_parent_hash: Option<Bytes32> = None;
+        for slot in (start_slot..=latest_header.slot).rev() {
+            let payload = self
                 .consensus
                 .get_execution_payload(&Some(slot))
                 .await
-                .map_err(NodeError::ConsensusPayloadError);
-            match execution_payload {
-                Ok(payload) => {
-                    self.payloads
-                        .insert(payload.block_number, payload);
-                    info!("Successfully loaded payload for slot: {}", slot);
-                }
-                Err(err) => {
-                    warn!("{}", err);
-                }
+                .map_err(NodeError::ConsensusPayloadError)?;
+            if let Some(parent_block_hash) = &prev_parent_hash {
+                if &payload.block_hash != parent_block_hash {
+                    return Err(NodeError::ConsensusPayloadError(ConsensusError::InvalidHeaderHash(
+                            format!("{:02X?}", parent_block_hash.to_vec()),
+                            format!("{:02X?}", payload.parent_hash.to_vec())
+                    ).into()));
+                } 
             }
+            prev_parent_hash = Some(payload.parent_hash.clone());
+            self.payloads.insert(payload.block_number, payload);
         }
 
         let finalized_header = self.consensus.get_finalized_header();
