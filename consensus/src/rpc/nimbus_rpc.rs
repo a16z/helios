@@ -6,6 +6,7 @@ use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
 use common::errors::RpcError;
+use common::types::Bytes32;
 
 #[derive(Debug)]
 pub struct NimbusRpc {
@@ -97,6 +98,19 @@ impl ConsensusRpc for NimbusRpc {
         Ok(res.data.message)
     }
 
+    async fn get_header(&self, slot: u64) -> Result<BeaconHeader> {
+        let req = format!("{}/eth/v1/beacon/headers/{}", self.rpc, slot);
+        let res = reqwest::get(req)
+            .await
+            .map_err(|e| RpcError::new("headers", e))?
+            .json::<BeaconHeaderResponse>()
+            .await
+            .map_err(|e| RpcError::new("headers", e))?;
+
+        Ok(res.data.header)
+    }
+
+
     async fn chain_id(&self) -> Result<u64> {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
         let res = reqwest::get(req)
@@ -111,6 +125,12 @@ impl ConsensusRpc for NimbusRpc {
 }
 
 #[derive(serde::Deserialize, Debug)]
+struct BeaconHeaderResponse {
+    data: BeaconHeaderData,
+    execution_optimistic: bool,
+}
+
+#[derive(serde::Deserialize, Debug)]
 struct BeaconBlockResponse {
     data: BeaconBlockData,
 }
@@ -118,6 +138,14 @@ struct BeaconBlockResponse {
 #[derive(serde::Deserialize, Debug)]
 struct BeaconBlockData {
     message: BeaconBlock,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct BeaconHeaderData {
+    #[serde(deserialize_with = "bytes32_deserialize")]
+    root: Bytes32,
+    header: BeaconHeader,
+    canonical: bool,
 }
 
 type UpdateResponse = Vec<UpdateData>;

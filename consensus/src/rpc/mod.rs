@@ -4,7 +4,7 @@ pub mod nimbus_rpc;
 use async_trait::async_trait;
 use eyre::Result;
 
-use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use crate::types::{BeaconBlock, BeaconHeader, Bootstrap, FinalityUpdate, Header, OptimisticUpdate, Update};
 
 // implements https://github.com/ethereum/beacon-APIs/tree/master/apis/beacon/light_client
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -16,5 +16,6 @@ pub trait ConsensusRpc {
     async fn get_finality_update(&self) -> Result<FinalityUpdate>;
     async fn get_optimistic_update(&self) -> Result<OptimisticUpdate>;
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock>;
+    async fn get_header(&self, slot: u64) -> Result<BeaconHeader>;
     async fn chain_id(&self) -> Result<u64>;
 }

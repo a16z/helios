@@ -92,7 +92,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         } else if slot == finalized_slot {
             self.store.finalized_header.clone().hash_tree_root()?
         } else {
-            return Err(ConsensusError::PayloadNotFound(slot).into());
+            self.rpc.get_header(slot).await?.message.hash_tree_root()?
         };
 
         if verified_block_hash != block_hash {

@@ -25,6 +25,13 @@ pub struct BeaconBlock {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+pub struct BeaconHeader {
+    pub message: Header,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct BeaconBlockBody {
     #[serde(deserialize_with = "signature_deserialize")]
     randao_reveal: SignatureBytes,
@@ -395,7 +402,7 @@ where
     Ok(U256::from_bytes_le(x_bytes))
 }
 
-fn bytes32_deserialize<'de, D>(deserializer: D) -> Result<Bytes32, D::Error>
+pub fn bytes32_deserialize<'de, D>(deserializer: D) -> Result<Bytes32, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
