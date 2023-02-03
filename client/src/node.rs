@@ -5,14 +5,15 @@ use std::time::Duration;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
+use futures::future::join_all;
 
 use common::errors::BlockNotFoundError;
 use common::types::{BlockTag, Bytes32};
 use config::Config;
+use consensus::errors::ConsensusError;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
-use consensus::errors::ConsensusError;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
@@ -93,29 +94,17 @@ impl Node {
     }
 
     async fn update_payloads(&mut self) -> Result<(), NodeError> {
-        let latest_header = self.consensus.get_header();
-        let start_slot = self.current_slot.unwrap_or(latest_header.slot);
+        let latest_header = self.consensus.get_header().clone();
+        let start_slot = self
+            .current_slot
+            .unwrap_or(latest_header.slot - self.history_size as u64);
         info!(
             "updating payloads   payloads_before={:?}",
             self.payloads.keys(),
         );
 
-        let mut prev_parent_hash: Option<Bytes32> = None;
-        for slot in (start_slot..=latest_header.slot).rev() {
-            let payload = self
-                .consensus
-                .get_execution_payload(&Some(slot))
-                .await
-                .map_err(NodeError::ConsensusPayloadError)?;
-            if let Some(parent_block_hash) = &prev_parent_hash {
-                if &payload.block_hash != parent_block_hash {
-                    return Err(NodeError::ConsensusPayloadError(ConsensusError::InvalidHeaderHash(
-                            format!("{:02X?}", parent_block_hash.to_vec()),
-                            format!("{:02X?}", payload.parent_hash.to_vec())
-                    ).into()));
-                } 
-            }
-            prev_parent_hash = Some(payload.parent_hash.clone());
+        let payloads = self.get_payloads(start_slot, latest_header.slot).await?;
+        for payload in payloads {
             self.payloads.insert(payload.block_number, payload);
         }
 
@@ -129,25 +118,66 @@ impl Node {
             .insert(finalized_payload.block_number, finalized_payload.clone());
         self.finalized_payloads
             .insert(finalized_payload.block_number, finalized_payload);
-
-        while self.payloads.len() > self.history_size {
-            self.payloads.pop_first();
-        }
-
         // only save one finalized block per epoch
         // finality updates only occur on epoch boundaries
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
 
+
+        while self.payloads.len() > self.history_size {
+            self.payloads.pop_first();
+        }
+
+        self.current_slot = Some(latest_header.slot);
+
         info!(
             "updated payloads   payloads_after={:?}",
             self.payloads.keys(),
         );
 
-        self.current_slot = Some(latest_header.slot);
-
         Ok(())
+    }
+
+    async fn get_payloads(&self, start_slot: u64, end_slot: u64) -> Result<Vec<ExecutionPayload>, NodeError> {
+        let payloads_fut = (start_slot..=end_slot).rev().into_iter().map(|slot| async move {
+            let self_ref = self;
+            let inner_closure = async move {
+                let payload = self_ref
+                    .consensus
+                    .get_execution_payload(&Some(slot))
+                    .await
+                    .map_err(NodeError::ConsensusPayloadError)?;
+                Ok::<ExecutionPayload, NodeError>(payload)
+            };
+            inner_closure.await
+        });
+        let mut prev_parent_hash: Option<Bytes32> = None;
+        let mut payloads: Vec<ExecutionPayload> = Vec::new();
+        for result in join_all(payloads_fut).await {
+            if result.is_err() {
+                // If fetching any payload failed we only backfill up to that payload
+                // TODO: Review if it is better to error out of the whole payload update instead;
+                break;
+            }
+            let payload = result?;
+            if let Some(parent_block_hash) = &prev_parent_hash {
+                if &payload.block_hash != parent_block_hash {
+                    // If any of the blocks don't match we abort the whole backfill
+                    // TODO: Review if it is better to still backfill the payloads up to this point
+                    return Err(NodeError::ConsensusPayloadError(
+                        ConsensusError::InvalidHeaderHash(
+                            format!("{:02X?}", parent_block_hash.to_vec()),
+                            format!("{:02X?}", payload.parent_hash.to_vec()),
+                        )
+                        .into(),
+                    ));
+                }
+            }
+            prev_parent_hash = Some(payload.parent_hash.clone());
+            payloads.push(payload);
+        }
+        return Ok(payloads);
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
