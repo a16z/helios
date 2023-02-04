@@ -107,39 +107,35 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
     }
 
-    pub async fn get_payloads(&self, start_slot: u64, end_slot: u64) -> Result<Vec<ExecutionPayload>> {
-        let payloads_fut = (start_slot..end_slot).rev().into_iter().map(|slot| async move {
-            let self_ref = self;
-            let inner_closure = async move {
-                self_ref
-                    .get_block_from_rpc(slot)
-                    .await
-            };
-            inner_closure.await
-        });
-        let mut prev_parent_hash: Option<Bytes32> = None;
+    pub async fn get_payloads(
+        &self,
+        start_slot: u64,
+        end_slot: u64,
+    ) -> Result<Vec<ExecutionPayload>> {
+        let payloads_fut = (start_slot..end_slot)
+            .rev()
+            .into_iter()
+            .map(|slot| async move { self.get_block_from_rpc(slot).await });
+        let mut prev_parent_hash: Bytes32 = self
+            .get_block_from_rpc(end_slot)
+            .await?
+            .body
+            .execution_payload
+            .parent_hash;
         let mut payloads: Vec<ExecutionPayload> = Vec::new();
         for result in join_all(payloads_fut).await {
             if result.is_err() {
-                // If fetching any payload failed we only backfill up to that payload
-                // TODO: Review if it is better to error out of the whole payload update instead;
-                break;
+                continue;
             }
             let payload = result.unwrap().body.execution_payload;
-            if let Some(parent_block_hash) = &prev_parent_hash {
-                if &payload.block_hash != parent_block_hash {
-                    // If any of the blocks don't match we abort the whole backfill
-                    // TODO: Review if it is better to still backfill the payloads up to this point
-                    return Err(
-                        ConsensusError::InvalidHeaderHash(
-                            format!("{:02X?}", parent_block_hash.to_vec()),
-                            format!("{:02X?}", payload.parent_hash.to_vec()),
-                        )
-                        .into(),
-                    );
-                }
+            if payload.block_hash != prev_parent_hash {
+                warn!("error while backfilling blocks: {}", ConsensusError::InvalidHeaderHash(
+                    format!("{:02X?}", prev_parent_hash.to_vec()),
+                    format!("{:02X?}", payload.parent_hash.to_vec()),
+                ));
+                break;
             }
-            prev_parent_hash = Some(payload.parent_hash.clone());
+            prev_parent_hash = payload.parent_hash.clone();
             payloads.push(payload);
         }
         return Ok(payloads);
