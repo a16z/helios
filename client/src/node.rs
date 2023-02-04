@@ -306,11 +306,12 @@ impl Node {
         } else {
             let latest_synced_block = self.get_block_number()?;
             let oldest_payload = self.payloads.first_key_value();
-            let oldest_synced_block = oldest_payload.map_or(latest_synced_block, |(key, _value)| *key);
+            let oldest_synced_block =
+                oldest_payload.map_or(latest_synced_block, |(key, _value)| *key);
             let highest_block = self.consensus.expected_current_slot();
             Ok(SyncingStatus::IsSyncing(Box::new(SyncProgress {
                 current_block: latest_synced_block.into(),
-                highest_block: highest_block.into(), 
+                highest_block: highest_block.into(),
                 starting_block: oldest_synced_block.into(),
                 pulled_states: None,
                 known_states: None,
@@ -326,7 +327,6 @@ impl Node {
                 synced_bytecodes: None,
                 synced_storage: None,
                 synced_storage_bytes: None,
-                
             })))
         }
     }
