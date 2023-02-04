@@ -301,23 +301,17 @@ impl Node {
     }
 
     pub fn syncing(&self) -> Result<SyncingStatus> {
-        let head_age = self.check_head_age();
-        let syncing = match head_age {
-            Ok(_) => false,
-            Err(_) => true,
-        };
-
-        if !syncing {
+        if self.check_head_age().is_ok() {
             Ok(SyncingStatus::IsFalse)
         } else {
-            let latest_synced_block = self.get_block_number().unwrap();
+            let latest_synced_block = self.get_block_number()?;
             let oldest_payload = self.payloads.first_key_value();
-            let oldest_synced_block = *oldest_payload.ok_or(eyre!("First block not found"))?.0;
+            let oldest_synced_block = oldest_payload.map_or(latest_synced_block, |(key, _value)| *key);
             let highest_block = self.consensus.expected_current_slot();
             Ok(SyncingStatus::IsSyncing(Box::new(SyncProgress {
-                current_block: (latest_synced_block.into()),
-                highest_block: (highest_block.into()), 
-                starting_block: (oldest_synced_block.into()),
+                current_block: latest_synced_block.into(),
+                highest_block: highest_block.into(), 
+                starting_block: oldest_synced_block.into(),
                 pulled_states: None,
                 known_states: None,
                 healed_bytecode_bytes: None,
@@ -332,6 +326,7 @@ impl Node {
                 synced_bytecodes: None,
                 synced_storage: None,
                 synced_storage_bytes: None,
+                
             })))
         }
     }
