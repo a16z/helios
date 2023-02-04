@@ -115,7 +115,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let payloads_fut = (start_slot..end_slot)
             .rev()
             .into_iter()
-            .map(|slot| async move { self.get_block_from_rpc(slot).await });
+            .map(|slot| self.get_block_from_rpc(slot));
         let mut prev_parent_hash: Bytes32 = self
             .get_block_from_rpc(end_slot)
             .await?
@@ -129,16 +129,19 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             }
             let payload = result.unwrap().body.execution_payload;
             if payload.block_hash != prev_parent_hash {
-                warn!("error while backfilling blocks: {}", ConsensusError::InvalidHeaderHash(
-                    format!("{:02X?}", prev_parent_hash.to_vec()),
-                    format!("{:02X?}", payload.parent_hash.to_vec()),
-                ));
+                warn!(
+                    "error while backfilling blocks: {}",
+                    ConsensusError::InvalidHeaderHash(
+                        format!("{:02X?}", prev_parent_hash),
+                        format!("{:02X?}", payload.parent_hash),
+                    )
+                );
                 break;
             }
             prev_parent_hash = payload.parent_hash.clone();
             payloads.push(payload);
         }
-        return Ok(payloads);
+        Ok(payloads)
     }
 
     pub async fn get_block_from_rpc(&self, slot: u64) -> Result<BeaconBlock> {

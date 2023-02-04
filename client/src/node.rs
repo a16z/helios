@@ -7,9 +7,9 @@ use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
-use common::types::{BlockTag, Bytes32};
+use common::types::BlockTag;
 use config::Config;
-use consensus::errors::ConsensusError;
+
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
@@ -17,7 +17,6 @@ use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use execution::ExecutionClient;
-use log::{info, warn};
 
 use crate::errors::NodeError;
 
@@ -114,8 +113,14 @@ impl Node {
         self.finalized_payloads
             .insert(finalized_payload.block_number, finalized_payload);
 
-        let start_slot = self.current_slot.unwrap_or(latest_header.slot - self.history_size as u64);
-        let backfill_payloads = self.consensus.get_payloads(start_slot, latest_header.slot).await.map_err(NodeError::ConsensusPayloadError)?;
+        let start_slot = self
+            .current_slot
+            .unwrap_or(latest_header.slot - self.history_size as u64);
+        let backfill_payloads = self
+            .consensus
+            .get_payloads(start_slot, latest_header.slot)
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
         for payload in backfill_payloads {
             self.payloads.insert(payload.block_number, payload);
         }
@@ -134,7 +139,6 @@ impl Node {
 
         Ok(())
     }
-
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
         self.check_blocktag_age(&block)?;
