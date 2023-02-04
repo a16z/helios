@@ -687,6 +687,7 @@ dependencies = [
  "config",
  "ethers",
  "eyre",
+ "futures",
  "hex",
  "log",
  "milagro_bls",
