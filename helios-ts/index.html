@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+  </head>
+  <body>
+    <script src="./dist/bundle.js"></script>
+    <script>
+      helios.then((helios) => {
+        let provider = new helios.EthersProvider(
+          "http://localhost:9001/proxy",
+          "http://localhost:9002/proxy",
+        );
+
+        provider.sync().then(() => {
+          window.provider = provider;
+
+          // provider.getBlockNumber().then((num) => {
+          //   console.log(`synced to block: ${num}`);
+          // });
+        });
+      });
+    </script>
+  </body>
+</html>

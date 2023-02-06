@@ -12,6 +12,7 @@ members = [
     "config",
     "consensus",
     "execution",
+    "helios-ts",
 ]
 
 [dependencies]

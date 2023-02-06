@@ -1,3 +1,6 @@
 .DS_Store
 target
 *.env
+
+helios-ts/node_modules
+helios-ts/dist
