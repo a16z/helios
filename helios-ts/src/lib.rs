@@ -141,4 +141,11 @@ impl Client {
         let price = self.inner.get_priority_fee().await.unwrap();
         serde_wasm_bindgen::to_value(&price).unwrap()
     }
+
+    #[wasm_bindgen]
+    pub async fn send_raw_transaction(&self, tx: String) -> JsValue {
+        let tx = hex::decode(tx).unwrap();
+        let hash = self.inner.send_raw_transaction(&tx).await.unwrap();
+        serde_wasm_bindgen::to_value(&hash).unwrap()
+    }
 }
