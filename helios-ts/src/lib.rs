@@ -129,4 +129,16 @@ impl Client {
         let opts: CallOpts = serde_wasm_bindgen::from_value(opts).unwrap();
         self.inner.estimate_gas(&opts).await.unwrap() as u32
     }
+
+    #[wasm_bindgen]
+    pub async fn gas_price(&self) -> JsValue {
+        let price = self.inner.get_gas_price().await.unwrap();
+        serde_wasm_bindgen::to_value(&price).unwrap()
+    }
+
+    #[wasm_bindgen]
+    pub async fn max_priority_fee_per_gas(&self) -> JsValue {
+        let price = self.inner.get_priority_fee().await.unwrap();
+        serde_wasm_bindgen::to_value(&price).unwrap()
+    }
 }

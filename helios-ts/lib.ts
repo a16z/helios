@@ -60,7 +60,13 @@ class HeliosExternalProvider {
       };
       case "eth_estimateGas": {
         return this.#client.estimate_gas(req.params[0]);
-      }
+      };
+      case "eth_gasPrice": {
+        return this.#client.gas_price();
+      };
+      case "maxPriorityFeePerGas": {
+        return this.#client.max_priority_fee_per_gas();
+      };
     }
   }
 }
