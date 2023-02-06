@@ -148,4 +148,11 @@ impl Client {
         let hash = self.inner.send_raw_transaction(&tx).await.unwrap();
         serde_wasm_bindgen::to_value(&hash).unwrap()
     }
+
+    #[wasm_bindgen]
+    pub async fn get_transaction_receipt(&self, tx: JsValue) -> JsValue {
+        let tx: H256 = serde_wasm_bindgen::from_value(tx).unwrap();
+        let receipt = self.inner.get_transaction_receipt(&tx).await.unwrap();
+        serde_wasm_bindgen::to_value(&receipt).unwrap()
+    }
 }

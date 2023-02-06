@@ -64,9 +64,15 @@ class HeliosExternalProvider {
       case "eth_gasPrice": {
         return this.#client.gas_price();
       };
-      case "maxPriorityFeePerGas": {
+      case "eth_maxPriorityFeePerGas": {
         return this.#client.max_priority_fee_per_gas();
       };
+      case "eth_sendRawTransaction": {
+        return this.#client.send_raw_transaction(req.params[0]);
+      };
+      case "eth_getTransactionReceipt": {
+        return this.#client.get_transaction_receipt(req.params[0]);
+      }
     }
   }
 }
