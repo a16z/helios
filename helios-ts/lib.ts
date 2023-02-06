@@ -52,6 +52,9 @@ class HeliosExternalProvider {
       case "eth_getBlockTransactionCountByNumber": {
         return this.#client.get_block_transaction_count_by_number(req.params[0]);
       }
+      case "eth_getCode": {
+        return this.#client.get_code(req.params[0], req.params[1]);
+      }
     }
   }
 }

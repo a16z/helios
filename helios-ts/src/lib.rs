@@ -106,4 +106,12 @@ impl Client {
             .await
             .unwrap() as u32
     }
+
+    #[wasm_bindgen]
+    pub async fn get_code(&self, addr: JsValue, block: JsValue) -> String {
+        let addr: Address = serde_wasm_bindgen::from_value(addr).unwrap();
+        let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
+        let code = self.inner.get_code(&addr, block).await.unwrap();
+        format!("0x{}", hex::encode(code))
+    }
 }
