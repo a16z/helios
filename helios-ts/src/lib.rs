@@ -123,4 +123,10 @@ impl Client {
         let res = self.inner.call(&opts, block).await.unwrap();
         format!("0x{}", hex::encode(res))
     }
+
+    #[wasm_bindgen]
+    pub async fn estimate_gas(&self, opts: JsValue) -> u32 {
+        let opts: CallOpts = serde_wasm_bindgen::from_value(opts).unwrap();
+        self.inner.estimate_gas(&opts).await.unwrap() as u32
+    }
 }

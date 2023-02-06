@@ -58,6 +58,9 @@ class HeliosExternalProvider {
       case "eth_call": {
         return this.#client.call(req.params[0], req.params[1]);
       };
+      case "eth_estimateGas": {
+        return this.#client.estimate_gas(req.params[0]);
+      }
     }
   }
 }
