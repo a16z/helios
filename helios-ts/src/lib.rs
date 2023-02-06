@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use common::types::BlockTag;
 use ethers::types::{Address, H256};
+use execution::types::CallOpts;
 use wasm_bindgen::prelude::*;
 
 use client::database::ConfigDB;
@@ -113,5 +114,13 @@ impl Client {
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
         let code = self.inner.get_code(&addr, block).await.unwrap();
         format!("0x{}", hex::encode(code))
+    }
+
+    #[wasm_bindgen]
+    pub async fn call(&self, opts: JsValue, block: JsValue) -> String {
+        let opts: CallOpts = serde_wasm_bindgen::from_value(opts).unwrap();
+        let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
+        let res = self.inner.call(&opts, block).await.unwrap();
+        format!("0x{}", hex::encode(res))
     }
 }
