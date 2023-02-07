@@ -114,7 +114,6 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     ) -> Result<Vec<ExecutionPayload>> {
         let payloads_fut = (start_slot..end_slot)
             .rev()
-            .into_iter()
             .map(|slot| self.get_block_from_rpc(slot));
         let mut prev_parent_hash: Bytes32 = self
             .get_block_from_rpc(end_slot)
@@ -132,7 +131,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
                 warn!(
                     "error while backfilling blocks: {}",
                     ConsensusError::InvalidHeaderHash(
-                        format!("{:02X?}", prev_parent_hash),
+                        format!("{prev_parent_hash:02X?}"),
                         format!("{:02X?}", payload.parent_hash),
                     )
                 );
