@@ -175,7 +175,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         env.tx.transact_to = TransactTo::Call(opts.to);
         env.tx.caller = opts.from.unwrap_or(Address::zero());
         env.tx.value = opts.value.unwrap_or(U256::from(0));
-        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
+        env.tx.data = Bytes::from(opts.data.clone().unwrap_or_default());
         env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
         env.tx.gas_price = opts.gas_price.unwrap_or(U256::zero());
 

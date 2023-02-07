@@ -4,6 +4,7 @@ use std::sync::Arc;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
+use futures::future::join_all;
 use log::warn;
 use log::{debug, info};
 use milagro_bls::PublicKey;
@@ -104,6 +105,43 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         } else {
             Ok(block.body.execution_payload)
         }
+    }
+
+    pub async fn get_payloads(
+        &self,
+        start_slot: u64,
+        end_slot: u64,
+    ) -> Result<Vec<ExecutionPayload>> {
+        let payloads_fut = (start_slot..end_slot)
+            .rev()
+            .map(|slot| self.rpc.get_block(slot));
+        let mut prev_parent_hash: Bytes32 = self
+            .rpc
+            .get_block(end_slot)
+            .await?
+            .body
+            .execution_payload
+            .parent_hash;
+        let mut payloads: Vec<ExecutionPayload> = Vec::new();
+        for result in join_all(payloads_fut).await {
+            if result.is_err() {
+                continue;
+            }
+            let payload = result.unwrap().body.execution_payload;
+            if payload.block_hash != prev_parent_hash {
+                warn!(
+                    "error while backfilling blocks: {}",
+                    ConsensusError::InvalidHeaderHash(
+                        format!("{prev_parent_hash:02X?}"),
+                        format!("{:02X?}", payload.parent_hash),
+                    )
+                );
+                break;
+            }
+            prev_parent_hash = payload.parent_hash.clone();
+            payloads.push(payload);
+        }
+        Ok(payloads)
     }
 
     pub fn get_header(&self) -> &Header {
