@@ -291,7 +291,22 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         filter: &Filter,
         payloads: &BTreeMap<u64, ExecutionPayload>,
     ) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_logs(filter).await?;
+        let filter = filter.clone();
+
+        // avoid fetching logs for a block helios hasn't seen yet
+        let filter = if filter.get_to_block().is_none() && filter.get_block_hash().is_none() {
+            let block = *payloads.last_key_value().unwrap().0;
+            let filter = filter.to_block(block);
+            if filter.get_from_block().is_none() {
+                filter.from_block(block)
+            } else {
+                filter
+            }
+        } else {
+            filter
+        };
+
+        let logs = self.rpc.get_logs(&filter).await?;
         if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
             return Err(
                 ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
