@@ -4,7 +4,6 @@ use std::sync::Arc;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
-use futures::future::join_all;
 use log::warn;
 use log::{debug, info};
 use milagro_bls::PublicKey;
@@ -107,43 +106,6 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
     }
 
-    pub async fn get_payloads(
-        &self,
-        start_slot: u64,
-        end_slot: u64,
-    ) -> Result<Vec<ExecutionPayload>> {
-        let payloads_fut = (start_slot..end_slot)
-            .rev()
-            .map(|slot| self.rpc.get_block(slot));
-        let mut prev_parent_hash: Bytes32 = self
-            .rpc
-            .get_block(end_slot)
-            .await?
-            .body
-            .execution_payload
-            .parent_hash;
-        let mut payloads: Vec<ExecutionPayload> = Vec::new();
-        for result in join_all(payloads_fut).await {
-            if result.is_err() {
-                continue;
-            }
-            let payload = result.unwrap().body.execution_payload;
-            if payload.block_hash != prev_parent_hash {
-                warn!(
-                    "error while backfilling blocks: {}",
-                    ConsensusError::InvalidHeaderHash(
-                        format!("{prev_parent_hash:02X?}"),
-                        format!("{:02X?}", payload.parent_hash),
-                    )
-                );
-                break;
-            }
-            prev_parent_hash = payload.parent_hash.clone();
-            payloads.push(payload);
-        }
-        Ok(payloads)
-    }
-
     pub fn get_header(&self) -> &Header {
         &self.store.optimistic_header
     }
@@ -163,16 +125,16 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         for update in updates {
             self.verify_update(&update)?;
-            self.apply_update(&update);
+            self.apply_update(&update).await;
         }
 
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
-        self.apply_finality_update(&finality_update);
+        self.apply_finality_update(&finality_update).await;
 
         let optimistic_update = self.rpc.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
-        self.apply_optimistic_update(&optimistic_update);
+        self.apply_optimistic_update(&optimistic_update).await;
 
         info!(
             "consensus client in sync with checkpoint: 0x{}",
@@ -185,11 +147,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     pub async fn advance(&mut self) -> Result<()> {
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
-        self.apply_finality_update(&finality_update);
+        self.apply_finality_update(&finality_update).await;
 
         let optimistic_update = self.rpc.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
-        self.apply_optimistic_update(&optimistic_update);
+        self.apply_optimistic_update(&optimistic_update).await;
 
         if self.store.next_sync_committee.is_none() {
             debug!("checking for sync committee update");
@@ -202,7 +164,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
                 if res.is_ok() {
                     info!("updating sync committee");
-                    self.apply_update(update);
+                    self.apply_update(update).await;
                 }
             }
         }
@@ -361,7 +323,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     // implements state changes from apply_light_client_update and process_light_client_update in
     // the specification
-    fn apply_generic_update(&mut self, update: &GenericUpdate) {
+    async fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
         self.store.current_max_active_participants =
@@ -372,7 +334,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         if should_update_optimistic {
             self.store.optimistic_header = update.attested_header.clone();
-            self.log_optimistic_update(update);
+            self.log_optimistic_update(update).await;
         }
 
         let update_attested_period = calc_sync_period(update.attested_header.slot);
@@ -430,14 +392,14 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
     }
 
-    fn apply_update(&mut self, update: &Update) {
+    async fn apply_update(&mut self, update: &Update) {
         let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        self.apply_generic_update(&update).await;
     }
 
-    fn apply_finality_update(&mut self, update: &FinalityUpdate) {
+    async fn apply_finality_update(&mut self, update: &FinalityUpdate) {
         let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        self.apply_generic_update(&update).await;
     }
 
     fn log_finality_update(&self, update: &GenericUpdate) {
@@ -445,10 +407,33 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.finalized_header.slot);
+        let header = self.store.finalized_header.slot;
+        // body root
+        let body_root = &self.store.finalized_header.body_root;
+        // state root
+        let state_root = &self.store.finalized_header.state_root;
+        /*
+        let agg_pub_key_signature = ssz_rs::serialize(&update.sync_aggregate.sync_committee_signature).unwrap();
+        let pks =
+            get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+        let state_root = ssz_rs::serialize(&self.store.finalized_header.state_root).unwrap();
+        let body_root = ssz_rs::serialize(&self.store.finalized_header.body_root).unwrap();
+        */
 
         info!(
-            "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.finalized_header.slot,
+            "finalized slot    finalized_slot={} finalized_body_root={:?} state_root={:?} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
+            header,
+            body_root,
+            state_root,
+            /*
+            std::str::from_utf8(&agg_pub_key_signature).unwrap(),
+            */
+            // std::str::from_utf8(&agg_pub_key).unwrap(),
+            
+            // std::str::from_utf8(&state_root).unwrap(),
+            /*
+            std::str::from_utf8(&body_root).unwrap(),
+            */
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -457,20 +442,52 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         );
     }
 
-    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
+    async fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
         let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        self.apply_generic_update(&update).await;
     }
 
-    fn log_optimistic_update(&self, update: &GenericUpdate) {
+    async fn log_optimistic_update(&self, update: &GenericUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.optimistic_header.slot);
+        // header
+        let header = self.store.optimistic_header.slot;
+        // sync committee
+        let current_sync_committee = &self.store.current_sync_committee.pubkeys;
+        // signature
+        let sync_committee_sig = &update.sync_aggregate.sync_committee_signature;
+        // body root
+        let body_root = &self.store.optimistic_header.body_root;
+        // state root
+        let state_root = &self.store.optimistic_header.state_root;
+        // m (execution payload)
+        let execution_payload = self.get_execution_payload(&Some(header)).await.unwrap();
+
+        // aggregated_pubkey
+        let aggregate_pubkey = &self.store.current_sync_committee.aggregate_pubkey;
+
+        /*
+        // let agg_pub_key = ssz_rs::serialize(&update.next_sync_committee.aggregate_pubkey).unwrap();
+        let state_root = ssz_rs::serialize(&self.store.optimistic_header.state_root).unwrap();
+        let body_root = ssz_rs::serialize(&self.store.optimistic_header.body_root).unwrap();
+        */
 
         info!(
-            "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.optimistic_header.slot,
+            "updated head         optimistic_slot={} current_sync_committee={:?} aggregate_pubkey={:?} sync_committee_sig={:?} execution_payload={:?} body_root={:?} state_root={:?} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
+            header,
+            // std::str::from_utf8(&agg_pub_key).unwrap(),
+            // std::str::from_utf8(&state_root).unwrap(),
+            /*
+            std::str::from_utf8(&body_root).unwrap(),
+            */
+            current_sync_committee,
+            execution_payload,
+            sync_committee_sig,
+            aggregate_pubkey,
+            body_root,
+            state_root,
             participation,
             age.num_days(),
             age.num_hours() % 24,
