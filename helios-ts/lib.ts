@@ -72,6 +72,9 @@ class HeliosExternalProvider {
       };
       case "eth_getTransactionReceipt": {
         return this.#client.get_transaction_receipt(req.params[0]);
+      };
+      case "eth_getLogs": {
+        return this.#client.get_logs(req.params[0]);
       }
     }
   }

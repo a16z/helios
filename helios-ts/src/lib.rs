@@ -4,7 +4,7 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use common::types::BlockTag;
-use ethers::types::{Address, H256};
+use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
 use wasm_bindgen::prelude::*;
 
@@ -154,5 +154,12 @@ impl Client {
         let tx: H256 = serde_wasm_bindgen::from_value(tx).unwrap();
         let receipt = self.inner.get_transaction_receipt(&tx).await.unwrap();
         serde_wasm_bindgen::to_value(&receipt).unwrap()
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_logs(&self, filter: JsValue) -> JsValue {
+        let filter: Filter = serde_wasm_bindgen::from_value(filter).unwrap();
+        let logs = self.inner.get_logs(&filter).await.unwrap();
+        serde_wasm_bindgen::to_value(&logs).unwrap()
     }
 }
