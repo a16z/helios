@@ -75,7 +75,10 @@ class HeliosExternalProvider {
       };
       case "eth_getLogs": {
         return this.#client.get_logs(req.params[0]);
-      }
+      };
+      case "net_version": {
+        return this.#chainId;
+      };
     }
   }
 }
