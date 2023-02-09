@@ -21,23 +21,37 @@ macro_rules! log {
 #[wasm_bindgen]
 pub struct Client {
     inner: client::Client<ConfigDB>,
-    chain_id: u32,
+    chain_id: u64,
 }
 
 #[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
-    pub fn new(consensus_rpc: &str, execution_rpc: &str) -> Self {
+    pub fn new(execution_rpc: String, consensus_rpc: Option<String>, network: String, checkpoint: Option<String>) -> Self {
         console_error_panic_hook::set_once();
 
-        // TODO: handle different networks
-        let chain_id = 1;
-        let base = networks::mainnet();
+        let base = match network.as_str() {
+            "mainnet" => networks::mainnet(),
+            "goerli" => networks::goerli(),
+            _ => panic!("invalid network"),
+        };
+
+        let chain_id = base.chain.chain_id;
+
+        let checkpoint = Some(checkpoint
+            .as_ref()
+            .map(|c| c.strip_prefix("0x").unwrap_or(c.as_str()))
+            .map(|c| hex::decode(c).unwrap())
+            .unwrap_or(base.default_checkpoint));
+
+        let consensus_rpc = consensus_rpc
+            .unwrap_or(base.consensus_rpc.unwrap());
 
         let config = Config {
-            checkpoint: Some(base.default_checkpoint.clone()),
-            execution_rpc: execution_rpc.to_string(),
-            consensus_rpc: consensus_rpc.to_string(),
+            execution_rpc,
+            consensus_rpc,
+            checkpoint,
+
             chain: base.chain,
             forks: base.forks,
 
@@ -57,7 +71,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub fn chain_id(&self) -> u32 {
-        self.chain_id
+        self.chain_id as u32
     }
 
     #[wasm_bindgen]

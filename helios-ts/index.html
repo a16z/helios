@@ -9,10 +9,13 @@
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
     <script>
       helios.then((helios) => {
-        let heliosProvider = new helios.HeliosProvider(
-          "http://localhost:9001/proxy",
-          "http://localhost:9002/proxy",
-        );
+        const config = {
+          executionRpc:"http://localhost:9001/proxy", 
+          consensusRpc: "http://localhost:9002/proxy",
+          checkpoint: "0x372342db81e3a42527e08dc19e33cd4f91f440f45b9ddb0a9865d407eceb08e4",
+        }
+
+        const heliosProvider = new helios.HeliosProvider(config);
 
         heliosProvider.sync().then(() => {
           window.provider = new ethers.providers.Web3Provider(heliosProvider);

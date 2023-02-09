@@ -6,8 +6,13 @@ export class HeliosProvider {
   #client;
   #chainId;
 
-  constructor(executionRpc: string, consensusRpc: string) {
-    this.#client = new Client(executionRpc, consensusRpc);
+  constructor(config: Config) {
+    const executionRpc = config.executionRpc;
+    const consensusRpc = config.consensusRpc;
+    const checkpoint = config.checkpoint;
+    const network = config.network ?? Network.MAINNET;
+
+    this.#client = new Client(executionRpc, consensusRpc, network, checkpoint);
     this.#chainId = this.#client.chain_id();
   }
 
@@ -70,7 +75,19 @@ export class HeliosProvider {
   }
 }
 
-interface Request {
+export type Config = {
+  executionRpc: string,
+  consensusRpc?: string,
+  checkpoint?: string,
+  network?: Network,
+}
+
+export enum Network {
+  MAINNET = "mainnet",
+  GOERLI = "goerli",
+}
+
+type Request = {
   method: string,
   params: any[],
 }
