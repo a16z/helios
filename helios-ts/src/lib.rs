@@ -27,7 +27,12 @@ pub struct Client {
 #[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
-    pub fn new(execution_rpc: String, consensus_rpc: Option<String>, network: String, checkpoint: Option<String>) -> Self {
+    pub fn new(
+        execution_rpc: String,
+        consensus_rpc: Option<String>,
+        network: String,
+        checkpoint: Option<String>,
+    ) -> Self {
         console_error_panic_hook::set_once();
 
         let base = match network.as_str() {
@@ -38,14 +43,15 @@ impl Client {
 
         let chain_id = base.chain.chain_id;
 
-        let checkpoint = Some(checkpoint
-            .as_ref()
-            .map(|c| c.strip_prefix("0x").unwrap_or(c.as_str()))
-            .map(|c| hex::decode(c).unwrap())
-            .unwrap_or(base.default_checkpoint));
+        let checkpoint = Some(
+            checkpoint
+                .as_ref()
+                .map(|c| c.strip_prefix("0x").unwrap_or(c.as_str()))
+                .map(|c| hex::decode(c).unwrap())
+                .unwrap_or(base.default_checkpoint),
+        );
 
-        let consensus_rpc = consensus_rpc
-            .unwrap_or(base.consensus_rpc.unwrap());
+        let consensus_rpc = consensus_rpc.unwrap_or(base.consensus_rpc.unwrap());
 
         let config = Config {
             execution_rpc,
