@@ -1,21 +1,8 @@
-import { providers } from "ethers";
-const { Web3Provider } = providers;
-
 import { Client } from "./pkg";
 
-
-export class EthersProvider extends Web3Provider {
-  constructor(executionRpc: string, consensusRpc: string) {
-    let client = new HeliosExternalProvider(executionRpc, consensusRpc);
-    super(client);
-  }
-
-  async sync() {
-    await (this.provider as HeliosExternalProvider).sync();
-  }
-}
-
-class HeliosExternalProvider {
+/// An EIP-1193 compliant Ethereum provider. Treat this the same as you
+/// would window.ethereum when constructing an ethers or web3 provider.
+export class HeliosProvider {
   #client;
   #chainId;
 
