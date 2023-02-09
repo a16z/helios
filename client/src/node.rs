@@ -9,7 +9,6 @@ use eyre::{eyre, Result};
 use common::errors::BlockNotFoundError;
 use common::types::BlockTag;
 use config::Config;
-
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
@@ -26,7 +25,6 @@ pub struct Node {
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
-    current_slot: Option<u64>,
     pub history_size: usize,
 }
 
@@ -51,7 +49,6 @@ impl Node {
             config,
             payloads,
             finalized_payloads,
-            current_slot: None,
             history_size: 64,
         })
     }
@@ -112,20 +109,6 @@ impl Node {
             .insert(finalized_payload.block_number, finalized_payload.clone());
         self.finalized_payloads
             .insert(finalized_payload.block_number, finalized_payload);
-
-        let start_slot = self
-            .current_slot
-            .unwrap_or(latest_header.slot - self.history_size as u64);
-        let backfill_payloads = self
-            .consensus
-            .get_payloads(start_slot, latest_header.slot)
-            .await
-            .map_err(NodeError::ConsensusPayloadError)?;
-        for payload in backfill_payloads {
-            self.payloads.insert(payload.block_number, payload);
-        }
-
-        self.current_slot = Some(latest_header.slot);
 
         while self.payloads.len() > self.history_size {
             self.payloads.pop_first();
