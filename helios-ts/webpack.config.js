@@ -1,4 +1,5 @@
 const path = require("path");
+const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 module.exports = {
   entry: "./lib.ts",
@@ -9,13 +10,19 @@ module.exports = {
         use: 'ts-loader',
         exclude: /node_modules/,
       },
+      {
+        test: /\.wasm$/,
+        type: "asset/inline",
+      },
     ],
   },
   resolve: {
     extensions: ['.ts', '.js'],
   },
   output: {
-    filename: "bundle.js",
+    filename: "lib.js",
+    globalObject: 'this', 
+    // publicPath: '',
     path: path.resolve(__dirname, "dist"),
     library: {
       name: "helios",
@@ -24,5 +31,11 @@ module.exports = {
   },
   experiments: {
     asyncWebAssembly: true,
-  }
+  },
+  plugins: [
+    new WasmPackPlugin({
+      extraArgs: "--target web",
+      crateDirectory: path.resolve(__dirname),
+    }),
+  ],
 };
