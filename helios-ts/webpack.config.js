@@ -22,7 +22,6 @@ module.exports = {
   output: {
     filename: "lib.js",
     globalObject: 'this', 
-    // publicPath: '',
     path: path.resolve(__dirname, "dist"),
     library: {
       name: "helios",
