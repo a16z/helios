@@ -1,4 +1,11 @@
-import { Client } from "./pkg";
+import init, { Client } from "./pkg/index";
+
+
+export async function createHeliosProvider(config: Config): Promise<HeliosProvider> {
+  const wasmData = require("./pkg/index_bg.wasm");
+  await init(wasmData);
+  return new HeliosProvider(config);
+}
 
 /// An EIP-1193 compliant Ethereum provider. Treat this the same as you
 /// would window.ethereum when constructing an ethers or web3 provider.
@@ -6,6 +13,7 @@ export class HeliosProvider {
   #client;
   #chainId;
 
+  /// Do not use this constructor. Instead use the createHeliosProvider function.
   constructor(config: Config) {
     const executionRpc = config.executionRpc;
     const consensusRpc = config.consensusRpc;
