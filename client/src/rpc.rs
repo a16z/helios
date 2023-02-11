@@ -1,6 +1,6 @@
 use ethers::{
     abi::AbiEncode,
-    types::{Address, Filter, Log, Transaction, TransactionReceipt, H256, U256},
+    types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
 };
 use eyre::Result;
 use log::info;
@@ -114,6 +114,8 @@ trait EthRpc {
     ) -> Result<String, Error>;
     #[method(name = "getCoinbase")]
     async fn get_coinbase(&self) -> Result<Address, Error>;
+    #[method(name = "syncing")]
+    async fn syncing(&self) -> Result<SyncingStatus, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -276,6 +278,11 @@ impl EthRpcServer for RpcInner {
     async fn get_coinbase(&self) -> Result<Address, Error> {
         let node = self.node.read().await;
         Ok(node.get_coinbase().unwrap())
+    }
+
+    async fn syncing(&self) -> Result<SyncingStatus, Error> {
+        let node = self.node.read().await;
+        convert_err(node.syncing())
     }
 
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {

@@ -3,7 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::types::{
+    Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
+};
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
@@ -313,6 +315,37 @@ impl Node {
 
     pub fn chain_id(&self) -> u64 {
         self.config.chain.chain_id
+    }
+
+    pub fn syncing(&self) -> Result<SyncingStatus> {
+        if self.check_head_age().is_ok() {
+            Ok(SyncingStatus::IsFalse)
+        } else {
+            let latest_synced_block = self.get_block_number()?;
+            let oldest_payload = self.payloads.first_key_value();
+            let oldest_synced_block =
+                oldest_payload.map_or(latest_synced_block, |(key, _value)| *key);
+            let highest_block = self.consensus.expected_current_slot();
+            Ok(SyncingStatus::IsSyncing(Box::new(SyncProgress {
+                current_block: latest_synced_block.into(),
+                highest_block: highest_block.into(),
+                starting_block: oldest_synced_block.into(),
+                pulled_states: None,
+                known_states: None,
+                healed_bytecode_bytes: None,
+                healed_bytecodes: None,
+                healed_trienode_bytes: None,
+                healed_trienodes: None,
+                healing_bytecode: None,
+                healing_trienodes: None,
+                synced_account_bytes: None,
+                synced_accounts: None,
+                synced_bytecode_bytes: None,
+                synced_bytecodes: None,
+                synced_storage: None,
+                synced_storage_bytes: None,
+            })))
+        }
     }
 
     pub fn get_header(&self) -> Result<Header> {
