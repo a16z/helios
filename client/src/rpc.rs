@@ -282,7 +282,7 @@ impl EthRpcServer for RpcInner {
 
     async fn syncing(&self) -> Result<SyncingStatus, Error> {
         let node = self.node.read().await;
-        Ok(node.syncing().unwrap())
+        convert_err(node.syncing())
     }
 
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {
