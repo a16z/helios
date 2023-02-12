@@ -143,7 +143,16 @@ impl CheckpointFallback {
                         if raw.data.slots.is_empty() {
                             return Err(eyre::eyre!("no slots"));
                         }
-                        Ok(raw.data.slots[0].clone())
+
+                        let slot = raw
+                            .data
+                            .slots
+                            .iter()
+                            .filter(|s| s.block_root.is_some())
+                            .next()
+                            .ok_or(eyre::eyre!("no valid slots"))?;
+
+                        Ok(slot.clone())
                     }
                     None => Err(eyre::eyre!("failed to query service")),
                 }
