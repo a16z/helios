@@ -342,7 +342,7 @@ fn format_hex(num: &U256) -> String {
         .trim_start_matches('0')
         .to_string();
 
-    let stripped = if stripped.len() == 0 {
+    let stripped = if stripped.is_empty() {
         "0".to_string()
     } else {
         stripped
