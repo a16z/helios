@@ -148,8 +148,7 @@ impl CheckpointFallback {
                             .data
                             .slots
                             .iter()
-                            .filter(|s| s.block_root.is_some())
-                            .next()
+                            .find(|s| s.block_root.is_some())
                             .ok_or(eyre::eyre!("no valid slots"))?;
 
                         Ok(slot.clone())
