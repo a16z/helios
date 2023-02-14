@@ -324,16 +324,13 @@ where
     Ok(Vector::from_iter(key_bytes))
 }
 
-/*
-fn pubkey_serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+fn pubkey_serialize<S>(pubkey: &BLSPubKey, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    let key = serde::Serialize::serialize(&pubkey, serializer)?;
-    let key_string = bytes_to_hex_str(&key).map_err(S::Error::custom)?;
-    Ok(String::from_iter(key_string))
+    let hex = bytes_to_hex_str(&pubkey.as_ref());
+    serializer.serialize_str(&hex)
 }
-*/
 
 fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>, D::Error>
 where
@@ -350,6 +347,8 @@ where
 }
 
 /*
+* serializer has serialize-sequence. Loop over the pubkeys. then serialize sequence item by item
+* when you're finished, you need to call serializer end.
 fn pubkeys_serialize<'se, S>(serializer: S) -> Result<Vector<String, 512>, S::Error>
 where
     S: serde::Serializer<'se>,

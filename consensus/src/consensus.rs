@@ -465,7 +465,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         // m (execution payload)
         let execution_payload = self.get_execution_payload(&Some(header)).await.unwrap();
         // aggregated_pubkey
-        let aggregate_pubkey = &self.store.current_sync_committee.aggregate_pubkey;
+        let aggregate_pubkey = bytes_to_hex_str(self.store.current_sync_committee.aggregate_pubkey.as_ref());
 
         /*
         // let agg_pub_key = ssz_rs::serialize(&update.next_sync_committee.aggregate_pubkey).unwrap();
@@ -474,7 +474,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         */
 
         info!(
-            "updated head         optimistic_slot={} current_sync_committee={} aggregate_pubkey={:?} sync_committee_sig={:?} execution_payload={:?} body_root={:?} state_root={:?} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
+            "updated head         optimistic_slot={} current_sync_committee={:?} aggregate_pubkey={:?} sync_committee_sig={:?} execution_payload={:?} body_root={:?} state_root={:?} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             header,
             // std::str::from_utf8(&agg_pub_key).unwrap(),
             // std::str::from_utf8(&state_root).unwrap(),
@@ -482,9 +482,9 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             std::str::from_utf8(&body_root).unwrap(),
             */
             serde_json::to_string(&current_sync_committee).unwrap(),
-            execution_payload,
-            serde_json::to_string(&sync_committee_sig).unwrap(),
             serde_json::to_string(&aggregate_pubkey).unwrap(),
+            serde_json::to_string(&sync_committee_sig).unwrap(),
+            execution_payload,
             serde_json::to_string(&body_root).unwrap(),
             serde_json::to_string(&state_root).unwrap(),
             participation,
