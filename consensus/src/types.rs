@@ -4,6 +4,7 @@ use ssz_rs::prelude::*;
 
 use common::types::Bytes32;
 use common::utils::hex_str_to_bytes;
+use common::utils::bytes_to_hex_str;
 
 pub type BLSPubKey = Vector<u8, 48>;
 pub type SignatureBytes = Vector<u8, 96>;
@@ -323,6 +324,17 @@ where
     Ok(Vector::from_iter(key_bytes))
 }
 
+/*
+fn pubkey_serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let key = serde::Serialize::serialize(&pubkey, serializer)?;
+    let key_string = bytes_to_hex_str(&key).map_err(S::Error::custom)?;
+    Ok(String::from_iter(key_string))
+}
+*/
+
 fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -336,6 +348,22 @@ where
         .collect::<Result<Vector<BLSPubKey, 512>>>()
         .map_err(D::Error::custom)
 }
+
+/*
+fn pubkeys_serialize<'se, S>(serializer: S) -> Result<Vector<String, 512>, S::Error>
+where
+    S: serde::Serializer<'se>,
+{
+    let keys: Vec<BLSPubKey, 512> = serde::Serialize::serialize(serializer)?;
+    keys.iter()
+        .map(|key| {
+            let key_string = bytes_to_hex_str(key)?;
+            Ok(Vector::from_iter("0x" + key_string))
+        })
+        .collect::<Result<Vector<String, 512>>>()
+        .map_err(S::Error::custom)
+}
+*/
 
 fn bytes_vector_deserialize<'de, D>(deserializer: D) -> Result<Vector<Bytes32, 33>, D::Error>
 where

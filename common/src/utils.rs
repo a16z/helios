@@ -9,6 +9,10 @@ pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
     Ok(hex::decode(stripped)?)
 }
 
+pub fn bytes_to_hex_str(bytes: &[u8]) -> String {
+    format!("0x{}", hex::encode(bytes))
+}
+
 pub fn bytes32_to_node(bytes: &Bytes32) -> Result<Node> {
     Ok(Node::from_bytes(bytes.as_slice().try_into()?))
 }
