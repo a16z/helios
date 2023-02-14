@@ -349,18 +349,18 @@ where
 /*
 * serializer has serialize-sequence. Loop over the pubkeys. then serialize sequence item by item
 * when you're finished, you need to call serializer end.
-fn pubkeys_serialize<'se, S>(serializer: S) -> Result<Vector<String, 512>, S::Error>
+
+
+fn pubkeys_serialize<S>(pubkeys: &Vector<BLSPubKey, 512>, serializer: S) -> Result<S::Ok, S::Error>
 where
-    S: serde::Serializer<'se>,
+    S: serde::Serializer,
 {
-    let keys: Vec<BLSPubKey, 512> = serde::Serialize::serialize(serializer)?;
-    keys.iter()
-        .map(|key| {
-            let key_string = bytes_to_hex_str(key)?;
-            Ok(Vector::from_iter("0x" + key_string))
-        })
-        .collect::<Result<Vector<String, 512>>>()
-        .map_err(S::Error::custom)
+    let mut seq = serializer.serialize_seq(Some(pubkeys.len()))?;
+    for pubkey in pubkeys.iter() {
+        let hex = bytes_to_hex_str(&pubkey.as_ref());
+        seq.serialize_element(&hex)?;
+    }
+    seq.end()
 }
 */
 
@@ -386,6 +386,14 @@ where
     let sig: String = serde::Deserialize::deserialize(deserializer)?;
     let sig_bytes = hex_str_to_bytes(&sig).map_err(D::Error::custom)?;
     Ok(Vector::from_iter(sig_bytes))
+}
+
+fn signature_serialize<S>(signature: &SignatureBytes, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let hex = bytes_to_hex_str(&signature.as_ref());
+    serializer.serialize_str(&hex)
 }
 
 fn branch_deserialize<'de, D>(deserializer: D) -> Result<Vec<Bytes32>, D::Error>
