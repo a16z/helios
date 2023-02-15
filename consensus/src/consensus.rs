@@ -409,31 +409,20 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let age = self.age(self.store.finalized_header.slot);
         let header = self.store.finalized_header.slot;
         // body root
-        let body_root = &self.store.finalized_header.body_root;
+        let body_root = bytes_to_hex_str(self.store.optimistic_header.body_root.as_ref());
         // state root
-        let state_root = &self.store.finalized_header.state_root;
+        let state_root = bytes_to_hex_str(self.store.optimistic_header.state_root.as_ref());
         /*
         let agg_pub_key_signature = ssz_rs::serialize(&update.sync_aggregate.sync_committee_signature).unwrap();
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-        let state_root = ssz_rs::serialize(&self.store.finalized_header.state_root).unwrap();
-        let body_root = ssz_rs::serialize(&self.store.finalized_header.body_root).unwrap();
         */
 
         info!(
-            "finalized slot    finalized_slot={} finalized_body_root={:?} state_root={:?} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
+            "finalized slot    finalized_slot={} finalized_body_root={} finalized_state_root={} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             header,
             serde_json::to_string(&body_root).unwrap(),
             serde_json::to_string(&state_root).unwrap(),
-            /*
-            std::str::from_utf8(&agg_pub_key_signature).unwrap(),
-            */
-            // std::str::from_utf8(&agg_pub_key).unwrap(),
-            
-            // std::str::from_utf8(&state_root).unwrap(),
-            /*
-            std::str::from_utf8(&body_root).unwrap(),
-            */
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -455,7 +444,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         // header
         let header = self.store.optimistic_header.slot;
         // sync committee
-        let current_sync_committee = &self.store.current_sync_committee.pubkeys;
+        let current_sync_committee = bytes_vector_to_hex_str(self.store.current_sync_committee.pubkeys.as_ref());
         // signature
         let sync_committee_sig = bytes_to_hex_str(update.sync_aggregate.sync_committee_signature.as_ref());
         // body root
@@ -464,27 +453,17 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let state_root = bytes_to_hex_str(self.store.optimistic_header.state_root.as_ref());
         // m (execution payload)
         let execution_payload = self.get_execution_payload(&Some(header)).await.unwrap();
+        let block_hash = bytes_to_hex_str(execution_payload.block_hash.as_ref());
         // aggregated_pubkey
         let aggregate_pubkey = bytes_to_hex_str(self.store.current_sync_committee.aggregate_pubkey.as_ref());
 
-        /*
-        // let agg_pub_key = ssz_rs::serialize(&update.next_sync_committee.aggregate_pubkey).unwrap();
-        let state_root = ssz_rs::serialize(&self.store.optimistic_header.state_root).unwrap();
-        let body_root = ssz_rs::serialize(&self.store.optimistic_header.body_root).unwrap();
-        */
-
         info!(
-            "updated head         optimistic_slot={} current_sync_committee={:?} aggregate_pubkey={} sync_committee_sig={} execution_payload={:?} body_root={} state_root={} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
+            "updated head         optimistic_slot={} current_sync_committee={} aggregate_pubkey={} sync_committee_sig={} block_hash={} body_root={} state_root={} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             header,
-            // std::str::from_utf8(&agg_pub_key).unwrap(),
-            // std::str::from_utf8(&state_root).unwrap(),
-            /*
-            std::str::from_utf8(&body_root).unwrap(),
-            */
             serde_json::to_string(&current_sync_committee).unwrap(),
             serde_json::to_string(&aggregate_pubkey).unwrap(),
             serde_json::to_string(&sync_committee_sig).unwrap(),
-            execution_payload,
+            block_hash,
             serde_json::to_string(&body_root).unwrap(),
             serde_json::to_string(&state_root).unwrap(),
             participation,

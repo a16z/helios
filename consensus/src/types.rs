@@ -248,11 +248,12 @@ pub struct Header {
     pub body_root: Bytes32,
 }
 
-#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize, serde::Serialize)]
 pub struct SyncCommittee {
     #[serde(deserialize_with = "pubkeys_deserialize")]
     pub pubkeys: Vector<BLSPubKey, 512>,
     #[serde(deserialize_with = "pubkey_deserialize")]
+    #[serde(serialize_with = "pubkey_serialize")]
     pub aggregate_pubkey: BLSPubKey,
 }
 
@@ -349,19 +350,6 @@ where
 /*
 * serializer has serialize-sequence. Loop over the pubkeys. then serialize sequence item by item
 * when you're finished, you need to call serializer end.
-
-
-fn pubkeys_serialize<S>(pubkeys: &Vector<BLSPubKey, 512>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let mut seq = serializer.serialize_seq(Some(pubkeys.len()))?;
-    for pubkey in pubkeys.iter() {
-        let hex = bytes_to_hex_str(&pubkey.as_ref());
-        seq.serialize_element(&hex)?;
-    }
-    seq.end()
-}
 */
 
 fn bytes_vector_deserialize<'de, D>(deserializer: D) -> Result<Vector<Bytes32, 33>, D::Error>
@@ -386,14 +374,6 @@ where
     let sig: String = serde::Deserialize::deserialize(deserializer)?;
     let sig_bytes = hex_str_to_bytes(&sig).map_err(D::Error::custom)?;
     Ok(Vector::from_iter(sig_bytes))
-}
-
-fn signature_serialize<S>(signature: &SignatureBytes, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let hex = bytes_to_hex_str(&signature.as_ref());
-    serializer.serialize_str(&hex)
 }
 
 fn branch_deserialize<'de, D>(deserializer: D) -> Result<Vec<Bytes32>, D::Error>

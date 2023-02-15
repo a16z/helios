@@ -13,6 +13,10 @@ pub fn bytes_to_hex_str(bytes: &[u8]) -> String {
     format!("0x{}", hex::encode(bytes))
 }
 
+pub fn bytes_vector_to_hex_str(bytes: &[Vector<u8, 48>]) -> Vec<String> {
+    bytes.iter().map(|b| bytes_to_hex_str(b)).collect()
+}
+
 pub fn bytes32_to_node(bytes: &Bytes32) -> Result<Node> {
     Ok(Node::from_bytes(bytes.as_slice().try_into()?))
 }
