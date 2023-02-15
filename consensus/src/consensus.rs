@@ -455,13 +455,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         // header
         let header = self.store.optimistic_header.slot;
         // sync committee
-        let current_sync_committee = self.store.current_sync_committee.pubkeys.as_ref();
+        let current_sync_committee = &self.store.current_sync_committee.pubkeys;
         // signature
         let sync_committee_sig = bytes_to_hex_str(update.sync_aggregate.sync_committee_signature.as_ref());
         // body root
-        let body_root = &self.store.optimistic_header.body_root;
+        let body_root = bytes_to_hex_str(self.store.optimistic_header.body_root.as_ref());
         // state root
-        let state_root = &self.store.optimistic_header.state_root;
+        let state_root = bytes_to_hex_str(self.store.optimistic_header.state_root.as_ref());
         // m (execution payload)
         let execution_payload = self.get_execution_payload(&Some(header)).await.unwrap();
         // aggregated_pubkey
@@ -474,7 +474,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         */
 
         info!(
-            "updated head         optimistic_slot={} current_sync_committee={:?} aggregate_pubkey={} sync_committee_sig={} execution_payload={:?} body_root={:?} state_root={:?} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
+            "updated head         optimistic_slot={} current_sync_committee={:?} aggregate_pubkey={} sync_committee_sig={} execution_payload={:?} body_root={} state_root={} confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             header,
             // std::str::from_utf8(&agg_pub_key).unwrap(),
             // std::str::from_utf8(&state_root).unwrap(),
