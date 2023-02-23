@@ -45,6 +45,9 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
+[features]
+consensus_p2p = ["consensus/p2p"]
+
 ######################################
 # Examples
 ######################################

@@ -157,22 +157,22 @@ Client ----> Node
 Node ----> ConsensusClient
 Node ----> ExecutionClient
 ExecutionClient ----> ExecutionRpc
-ConsensusClient ----> ConsensusRpc
+ConsensusClient ----> ConsensusNetworkInterface
 Node ----> Evm
 Evm ----> ExecutionClient
 ExecutionRpc --> UntrustedExecutionRpc
-ConsensusRpc --> UntrustedConsensusRpc
+ConsensusNetworkInterface --> UntrustedConsensusNetworkInterface
 
 classDef node fill:#f9f,stroke:#333,stroke-width:4px, color:black;
 class Node,Client node
 classDef execution fill:#f0f,stroke:#333,stroke-width:4px;
 class ExecutionClient,ExecutionRpc execution
 classDef consensus fill:#ff0,stroke:#333,stroke-width:4px;
-class ConsensusClient,ConsensusRpc consensus
+class ConsensusClient,ConsensusNetworkInterface consensus
 classDef evm fill:#0ff,stroke:#333,stroke-width:4px;
 class Evm evm
 classDef providerC fill:#ffc
-class UntrustedConsensusRpc providerC
+class UntrustedConsensusNetworkInterface providerC
 classDef providerE fill:#fbf
 class UntrustedExecutionRpc providerE
 classDef rpc fill:#e10
@@ -181,7 +181,7 @@ class Rpc rpc
 
 subgraph "External Network"
 UntrustedExecutionRpc
-UntrustedConsensusRpc
+UntrustedConsensusNetworkInterface
 end
 ```
 

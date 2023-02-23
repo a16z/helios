@@ -17,7 +17,7 @@ use config::Config;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::errors::ConsensusError;
 
-use super::rpc::ConsensusRpc;
+use super::rpc::ConsensusNetworkInterface;
 use super::types::*;
 use super::utils::*;
 
@@ -35,8 +35,8 @@ use wasm_timer::UNIX_EPOCH;
 // does not implement force updates
 
 #[derive(Debug)]
-pub struct ConsensusClient<R: ConsensusRpc> {
-    rpc: R,
+pub struct ConsensusClient<R: ConsensusNetworkInterface> {
+    network_interface: R,
     store: LightClientStore,
     initial_checkpoint: Vec<u8>,
     pub last_checkpoint: Option<Vec<u8>>,
@@ -53,16 +53,16 @@ struct LightClientStore {
     current_max_active_participants: u64,
 }
 
-impl<R: ConsensusRpc> ConsensusClient<R> {
+impl<R: ConsensusNetworkInterface> ConsensusClient<R> {
     pub fn new(
         rpc: &str,
         checkpoint_block_root: &[u8],
         config: Arc<Config>,
     ) -> Result<ConsensusClient<R>> {
-        let rpc = R::new(rpc);
+        let network_interface = R::new(rpc);
 
         Ok(ConsensusClient {
-            rpc,
+            network_interface,
             store: LightClientStore::default(),
             last_checkpoint: None,
             config,
@@ -71,7 +71,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn check_rpc(&self) -> Result<()> {
-        let chain_id = self.rpc.chain_id().await?;
+        let chain_id = self.network_interface.chain_id().await?;
 
         if chain_id != self.config.chain.chain_id {
             Err(ConsensusError::IncorrectRpcNetwork.into())
@@ -82,7 +82,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
-        let mut block = self.rpc.get_block(slot).await?;
+        let mut block = self.network_interface.get_block(slot).await?;
         let block_hash = block.hash_tree_root()?;
 
         let latest_slot = self.store.optimistic_header.slot;
@@ -114,9 +114,9 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     ) -> Result<Vec<ExecutionPayload>> {
         let payloads_fut = (start_slot..end_slot)
             .rev()
-            .map(|slot| self.rpc.get_block(slot));
+            .map(|slot| self.network_interface.get_block(slot));
         let mut prev_parent_hash: Bytes32 = self
-            .rpc
+            .network_interface
             .get_block(end_slot)
             .await?
             .body
@@ -157,7 +157,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
         let updates = self
-            .rpc
+            .network_interface
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await?;
 
@@ -166,11 +166,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             self.apply_update(&update);
         }
 
-        let finality_update = self.rpc.get_finality_update().await?;
+        let finality_update = self.network_interface.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
-        let optimistic_update = self.rpc.get_optimistic_update().await?;
+        let optimistic_update = self.network_interface.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
 
@@ -183,18 +183,18 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn advance(&mut self) -> Result<()> {
-        let finality_update = self.rpc.get_finality_update().await?;
+        let finality_update = self.network_interface.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
-        let optimistic_update = self.rpc.get_optimistic_update().await?;
+        let optimistic_update = self.network_interface.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
             debug!("checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot);
-            let mut updates = self.rpc.get_updates(current_period, 1).await?;
+            let mut updates = self.network_interface.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
                 let update = updates.get_mut(0).unwrap();
@@ -212,7 +212,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     async fn bootstrap(&mut self) -> Result<()> {
         let mut bootstrap = self
-            .rpc
+            .network_interface
             .get_bootstrap(&self.initial_checkpoint)
             .await
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
@@ -648,7 +648,7 @@ mod tests {
     use crate::{
         consensus::calc_sync_period,
         errors::ConsensusError,
-        rpc::{mock_rpc::MockRpc, ConsensusRpc},
+        rpc::{mock_rpc::MockRpc, ConsensusNetworkInterface},
         types::Header,
         ConsensusClient,
     };
@@ -679,7 +679,7 @@ mod tests {
         let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
-            .rpc
+            .network_interface
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
@@ -693,7 +693,7 @@ mod tests {
         let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
-            .rpc
+            .network_interface
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
@@ -713,7 +713,7 @@ mod tests {
         let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
-            .rpc
+            .network_interface
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
@@ -733,7 +733,7 @@ mod tests {
         let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
-            .rpc
+            .network_interface
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
@@ -753,7 +753,7 @@ mod tests {
         let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
-        let update = client.rpc.get_finality_update().await.unwrap();
+        let update = client.network_interface.get_finality_update().await.unwrap();
 
         client.verify_finality_update(&update).unwrap();
     }
@@ -763,7 +763,7 @@ mod tests {
         let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
-        let mut update = client.rpc.get_finality_update().await.unwrap();
+        let mut update = client.network_interface.get_finality_update().await.unwrap();
         update.finalized_header = Header::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
@@ -778,7 +778,7 @@ mod tests {
         let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
-        let mut update = client.rpc.get_finality_update().await.unwrap();
+        let mut update = client.network_interface.get_finality_update().await.unwrap();
         update.sync_aggregate.sync_committee_signature = Vector::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
@@ -793,7 +793,7 @@ mod tests {
         let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
-        let update = client.rpc.get_optimistic_update().await.unwrap();
+        let update = client.network_interface.get_optimistic_update().await.unwrap();
         client.verify_optimistic_update(&update).unwrap();
     }
 
@@ -802,7 +802,7 @@ mod tests {
         let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
-        let mut update = client.rpc.get_optimistic_update().await.unwrap();
+        let mut update = client.network_interface.get_optimistic_update().await.unwrap();
         update.sync_aggregate.sync_committee_signature = Vector::default();
 
         let err = client.verify_optimistic_update(&update).err().unwrap();

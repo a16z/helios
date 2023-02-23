@@ -53,6 +53,13 @@ struct ForkData {
     genesis_validator_root: Bytes32,
 }
 
+#[derive(SimpleSerialize, Default, Debug)]
+pub struct ForkId {
+    pub fork_digest: Vector<u8, 4>,
+    pub next_fork_version: Vector<u8, 4>,
+    pub next_fork_epoch: u64,
+}
+
 pub fn compute_signing_root(object_root: Bytes32, domain: Bytes32) -> Result<Node> {
     let mut data = SigningData {
         object_root,
@@ -73,7 +80,7 @@ pub fn compute_domain(
     Ok(d.to_vec().try_into().unwrap())
 }
 
-fn compute_fork_data_root(
+pub fn compute_fork_data_root(
     current_version: Vector<u8, 4>,
     genesis_validator_root: Bytes32,
 ) -> Result<Node> {
@@ -82,6 +89,18 @@ fn compute_fork_data_root(
         genesis_validator_root,
     };
     Ok(fork_data.hash_tree_root()?)
+}
+
+pub fn compute_fork_digest(
+    current_version: Vector<u8, 4>,
+    genesis_validators_root: Bytes32,
+) -> Result<Vector<u8, 4>> {
+    let root = compute_fork_data_root(current_version, genesis_validators_root)?;
+    Ok(root.as_bytes()
+        .iter()
+        .take(4)
+        .copied()
+        .collect::<Vector<u8, 4>>())
 }
 
 pub fn branch_to_nodes(branch: Vec<Bytes32>) -> Result<Vec<Node>> {

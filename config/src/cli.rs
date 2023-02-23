@@ -14,6 +14,7 @@ pub struct CliConfig {
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
     pub strict_checkpoint_age: bool,
+    pub p2p_enabled: bool,
 }
 
 impl CliConfig {

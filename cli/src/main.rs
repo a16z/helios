@@ -99,6 +99,8 @@ struct Cli {
     load_external_fallback: bool,
     #[clap(short = 's', long, env)]
     strict_checkpoint_age: bool,
+    #[clap(short = 'q', long, env)]
+    p2p_enabled: bool,
 }
 
 impl Cli {
@@ -117,6 +119,7 @@ impl Cli {
             fallback: self.fallback.clone(),
             load_external_fallback: self.load_external_fallback,
             strict_checkpoint_age: self.strict_checkpoint_age,
+            p2p_enabled: self.p2p_enabled,
         }
     }
 

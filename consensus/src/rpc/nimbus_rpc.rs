@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use eyre::Result;
 use std::cmp;
 
-use super::ConsensusRpc;
+use super::ConsensusNetworkInterface;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
 use common::errors::RpcError;
@@ -14,7 +14,7 @@ pub struct NimbusRpc {
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl ConsensusRpc for NimbusRpc {
+impl ConsensusNetworkInterface for NimbusRpc {
     fn new(rpc: &str) -> Self {
         NimbusRpc {
             rpc: rpc.to_string(),

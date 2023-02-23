@@ -1,6 +1,6 @@
 use std::{fs::read_to_string, path::PathBuf};
 
-use super::ConsensusRpc;
+use super::ConsensusNetworkInterface;
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use async_trait::async_trait;
 use eyre::Result;
@@ -10,7 +10,7 @@ pub struct MockRpc {
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl ConsensusRpc for MockRpc {
+impl ConsensusNetworkInterface for MockRpc {
     fn new(path: &str) -> Self {
         MockRpc {
             testdata: PathBuf::from(path),
