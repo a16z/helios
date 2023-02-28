@@ -35,8 +35,8 @@ use wasm_timer::UNIX_EPOCH;
 // does not implement force updates
 
 #[derive(Debug)]
-pub struct ConsensusClient<R: ConsensusNetworkInterface> {
-    network_interface: R,
+pub struct ConsensusClient<N: ConsensusNetworkInterface> {
+    network_interface: N,
     store: LightClientStore,
     initial_checkpoint: Vec<u8>,
     pub last_checkpoint: Option<Vec<u8>>,
@@ -53,13 +53,13 @@ struct LightClientStore {
     current_max_active_participants: u64,
 }
 
-impl<R: ConsensusNetworkInterface> ConsensusClient<R> {
+impl<N: ConsensusNetworkInterface> ConsensusClient<N> {
     pub fn new(
         rpc: &str,
         checkpoint_block_root: &[u8],
         config: Arc<Config>,
-    ) -> Result<ConsensusClient<R>> {
-        let network_interface = R::new(rpc);
+    ) -> Result<ConsensusClient<N>> {
+        let network_interface = N::new(rpc);
 
         Ok(ConsensusClient {
             network_interface,

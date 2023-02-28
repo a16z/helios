@@ -1,3 +1,4 @@
+use consensus::rpc::ConsensusNetworkInterface;
 use ethers::{
     abi::AbiEncode,
     types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
@@ -21,14 +22,14 @@ use common::{
 };
 use execution::types::{CallOpts, ExecutionBlock};
 
-pub struct Rpc {
-    node: Arc<RwLock<Node>>,
+pub struct Rpc<N: ConsensusNetworkInterface> {
+    node: Arc<RwLock<Node<N>>>,
     handle: Option<HttpServerHandle>,
     port: u16,
 }
 
-impl Rpc {
-    pub fn new(node: Arc<RwLock<Node>>, port: u16) -> Self {
+impl<N: ConsensusNetworkInterface> Rpc<N> {
+    pub fn new(node: Arc<RwLock<Node<N>>>, port: u16) -> Self {
         Rpc {
             node,
             handle: None,
@@ -124,14 +125,22 @@ trait NetRpc {
     async fn version(&self) -> Result<String, Error>;
 }
 
-#[derive(Clone)]
-struct RpcInner {
-    node: Arc<RwLock<Node>>,
+struct RpcInner<N: ConsensusNetworkInterface> {
+    node: Arc<RwLock<Node<N>>>,
     port: u16,
 }
 
+impl<N: ConsensusNetworkInterface> std::clone::Clone for RpcInner<N> {
+    fn clone(&self) -> Self {
+        RpcInner {
+            node: self.node.clone(),
+            port: self.port,
+        }
+    }
+}
+
 #[async_trait]
-impl EthRpcServer for RpcInner {
+impl<N: ConsensusNetworkInterface> EthRpcServer for RpcInner<N> {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let node = self.node.read().await;
@@ -305,14 +314,14 @@ impl EthRpcServer for RpcInner {
 }
 
 #[async_trait]
-impl NetRpcServer for RpcInner {
+impl<N: ConsensusNetworkInterface> NetRpcServer for RpcInner<N> {
     async fn version(&self) -> Result<String, Error> {
         let node = self.node.read().await;
         Ok(node.chain_id().to_string())
     }
 }
 
-async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
+async fn start<N: ConsensusNetworkInterface>(rpc: RpcInner<N>) -> Result<(HttpServerHandle, SocketAddr)> {
     let addr = format!("127.0.0.1:{}", rpc.port);
     let server = HttpServerBuilder::default().build(addr).await?;
 

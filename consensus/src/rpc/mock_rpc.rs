@@ -4,6 +4,7 @@ use super::ConsensusNetworkInterface;
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use async_trait::async_trait;
 use eyre::Result;
+
 pub struct MockRpc {
     testdata: PathBuf,
 }

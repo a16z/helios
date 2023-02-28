@@ -12,7 +12,7 @@ use common::errors::BlockNotFoundError;
 use common::types::BlockTag;
 use config::Config;
 
-use consensus::rpc::nimbus_rpc::NimbusRpc;
+use consensus::rpc::ConsensusNetworkInterface;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
@@ -22,8 +22,8 @@ use execution::ExecutionClient;
 
 use crate::errors::NodeError;
 
-pub struct Node {
-    pub consensus: ConsensusClient<NimbusRpc>,
+pub struct Node<N: ConsensusNetworkInterface> {
+    pub consensus: ConsensusClient<N>,
     pub execution: Arc<ExecutionClient<HttpRpc>>,
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
@@ -32,7 +32,7 @@ pub struct Node {
     pub history_size: usize,
 }
 
-impl Node {
+impl<N: ConsensusNetworkInterface> Node<N> {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint.as_ref().unwrap();

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use config::networks::Network;
 use consensus::errors::ConsensusError;
+use consensus::rpc::ConsensusNetworkInterface;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
@@ -107,7 +108,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
+    pub fn build<DB: Database, N: ConsensusNetworkInterface>(self) -> Result<Client<DB, N>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -211,16 +212,16 @@ impl ClientBuilder {
     }
 }
 
-pub struct Client<DB: Database> {
-    node: Arc<RwLock<Node>>,
+pub struct Client<DB: Database, N: ConsensusNetworkInterface> {
+    node: Arc<RwLock<Node<N>>>,
     #[cfg(not(target_arch = "wasm32"))]
-    rpc: Option<Rpc>,
+    rpc: Option<Rpc<N>>,
     db: DB,
     fallback: Option<String>,
     load_external_fallback: bool,
 }
 
-impl<DB: Database> Client<DB> {
+impl<DB: Database, N: ConsensusNetworkInterface> Client<DB, N> {
     fn new(mut config: Config) -> Result<Self> {
         let db = DB::new(&config)?;
         if config.checkpoint.is_none() {
@@ -229,7 +230,7 @@ impl<DB: Database> Client<DB> {
         }
 
         let config = Arc::new(config);
-        let node = Node::new(config.clone())?;
+        let node = Node::<N>::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
         #[cfg(not(target_arch = "wasm32"))]
