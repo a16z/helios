@@ -3,7 +3,6 @@ pub mod nimbus_rpc;
 
 use async_trait::async_trait;
 use eyre::Result;
-use std::marker::{Sync, Send};
 
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 

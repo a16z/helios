@@ -14,7 +14,7 @@ pub struct P2pNetworkInterface {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ConsensusNetworkInterface for P2pNetworkInterface {
     fn new(_path: &str) -> Self {
-        P2pNetworkInterface {}
+        unimplemented!()
     }
 
     async fn get_bootstrap(&self, _block_root: &'_ [u8]) -> Result<Bootstrap> {
