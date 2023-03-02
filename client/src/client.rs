@@ -213,7 +213,7 @@ impl ClientBuilder {
 }
 
 pub struct Client<DB: Database, N: ConsensusNetworkInterface> {
-    node: Node<N>,
+    node: Arc<RwLock<Node<N>>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc<N>>,
     db: DB,

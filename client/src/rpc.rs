@@ -23,13 +23,13 @@ use common::{
 use execution::types::{CallOpts, ExecutionBlock};
 
 pub struct Rpc<N: ConsensusNetworkInterface> {
-    node: Node<N>,
+    node: Arc<RwLock<Node<N>>>,
     handle: Option<HttpServerHandle>,
     port: u16,
 }
 
 impl<N: ConsensusNetworkInterface> Rpc<N> {
-    pub fn new(node: Node<N>, port: u16) -> Self {
+    pub fn new(node: Arc<RwLock<Node<N>>>, port: u16) -> Self {
         Rpc {
             node,
             handle: None,
@@ -126,7 +126,7 @@ trait NetRpc {
 }
 
 struct RpcInner<N: ConsensusNetworkInterface> {
-    node: Node<N>,
+    node: Arc<RwLock<Node<N>>>,
     port: u16,
 }
 
