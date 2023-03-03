@@ -33,12 +33,13 @@ pub struct Node<N: ConsensusNetworkInterface> {
 }
 
 impl<N: ConsensusNetworkInterface> Node<N> {
-    pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
+    pub async fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let checkpoint_hash = &config.checkpoint.as_ref().unwrap();
         let execution_rpc = &config.execution_rpc;
 
         let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
+            .await
             .map_err(NodeError::ConsensusClientCreationError)?;
         let execution = Arc::new(
             ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,

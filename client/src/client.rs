@@ -108,7 +108,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build<DB: Database, N: ConsensusNetworkInterface>(self) -> Result<Client<DB, N>> {
+    pub async fn build<DB: Database, N: ConsensusNetworkInterface>(self) -> Result<Client<DB, N>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -208,7 +208,7 @@ impl ClientBuilder {
             strict_checkpoint_age,
         };
 
-        Client::new(config)
+        Client::new(config).await
     }
 }
 
@@ -222,7 +222,7 @@ pub struct Client<DB: Database, N: ConsensusNetworkInterface> {
 }
 
 impl<DB: Database, N: ConsensusNetworkInterface> Client<DB, N> {
-    fn new(mut config: Config) -> Result<Self> {
+    async fn new(mut config: Config) -> Result<Self> {
         let db = DB::new(&config)?;
         if config.checkpoint.is_none() {
             let checkpoint = db.load_checkpoint()?;
@@ -230,7 +230,7 @@ impl<DB: Database, N: ConsensusNetworkInterface> Client<DB, N> {
         }
 
         let config = Arc::new(config);
-        let node = Node::<N>::new(config.clone())?;
+        let node = Node::<N>::new(config.clone()).await?;
         let node = Arc::new(RwLock::new(node));
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -344,7 +344,7 @@ impl<DB: Database, N: ConsensusNetworkInterface> Client<DB, N> {
             // We fail fast here since the node is unrecoverable at this point
             let config = self.node.read().await.config.clone();
             let consensus =
-                ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+                ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone()).await?;
             self.node.write().await.consensus = consensus;
             self.node.write().await.sync().await?;
 
@@ -385,7 +385,7 @@ impl<DB: Database, N: ConsensusNetworkInterface> Client<DB, N> {
         // We fail fast here since the node is unrecoverable at this point
         let config = self.node.read().await.config.clone();
         let consensus =
-            ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone())?;
+            ConsensusClient::new(&config.consensus_rpc, checkpoint.as_bytes(), config.clone()).await?;
         self.node.write().await.consensus = consensus;
         self.node.write().await.sync().await?;
         Ok(())

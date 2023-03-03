@@ -54,12 +54,12 @@ struct LightClientStore {
 }
 
 impl<N: ConsensusNetworkInterface> ConsensusClient<N> {
-    pub fn new(
+    pub async fn new(
         rpc: &str,
         checkpoint_block_root: &[u8],
         config: Arc<Config>,
     ) -> Result<ConsensusClient<N>> {
-        let network_interface = N::new(rpc);
+        let network_interface = N::new(rpc).await;
 
         Ok(ConsensusClient {
             network_interface,

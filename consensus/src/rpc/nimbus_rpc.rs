@@ -15,7 +15,7 @@ pub struct NimbusRpc {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ConsensusNetworkInterface for NimbusRpc {
-    fn new(rpc: &str) -> Self {
+    async fn new(rpc: &str) -> Self {
         NimbusRpc {
             rpc: rpc.to_string(),
         }

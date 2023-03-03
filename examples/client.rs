@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use consensus::rpc::nimbus_rpc::NimbusRpc;
 use eyre::Result;
 
 use helios::prelude::*;
@@ -35,7 +36,10 @@ async fn main() -> Result<()> {
     builder = builder.load_external_fallback();
 
     // Build the client
-    let _client: Client<FileDB> = builder.build().unwrap();
+    let _client: Client<FileDB, NimbusRpc> = builder
+        .build()
+        .await
+        .unwrap();
     println!("Constructed client!");
 
     Ok(())

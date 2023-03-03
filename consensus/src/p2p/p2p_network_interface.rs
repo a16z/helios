@@ -1,7 +1,11 @@
 use eyre::Result;
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use async_trait::async_trait;
-use libp2p::swarm::NetworkBehaviour;
+use libp2p::{
+    swarm::NetworkBehaviour,
+    identity::Keypair,
+};
+
 
 use crate::p2p::discovery::Discovery;
 use crate::rpc::ConsensusNetworkInterface;
@@ -13,8 +17,12 @@ pub struct P2pNetworkInterface {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ConsensusNetworkInterface for P2pNetworkInterface {
-    fn new(_path: &str) -> Self {
-        unimplemented!()
+    // TODO: Really implement this function
+    async fn new(_path: &str) -> Self {
+        let local_key = Keypair::generate_secp256k1();
+        let config = super::config::Config::default();
+        let discovery = Discovery::new(&local_key, config).await.unwrap();
+        Self { discovery }
     }
 
     async fn get_bootstrap(&self, _block_root: &'_ [u8]) -> Result<Bootstrap> {

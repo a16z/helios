@@ -14,14 +14,16 @@ use futures::{
     stream::FuturesUnordered,
     StreamExt,
 };
-use std::future::Future;
-use std::pin::Pin;
-use std::net::SocketAddr;
-use std::time::Instant;
-use std::collections::HashMap;
-use std::task::{Context, Poll};
+use std::{
+    future::Future,
+    pin::Pin,
+    net::SocketAddr,
+    time::Instant,
+    collections::HashMap,
+    task::{Context, Poll},
+    sync::{Arc, Mutex},
+};
 use log::{debug, error};
-use std::sync::{Arc, Mutex};
 
 use super::config::Config as ConsensusConfig;
 mod enr;
@@ -42,6 +44,7 @@ enum EventStream {
 
 type DiscResult = Result<Vec<Enr>, QueryError>;
 
+#[derive(Debug)]
 pub enum DiscoveryError {
     Discv5Error(Discv5Error),
     UnexpectedError(String),
@@ -79,12 +82,14 @@ impl Discovery {
         local_key: &Keypair,
         config: ConsensusConfig,
     ) -> Result<Self, DiscoveryError> {
+        // convert the keypair to an ENR key
         let enr_key = key_from_libp2p(local_key)?;
         let local_enr = build_enr(&enr_key, &config);
         let listen_socket = SocketAddr::new(config.listen_addr, config.discovery_port);
 
         let mut discv5 = Discv5::new(local_enr.clone(), enr_key, config.discv5_config)?;
 
+        // Add bootnodes to routing table
         for boot_node_enr in config.boot_nodes_enr.clone() {
             debug!("Adding boot node: {:?}", boot_node_enr);
             let repr = boot_node_enr.to_string();
@@ -92,6 +97,8 @@ impl Discovery {
                 error!("Failed to add boot node: {:?}, {:?}", repr, e);
             });
         }
+
+        // Start the discv5 service and obtain an event stream
         let event_stream = if !config.disable_discovery {
             discv5
                 .start(listen_socket)
