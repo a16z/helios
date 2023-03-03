@@ -1,7 +1,6 @@
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 use env_logger::Env;
-use ethers::{types::Address, utils};
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
 
@@ -11,7 +10,7 @@ use consensus::p2p::P2pNetworkInterface;
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/nObEU8Wh4FIT-X_UDFpK9oVGiTHzznML";
+    let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>";
     log::info!("Using untrusted RPC URL [REDACTED]");
 
     let consensus_rpc = "https://www.lightclientdata.org";
@@ -26,23 +25,7 @@ async fn main() -> Result<()> {
         .build()
         .await?;
 
-    log::info!(
-        "Built client on network \"{}\" with external checkpoint fallbacks",
-        Network::MAINNET
-    );
-
     client.start().await?;
-
-    let head_block_num = client.get_block_number().await?;
-    let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
-    let block = BlockTag::Latest;
-    let balance = client.get_balance(&addr, block).await?;
-
-    log::info!("synced up to block: {}", head_block_num);
-    log::info!(
-        "balance of deposit contract: {}",
-        utils::format_ether(balance)
-    );
 
     Ok(())
 }
