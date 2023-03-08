@@ -356,32 +356,27 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let helios_latest_block = *payloads.last_key_value().unwrap().0;
         let helios_oldest_block = * payloads.first_key_value().unwrap().0;
         let mut block_count = block_count;
-        let mut request_lastest_block = last_block;
-        
-        //case where requested block is more recent than helios' newest block
-        if request_lastest_block > helios_latest_block {
-            //block count is adjusted by the difference between request newest block and helios'
-            block_count -= request_lastest_block - helios_latest_block;
-            request_lastest_block = helios_latest_block;
+        let mut request_latest_block = last_block;
 
+        //case where requested block is more recent than helios' newest block
+        if request_latest_block > helios_latest_block {
+            //Keep block delta'
+            request_latest_block = helios_latest_block;
         }
 
         //Can't prove anything in the request range
-        if request_lastest_block < helios_oldest_block {
+        if request_latest_block < helios_oldest_block {
             return Ok(None);
         }
 
-        let request_oldest_block = request_lastest_block - block_count;
+        let request_oldest_block = request_latest_block - block_count;
         //case when request oldest block is further out than what helios' is aware of
         if request_oldest_block < helios_oldest_block {
             //block count is now simply what takes us as far as the block helios knows about
-            block_count = request_lastest_block - helios_oldest_block + 1;
+            block_count = request_latest_block - helios_oldest_block + 1;
         }
 
-        let fee_history= self.rpc.get_fee_history(block_count, request_lastest_block , reward_percentiles).await?;
-
-        //If block_count is one, it'll just query last block
-        assert_eq!(fee_history.oldest_block, U256::from(request_lastest_block - block_count + 1));
+        let fee_history= self.rpc.get_fee_history(block_count, request_latest_block , reward_percentiles).await?;
         
         for (_pos, _base_fee_per_gas) in fee_history.base_fee_per_gas.iter().enumerate() {
             //break at last iteration as that will return next block gas_fee
@@ -390,7 +385,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             }
             
             //Mental model for why one is added below: if we use this query with parameter block_count = 1, it will return information for last_block and the next one
-            let block_to_check = request_lastest_block - block_count + 1 +_pos as u64;
+            let block_to_check = request_latest_block - block_count + 1 +_pos as u64;
             let payload = payloads.get(&block_to_check);
 
             if payload.is_none() {
