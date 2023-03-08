@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256, FeeHistory};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
@@ -344,6 +344,73 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             }
         }
         Ok(logs)
+    }
+
+    pub async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+        payloads: &BTreeMap<u64, ExecutionPayload>
+    ) -> Result<Option<FeeHistory>> {
+        let helios_latest_block = *payloads.last_key_value().unwrap().0;
+        let helios_oldest_block = * payloads.first_key_value().unwrap().0;
+        let mut block_count = block_count;
+        let mut request_lastest_block = last_block;
+        
+        //case where requested block is more recent than helios' newest block
+        if request_lastest_block > helios_latest_block {
+            //block count is adjusted by the difference between request newest block and helios'
+            block_count -= request_lastest_block - helios_latest_block;
+            request_lastest_block = helios_latest_block;
+
+        }
+
+        //Can't prove anything in the request range
+        if request_lastest_block < helios_oldest_block {
+            return Ok(None);
+        }
+
+        let request_oldest_block = request_lastest_block - block_count;
+        //case when request oldest block is further out than what helios' is aware of
+        if request_oldest_block < helios_oldest_block {
+            //block count is now simply what takes us as far as the block helios knows about
+            block_count = request_lastest_block - helios_oldest_block + 1;
+        }
+
+        let fee_history= self.rpc.get_fee_history(block_count, request_lastest_block , reward_percentiles).await?;
+
+        //If block_count is one, it'll just query last block
+        assert_eq!(fee_history.oldest_block, U256::from(request_lastest_block - block_count + 1));
+        
+        for (_pos, _base_fee_per_gas) in fee_history.base_fee_per_gas.iter().enumerate() {
+            //break at last iteration as that will return next block gas_fee
+            if _pos == block_count as usize{
+                continue;
+            }
+            
+            //Mental model for why one is added below: if we use this query with parameter block_count = 1, it will return information for last_block and the next one
+            let block_to_check = request_lastest_block - block_count + 1 +_pos as u64;
+            let payload = payloads.get(&block_to_check);
+
+            if payload.is_none() {
+                return Ok(None);
+            }
+
+            let payload = payload.unwrap();
+            
+            let comparable_base_fee_bytes_saved = ethers::types::U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
+                
+            if *_base_fee_per_gas != comparable_base_fee_bytes_saved {
+                return Err(ExecutionError::InvalidBaseGaseFee(
+                    *_base_fee_per_gas,
+                    block_to_check
+                ).into()
+            )
+            }
+        }
+
+        Ok(Some(fee_history))
     }
 }
 
