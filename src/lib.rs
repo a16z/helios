@@ -51,10 +51,9 @@
 //! Errors used across helios.
 
 pub mod client {
-    pub use client::{
-        database::{ConfigDB, FileDB},
-        Client, ClientBuilder,
-    };
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use client::database::FileDB;
+    pub use client::{database::ConfigDB, Client, ClientBuilder};
 }
 
 pub mod config {
