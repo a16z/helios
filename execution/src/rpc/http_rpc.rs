@@ -7,7 +7,7 @@ use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
     BlockId, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, Filter, Log, Transaction,
-    TransactionReceipt, H256, U256,
+    TransactionReceipt, H256, U256, FeeHistory, BlockNumber
 };
 use eyre::Result;
 
@@ -139,5 +139,14 @@ impl ExecutionRpc for HttpRpc {
             .await
             .map_err(|e| RpcError::new("chain_id", e))?
             .as_u64())
+    }
+
+    async fn get_fee_history(&self, block_count: u64, last_block: u64, reward_percentiles: &[f64]) -> Result<FeeHistory> {
+        let block = BlockNumber::from(last_block);
+        Ok(self
+            .provider
+            .fee_history(block_count, block, reward_percentiles)
+            .await
+            .map_err(|e| RpcError::new("fee_history", e))?)
     }
 }
