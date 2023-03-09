@@ -1,27 +1,37 @@
-use config::{CliConfig, Config};
 use env_logger::Env;
 use eyre::Result;
-use helios::prelude::*;
+use helios::{config::networks::Network, prelude::*};
+use std::{env, path::PathBuf};
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
     //Instantiate Client
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    // Load the config from the global config file
-    let config_path = home::home_dir().unwrap().join(".helios/helios.toml");
-    let config = Config::from_file(&config_path, "mainnet", &CliConfig::default());
+    let api_key = env::var("YOUR_API_KEY").expect("Missing API key in environment variables, just run export YOUR_API_KEY='your-api-key-goes-here'");
+    let untrusted_rpc_url = format!("https://eth-mainnet.g.alchemy.com/v2/{}", api_key);
 
-    let mut client: Client<FileDB> = match ClientBuilder::new().config(config).build() {
-        Ok(client) => client,
-        Err(err) => {
-            panic!("Couldn't load the client{}", err);
-        }
-    };
+    let checkpoint = "0x4d9b87a319c52e54068b7727a93dd3d52b83f7336ed93707bcdf7b37aefce700";
+    log::info!("Using untrusted RPC URL [REDACTED]");
 
-    if let Err(err) = client.start().await {
-        panic!("Couldn't start the client{}", err)
-    }
+    let consensus_rpc = "https://www.lightclientdata.org";
+    log::info!("Using consensus RPC URL: {}", consensus_rpc);
+
+    let mut client: Client<FileDB> = ClientBuilder::new()
+        .network(Network::MAINNET)
+        .consensus_rpc(consensus_rpc)
+        .execution_rpc(&untrusted_rpc_url)
+        .checkpoint(&checkpoint)
+        .load_external_fallback()
+        .data_dir(PathBuf::from("/tmp/helios"))
+        .build()?;
+
+    log::info!(
+        "Built client on network \"{}\" with external checkpoint fallbacks",
+        Network::MAINNET
+    );
+
+    client.start().await?;
 
     //Get inputs for fee_history calls
     let head_block_num = client.get_block_number().await?;
