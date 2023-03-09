@@ -23,7 +23,7 @@ async fn feehistory() -> Result<()> {
         panic!("Couldn't start the client{}", err)
     }
 
-    //Get inputs for fee history calls
+    //Get inputs for fee_history calls
     let head_block_num = client.get_block_number().await?;
     log::info!("head_block_num: {}", &head_block_num);
     let block = BlockTag::Latest;
@@ -33,7 +33,7 @@ async fn feehistory() -> Result<()> {
 
     //below test are lacking access to ExecutionPayload which would give visibility into which blocks we know about
 
-    //test one block query from latest
+    //test 1 block query from latest
     let fee_history = client
         .get_fee_history(1, head_block_num, &my_array)
         .await?
@@ -41,14 +41,14 @@ async fn feehistory() -> Result<()> {
     assert_eq!(fee_history.base_fee_per_gas.len(), 2);
     assert_eq!(fee_history.oldest_block.as_u64(), head_block_num);
 
-    //test 10000 delta, will return as much as we can
+    //test 10000 delta, helios will return as many as it can
     let fee_history = match client
         .get_fee_history(10_000, head_block_num, &my_array)
         .await?
     {
         Some(fee_history) => fee_history,
         None => panic!(
-            "returned empty gas fee, inputs where the following: 
+            "returned empty gas fee, inputs were the following: 
                        Block amount {:?}, head_block_num {:?}, my_array {:?}",
             10_000, head_block_num, &my_array
         ),
@@ -59,7 +59,7 @@ async fn feehistory() -> Result<()> {
         fee_history.base_fee_per_gas.len()
     );
 
-    //test 10000 block away, will return none
+    //test 10000 block away, Helios will return none
     let fee_history = client
         .get_fee_history(1, head_block_num - 10_000, &my_array)
         .await?;
@@ -90,8 +90,8 @@ async fn feehistory() -> Result<()> {
     );
 
     //test whatever blocks ahead, but that will fetch one block behind.
-    //This should returns an answer of size two as we'll cap this request to newest block we know
-    // we refresh paramaters to make sure head_block_num is in line with newest block of our payload
+    //This should return an answer of size two as Helios will cap this request to the newest block it knows
+    // we refresh parameters to make sure head_block_num is in line with newest block of our payload
     let head_block_num = client.get_block_number().await?;
     let fee_history = client
         .get_fee_history(1, head_block_num + 1000, &my_array)

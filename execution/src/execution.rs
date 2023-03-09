@@ -370,9 +370,8 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             reward_percentiles
         );
 
-        //case where requested block is more recent than helios' newest block
+        //case: requested block is more recent than helios' newest block
         if request_latest_block > helios_latest_block {
-            //Keep block delta'
             request_latest_block = helios_latest_block;
         }
 
@@ -382,9 +381,8 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
 
         let request_oldest_block = request_latest_block - block_count;
-        //case when request oldest block is further out than what helios' is aware of
+        //case: request oldest block is further out than what helios' is aware of
         if request_oldest_block < helios_oldest_block {
-            //block count is now simply what takes us as far as the block helios knows about
             block_count = request_latest_block - helios_oldest_block + 1;
         }
 
@@ -396,12 +394,12 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         debug!("Fee History: {:?}", fee_history);
 
         for (_pos, _base_fee_per_gas) in fee_history.base_fee_per_gas.iter().enumerate() {
-            //break at last iteration as that will return after to last block gas_fee
+            //break at last iteration as that will return the block after our target block
             if _pos == block_count as usize {
                 continue;
             }
 
-            //start from oldest block and validate the gas fee returned with helios' view
+            //start from oldest block and validate the gas fee returned using helios' view
             let block_to_check = (fee_history.oldest_block + _pos as u64).as_u64();
             let payload = payloads.get(&block_to_check);
 
