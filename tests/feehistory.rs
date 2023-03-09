@@ -1,36 +1,28 @@
-use std::{path::PathBuf};
 use env_logger::Env;
 use eyre::Result;
-use helios::{config::networks::Network, prelude::*};
+use helios::{prelude::*};
+use config::{CliConfig, Config};
+
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
     //Instantiate Client
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/XXXXX";
-    log::info!("Using untrusted RPC URL [REDACTED]");
+    // Load the config from the global config file
+    let config_path = home::home_dir().unwrap().join(".helios/helios.toml");
+    let config = Config::from_file(&config_path, "mainnet", &CliConfig::default());
+    
+    let mut client: Client<FileDB> = match ClientBuilder::new().config(config).build() {
+        Ok(client) => client,
+        Err(err) => {
+            panic!("Couldn't load the client{}", err);
+        }
+    };
 
-    let consensus_rpc = "https://www.lightclientdata.org";
-    log::info!("Using consensus RPC URL: {}", consensus_rpc);
-
-    let checkpoint = "0x4bcc641667c22564124e84b270f005f00925ca51a840548904a624bcb22306d0";
-
-    let mut client: Client<FileDB> = ClientBuilder::new()
-        .network(Network::MAINNET)
-        .consensus_rpc(consensus_rpc)
-        .execution_rpc(untrusted_rpc_url)
-        .checkpoint(checkpoint)
-        .load_external_fallback()
-        .data_dir(PathBuf::from("/tmp/helios"))
-        .build()?;
-
-    log::info!(
-        "Built client on network \"{}\" with external checkpoint fallbacks",
-        Network::MAINNET
-    );
-
-    client.start().await?;
+    if let Err(err) = client.start().await {
+        panic!("Couldn't start the client{}", err)
+    }
 
     //Get inputs for fee history calls
     let head_block_num = client.get_block_number().await?;
@@ -51,7 +43,11 @@ async fn feehistory() -> Result<()> {
     assert_eq!(fee_history.oldest_block.as_u64(), head_block_num);
 
     //test 10000 delta, will return as much as we can
-    let fee_history = client.get_fee_history(10_000, head_block_num, &my_array).await?.unwrap();
+    let fee_history = match client.get_fee_history(10_000, head_block_num, &my_array).await? {
+        Some(fee_history) => fee_history,
+        None => panic!("returned empty gas fee, inputs where the following: 
+                       Block amount {:?}, head_block_num {:?}, my_array {:?}", 10_000, head_block_num, &my_array),
+    };
     assert!(fee_history.base_fee_per_gas.len() > 0, "fee_history.base_fee_per_gas.len() {:?}", fee_history.base_fee_per_gas.len());
 
     //test 10000 block away, will return none 
@@ -79,5 +75,3 @@ async fn feehistory() -> Result<()> {
 
     Ok(())
 }
-
-
