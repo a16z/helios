@@ -26,8 +26,10 @@ pub enum ExecutionError {
     TooManyLogsToProve(usize, usize),
     #[error("execution rpc is for the incorect network")]
     IncorrectRpcNetwork(),
-    #[error("Invalid base gas fee {0} at block {1}")]
-    InvalidBaseGaseFee(U256, u64),
+    #[error("Invalid base gas fee helios {0} vs rpc endpoint {1} at block {2}")]
+    InvalidBaseGaseFee(U256, U256, u64),
+    #[error("Invalid gas ratio of helios {0} vs rpc endpoint {1} at block {2}")]
+    InvalidGasUsedRatio(f64, f64, u64),
 }
 
 /// Errors that can occur during evm.rs calls
