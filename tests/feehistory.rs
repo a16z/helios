@@ -12,7 +12,6 @@ async fn feehistory() -> Result<()> {
     let untrusted_rpc_url = format!("https://eth-mainnet.g.alchemy.com/v2/{}", api_key);
 
     let checkpoint = "0x4d9b87a319c52e54068b7727a93dd3d52b83f7336ed93707bcdf7b37aefce700";
-    log::info!("Using untrusted RPC URL [REDACTED]");
 
     let consensus_rpc = "https://www.lightclientdata.org";
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
