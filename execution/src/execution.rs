@@ -414,9 +414,29 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
                 ethers::types::U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
 
             if *_base_fee_per_gas != comparable_base_fee_bytes_saved {
-                return Err(
-                    ExecutionError::InvalidBaseGaseFee(*_base_fee_per_gas, block_to_check).into(),
-                );
+                return Err(ExecutionError::InvalidBaseGaseFee(
+                    comparable_base_fee_bytes_saved,
+                    *_base_fee_per_gas,
+                    block_to_check,
+                )
+                .into());
+            }
+
+            //with rounding up to 10^-12
+            let gas_used_ratio_helios =
+                ((payload.gas_used as f64 / payload.gas_limit as f64) * 10.0_f64.powi(12)).round()
+                    / 10.0_f64.powi(12);
+
+            let rpc_gas_used_rounded =
+                (fee_history.gas_used_ratio[_pos] * 10.0_f64.powi(12)).round() / 10.0_f64.powi(12);
+
+            if gas_used_ratio_helios != rpc_gas_used_rounded {
+                return Err(ExecutionError::InvalidGasUsedRatio(
+                    gas_used_ratio_helios,
+                    rpc_gas_used_rounded,
+                    block_to_check,
+                )
+                .into());
             }
         }
 
