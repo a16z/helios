@@ -11,6 +11,7 @@ use eyre::Result;
 use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
 use futures::future::join_all;
+use log::debug;
 use revm::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
@@ -358,6 +359,11 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let mut block_count = block_count;
         let mut request_latest_block = last_block;
 
+        debug!("get_fee_history parameters:
+               helios_latest_block {:?}, helios_oldest_block {:?},
+               block_count {:?}, request_latest_block {:?}, reward_percentiles {:?}",
+               helios_latest_block, helios_oldest_block, block_count, request_latest_block, reward_percentiles);
+
         //case where requested block is more recent than helios' newest block
         if request_latest_block > helios_latest_block {
             //Keep block delta'
@@ -377,17 +383,20 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
 
         let fee_history= self.rpc.get_fee_history(block_count, request_latest_block , reward_percentiles).await?;
+
+        debug!("Fee History: {:?}", fee_history);
         
         for (_pos, _base_fee_per_gas) in fee_history.base_fee_per_gas.iter().enumerate() {
-            //break at last iteration as that will return next block gas_fee
+            //break at last iteration as that will return after to last block gas_fee
             if _pos == block_count as usize{
                 continue;
             }
             
-            //Mental model for why one is added below: if we use this query with parameter block_count = 1, it will return information for last_block and the next one
-            let block_to_check = request_latest_block - block_count + 1 +_pos as u64;
+            //start from oldest block and validate the gas fee returned with helios' view
+            let block_to_check =  (fee_history.oldest_block + _pos as u64).as_u64();
             let payload = payloads.get(&block_to_check);
 
+            //Because of filtering done earlier in the function, there should be no block that we don't find in the payload
             if payload.is_none() {
                 return Ok(None);
             }
