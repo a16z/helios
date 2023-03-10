@@ -3,6 +3,8 @@ name: benchmarks
 on:
   push:
     branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 env:
   MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
