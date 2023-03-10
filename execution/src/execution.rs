@@ -354,8 +354,10 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         reward_percentiles: &[f64],
         payloads: &BTreeMap<u64, ExecutionPayload>,
     ) -> Result<Option<FeeHistory>> {
-        let helios_latest_block = *payloads.last_key_value().unwrap().0;
-        let helios_oldest_block = *payloads.first_key_value().unwrap().0;
+        let helios_latest_block = *payloads.last_key_value();
+        let helios_latest_block = helios_latest_block.ok_or(BlockNotFoundError::new(BlockTag::Latest))?.0;
+        let helios_oldest_block = *payloads.first_key_value();
+        let helios_oldest_block = helios_oldest_block.ok_or(BlockNotFoundError::new(BlockTag::Number(0)))?.0;
         let mut block_count = block_count;
         let mut request_latest_block = last_block;
 
