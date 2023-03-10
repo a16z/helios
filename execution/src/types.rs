@@ -64,7 +64,7 @@ pub enum Transactions {
 #[serde(rename_all = "camelCase")]
 pub struct CallOpts {
     pub from: Option<Address>,
-    pub to: Address,
+    pub to: Option<Address>,
     pub gas: Option<U256>,
     pub gas_price: Option<U256>,
     pub value: Option<U256>,
@@ -90,7 +90,7 @@ where
     let bytes: Option<String> = serde::Deserialize::deserialize(deserializer)?;
     match bytes {
         Some(bytes) => {
-            let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
+            let bytes = hex::decode(bytes.strip_prefix("0x").unwrap_or("")).unwrap_or_default();
             Ok(Some(bytes.to_vec()))
         }
         None => Ok(None),

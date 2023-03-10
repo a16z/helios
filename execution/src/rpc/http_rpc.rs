@@ -63,7 +63,7 @@ impl ExecutionRpc for HttpRpc {
         let block = Some(BlockId::from(block));
 
         let mut raw_tx = Eip1559TransactionRequest::new();
-        raw_tx.to = Some(opts.to.into());
+        raw_tx.to = Some(opts.to.unwrap_or_default().into());
         raw_tx.from = opts.from;
         raw_tx.value = opts.value;
         raw_tx.gas = Some(opts.gas.unwrap_or(U256::from(100_000_000)));

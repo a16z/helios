@@ -131,7 +131,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let to_access_entry = AccessListItem {
-            address: opts_moved.to,
+            address: opts_moved.to.unwrap_or_default(),
             storage_keys: Vec::default(),
         };
 
@@ -172,7 +172,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let mut env = Env::default();
         let payload = &self.evm.db.as_ref().unwrap().current_payload;
 
-        env.tx.transact_to = TransactTo::Call(opts.to);
+        env.tx.transact_to = TransactTo::Call(opts.to.unwrap_or_default());
         env.tx.caller = opts.from.unwrap_or(Address::zero());
         env.tx.value = opts.value.unwrap_or(U256::from(0));
         env.tx.data = Bytes::from(opts.data.clone().unwrap_or_default());
