@@ -21,22 +21,20 @@ config = { path = "./config" }
 common = { path = "./common" }
 consensus = { path = "./consensus" }
 execution = { path = "./execution" }
+serde = { version = "1.0.154", features = ["derive"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
-home = "0.5.4"
-ethers = "1.0.0"
+dirs = "4.0.0"
+ethers = { version = "1.0.2", features = [ "abigen" ] }
 env_logger = "0.9.0"
 log = "0.4.17"
-tracing-test = "0.2.3"
+tracing-test = "0.2.4"
 criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
-plotters = "0.3.3"
-tempfile = "3.3.0"
+plotters = "0.3.4"
+tempfile = "3.4.0"
 hex = "0.4.3"
-
-[patch.crates-io]
-ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "c17c0c3c956f12d205a5ede3176599d8a30ca739" }
 
 [profile.release]
 strip = true
@@ -64,6 +62,10 @@ path = "examples/client.rs"
 [[example]]
 name = "config"
 path = "examples/config.rs"
+
+[[example]]
+name = "call"
+path = "examples/call.rs"
 
 ######################################
 # Benchmarks
