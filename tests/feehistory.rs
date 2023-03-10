@@ -2,6 +2,7 @@ use env_logger::Env;
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
 use std::{env, path::PathBuf};
+use std::time::Duration;
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
@@ -30,6 +31,9 @@ async fn feehistory() -> Result<()> {
     );
 
     client.start().await?;
+
+    // Wait for syncing
+    std::thread::sleep(Duration::from_secs(5));
 
     // Get inputs for fee_history calls
     let head_block_num = client.get_block_number().await?;

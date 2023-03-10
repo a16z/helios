@@ -257,8 +257,8 @@ impl<DB: Database> Client<DB> {
 
         if let Err(err) = sync_res {
             match err {
-                NodeError::ConsensusSyncError(err) => match err.downcast_ref().unwrap() {
-                    ConsensusError::CheckpointTooOld => {
+                NodeError::ConsensusSyncError(err) => match err.downcast_ref() {
+                    Some(ConsensusError::CheckpointTooOld) => {
                         warn!(
                             "failed to sync consensus node with checkpoint: 0x{}",
                             hex::encode(
