@@ -68,14 +68,15 @@ async fn feehistory() -> Result<()> {
         fee_history.base_fee_per_gas.len()
     );
 
-    //test 10000 block away, Helios will return none
+    //test 10000 block away, Helios will return an error
     let fee_history = client
         .get_fee_history(1, head_block_num - 10_000, &my_array)
-        .await?;
+        .await;
+
     assert!(
-        fee_history.is_none(),
-        "fee_history.is_none() {:?}",
-        fee_history.is_none()
+        fee_history.is_err(),
+        "fee_history() {:?}",
+        fee_history
     );
 
     //test 20 block away, should return array of size 21, our 20 block of interest + the next one
