@@ -8,9 +8,9 @@ async fn feehistory() -> Result<()> {
     //Instantiate Client
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let api_key = env::var("YOUR_API_KEY").expect("Missing API key in environment variables, just run export YOUR_API_KEY='your-api-key-goes-here'");
-    let untrusted_rpc_url = format!("https://eth-mainnet.g.alchemy.com/v2/{}", api_key);
-
+    let api_key = env::var("MAINNET_RPC_URL").expect(
+        "Missing API key environment variable, run export MAINNET_RPC_URL='your-api-key-goes-here'",
+    );
     let checkpoint = "0x4d9b87a319c52e54068b7727a93dd3d52b83f7336ed93707bcdf7b37aefce700";
 
     let consensus_rpc = "https://www.lightclientdata.org";
@@ -19,8 +19,8 @@ async fn feehistory() -> Result<()> {
     let mut client: Client<FileDB> = ClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc(consensus_rpc)
-        .execution_rpc(&untrusted_rpc_url)
-        .checkpoint(&checkpoint)
+        .execution_rpc(&api_key)
+        .checkpoint(checkpoint)
         .load_external_fallback()
         .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
@@ -57,13 +57,12 @@ async fn feehistory() -> Result<()> {
     {
         Some(fee_history) => fee_history,
         None => panic!(
-            "returned empty gas fee, inputs were the following: 
-                       Block amount {:?}, head_block_num {:?}, my_array {:?}",
+            "returned empty gas fee, inputs were the following: Block amount {:?}, head_block_num {:?}, my_array {:?}",
             10_000, head_block_num, &my_array
         ),
     };
     assert!(
-        fee_history.base_fee_per_gas.len() > 0,
+        !fee_history.base_fee_per_gas.is_empty(),
         "fee_history.base_fee_per_gas.len() {:?}",
         fee_history.base_fee_per_gas.len()
     );
@@ -73,11 +72,7 @@ async fn feehistory() -> Result<()> {
         .get_fee_history(1, head_block_num - 10_000, &my_array)
         .await;
 
-    assert!(
-        fee_history.is_err(),
-        "fee_history() {:?}",
-        fee_history
-    );
+    assert!(fee_history.is_err(), "fee_history() {fee_history:?}");
 
     //test 20 block away, should return array of size 21, our 20 block of interest + the next one
     //oldest block should be 19 block away, including it
