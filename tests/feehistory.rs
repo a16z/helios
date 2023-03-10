@@ -1,8 +1,8 @@
 use env_logger::Env;
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
-use std::{env, path::PathBuf};
 use std::time::Duration;
+use std::{env, path::PathBuf};
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
