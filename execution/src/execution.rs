@@ -354,13 +354,17 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         reward_percentiles: &[f64],
         payloads: &BTreeMap<u64, ExecutionPayload>,
     ) -> Result<Option<FeeHistory>> {
-        let helios_latest_block = *payloads.last_key_value();
-        let helios_latest_block = helios_latest_block.ok_or(BlockNotFoundError::new(BlockTag::Latest))?.0;
-        let helios_oldest_block = *payloads.first_key_value();
-        let helios_oldest_block = helios_oldest_block.ok_or(BlockNotFoundError::new(BlockTag::Number(0)))?.0;
+        let helios_latest_block = payloads.last_key_value();
+        let helios_latest_block = *helios_latest_block
+            .ok_or(ExecutionError::EmptyExecutionPayload())?
+            .0;
+        let helios_oldest_block = payloads.first_key_value();
+        let helios_oldest_block = *helios_oldest_block
+            .ok_or(ExecutionError::EmptyExecutionPayload())?
+            .0;
         let mut block_count = block_count;
         let mut request_latest_block = last_block;
-
+        //(I would also allow BlockNotFoundError to accept an optional BlockTag so we can construct an error without knowing the actual block)
         debug!(
             "get_fee_history parameters:
                helios_latest_block {:?}, helios_oldest_block {:?},
@@ -379,7 +383,11 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         //Can't prove anything in the request range
         if request_latest_block < helios_oldest_block {
-            return Ok(None);
+            return Err(ExecutionError::InvalidBlockRange(
+                request_latest_block,
+                helios_latest_block,
+            )
+            .into());
         }
 
         let request_oldest_block = request_latest_block - block_count;
@@ -406,11 +414,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             let payload = payloads.get(&block_to_check);
 
             //Because of filtering done earlier in the function, there should be no block that we don't find in the payload
-            if payload.is_none() {
-                return Ok(None);
-            }
-
-            let payload = payload.unwrap();
+            let payload = payload.ok_or(ExecutionError::EmptyExecutionPayload())?;
 
             let comparable_base_fee_bytes_saved =
                 ethers::types::U256::from_little_endian(&payload.base_fee_per_gas.to_bytes_le());
