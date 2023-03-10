@@ -1,3 +1,4 @@
+use ethers::types::H256;
 use thiserror::Error;
 
 use crate::types::BlockTag;
@@ -11,6 +12,18 @@ pub struct BlockNotFoundError {
 impl BlockNotFoundError {
     pub fn new(block: BlockTag) -> Self {
         Self { block }
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("slot not found: {slot:?}")]
+pub struct SlotNotFoundError {
+    slot: H256,
+}
+
+impl SlotNotFoundError {
+    pub fn new(slot: H256) -> Self {
+        Self { slot }
     }
 }
 
