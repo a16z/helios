@@ -3,7 +3,9 @@ use std::sync::Arc;
 use config::networks::Network;
 use consensus::errors::ConsensusError;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
+use ethers::types::{
+    FeeHistory, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
+};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
@@ -499,6 +501,19 @@ impl<DB: Database> Client<DB> {
 
     pub async fn get_block_number(&self) -> Result<u64> {
         self.node.read().await.get_block_number()
+    }
+
+    pub async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+    ) -> Result<Option<FeeHistory>> {
+        self.node
+            .read()
+            .await
+            .get_fee_history(block_count, last_block, reward_percentiles)
+            .await
     }
 
     pub async fn get_block_by_number(

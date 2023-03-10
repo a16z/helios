@@ -26,6 +26,16 @@ pub enum ExecutionError {
     TooManyLogsToProve(usize, usize),
     #[error("execution rpc is for the incorect network")]
     IncorrectRpcNetwork(),
+    #[error("Invalid base gas fee helios {0} vs rpc endpoint {1} at block {2}")]
+    InvalidBaseGaseFee(U256, U256, u64),
+    #[error("Invalid gas used ratio of helios {0} vs rpc endpoint {1} at block {2}")]
+    InvalidGasUsedRatio(f64, f64, u64),
+    #[error("Block {0} not found")]
+    BlockNotFoundError(u64),
+    #[error("Helios Execution Payload is empty")]
+    EmptyExecutionPayload(),
+    #[error("User query for block {0} but helios oldest block is {1}")]
+    InvalidBlockRange(u64, u64),
 }
 
 /// Errors that can occur during evm.rs calls
