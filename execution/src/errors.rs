@@ -28,7 +28,7 @@ pub enum ExecutionError {
     IncorrectRpcNetwork(),
     #[error("Invalid base gas fee helios {0} vs rpc endpoint {1} at block {2}")]
     InvalidBaseGaseFee(U256, U256, u64),
-    #[error("Invalid gas ratio of helios {0} vs rpc endpoint {1} at block {2}")]
+    #[error("Invalid gas used ratio of helios {0} vs rpc endpoint {1} at block {2}")]
     InvalidGasUsedRatio(f64, f64, u64),
 }
 
