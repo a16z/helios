@@ -48,7 +48,14 @@ pub fn bench_goerli_get_balance(c: &mut Criterion) {
             .unwrap();
 
         // Construct a goerli client using our harness and tokio runtime.
-        let client = std::sync::Arc::new(harness::construct_goerli_client(&rt).unwrap());
+        let gc = match harness::construct_goerli_client(&rt) {
+            Ok(gc) => gc,
+            Err(e) => {
+                println!("failed to construct goerli client: {}", e);
+                std::process::exit(1);
+            }
+        };
+        let client = std::sync::Arc::new(gc);
 
         // Get the beacon chain deposit contract address.
         let addr = Address::from_str("0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6").unwrap();
