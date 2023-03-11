@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "master" ]
 
+env:
+  MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+  GOERLI_RPC_URL: ${{ secrets.GOERLI_RPC_URL }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
