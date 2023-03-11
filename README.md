@@ -191,7 +191,7 @@ Benchmarks are defined in the [benches](./benches/) subdirectory. They are built
 
 To run all benchmarks, you can use `cargo bench`. To run a specific benchmark, you can use `cargo bench --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](./Cargo.toml) file under a `[[bench]]` section.
 
-To dive deeper into [helios](https://github.com/a16z/helios) performance, visit the [benchmark docs](./benches.md).
+To learn more about [helios](https://github.com/a16z/helios) benchmarking and to view benchmark flamegraphs, view the [benchmark readme](./benches/README.md).
 
 
 ## Contributing
