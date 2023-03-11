@@ -6,17 +6,19 @@ use std::{
 };
 
 use bytes::Bytes;
-use common::{errors::BlockNotFoundError, types::BlockTag};
+use common::{
+    errors::{BlockNotFoundError, SlotNotFoundError},
+    types::BlockTag,
+};
 use ethers::{
     abi::ethereum_types::BigEndianHash,
-    prelude::{Address, H160, H256, U256},
     types::transaction::eip2930::AccessListItem,
+    types::{Address, H160, H256, U256},
 };
 use eyre::{Report, Result};
-use futures::future::join_all;
+use futures::{executor::block_on, future::join_all};
 use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
-use tokio::runtime::Runtime;
 
 use consensus::types::ExecutionPayload;
 
@@ -60,7 +62,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
                 _ => Err(EvmError::Revert(None)),
             },
-            revm::Return::Return => {
+            revm::Return::Return | revm::Return::Stop => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
@@ -88,7 +90,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
                 TransactOut::Call(bytes) => Err(EvmError::Revert(Some(bytes))),
                 _ => Err(EvmError::Revert(None)),
             },
-            revm::Return::Return => {
+            revm::Return::Return | revm::Return::Stop => {
                 if let Some(err) = &self.evm.db.as_ref().unwrap().error {
                     return Err(EvmError::Generic(err.clone()));
                 }
@@ -132,7 +134,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let to_access_entry = AccessListItem {
-            address: opts_moved.to,
+            address: opts_moved.to.unwrap_or_default(),
             storage_keys: Vec::default(),
         };
 
@@ -173,10 +175,10 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let mut env = Env::default();
         let payload = &self.evm.db.as_ref().unwrap().current_payload;
 
-        env.tx.transact_to = TransactTo::Call(opts.to);
+        env.tx.transact_to = TransactTo::Call(opts.to.unwrap_or_default());
         env.tx.caller = opts.from.unwrap_or(Address::zero());
         env.tx.value = opts.value.unwrap_or(U256::from(0));
-        env.tx.data = Bytes::from(opts.data.clone().unwrap_or(vec![]));
+        env.tx.data = Bytes::from(opts.data.clone().unwrap_or_default());
         env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
         env.tx.gas_price = opts.gas_price.unwrap_or(U256::zero());
 
@@ -225,8 +227,7 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
 
         let handle = thread::spawn(move || {
             let account_fut = execution.get_account(&address, Some(&slots), &payload);
-            let runtime = Runtime::new()?;
-            runtime.block_on(account_fut)
+            block_on(account_fut)
         });
 
         handle.join().unwrap()
@@ -242,7 +243,7 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
         }
 
         trace!(
-            "fetch basic evm state for addess=0x{}",
+            "fetch basic evm state for address=0x{}",
             hex::encode(address.as_bytes())
         );
 
@@ -269,11 +270,7 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
     }
 
     fn storage(&mut self, address: H160, slot: U256) -> Result<U256, Report> {
-        trace!(
-            "fetch evm state for address=0x{}, slot={}",
-            hex::encode(address.as_bytes()),
-            slot
-        );
+        trace!("fetch evm state for address={:?}, slot={}", address, slot);
 
         let slot = H256::from_uint(&slot);
 
@@ -284,13 +281,13 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
                     .get_account(address, &[slot])?
                     .slots
                     .get(&slot)
-                    .unwrap(),
+                    .ok_or(SlotNotFoundError::new(slot))?,
             },
             None => *self
                 .get_account(address, &[slot])?
                 .slots
                 .get(&slot)
-                .unwrap(),
+                .ok_or(SlotNotFoundError::new(slot))?,
         })
     }
 
@@ -302,4 +299,60 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
 fn is_precompile(address: &Address) -> bool {
     address.le(&Address::from_str("0x0000000000000000000000000000000000000009").unwrap())
         && address.gt(&Address::zero())
+}
+
+#[cfg(test)]
+mod tests {
+    use common::utils::hex_str_to_bytes;
+    use ssz_rs::Vector;
+
+    use crate::rpc::mock_rpc::MockRpc;
+
+    use super::*;
+
+    fn get_client() -> ExecutionClient<MockRpc> {
+        ExecutionClient::new("testdata/").unwrap()
+    }
+
+    #[test]
+    fn test_proof_db() {
+        // Construct proofdb params
+        let execution = get_client();
+        let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
+        let payload = ExecutionPayload {
+            state_root: Vector::from_iter(
+                hex_str_to_bytes(
+                    "0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d",
+                )
+                .unwrap(),
+            ),
+            ..ExecutionPayload::default()
+        };
+        let mut payloads = BTreeMap::new();
+        payloads.insert(7530933, payload.clone());
+
+        // Construct the proof database with the given client and payloads
+        let mut proof_db = ProofDB::new(Arc::new(execution), &payload, &payloads);
+
+        // Set the proof db accounts
+        let slot = U256::from(1337);
+        let mut accounts = HashMap::new();
+        let account = Account {
+            balance: U256::from(100),
+            code: hex_str_to_bytes("0x").unwrap(),
+            ..Default::default()
+        };
+        accounts.insert(address, account);
+        proof_db.set_accounts(accounts);
+
+        // Get the account from the proof database
+        let storage_proof = proof_db.storage(address, slot);
+
+        // Check that the storage proof correctly returns a slot not found error
+        let expected_err: eyre::Report = SlotNotFoundError::new(H256::from_uint(&slot)).into();
+        assert_eq!(
+            expected_err.to_string(),
+            storage_proof.unwrap_err().to_string()
+        );
+    }
 }

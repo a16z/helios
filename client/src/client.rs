@@ -1,22 +1,37 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::networks::Network;
+use consensus::errors::ConsensusError;
 use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::types::{
+    FeeHistory, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
+};
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
 use execution::types::{CallOpts, ExecutionBlock};
-use log::{info, warn};
-use tokio::spawn;
+use log::{error, info, warn};
 use tokio::sync::RwLock;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::spawn;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::time::sleep;
 
-use crate::database::{Database, FileDB};
+#[cfg(target_arch = "wasm32")]
+use gloo_timers::callback::Interval;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::spawn_local;
+
+use crate::database::Database;
+use crate::errors::NodeError;
 use crate::node::Node;
+
+#[cfg(not(target_arch = "wasm32"))]
 use crate::rpc::Rpc;
 
 #[derive(Default)]
@@ -25,11 +40,14 @@ pub struct ClientBuilder {
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
     checkpoint: Option<Vec<u8>>,
+    #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
+    #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
     fallback: Option<String>,
     load_external_fallback: bool,
+    strict_checkpoint_age: bool,
 }
 
 impl ClientBuilder {
@@ -59,11 +77,13 @@ impl ClientBuilder {
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn rpc_port(mut self, port: u16) -> Self {
         self.rpc_port = Some(port);
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn data_dir(mut self, data_dir: PathBuf) -> Self {
         self.data_dir = Some(data_dir);
         self
@@ -84,7 +104,12 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Client<FileDB>> {
+    pub fn strict_checkpoint_age(mut self) -> Self {
+        self.strict_checkpoint_age = true;
+        self
+    }
+
+    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -112,13 +137,20 @@ impl ClientBuilder {
         });
 
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
-            checkpoint
+            Some(checkpoint)
         } else if let Some(config) = &self.config {
             config.checkpoint.clone()
         } else {
-            base_config.checkpoint
+            None
         };
 
+        let default_checkpoint = if let Some(config) = &self.config {
+            config.default_checkpoint.clone()
+        } else {
+            base_config.default_checkpoint.clone()
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
         let rpc_port = if self.rpc_port.is_some() {
             self.rpc_port
         } else if let Some(config) = &self.config {
@@ -127,6 +159,7 @@ impl ClientBuilder {
             None
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let data_dir = if self.data_dir.is_some() {
             self.data_dir
         } else if let Some(config) = &self.config {
@@ -149,17 +182,31 @@ impl ClientBuilder {
             self.load_external_fallback
         };
 
+        let strict_checkpoint_age = if let Some(config) = &self.config {
+            self.strict_checkpoint_age || config.strict_checkpoint_age
+        } else {
+            self.strict_checkpoint_age
+        };
+
         let config = Config {
             consensus_rpc,
             execution_rpc,
             checkpoint,
+            default_checkpoint,
+            #[cfg(not(target_arch = "wasm32"))]
             rpc_port,
+            #[cfg(target_arch = "wasm32")]
+            rpc_port: None,
+            #[cfg(not(target_arch = "wasm32"))]
             data_dir,
+            #[cfg(target_arch = "wasm32")]
+            data_dir: None,
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
             fallback,
             load_external_fallback,
+            strict_checkpoint_age,
         };
 
         Client::new(config)
@@ -168,52 +215,84 @@ impl ClientBuilder {
 
 pub struct Client<DB: Database> {
     node: Arc<RwLock<Node>>,
+    #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
-    db: Option<DB>,
+    db: DB,
     fallback: Option<String>,
     load_external_fallback: bool,
 }
 
-impl Client<FileDB> {
-    fn new(config: Config) -> Result<Self> {
+impl<DB: Database> Client<DB> {
+    fn new(mut config: Config) -> Result<Self> {
+        let db = DB::new(&config)?;
+        if config.checkpoint.is_none() {
+            let checkpoint = db.load_checkpoint()?;
+            config.checkpoint = Some(checkpoint);
+        }
+
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
 
+        #[cfg(not(target_arch = "wasm32"))]
         let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
-
-        let data_dir = config.data_dir.clone();
-        let db = data_dir.map(FileDB::new);
 
         Ok(Client {
             node,
+            #[cfg(not(target_arch = "wasm32"))]
             rpc,
             db,
             fallback: config.fallback.clone(),
             load_external_fallback: config.load_external_fallback,
         })
     }
-}
 
-impl<DB: Database> Client<DB> {
     pub async fn start(&mut self) -> Result<()> {
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(rpc) = &mut self.rpc {
             rpc.start().await?;
         }
 
-        if self.node.write().await.sync().await.is_err() {
-            warn!(
-                "failed to sync consensus node with checkpoint: 0x{}",
-                hex::encode(&self.node.read().await.config.checkpoint),
-            );
-            let fallback = self.boot_from_fallback().await;
-            if fallback.is_err() && self.load_external_fallback {
-                self.boot_from_external_fallbacks().await?
-            } else if fallback.is_err() {
-                return Err(eyre::eyre!("Checkpoint is too old. Please update your checkpoint. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENED). See https://github.com/a16z/helios#additional-options for more information."));
+        let sync_res = self.node.write().await.sync().await;
+
+        if let Err(err) = sync_res {
+            match err {
+                NodeError::ConsensusSyncError(err) => match err.downcast_ref() {
+                    Some(ConsensusError::CheckpointTooOld) => {
+                        warn!(
+                            "failed to sync consensus node with checkpoint: 0x{}",
+                            hex::encode(
+                                self.node
+                                    .read()
+                                    .await
+                                    .config
+                                    .checkpoint
+                                    .clone()
+                                    .unwrap_or_default()
+                            ),
+                        );
+
+                        let fallback = self.boot_from_fallback().await;
+                        if fallback.is_err() && self.load_external_fallback {
+                            self.boot_from_external_fallbacks().await?
+                        } else if fallback.is_err() {
+                            error!("Invalid checkpoint. Please update your checkpoint too a more recent block. Alternatively, set an explicit checkpoint fallback service url with the `-f` flag or use the configured external fallback services with `-l` (NOT RECOMMENDED). See https://github.com/a16z/helios#additional-options for more information.");
+                            return Err(err);
+                        }
+                    }
+                    _ => return Err(err),
+                },
+                _ => return Err(err.into()),
             }
         }
 
+        self.start_advance_thread();
+
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn start_advance_thread(&self) {
         let node = self.node.clone();
         spawn(async move {
             loop {
@@ -223,11 +302,25 @@ impl<DB: Database> Client<DB> {
                 }
 
                 let next_update = node.read().await.duration_until_next_update();
+
                 sleep(next_update).await;
             }
         });
+    }
 
-        Ok(())
+    #[cfg(target_arch = "wasm32")]
+    fn start_advance_thread(&self) {
+        let node = self.node.clone();
+        Interval::new(12000, move || {
+            let node = node.clone();
+            spawn_local(async move {
+                let res = node.write().await.advance().await;
+                if let Err(err) = res {
+                    warn!("consensus error: {}", err);
+                }
+            });
+        })
+        .forget();
     }
 
     async fn boot_from_fallback(&self) -> eyre::Result<()> {
@@ -308,8 +401,8 @@ impl<DB: Database> Client<DB> {
         };
 
         info!("saving last checkpoint hash");
-        let res = self.db.as_ref().map(|db| db.save_checkpoint(checkpoint));
-        if res.is_some() && res.unwrap().is_err() {
+        let res = self.db.save_checkpoint(checkpoint);
+        if res.is_err() {
             warn!("checkpoint save failed");
         }
     }
@@ -338,6 +431,20 @@ impl<DB: Database> Client<DB> {
 
     pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
         self.node.read().await.get_nonce(address, block).await
+    }
+
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
+        self.node
+            .read()
+            .await
+            .get_block_transaction_count_by_hash(hash)
+    }
+
+    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
+        self.node
+            .read()
+            .await
+            .get_block_transaction_count_by_number(block)
     }
 
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
@@ -396,6 +503,19 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_block_number()
     }
 
+    pub async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+    ) -> Result<Option<FeeHistory>> {
+        self.node
+            .read()
+            .await
+            .get_fee_history(block_count, last_block, reward_percentiles)
+            .await
+    }
+
     pub async fn get_block_by_number(
         &self,
         block: BlockTag,
@@ -420,11 +540,31 @@ impl<DB: Database> Client<DB> {
             .await
     }
 
+    pub async fn get_transaction_by_block_hash_and_index(
+        &self,
+        block_hash: &Vec<u8>,
+        index: usize,
+    ) -> Result<Option<Transaction>> {
+        self.node
+            .read()
+            .await
+            .get_transaction_by_block_hash_and_index(block_hash, index)
+            .await
+    }
+
     pub async fn chain_id(&self) -> u64 {
         self.node.read().await.chain_id()
     }
 
+    pub async fn syncing(&self) -> Result<SyncingStatus> {
+        self.node.read().await.syncing()
+    }
+
     pub async fn get_header(&self) -> Result<Header> {
         self.node.read().await.get_header()
+    }
+
+    pub async fn get_coinbase(&self) -> Result<Address> {
+        self.node.read().await.get_coinbase()
     }
 }

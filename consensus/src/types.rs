@@ -188,6 +188,7 @@ pub struct Eth1Data {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Bootstrap {
+    #[serde(deserialize_with = "header_deserialize")]
     pub header: Header,
     pub current_sync_committee: SyncCommittee,
     #[serde(deserialize_with = "branch_deserialize")]
@@ -196,10 +197,12 @@ pub struct Bootstrap {
 
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Update {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
     pub next_sync_committee: SyncCommittee,
     #[serde(deserialize_with = "branch_deserialize")]
     pub next_sync_committee_branch: Vec<Bytes32>,
+    #[serde(deserialize_with = "header_deserialize")]
     pub finalized_header: Header,
     #[serde(deserialize_with = "branch_deserialize")]
     pub finality_branch: Vec<Bytes32>,
@@ -210,7 +213,9 @@ pub struct Update {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct FinalityUpdate {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
+    #[serde(deserialize_with = "header_deserialize")]
     pub finalized_header: Header,
     #[serde(deserialize_with = "branch_deserialize")]
     pub finality_branch: Vec<Bytes32>,
@@ -221,6 +226,7 @@ pub struct FinalityUpdate {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct OptimisticUpdate {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
     #[serde(deserialize_with = "u64_deserialize")]
@@ -370,7 +376,7 @@ where
         .map_err(D::Error::custom)
 }
 
-fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+pub fn u64_deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -452,4 +458,28 @@ where
         .collect::<List<u64, 2048>>();
 
     Ok(attesting_indices)
+}
+
+fn header_deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let header: LightClientHeader = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(match header {
+        LightClientHeader::Unwrapped(header) => header,
+        LightClientHeader::Wrapped(header) => header.beacon,
+    })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum LightClientHeader {
+    Unwrapped(Header),
+    Wrapped(Beacon),
+}
+
+#[derive(serde::Deserialize)]
+struct Beacon {
+    beacon: Header,
 }

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+  </head>
+  <body>
+    <script src="./dist/lib.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script>
+      const config = {
+        executionRpc:"http://localhost:9001/proxy", 
+        consensusRpc: "http://localhost:9002/proxy",
+        checkpoint: "0x372342db81e3a42527e08dc19e33cd4f91f440f45b9ddb0a9865d407eceb08e4",
+      };
+
+      helios.createHeliosProvider(config).then(heliosProvider => {
+        heliosProvider.sync().then(() => {
+          window.provider = new ethers.providers.Web3Provider(heliosProvider);
+        });
+      });
+    </script>
+  </body>
+</html>

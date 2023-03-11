@@ -1,12 +1,13 @@
 use std::cmp;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
 
-use blst::min_pk::PublicKey;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
+use futures::future::join_all;
+use log::warn;
 use log::{debug, info};
+use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 
 use common::types::*;
@@ -20,9 +21,20 @@ use super::rpc::ConsensusRpc;
 use super::types::*;
 use super::utils::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::SystemTime;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::UNIX_EPOCH;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_timer::SystemTime;
+#[cfg(target_arch = "wasm32")]
+use wasm_timer::UNIX_EPOCH;
+
 // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
 // does not implement force updates
 
+#[derive(Debug)]
 pub struct ConsensusClient<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
@@ -58,6 +70,16 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         })
     }
 
+    pub async fn check_rpc(&self) -> Result<()> {
+        let chain_id = self.rpc.chain_id().await?;
+
+        if chain_id != self.config.chain.chain_id {
+            Err(ConsensusError::IncorrectRpcNetwork.into())
+        } else {
+            Ok(())
+        }
+    }
+
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot);
         let mut block = self.rpc.get_block(slot).await?;
@@ -85,6 +107,43 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
     }
 
+    pub async fn get_payloads(
+        &self,
+        start_slot: u64,
+        end_slot: u64,
+    ) -> Result<Vec<ExecutionPayload>> {
+        let payloads_fut = (start_slot..end_slot)
+            .rev()
+            .map(|slot| self.rpc.get_block(slot));
+        let mut prev_parent_hash: Bytes32 = self
+            .rpc
+            .get_block(end_slot)
+            .await?
+            .body
+            .execution_payload
+            .parent_hash;
+        let mut payloads: Vec<ExecutionPayload> = Vec::new();
+        for result in join_all(payloads_fut).await {
+            if result.is_err() {
+                continue;
+            }
+            let payload = result.unwrap().body.execution_payload;
+            if payload.block_hash != prev_parent_hash {
+                warn!(
+                    "error while backfilling blocks: {}",
+                    ConsensusError::InvalidHeaderHash(
+                        format!("{prev_parent_hash:02X?}"),
+                        format!("{:02X?}", payload.parent_hash),
+                    )
+                );
+                break;
+            }
+            prev_parent_hash = payload.parent_hash.clone();
+            payloads.push(payload);
+        }
+        Ok(payloads)
+    }
+
     pub fn get_header(&self) -> &Header {
         &self.store.optimistic_header
     }
@@ -94,10 +153,6 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn sync(&mut self) -> Result<()> {
-        info!(
-            "Consensus client in sync with checkpoint: 0x{}",
-            hex::encode(&self.initial_checkpoint)
-        );
         self.bootstrap().await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot);
@@ -118,6 +173,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let optimistic_update = self.rpc.get_optimistic_update().await?;
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
+
+        info!(
+            "consensus client in sync with checkpoint: 0x{}",
+            hex::encode(&self.initial_checkpoint)
+        );
 
         Ok(())
     }
@@ -158,8 +218,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
 
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
+
         if !is_valid {
-            return Err(ConsensusError::CheckpointTooOld.into());
+            if self.config.strict_checkpoint_age {
+                return Err(ConsensusError::CheckpointTooOld.into());
+            } else {
+                warn!("checkpoint too old, consider using a more recent block");
+            }
         }
 
         let committee_valid = is_current_committee_proof_valid(
@@ -463,18 +528,13 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     fn age(&self, slot: u64) -> Duration {
         let expected_time = self.slot_timestamp(slot);
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
         chrono::Duration::from_std(delay).unwrap()
     }
 
     pub fn expected_current_slot(&self) -> u64 {
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap();
-
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let genesis_time = self.config.chain.genesis_time;
         let since_genesis = now - std::time::Duration::from_secs(genesis_time);
 
@@ -492,7 +552,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let next_slot = current_slot + 1;
         let next_slot_timestamp = self.slot_timestamp(next_slot);
 
-        let now = std::time::SystemTime::now()
+        let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
@@ -523,7 +583,7 @@ fn get_participating_keys(
     bitfield.iter().enumerate().for_each(|(i, bit)| {
         if bit == true {
             let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes(pk).unwrap();
+            let pk = PublicKey::from_bytes_unchecked(pk).unwrap();
             pks.push(pk);
         }
     });
@@ -594,14 +654,14 @@ mod tests {
     };
     use config::{networks, Config};
 
-    async fn get_client(large_checkpoint_age: bool) -> ConsensusClient<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool) -> ConsensusClient<MockRpc> {
         let base_config = networks::goerli();
         let config = Config {
             consensus_rpc: String::new(),
             execution_rpc: String::new(),
             chain: base_config.chain,
             forks: base_config.forks,
-            max_checkpoint_age: if large_checkpoint_age { 123123123 } else { 123 },
+            strict_checkpoint_age,
             ..Default::default()
         };
 
@@ -616,7 +676,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -630,7 +690,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update_invalid_committee() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -650,7 +710,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update_invalid_finality() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -670,7 +730,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update_invalid_sig() {
-        let client = get_client(true).await;
+        let client = get_client(false).await;
         let period = calc_sync_period(client.store.finalized_header.slot);
         let updates = client
             .rpc
@@ -690,7 +750,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_finality() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let update = client.rpc.get_finality_update().await.unwrap();
@@ -700,7 +760,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_finality_invalid_finality() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
@@ -715,7 +775,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_finality_invalid_sig() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
@@ -730,7 +790,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_optimistic() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let update = client.rpc.get_optimistic_update().await.unwrap();
@@ -739,7 +799,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_optimistic_invalid_sig() {
-        let mut client = get_client(true).await;
+        let mut client = get_client(false).await;
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_optimistic_update().await.unwrap();
@@ -755,6 +815,6 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_verify_checkpoint_age_invalid() {
-        get_client(false).await;
+        get_client(true).await;
     }
 }

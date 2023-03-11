@@ -51,16 +51,18 @@
 //! Errors used across helios.
 
 pub mod client {
-    pub use client::{database::FileDB, Client, ClientBuilder};
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use client::database::FileDB;
+    pub use client::{database::ConfigDB, Client, ClientBuilder};
 }
 
 pub mod config {
-    pub use config::{networks, Config};
+    pub use config::{checkpoints, networks, Config};
 }
 
 pub mod types {
     pub use common::types::BlockTag;
-    pub use execution::types::CallOpts;
+    pub use execution::types::{Account, CallOpts, ExecutionBlock, Transactions};
 }
 
 pub mod errors {

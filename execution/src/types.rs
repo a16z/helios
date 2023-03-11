@@ -19,7 +19,7 @@ pub struct Account {
     pub slots: HashMap<H256, U256>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionBlock {
     #[serde(serialize_with = "serialize_u64_string")]
@@ -54,17 +54,17 @@ pub struct ExecutionBlock {
     pub uncles: Vec<H256>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum Transactions {
     Hashes(Vec<H256>),
     Full(Vec<Transaction>),
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CallOpts {
     pub from: Option<Address>,
-    pub to: Address,
+    pub to: Option<Address>,
     pub gas: Option<U256>,
     pub gas_price: Option<U256>,
     pub value: Option<U256>,
@@ -90,7 +90,7 @@ where
     let bytes: Option<String> = serde::Deserialize::deserialize(deserializer)?;
     match bytes {
         Some(bytes) => {
-            let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
+            let bytes = hex::decode(bytes.strip_prefix("0x").unwrap_or("")).unwrap_or_default();
             Ok(Some(bytes.to_vec()))
         }
         None => Ok(None),
