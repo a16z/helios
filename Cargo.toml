@@ -3,6 +3,9 @@ name = "helios"
 version = "0.2.0"
 edition = "2021"
 autobenches = false
+exclude = [
+    "benches"
+]
 
 [workspace]
 members = [
@@ -14,6 +17,9 @@ members = [
     "execution",
     "helios-ts",
 ]
+
+[profile.bench]
+debug = true
 
 [dependencies]
 client = { path = "./client" }
