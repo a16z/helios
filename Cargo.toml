@@ -17,6 +17,7 @@ members = [
     "execution",
     "helios-ts",
 ]
+default-members = ["cli"]
 
 [profile.bench]
 debug = true

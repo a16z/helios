@@ -80,6 +80,8 @@ fn get_config() -> Config {
 }
 
 #[derive(Parser)]
+#[clap(version, about)]
+/// Helios is a fast, secure, and portable light client for Ethereum
 struct Cli {
     #[clap(short, long, default_value = "mainnet")]
     network: String,
