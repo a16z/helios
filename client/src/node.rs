@@ -367,7 +367,7 @@ impl Node {
     pub fn get_coinbase(&self) -> Result<Address> {
         self.check_head_age()?;
         let payload = self.get_payload(BlockTag::Latest)?;
-        let coinbase_address = Address::from_slice(&payload.fee_recipient());
+        let coinbase_address = Address::from_slice(payload.fee_recipient());
         Ok(coinbase_address)
     }
 
