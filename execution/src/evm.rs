@@ -111,7 +111,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         let rpc = db.execution.rpc.clone();
         let payload = db.current_payload.clone();
         let execution = db.execution.clone();
-        let block = db.current_payload.block_number;
+        let block = *db.current_payload.block_number();
 
         let opts_moved = CallOpts {
             from: opts.from,
@@ -139,7 +139,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let producer_account = AccessListItem {
-            address: Address::from_slice(&payload.fee_recipient),
+            address: Address::from_slice(&payload.fee_recipient()),
             storage_keys: Vec::default(),
         };
 
@@ -182,10 +182,10 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
         env.tx.gas_price = opts.gas_price.unwrap_or(U256::zero());
 
-        env.block.number = U256::from(payload.block_number);
-        env.block.coinbase = Address::from_slice(&payload.fee_recipient);
-        env.block.timestamp = U256::from(payload.timestamp);
-        env.block.difficulty = U256::from_little_endian(&payload.prev_randao);
+        env.block.number = U256::from(*payload.block_number());
+        env.block.coinbase = Address::from_slice(&payload.fee_recipient());
+        env.block.timestamp = U256::from(*payload.timestamp());
+        env.block.difficulty = U256::from_little_endian(&payload.prev_randao());
 
         env.cfg.chain_id = self.chain_id.into();
 
@@ -266,7 +266,7 @@ impl<'a, R: ExecutionRpc> Database for ProofDB<'a, R> {
             .payloads
             .get(&number)
             .ok_or(BlockNotFoundError::new(BlockTag::Number(number)))?;
-        Ok(H256::from_slice(&payload.block_hash))
+        Ok(H256::from_slice(&payload.block_hash()))
     }
 
     fn storage(&mut self, address: H160, slot: U256) -> Result<U256, Report> {
@@ -304,6 +304,7 @@ fn is_precompile(address: &Address) -> bool {
 #[cfg(test)]
 mod tests {
     use common::utils::hex_str_to_bytes;
+    use consensus::types::ExecutionPayloadBellatrix;
     use ssz_rs::Vector;
 
     use crate::rpc::mock_rpc::MockRpc;
@@ -319,15 +320,16 @@ mod tests {
         // Construct proofdb params
         let execution = get_client();
         let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
-        let payload = ExecutionPayload {
+        let payload = ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix {
             state_root: Vector::from_iter(
                 hex_str_to_bytes(
                     "0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d",
                 )
                 .unwrap(),
             ),
-            ..ExecutionPayload::default()
-        };
+            ..ExecutionPayloadBellatrix::default()
+        });
+
         let mut payloads = BTreeMap::new();
         payloads.insert(7530933, payload.clone());
 
