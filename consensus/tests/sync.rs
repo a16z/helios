@@ -38,5 +38,5 @@ async fn test_get_payload() {
     client.sync().await.unwrap();
 
     let payload = client.get_execution_payload(&None).await.unwrap();
-    assert_eq!(payload.block_number, 7530932);
+    assert_eq!(*payload.block_number(), 7530932);
 }

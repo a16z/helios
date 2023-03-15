@@ -73,7 +73,9 @@ impl Config {
     pub fn fork_version(&self, slot: u64) -> Vec<u8> {
         let epoch = slot / 32;
 
-        if epoch >= self.forks.bellatrix.epoch {
+        if epoch >= self.forks.capella.epoch {
+            self.forks.capella.fork_version.clone()
+        } else if epoch >= self.forks.bellatrix.epoch {
             self.forks.bellatrix.fork_version.clone()
         } else if epoch >= self.forks.altair.epoch {
             self.forks.altair.fork_version.clone()

@@ -4,6 +4,7 @@ use ssz_rs::prelude::*;
 
 use common::types::Bytes32;
 use common::utils::hex_str_to_bytes;
+use superstruct::superstruct;
 
 pub type BLSPubKey = Vector<u8, 48>;
 pub type SignatureBytes = Vector<u8, 96>;
@@ -24,7 +25,15 @@ pub struct BeaconBlock {
     pub body: BeaconBlockBody,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[superstruct(
+    variants(Bellatrix, Capella),
+    variant_attributes(
+        derive(serde::Deserialize, Clone, Debug, SimpleSerialize, Default),
+        serde(deny_unknown_fields)
+    )
+)]
+#[derive(serde::Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub struct BeaconBlockBody {
     #[serde(deserialize_with = "signature_deserialize")]
     randao_reveal: SignatureBytes,
@@ -38,9 +47,79 @@ pub struct BeaconBlockBody {
     voluntary_exits: List<SignedVoluntaryExit, 16>,
     sync_aggregate: SyncAggregate,
     pub execution_payload: ExecutionPayload,
+    #[superstruct(only(Capella))]
+    bls_to_execution_changes: List<SignedBlsToExecutionChange, 16>,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+impl ssz_rs::Merkleized for BeaconBlockBody {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
+        match self {
+            BeaconBlockBody::Bellatrix(body) => body.hash_tree_root(),
+            BeaconBlockBody::Capella(body) => body.hash_tree_root(),
+        }
+    }
+}
+
+impl ssz_rs::Sized for BeaconBlockBody {
+    fn is_variable_size() -> bool {
+        true
+    }
+
+    fn size_hint() -> usize {
+        0
+    }
+}
+
+impl ssz_rs::Serialize for BeaconBlockBody {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
+        match self {
+            BeaconBlockBody::Bellatrix(body) => body.serialize(buffer),
+            BeaconBlockBody::Capella(body) => body.serialize(buffer),
+        }
+    }
+}
+
+impl ssz_rs::Deserialize for BeaconBlockBody {
+    fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
+    where
+        Self: Sized,
+    {
+        panic!("not implemented");
+    }
+}
+
+#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+pub struct SignedBlsToExecutionChange {
+    message: BlsToExecutionChange,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+pub struct BlsToExecutionChange {
+    #[serde(deserialize_with = "u64_deserialize")]
+    validator_index: u64,
+    #[serde(deserialize_with = "pubkey_deserialize")]
+    from_bls_pubkey: BLSPubKey,
+    #[serde(deserialize_with = "address_deserialize")]
+    to_execution_address: Address,
+}
+
+impl Default for BeaconBlockBody {
+    fn default() -> Self {
+        BeaconBlockBody::Bellatrix(BeaconBlockBodyBellatrix::default())
+    }
+}
+
+#[superstruct(
+    variants(Bellatrix, Capella),
+    variant_attributes(
+        derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone),
+        serde(deny_unknown_fields)
+    )
+)]
+#[derive(serde::Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub struct ExecutionPayload {
     #[serde(deserialize_with = "bytes32_deserialize")]
     pub parent_hash: Bytes32,
@@ -70,10 +149,67 @@ pub struct ExecutionPayload {
     pub block_hash: Bytes32,
     #[serde(deserialize_with = "transactions_deserialize")]
     pub transactions: List<Transaction, 1048576>,
+    #[superstruct(only(Capella))]
+    withdrawals: List<Withdrawal, 16>,
+}
+
+#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+pub struct Withdrawal {
+    #[serde(deserialize_with = "u64_deserialize")]
+    index: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    validator_index: u64,
+    #[serde(deserialize_with = "address_deserialize")]
+    address: Address,
+    #[serde(deserialize_with = "u64_deserialize")]
+    amount: u64,
+}
+
+impl ssz_rs::Merkleized for ExecutionPayload {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
+        match self {
+            ExecutionPayload::Bellatrix(payload) => payload.hash_tree_root(),
+            ExecutionPayload::Capella(payload) => payload.hash_tree_root(),
+        }
+    }
+}
+
+impl ssz_rs::Sized for ExecutionPayload {
+    fn is_variable_size() -> bool {
+        true
+    }
+
+    fn size_hint() -> usize {
+        0
+    }
+}
+
+impl ssz_rs::Serialize for ExecutionPayload {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
+        match self {
+            ExecutionPayload::Bellatrix(payload) => payload.serialize(buffer),
+            ExecutionPayload::Capella(payload) => payload.serialize(buffer),
+        }
+    }
+}
+
+impl ssz_rs::Deserialize for ExecutionPayload {
+    fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
+    where
+        Self: Sized,
+    {
+        panic!("not implemented");
+    }
+}
+
+impl Default for ExecutionPayload {
+    fn default() -> Self {
+        ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix::default())
+    }
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct ProposerSlashing {
+pub struct ProposerSlashing {
     signed_header_1: SignedBeaconBlockHeader,
     signed_header_2: SignedBeaconBlockHeader,
 }
@@ -100,7 +236,7 @@ struct BeaconBlockHeader {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct AttesterSlashing {
+pub struct AttesterSlashing {
     attestation_1: IndexedAttestation,
     attestation_2: IndexedAttestation,
 }
@@ -115,7 +251,7 @@ struct IndexedAttestation {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct Attestation {
+pub struct Attestation {
     aggregation_bits: Bitlist<2048>,
     data: AttestationData,
     #[serde(deserialize_with = "signature_deserialize")]
@@ -143,7 +279,7 @@ struct Checkpoint {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct SignedVoluntaryExit {
+pub struct SignedVoluntaryExit {
     message: VoluntaryExit,
     #[serde(deserialize_with = "signature_deserialize")]
     signature: SignatureBytes,
@@ -158,7 +294,7 @@ struct VoluntaryExit {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct Deposit {
+pub struct Deposit {
     #[serde(deserialize_with = "bytes_vector_deserialize")]
     proof: Vector<Bytes32, 33>,
     data: DepositData,
