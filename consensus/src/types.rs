@@ -32,7 +32,7 @@ pub struct BeaconBlock {
         serde(deny_unknown_fields)
     )
 )]
-#[derive(serde::Deserialize, Debug, Clone, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub struct BeaconBlockBody {
     #[serde(deserialize_with = "signature_deserialize")]
@@ -51,6 +51,43 @@ pub struct BeaconBlockBody {
     bls_to_execution_changes: List<SignedBlsToExecutionChange, 16>,
 }
 
+impl ssz_rs::Merkleized for BeaconBlockBody {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
+        match self {
+            BeaconBlockBody::Bellatrix(body) => body.hash_tree_root(),
+            BeaconBlockBody::Capella(body) => body.hash_tree_root(),
+        }
+    }
+}
+
+impl ssz_rs::Sized for BeaconBlockBody {
+    fn is_variable_size() -> bool {
+        true
+    }
+
+    fn size_hint() -> usize {
+        0
+    }
+}
+
+impl ssz_rs::Serialize for BeaconBlockBody {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
+        match self {
+            BeaconBlockBody::Bellatrix(body) => body.serialize(buffer),
+            BeaconBlockBody::Capella(body) => body.serialize(buffer),
+        }
+    }
+}
+
+impl ssz_rs::Deserialize for BeaconBlockBody {
+    fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
+    where
+        Self: Sized
+    {
+        panic!("not implemented");
+    }
+}
+
 #[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
 pub struct SignedBlsToExecutionChange {
     none: u64,
@@ -66,7 +103,7 @@ impl Default for BeaconBlockBody {
     variants(Bellatrix, Capella),
     variant_attributes(derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone), serde(deny_unknown_fields))
 )]
-#[derive(serde::Deserialize, Debug, SimpleSerialize, Clone)]
+#[derive(serde::Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub struct ExecutionPayload {
     #[serde(deserialize_with = "bytes32_deserialize")]
@@ -97,6 +134,43 @@ pub struct ExecutionPayload {
     pub block_hash: Bytes32,
     #[serde(deserialize_with = "transactions_deserialize")]
     pub transactions: List<Transaction, 1048576>,
+}
+
+impl ssz_rs::Merkleized for ExecutionPayload {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
+        match self {
+            ExecutionPayload::Bellatrix(payload) => payload.hash_tree_root(),
+            ExecutionPayload::Capella(payload) => payload.hash_tree_root(),
+        }
+    }
+}
+
+impl ssz_rs::Sized for ExecutionPayload {
+    fn is_variable_size() -> bool {
+        true
+    }
+
+    fn size_hint() -> usize {
+        0
+    }
+}
+
+impl ssz_rs::Serialize for ExecutionPayload {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
+        match self {
+            ExecutionPayload::Bellatrix(payload) => payload.serialize(buffer),
+            ExecutionPayload::Capella(payload) => payload.serialize(buffer),
+        }
+    }
+}
+
+impl ssz_rs::Deserialize for ExecutionPayload {
+    fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
+    where
+        Self: Sized
+    {
+        panic!("not implemented");
+    }
 }
 
 impl Default for ExecutionPayload {
