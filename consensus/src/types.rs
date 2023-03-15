@@ -82,7 +82,7 @@ impl ssz_rs::Serialize for BeaconBlockBody {
 impl ssz_rs::Deserialize for BeaconBlockBody {
     fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
     where
-        Self: Sized
+        Self: Sized,
     {
         panic!("not implemented");
     }
@@ -90,7 +90,19 @@ impl ssz_rs::Deserialize for BeaconBlockBody {
 
 #[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
 pub struct SignedBlsToExecutionChange {
-    none: u64,
+    message: BlsToExecutionChange,
+    #[serde(deserialize_with = "signature_deserialize")]
+    signature: SignatureBytes,
+}
+
+#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+pub struct BlsToExecutionChange {
+    #[serde(deserialize_with = "u64_deserialize")]
+    validator_index: u64,
+    #[serde(deserialize_with = "pubkey_deserialize")]
+    from_bls_pubkey: BLSPubKey,
+    #[serde(deserialize_with = "address_deserialize")]
+    to_execution_address: Address,
 }
 
 impl Default for BeaconBlockBody {
@@ -101,7 +113,10 @@ impl Default for BeaconBlockBody {
 
 #[superstruct(
     variants(Bellatrix, Capella),
-    variant_attributes(derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone), serde(deny_unknown_fields))
+    variant_attributes(
+        derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone),
+        serde(deny_unknown_fields)
+    )
 )]
 #[derive(serde::Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -134,6 +149,20 @@ pub struct ExecutionPayload {
     pub block_hash: Bytes32,
     #[serde(deserialize_with = "transactions_deserialize")]
     pub transactions: List<Transaction, 1048576>,
+    #[superstruct(only(Capella))]
+    withdrawals: List<Withdrawal, 16>,
+}
+
+#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+pub struct Withdrawal {
+    #[serde(deserialize_with = "u64_deserialize")]
+    index: u64,
+    #[serde(deserialize_with = "u64_deserialize")]
+    validator_index: u64,
+    #[serde(deserialize_with = "address_deserialize")]
+    address: Address,
+    #[serde(deserialize_with = "u64_deserialize")]
+    amount: u64,
 }
 
 impl ssz_rs::Merkleized for ExecutionPayload {
@@ -167,7 +196,7 @@ impl ssz_rs::Serialize for ExecutionPayload {
 impl ssz_rs::Deserialize for ExecutionPayload {
     fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
     where
-        Self: Sized
+        Self: Sized,
     {
         panic!("not implemented");
     }
