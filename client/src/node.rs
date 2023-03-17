@@ -3,13 +3,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+
+use ethers::types::{FeeHistory, Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256};
 use execution::rpc::{ExecutionRpc, WsRpc};
+
 use eyre::{eyre, Result};
 
 use common::errors::BlockNotFoundError;
 use common::types::BlockTag;
 use config::Config;
+
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
@@ -26,13 +29,14 @@ pub struct Node<R: ExecutionRpc> {
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
+    current_slot: Option<u64>,
     pub history_size: usize,
 }
 
 impl Node<WsRpc> {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
-        let checkpoint_hash = &config.checkpoint;
+        let checkpoint_hash = &config.checkpoint.as_ref().unwrap();
         let execution_rpc = &config.execution_rpc;
 
         let consensus = ConsensusClient::new(consensus_rpc, checkpoint_hash, config.clone())
@@ -59,6 +63,7 @@ impl Node<WsRpc> {
             config,
             payloads,
             finalized_payloads,
+            current_slot: None,
             history_size: 64,
         })
     }
@@ -69,10 +74,22 @@ where
     R: ExecutionRpc,
 {
     pub async fn sync(&mut self) -> Result<(), NodeError> {
+        let chain_id = self.config.chain.chain_id;
+        self.execution
+            .check_rpc(chain_id)
+            .await
+            .map_err(NodeError::ExecutionError)?;
+
+        self.consensus
+            .check_rpc()
+            .await
+            .map_err(NodeError::ConsensusSyncError)?;
+
         self.consensus
             .sync()
             .await
             .map_err(NodeError::ConsensusSyncError)?;
+
         self.update_payloads().await
     }
 
@@ -113,12 +130,26 @@ where
         self.finalized_payloads
             .insert(finalized_payload.block_number, finalized_payload);
 
+        let start_slot = self
+            .current_slot
+            .unwrap_or(latest_header.slot - self.history_size as u64);
+        let backfill_payloads = self
+            .consensus
+            .get_payloads(start_slot, latest_header.slot)
+            .await
+            .map_err(NodeError::ConsensusPayloadError)?;
+        for payload in backfill_payloads {
+            self.payloads.insert(payload.block_number, payload);
+        }
+
+        self.current_slot = Some(latest_header.slot);
+
         while self.payloads.len() > self.history_size {
             self.payloads.pop_first();
         }
 
         // only save one finalized block per epoch
-        // finality updates only occur on epoch boundries
+        // finality updates only occur on epoch boundaries
         while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
             self.finalized_payloads.pop_first();
         }
@@ -136,7 +167,7 @@ where
             &self.payloads,
             self.chain_id(),
         );
-        evm.call(opts).await.map_err(NodeError::ExecutionError)
+        evm.call(opts).await.map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
@@ -151,7 +182,7 @@ where
         );
         evm.estimate_gas(opts)
             .await
-            .map_err(NodeError::ExecutionError)
+            .map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
@@ -170,6 +201,20 @@ where
         Ok(account.nonce)
     }
 
+    pub fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
+        let payload = self.get_payload_by_hash(hash)?;
+        let transaction_count = payload.1.transactions.len();
+
+        Ok(transaction_count as u64)
+    }
+
+    pub fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
+        let payload = self.get_payload(block)?;
+        let transaction_count = payload.transactions.len();
+
+        Ok(transaction_count as u64)
+    }
+
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
         self.check_blocktag_age(&block)?;
 
@@ -178,10 +223,15 @@ where
         Ok(account.code)
     }
 
-    pub async fn get_storage_at(&self, address: &Address, slot: H256) -> Result<U256> {
+    pub async fn get_storage_at(
+        &self,
+        address: &Address,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<U256> {
         self.check_head_age()?;
 
-        let payload = self.get_payload(BlockTag::Latest)?;
+        let payload = self.get_payload(block)?;
         let account = self
             .execution
             .get_account(address, Some(&[slot]), payload)
@@ -210,6 +260,18 @@ where
     pub async fn get_transaction_by_hash(&self, tx_hash: &H256) -> Result<Option<Transaction>> {
         self.execution
             .get_transaction(tx_hash, &self.payloads)
+            .await
+    }
+
+    pub async fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: &Vec<u8>,
+        index: usize,
+    ) -> Result<Option<Transaction>> {
+        let payload = self.get_payload_by_hash(hash)?;
+
+        self.execution
+            .get_transaction_by_block_hash_and_index(payload.1, index)
             .await
     }
 
@@ -253,24 +315,27 @@ where
         }
     }
 
+    pub async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+    ) -> Result<Option<FeeHistory>> {
+        self.execution
+            .get_fee_history(block_count, last_block, reward_percentiles, &self.payloads)
+            .await
+    }
+
     pub async fn get_block_by_hash(
         &self,
         hash: &Vec<u8>,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>> {
-        let payloads = self
-            .payloads
-            .iter()
-            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
-            .collect::<Vec<(&u64, &ExecutionPayload)>>();
+        let payload = self.get_payload_by_hash(hash);
 
-        if let Some(payload_entry) = payloads.get(0) {
-            self.execution
-                .get_block(payload_entry.1, full_tx)
-                .await
-                .map(Some)
-        } else {
-            Ok(None)
+        match payload {
+            Ok(payload) => self.execution.get_block(payload.1, full_tx).await.map(Some),
+            Err(_) => Ok(None),
         }
     }
 
@@ -278,9 +343,47 @@ where
         self.config.chain.chain_id
     }
 
+    pub fn syncing(&self) -> Result<SyncingStatus> {
+        if self.check_head_age().is_ok() {
+            Ok(SyncingStatus::IsFalse)
+        } else {
+            let latest_synced_block = self.get_block_number()?;
+            let oldest_payload = self.payloads.first_key_value();
+            let oldest_synced_block =
+                oldest_payload.map_or(latest_synced_block, |(key, _value)| *key);
+            let highest_block = self.consensus.expected_current_slot();
+            Ok(SyncingStatus::IsSyncing(Box::new(SyncProgress {
+                current_block: latest_synced_block.into(),
+                highest_block: highest_block.into(),
+                starting_block: oldest_synced_block.into(),
+                pulled_states: None,
+                known_states: None,
+                healed_bytecode_bytes: None,
+                healed_bytecodes: None,
+                healed_trienode_bytes: None,
+                healed_trienodes: None,
+                healing_bytecode: None,
+                healing_trienodes: None,
+                synced_account_bytes: None,
+                synced_accounts: None,
+                synced_bytecode_bytes: None,
+                synced_bytecodes: None,
+                synced_storage: None,
+                synced_storage_bytes: None,
+            })))
+        }
+    }
+
     pub fn get_header(&self) -> Result<Header> {
         self.check_head_age()?;
         Ok(self.consensus.get_header().clone())
+    }
+
+    pub fn get_coinbase(&self) -> Result<Address> {
+        self.check_head_age()?;
+        let payload = self.get_payload(BlockTag::Latest)?;
+        let coinbase_address = Address::from_slice(&payload.fee_recipient);
+        Ok(coinbase_address)
     }
 
     pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
@@ -304,6 +407,19 @@ where
                 payload.ok_or(BlockNotFoundError::new(BlockTag::Number(num)))
             }
         }
+    }
+
+    fn get_payload_by_hash(&self, hash: &Vec<u8>) -> Result<(&u64, &ExecutionPayload)> {
+        let payloads = self
+            .payloads
+            .iter()
+            .filter(|entry| &entry.1.block_hash.to_vec() == hash)
+            .collect::<Vec<(&u64, &ExecutionPayload)>>();
+
+        payloads
+            .get(0)
+            .cloned()
+            .ok_or(eyre!("Block not found by hash"))
     }
 
     fn check_head_age(&self) -> Result<(), NodeError> {

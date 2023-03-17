@@ -1,16 +1,15 @@
 use std::{fs::read_to_string, path::PathBuf};
 
-use async_trait::async_trait;
-use eyre::Result;
-
 use super::ConsensusRpc;
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
-
+use async_trait::async_trait;
+use eyre::Result;
 pub struct MockRpc {
     testdata: PathBuf,
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ConsensusRpc for MockRpc {
     fn new(path: &str) -> Self {
         MockRpc {
@@ -41,5 +40,9 @@ impl ConsensusRpc for MockRpc {
     async fn get_block(&self, _slot: u64) -> Result<BeaconBlock> {
         let block = read_to_string(self.testdata.join("blocks.json"))?;
         Ok(serde_json::from_str(&block)?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        eyre::bail!("not implemented")
     }
 }

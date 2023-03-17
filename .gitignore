@@ -1,1 +1,7 @@
-/target
+.DS_Store
+target
+*.env
+
+helios-ts/node_modules
+helios-ts/dist
+helios-ts/helios-*.tgz

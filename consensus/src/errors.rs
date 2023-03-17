@@ -24,4 +24,6 @@ pub enum ConsensusError {
     PayloadNotFound(u64),
     #[error("checkpoint is too old")]
     CheckpointTooOld,
+    #[error("consensus rpc is for the incorrect network")]
+    IncorrectRpcNetwork,
 }

@@ -1,0 +1,26 @@
+name: benchmarks
+
+on:
+  workflow_bench:
+  # push:
+  #   branches: [ "master" ]
+
+env:
+  MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+  GOERLI_RPC_URL: ${{ secrets.GOERLI_RPC_URL }}
+
+jobs:
+  benches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions-rs/cargo@v1
+        with:
+          command: bench

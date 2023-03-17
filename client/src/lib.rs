@@ -13,7 +13,8 @@ pub mod database;
 pub mod errors;
 
 /// Expose rpc module
+#[cfg(not(target_arch = "wasm32"))]
 pub mod rpc;
 
 /// Node module is internal to the client crate
-mod node;
+pub mod node;

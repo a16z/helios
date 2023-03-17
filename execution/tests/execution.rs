@@ -23,7 +23,7 @@ async fn test_get_account() {
             hex_str_to_bytes("0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d")
                 .unwrap(),
         ),
-        ..Default::default()
+        ..ExecutionPayload::default()
     };
 
     let account = execution
@@ -199,4 +199,24 @@ async fn test_get_block() {
     let block = execution.get_block(&payload, false).await.unwrap();
 
     assert_eq!(block.number, 12345);
+}
+
+#[tokio::test]
+async fn test_get_tx_by_block_hash_and_index() {
+    let execution = get_client();
+    let tx_hash =
+        H256::from_str("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f").unwrap();
+
+    let mut payload = ExecutionPayload {
+        block_number: 7530933,
+        ..ExecutionPayload::default()
+    };
+    payload.transactions.push(List::from_iter(hex_str_to_bytes("0x02f8b20583623355849502f900849502f91082ea6094326c977e6efc84e512bb9c30f76e30c160ed06fb80b844a9059cbb0000000000000000000000007daccf9b3c1ae2fa5c55f1c978aeef700bc83be0000000000000000000000000000000000000000000000001158e460913d00000c080a0e1445466b058b6f883c0222f1b1f3e2ad9bee7b5f688813d86e3fa8f93aa868ca0786d6e7f3aefa8fe73857c65c32e4884d8ba38d0ecfb947fbffb82e8ee80c167").unwrap()));
+
+    let tx = execution
+        .get_transaction_by_block_hash_and_index(&payload, 0)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tx.hash(), tx_hash);
 }

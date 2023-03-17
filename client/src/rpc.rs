@@ -1,4 +1,7 @@
-use ethers::types::{Address, Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::{
+    abi::AbiEncode,
+    types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
+};
 use eyre::Result;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
@@ -69,6 +72,11 @@ trait EthRpc {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "getTransactionCount")]
     async fn get_transaction_count(&self, address: &str, block: BlockTag) -> Result<String, Error>;
+    #[method(name = "getBlockTransactionCountByHash")]
+    async fn get_block_transaction_count_by_hash(&self, hash: &str) -> Result<String, Error>;
+    #[method(name = "getBlockTransactionCountByNumber")]
+    async fn get_block_transaction_count_by_number(&self, block: BlockTag)
+        -> Result<String, Error>;
     #[method(name = "getCode")]
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "call")]
@@ -104,8 +112,25 @@ trait EthRpc {
     ) -> Result<Option<TransactionReceipt>, Error>;
     #[method(name = "getTransactionByHash")]
     async fn get_transaction_by_hash(&self, hash: &str) -> Result<Option<Transaction>, Error>;
+    #[method(name = "getTransactionByBlockHashAndIndex")]
+    async fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: &str,
+        index: usize,
+    ) -> Result<Option<Transaction>, Error>;
     #[method(name = "getLogs")]
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error>;
+    #[method(name = "getStorageAt")]
+    async fn get_storage_at(
+        &self,
+        address: &str,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<String, Error>;
+    #[method(name = "getCoinbase")]
+    async fn get_coinbase(&self) -> Result<Address, Error>;
+    #[method(name = "syncing")]
+    async fn syncing(&self) -> Result<SyncingStatus, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -185,6 +210,26 @@ impl<R: ExecutionRpc> EthRpcServer for RpcInner<R> {
         let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
         Ok(format!("0x{nonce:x}"))
+<<<<<<< HEAD
+=======
+    }
+
+    async fn get_block_transaction_count_by_hash(&self, hash: &str) -> Result<String, Error> {
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let node = self.node.read().await;
+        let transaction_count = convert_err(node.get_block_transaction_count_by_hash(&hash))?;
+
+        Ok(u64_to_hex_string(transaction_count))
+    }
+
+    async fn get_block_transaction_count_by_number(
+        &self,
+        block: BlockTag,
+    ) -> Result<String, Error> {
+        let node = self.node.read().await;
+        let transaction_count = convert_err(node.get_block_transaction_count_by_number(block))?;
+        Ok(u64_to_hex_string(transaction_count))
+>>>>>>> master
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -284,9 +329,45 @@ impl<R: ExecutionRpc> EthRpcServer for RpcInner<R> {
         convert_err(node.get_transaction_by_hash(&hash).await)
     }
 
+    async fn get_transaction_by_block_hash_and_index(
+        &self,
+        hash: &str,
+        index: usize,
+    ) -> Result<Option<Transaction>, Error> {
+        let hash = convert_err(hex_str_to_bytes(hash))?;
+        let node = self.node.read().await;
+        convert_err(
+            node.get_transaction_by_block_hash_and_index(&hash, index)
+                .await,
+        )
+    }
+
+    async fn get_coinbase(&self) -> Result<Address, Error> {
+        let node = self.node.read().await;
+        Ok(node.get_coinbase().unwrap())
+    }
+
+    async fn syncing(&self) -> Result<SyncingStatus, Error> {
+        let node = self.node.read().await;
+        convert_err(node.syncing())
+    }
+
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error> {
         let node = self.node.read().await;
         convert_err(node.get_logs(&filter).await)
+    }
+
+    async fn get_storage_at(
+        &self,
+        address: &str,
+        slot: H256,
+        block: BlockTag,
+    ) -> Result<String, Error> {
+        let address = convert_err(Address::from_str(address))?;
+        let node = self.node.read().await;
+        let storage = convert_err(node.get_storage_at(&address, slot, block).await)?;
+
+        Ok(format_hex(&storage))
     }
 }
 
@@ -301,3 +382,23 @@ impl<R: ExecutionRpc> NetRpcServer for RpcInner<R> {
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
     res.map_err(|err| Error::Custom(err.to_string()))
 }
+<<<<<<< HEAD
+=======
+
+fn format_hex(num: &U256) -> String {
+    let stripped = num
+        .encode_hex()
+        .strip_prefix("0x")
+        .unwrap()
+        .trim_start_matches('0')
+        .to_string();
+
+    let stripped = if stripped.is_empty() {
+        "0".to_string()
+    } else {
+        stripped
+    };
+
+    format!("0x{stripped}")
+}
+>>>>>>> master

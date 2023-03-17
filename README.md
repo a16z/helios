@@ -6,8 +6,7 @@ Helios is a fully trustless, efficient, and portable Ethereum light client writt
 
 Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
 
-The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
-
+The entire size of Helios's binary is 5.3Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
 ## Installing
 
@@ -18,7 +17,6 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 ```
 
 To install Helios, run `heliosup`.
-
 
 ## Usage
 
@@ -32,17 +30,17 @@ helios --execution-rpc $ETH_RPC_URL
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
-Helios also provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run --example <example_name>` from inside the helios repository.
+Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run --example <example_name>` from inside the helios repository.
 
+Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 
 ### Warning
 
 Helios is still experimental software. While we hope you try it out, we do not suggest adding it as your main RPC in wallets yet. Sending high-value transactions from a wallet connected to Helios is discouraged.
 
-
 ### Additional Options
 
-`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consenus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
@@ -60,13 +58,14 @@ For example, you can specify the fallback like so: `helios --fallback "https://s
 For example, say you set a checkpoint value that is too outdated and Helios cannot sync to it.
 If this flag is set, Helios will query all network apis in the community-maintained list
 at [ethpandaops/checkpoint-synz-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml) for their latest slots.
-The list of slots is filtered for healthy apis and the most frequent checkpoint occuring in the latest epoch will be returned.
+The list of slots is filtered for healthy apis and the most frequent checkpoint occurring in the latest epoch will be returned.
 Note: this is a community-maintained list and thus no security guarantees are provided. Use this is a last resort if your checkpoint passed into `--checkpoint` fails.
-This is not recommened as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
+This is not recommended as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
 This can be run like so: `helios --load-external-fallback` (or `helios -l` with the shorthand).
 
-`--help` or `-h` prints the help message.
+`--strict-checkpoint-age` or `-s` enables strict checkpoint age checking. If the checkpoint is over two weeks old and this flag is enabled, Helios will error. Without this flag, Helios will instead surface a warning to the user and continue. If the checkpoint is greater than two weeks old, there are theoretical attacks that can cause Helios and over light clients to sync incorrectly. These attacks are complex and expensive, so Helios disables this by default.
 
+`--help` or `-h` prints the help message.
 
 ### Configuration Files
 
@@ -83,6 +82,8 @@ consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
 execution_rpc = "https://eth-goerli.g.alchemy.com/v2/XXXXX"
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
 ```
+
+A comprehensive breakdown of config options is available in the [config.md](./config.md) file.
 
 
 ### Using Helios as a Library
@@ -147,15 +148,59 @@ async fn main() -> Result<()> {
 }
 ```
 
+## Architecture
+```mermaid
+graph LR
+
+Client ----> Rpc
+Client ----> Node
+Node ----> ConsensusClient
+Node ----> ExecutionClient
+ExecutionClient ----> ExecutionRpc
+ConsensusClient ----> ConsensusRpc
+Node ----> Evm
+Evm ----> ExecutionClient
+ExecutionRpc --> UntrustedExecutionRpc
+ConsensusRpc --> UntrustedConsensusRpc
+
+classDef node fill:#f9f,stroke:#333,stroke-width:4px, color:black;
+class Node,Client node
+classDef execution fill:#f0f,stroke:#333,stroke-width:4px;
+class ExecutionClient,ExecutionRpc execution
+classDef consensus fill:#ff0,stroke:#333,stroke-width:4px;
+class ConsensusClient,ConsensusRpc consensus
+classDef evm fill:#0ff,stroke:#333,stroke-width:4px;
+class Evm evm
+classDef providerC fill:#ffc
+class UntrustedConsensusRpc providerC
+classDef providerE fill:#fbf
+class UntrustedExecutionRpc providerE
+classDef rpc fill:#e10
+class Rpc rpc
+
+
+subgraph "External Network"
+UntrustedExecutionRpc
+UntrustedConsensusRpc
+end
+```
+
+## Benchmarks
+
+Benchmarks are defined in the [benches](./benches/) subdirectory. They are built using the [criterion](https://github.com/bheisler/criterion.rs) statistics-driven benchmarking library.
+
+To run all benchmarks, you can use `cargo bench`. To run a specific benchmark, you can use `cargo bench --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](./Cargo.toml) file under a `[[bench]]` section.
+
+To learn more about [helios](https://github.com/a16z/helios) benchmarking and to view benchmark flamegraphs, view the [benchmark readme](./benches/README.md).
+
+
 ## Contributing
 
 All contributions to Helios are welcome. Before opening a PR, please submit an issue detailing the bug or feature. When opening a PR, please ensure that your contribution builds on the nightly rust toolchain, has been linted with `cargo fmt`, and contains tests when applicable.
 
-
 ## Telegram
 
 If you are having trouble with Helios or are considering contributing, feel free to join our telegram [here](https://t.me/+IntDY_gZJSRkNTJj).
-
 
 ## Disclaimer
 

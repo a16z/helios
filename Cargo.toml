@@ -1,10 +1,13 @@
 [package]
 name = "helios"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
+autobenches = false
+exclude = [
+    "benches"
+]
 
 [workspace]
-
 members = [
     "cli",
     "client",
@@ -12,7 +15,11 @@ members = [
     "config",
     "consensus",
     "execution",
+    "helios-ts",
 ]
+
+[profile.bench]
+debug = true
 
 [dependencies]
 client = { path = "./client" }
@@ -20,15 +27,39 @@ config = { path = "./config" }
 common = { path = "./common" }
 consensus = { path = "./consensus" }
 execution = { path = "./execution" }
+serde = { version = "1.0.154", features = ["derive"] }
 
-[dev-dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
-home = "0.5.4"
+dirs = "4.0.0"
+ethers = { version = "1.0.2", features = [ "abigen" ] }
+env_logger = "0.9.0"
+log = "0.4.17"
+tracing-test = "0.2.4"
+criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
+plotters = "0.3.4"
+tempfile = "3.4.0"
+hex = "0.4.3"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+######################################
+# Examples
+######################################
 
 [[example]]
 name = "checkpoints"
 path = "examples/checkpoints.rs"
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
 
 [[example]]
 name = "client"
@@ -38,3 +69,26 @@ path = "examples/client.rs"
 name = "config"
 path = "examples/config.rs"
 
+[[example]]
+name = "call"
+path = "examples/call.rs"
+
+######################################
+# Benchmarks
+######################################
+
+[[bench]]
+name = "file_db"
+harness = false
+
+[[bench]]
+name = "get_balance"
+harness = false
+
+[[bench]]
+name = "get_code"
+harness = false
+
+[[bench]]
+name = "sync"
+harness = false

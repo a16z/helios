@@ -3,8 +3,8 @@ use std::{fs::read_to_string, path::PathBuf};
 use async_trait::async_trait;
 use common::utils::hex_str_to_bytes;
 use ethers::types::{
-    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, Filter, Log, Transaction,
-    TransactionReceipt, H256,
+    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
+    Transaction, TransactionReceipt, H256,
 };
 use eyre::{eyre, Result};
 
@@ -17,7 +17,8 @@ pub struct MockRpc {
     path: PathBuf,
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for MockRpc {
     fn new(rpc: &str) -> Result<Self> {
         let path = PathBuf::from(rpc);
@@ -64,5 +65,19 @@ impl ExecutionRpc for MockRpc {
     async fn get_logs(&self, _filter: &Filter) -> Result<Vec<Log>> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_fee_history(
+        &self,
+        _block_count: u64,
+        _last_block: u64,
+        _reward_percentiles: &[f64],
+    ) -> Result<FeeHistory> {
+        let fee_history = read_to_string(self.path.join("fee_history.json"))?;
+        Ok(serde_json::from_str(&fee_history)?)
     }
 }

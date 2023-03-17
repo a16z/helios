@@ -1,18 +1,18 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use common::errors::RpcError;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
-    BlockId, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, Filter, Log, Transaction,
-    TransactionReceipt, H256, U256,
+    BlockId, BlockNumber, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, FeeHistory,
+    Filter, Log, Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::Result;
 
 use crate::types::CallOpts;
+use common::errors::RpcError;
 
 use super::ExecutionRpc;
 
@@ -27,13 +27,16 @@ impl Clone for HttpRpc {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
         let http = Http::from_str(rpc)?;
         let mut client = RetryClient::new(http, Box::new(HttpRateLimitRetryPolicy), 100, 50);
         client.set_compute_units(300);
+
         let provider = Provider::new(client);
+
         Ok(HttpRpc {
             url: rpc.to_string(),
             provider,
@@ -64,7 +67,7 @@ impl ExecutionRpc for HttpRpc {
         let block = Some(BlockId::from(block));
 
         let mut raw_tx = Eip1559TransactionRequest::new();
-        raw_tx.to = Some(opts.to.into());
+        raw_tx.to = Some(opts.to.unwrap_or_default().into());
         raw_tx.from = opts.from;
         raw_tx.value = opts.value;
         raw_tx.gas = Some(opts.gas.unwrap_or(U256::from(100_000_000)));
@@ -131,5 +134,28 @@ impl ExecutionRpc for HttpRpc {
             .get_logs(filter)
             .await
             .map_err(|e| RpcError::new("get_logs", e))?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Ok(self
+            .provider
+            .get_chainid()
+            .await
+            .map_err(|e| RpcError::new("chain_id", e))?
+            .as_u64())
+    }
+
+    async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+    ) -> Result<FeeHistory> {
+        let block = BlockNumber::from(last_block);
+        Ok(self
+            .provider
+            .fee_history(block_count, block, reward_percentiles)
+            .await
+            .map_err(|e| RpcError::new("fee_history", e))?)
     }
 }

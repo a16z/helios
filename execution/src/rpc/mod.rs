@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use ethers::types::{
-    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, Filter, Log, Transaction,
-    TransactionReceipt, H256,
+    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
+    Transaction, TransactionReceipt, H256,
 };
 use eyre::Result;
 
@@ -13,7 +13,8 @@ pub mod ws_rpc;
 pub use ws_rpc::*;
 pub mod mock_rpc;
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     fn new(rpc: &str) -> Result<Self>
     where
@@ -35,4 +36,11 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>>;
     async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
+    async fn chain_id(&self) -> Result<u64>;
+    async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+    ) -> Result<FeeHistory>;
 }

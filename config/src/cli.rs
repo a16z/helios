@@ -13,6 +13,7 @@ pub struct CliConfig {
     pub data_dir: PathBuf,
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
+    pub strict_checkpoint_age: bool,
     pub with_ws: bool,
     pub with_http: bool,
 }
@@ -46,6 +47,11 @@ impl CliConfig {
         user_dict.insert(
             "load_external_fallback",
             Value::from(self.load_external_fallback),
+        );
+
+        user_dict.insert(
+            "strict_checkpoint_age",
+            Value::from(self.strict_checkpoint_age),
         );
 
         user_dict.insert("with_ws", Value::from(self.with_ws));
