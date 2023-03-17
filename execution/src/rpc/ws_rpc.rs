@@ -61,7 +61,7 @@ impl ExecutionRpc for WsRpc {
         let block = Some(BlockId::from(block));
 
         let mut raw_tx = Eip1559TransactionRequest::new();
-        raw_tx.to = Some(opts.to.into());
+        raw_tx.to = opts.to.map(Into::into);
         raw_tx.from = opts.from;
         raw_tx.value = opts.value;
         raw_tx.gas = Some(opts.gas.unwrap_or(U256::from(100_000_000)));
@@ -158,5 +158,38 @@ impl ExecutionRpc for WsRpc {
             .get_logs(filter)
             .await
             .map_err(|e| RpcError::new("get_logs", e))?)
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        Ok(self
+            .provider
+            .as_ref()
+            .ok_or(RpcError::new(
+                "get_chainid",
+                eyre::eyre!("Provider not connected!"),
+            ))?
+            .get_chainid()
+            .await
+            .map_err(|e| RpcError::new("chain_id", e))?
+            .as_u64())
+    }
+
+    async fn get_fee_history(
+        &self,
+        block_count: u64,
+        last_block: u64,
+        reward_percentiles: &[f64],
+    ) -> Result<FeeHistory> {
+        let block = BlockNumber::from(last_block);
+        Ok(self
+            .provider
+            .as_ref()
+            .ok_or(RpcError::new(
+                "fee_history",
+                eyre::eyre!("Provider not connected!"),
+            ))?
+            .fee_history(block_count, block, reward_percentiles)
+            .await
+            .map_err(|e| RpcError::new("fee_history", e))?)
     }
 }

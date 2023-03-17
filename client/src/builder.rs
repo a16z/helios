@@ -1,9 +1,12 @@
-use std::path::PathBuf;
+use eyre::{eyre, Result};
 
 use config::{Config, Network};
 use execution::rpc::WsRpc;
 
 use crate::{database::FileDB, Client};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct ClientBuilder {
@@ -11,11 +14,14 @@ pub struct ClientBuilder {
     pub consensus_rpc: Option<String>,
     pub execution_rpc: Option<String>,
     pub checkpoint: Option<Vec<u8>>,
+    #[cfg(not(target_arch = "wasm32"))]
     pub rpc_port: Option<u16>,
+    #[cfg(not(target_arch = "wasm32"))]
     pub data_dir: Option<PathBuf>,
     pub config: Option<Config>,
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
+    pub strict_checkpoint_age: bool,
     pub with_ws: bool,
     pub with_http: bool,
 }
@@ -56,6 +62,7 @@ impl ClientBuilder {
     /// client_builder = client_builder.with_ws(false);
     /// assert_eq!(client_builder.with_ws, false);
     /// ```
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn with_ws(mut self, option: bool) -> Self {
         self.with_ws = option;
         self
@@ -70,16 +77,20 @@ impl ClientBuilder {
     /// client_builder = client_builder.with_http(false);
     /// assert_eq!(client_builder.with_http, false);
     /// ```
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn with_http(mut self, option: bool) -> Self {
         self.with_http = option;
         self
     }
 
+    /// Sets the port for the client to serve an RPC server.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn rpc_port(mut self, port: u16) -> Self {
         self.rpc_port = Some(port);
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn data_dir(mut self, data_dir: PathBuf) -> Self {
         self.data_dir = Some(data_dir);
         self
@@ -100,14 +111,19 @@ impl ClientBuilder {
         self
     }
 
-    fn build_base_config(&self) -> eyre::Result<Config> {
+    pub fn strict_checkpoint_age(mut self) -> Self {
+        self.strict_checkpoint_age = true;
+        self
+    }
+
+    fn build_config(&self) -> Result<Config> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
             let config = self
                 .config
                 .as_ref()
-                .ok_or(eyre::eyre!("missing network config"))?;
+                .ok_or(eyre!("missing network config"))?;
             config.to_base_config()
         };
 
@@ -127,14 +143,21 @@ impl ClientBuilder {
                 .clone()
         });
 
-        let checkpoint = if let Some(checkpoint) = &self.checkpoint {
-            checkpoint.clone()
+        let checkpoint = if let Some(checkpoint) = self.checkpoint {
+            Some(checkpoint)
         } else if let Some(config) = &self.config {
             config.checkpoint.clone()
         } else {
-            base_config.checkpoint
+            None
         };
 
+        let default_checkpoint = if let Some(config) = &self.config {
+            config.default_checkpoint.clone()
+        } else {
+            base_config.default_checkpoint.clone()
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
         let rpc_port = if self.rpc_port.is_some() {
             self.rpc_port
         } else if let Some(config) = &self.config {
@@ -143,6 +166,7 @@ impl ClientBuilder {
             None
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let data_dir = if self.data_dir.is_some() {
             self.data_dir.clone()
         } else if let Some(config) = &self.config {
@@ -177,17 +201,27 @@ impl ClientBuilder {
             self.with_http
         };
 
+        let strict_checkpoint_age = if let Some(config) = &self.config {
+            self.strict_checkpoint_age || config.strict_checkpoint_age
+        } else {
+            self.strict_checkpoint_age
+        };
+
         Ok(Config {
             consensus_rpc,
             execution_rpc,
             checkpoint,
+            default_checkpoint,
+            #[cfg(not(target_arch = "wasm32"))]
             rpc_port,
+            #[cfg(not(target_arch = "wasm32"))]
             data_dir,
             chain: base_config.chain,
             forks: base_config.forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
             fallback,
             load_external_fallback,
+            strict_checkpoint_age,
             with_ws,
             with_http,
         })
@@ -195,8 +229,8 @@ impl ClientBuilder {
 }
 
 impl ClientBuilder {
-    pub fn build(self) -> eyre::Result<Client<FileDB, WsRpc>> {
-        let config = self.build_base_config()?;
+    pub fn build(self) -> Result<Client<FileDB, WsRpc>> {
+        let config = self.build_config()?;
         Client::new(config)
     }
 }
