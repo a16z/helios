@@ -14,7 +14,6 @@ use consensus::{types::Header, ConsensusClient};
 use execution::rpc::ExecutionRpc;
 use execution::types::{CallOpts, ExecutionBlock};
 use log::{error, info, warn};
-use tokio::spawn;
 use tokio::sync::RwLock;
 
 #[cfg(not(target_arch = "wasm32"))]
