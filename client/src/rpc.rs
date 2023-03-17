@@ -210,8 +210,6 @@ impl<R: ExecutionRpc> EthRpcServer for RpcInner<R> {
         let nonce = convert_err(node.get_nonce(&address, block).await)?;
 
         Ok(format!("0x{nonce:x}"))
-<<<<<<< HEAD
-=======
     }
 
     async fn get_block_transaction_count_by_hash(&self, hash: &str) -> Result<String, Error> {
@@ -229,7 +227,6 @@ impl<R: ExecutionRpc> EthRpcServer for RpcInner<R> {
         let node = self.node.read().await;
         let transaction_count = convert_err(node.get_block_transaction_count_by_number(block))?;
         Ok(u64_to_hex_string(transaction_count))
->>>>>>> master
     }
 
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error> {
@@ -382,8 +379,6 @@ impl<R: ExecutionRpc> NetRpcServer for RpcInner<R> {
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, Error> {
     res.map_err(|err| Error::Custom(err.to_string()))
 }
-<<<<<<< HEAD
-=======
 
 fn format_hex(num: &U256) -> String {
     let stripped = num
@@ -401,4 +396,3 @@ fn format_hex(num: &U256) -> String {
 
     format!("0x{stripped}")
 }
->>>>>>> master

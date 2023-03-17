@@ -5,15 +5,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use eyre::Result;
 use clap::Parser;
 use dirs::home_dir;
 use env_logger::Env;
+use eyre::Result;
 use futures::executor::block_on;
 use log::{error, info};
 
-use common::utils::hex_str_to_bytes;
 use client::{database::FileDB, Client, ClientBuilder};
+use common::utils::hex_str_to_bytes;
 use config::{CliConfig, Config};
 
 #[tokio::main]

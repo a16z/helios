@@ -242,7 +242,9 @@ impl<DB: Database> Client<DB> {
         let node = Arc::new(RwLock::new(node));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), config.with_http, config.with_ws, port));
+        let rpc = config
+            .rpc_port
+            .map(|port| Rpc::new(node.clone(), config.with_http, config.with_ws, port));
 
         Ok(Client {
             node,

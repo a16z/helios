@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 
-use ethers::types::{FeeHistory, Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256};
+use ethers::types::{
+    FeeHistory, Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
+};
 use execution::rpc::{ExecutionRpc, WsRpc};
 
 use eyre::{eyre, Result};
