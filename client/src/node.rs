@@ -3,8 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
+use ethers::providers::FilterKind;
 use ethers::types::{
-    FeeHistory, Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
+    FeeHistory, Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256, BlockNumber, FilterBlockOption,
 };
 use eyre::{eyre, Result};
 
@@ -309,6 +310,13 @@ impl Node {
         self.execution
             .get_fee_history(block_count, last_block, reward_percentiles, &self.payloads)
             .await
+    }
+
+    pub async fn new_filter(
+        &self, 
+        filter: Filter
+    ) -> Result<Option<U256>> {
+        self.execution.new_filter(filter, &self.payloads).await
     }
 
     pub async fn get_block_by_hash(

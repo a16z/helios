@@ -516,11 +516,23 @@ impl<DB: Database> Client<DB> {
             .await
     }
 
+    pub async fn new_filter(
+        &self,
+        filter: Filter
+    ) -> Result<Option<U256>> {
+        self.node
+            .read()
+            .await
+            .new_filter(filter)
+            .await
+    }
+
     pub async fn get_block_by_number(
         &self,
         block: BlockTag,
         full_tx: bool,
     ) -> Result<Option<ExecutionBlock>> {
+        println!("!23");
         self.node
             .read()
             .await

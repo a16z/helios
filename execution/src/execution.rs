@@ -411,6 +411,30 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         Ok(Some(fee_history))
     }
+
+    pub async fn new_filter(
+        &self, 
+        filter: Filter,
+        payloads: &BTreeMap<u64, ExecutionPayload>,
+    ) -> Result<Option<U256>> {
+        // avoid fetching logs for a block helios hasn't seen yet
+        let filter = if filter.get_to_block().is_none() && filter.get_block_hash().is_none() {
+            let block = *payloads.last_key_value().unwrap().0;
+            let filter = filter.to_block(block);
+            if filter.get_from_block().is_none() {
+                filter.from_block(block)
+            } else {
+                filter
+            }
+        } else {
+            filter
+        };
+
+        // Construct Filter params
+        let filter = self.rpc.new_filter(filter).await?;
+
+        Ok(Some(filter))
+    }
 }
 
 /// Verifies a fee history against an rpc.

@@ -4,6 +4,7 @@ use ethers::{
 };
 use eyre::Result;
 use log::info;
+use serde::{Serialize, Deserialize};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -116,6 +117,11 @@ trait EthRpc {
     async fn get_coinbase(&self) -> Result<Address, Error>;
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncingStatus, Error>;
+    #[method(name = "newFilter")]
+    async fn new_filter(
+        &self, 
+        filter: Filter
+    ) -> Result<Option<U256>, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -301,6 +307,17 @@ impl EthRpcServer for RpcInner {
         let storage = convert_err(node.get_storage_at(&address, slot, block).await)?;
 
         Ok(format_hex(&storage))
+    }
+
+    async fn new_filter(
+        &self,
+        filter: Filter
+    ) -> Result<Option<U256>, Error> {
+        // let address = convert_err(Address::from_str(filter.address[0].as_str()))?;
+        let node = self.node.read().await;
+        let filter = convert_err(node.new_filter(filter).await)?;
+
+        Ok(filter)
     }
 }
 
