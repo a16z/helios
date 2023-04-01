@@ -63,7 +63,7 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x02000000").unwrap(),
             },
             capella: Fork {
-                epoch: u64::MAX, // TODO: set epoch when known
+                epoch: 194048,
                 fork_version: hex_str_to_bytes("0x03000000").unwrap(),
             },
         },
