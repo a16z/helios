@@ -1,6 +1,11 @@
 set -e
 
-(&>/dev/null lcp --proxyUrl https://eth-mainnet.g.alchemy.com/v2/23IavJytUwkTtBMpzt_TZKwgwAarocdT --port 9001 &)
+if [ -z $ETH_RPC_URL ]; then
+    echo "ETH_RPC_URL not set"
+    exit 1
+fi
+
+(&>/dev/null lcp --proxyUrl $ETH_RPC_URL --port 9001 &)
 (&>/dev/null lcp --proxyUrl https://www.lightclientdata.org --port 9002 &)
 
 npm run build
