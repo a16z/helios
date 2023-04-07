@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::str::FromStr;
 
 use async_trait::async_trait;
@@ -10,6 +11,8 @@ use ethers::types::{
     Filter, Log, Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::Result;
+use serde::Deserialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::types::CallOpts;
 use common::errors::RpcError;
@@ -153,5 +156,12 @@ impl ExecutionRpc for HttpRpc {
             .fee_history(block_count, block, reward_percentiles)
             .await
             .map_err(|e| RpcError::new("fee_history", e))?)
+    }
+
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>>{
+        Ok(self
+            .provider.get_filter_changes(filter_id)
+            .await
+            .map_err(|e| RpcError::new("get_filter_changes", e))?)
     }
 }

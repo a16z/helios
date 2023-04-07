@@ -264,6 +264,11 @@ impl Node {
         self.execution.get_logs(filter, &self.payloads).await
     }
 
+
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+        self.execution.get_filter_changes(filter_id, &self.payloads).await
+    }
+
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age()?;

@@ -567,4 +567,8 @@ impl<DB: Database> Client<DB> {
     pub async fn get_coinbase(&self) -> Result<Address> {
         self.node.read().await.get_coinbase()
     }
+
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+        self.node.read().await.get_filter_changes(filter_id).await
+    }
 }

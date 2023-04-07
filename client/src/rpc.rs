@@ -116,6 +116,8 @@ trait EthRpc {
     async fn get_coinbase(&self) -> Result<Address, Error>;
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncingStatus, Error>;
+    #[method(name = "getFilterChanges")]
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -301,6 +303,11 @@ impl EthRpcServer for RpcInner {
         let storage = convert_err(node.get_storage_at(&address, slot, block).await)?;
 
         Ok(format_hex(&storage))
+    }
+
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>, Error> {
+        let node = self.node.read().await;
+        convert_err(node.get_filter_changes(filter_id).await)
     }
 }
 

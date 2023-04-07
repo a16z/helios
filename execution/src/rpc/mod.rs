@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
-    Transaction, TransactionReceipt, H256,
+    Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::Result;
 
@@ -37,4 +37,5 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
         last_block: u64,
         reward_percentiles: &[f64],
     ) -> Result<FeeHistory>;
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>>;
 }

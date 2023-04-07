@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use common::utils::hex_str_to_bytes;
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
-    Transaction, TransactionReceipt, H256,
+    Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::{eyre, Result};
 
@@ -75,5 +75,10 @@ impl ExecutionRpc for MockRpc {
     ) -> Result<FeeHistory> {
         let fee_history = read_to_string(self.path.join("fee_history.json"))?;
         Ok(serde_json::from_str(&fee_history)?)
+    }
+
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+        let logs = read_to_string(self.path.join("logs.json"))?;
+        Ok(serde_json::from_str(&logs)?)
     }
 }
