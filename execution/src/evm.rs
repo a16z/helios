@@ -2,7 +2,6 @@ use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
     sync::Arc,
-    thread,
 };
 
 use bytes::Bytes;
@@ -21,6 +20,7 @@ use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
 
 use consensus::types::ExecutionPayload;
+use tokio::task::spawn_blocking;
 
 use crate::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
@@ -225,12 +225,11 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
         let payload = self.current_payload.clone();
         let slots = slots.to_owned();
 
-        let handle = thread::spawn(move || {
-            let account_fut = execution.get_account(&address, Some(&slots), &payload);
-            block_on(account_fut)
+        let handle = spawn_blocking(move || {
+            block_on(execution.get_account(&address, Some(&slots), &payload))
         });
 
-        handle.join().unwrap()
+        block_on(handle)?
     }
 }
 

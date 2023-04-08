@@ -1,6 +1,6 @@
 [package]
 name = "consensus"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 
 [dependencies]
@@ -11,7 +11,7 @@ serde_json = "1.0.85"
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
 milagro_bls = { git = "https://github.com/Snowfork/milagro_bls" }
-ethers = "1.0.0"
+ethers = "2.0.2"
 bytes = "1.2.1"
 toml = "0.5.9"
 async-trait = "0.1.57"
