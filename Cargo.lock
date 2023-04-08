@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "cli"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "clap",
  "client",
@@ -549,7 +549,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "common",
  "config",
@@ -654,7 +654,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "common"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "ethers",
  "eyre",
@@ -666,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "common",
  "ethers",
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "consensus"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1705,7 +1705,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "execution"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2233,7 +2233,7 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "helios"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "client",
  "common",
