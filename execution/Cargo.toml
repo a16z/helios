@@ -1,17 +1,17 @@
 [package]
 name = "execution"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 
 [dependencies]
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11.13", features = ["json"] }
 eyre = "0.6.8"
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 hex = "0.4.3"
 ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
 revm = { version = "2.3", default-features = false, features = ["std", "k256", "with-serde"] }
-ethers = "1.0.0"
+ethers = "2.0.2"
 bytes = "1.2.1"
 futures = "0.3.23"
 toml = "0.5.9"
@@ -19,6 +19,7 @@ triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", r
 async-trait = "0.1.57"
 log = "0.4.17"
 thiserror = "1.0.37"
+hyper = "0.14.23"
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }

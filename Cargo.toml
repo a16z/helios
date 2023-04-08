@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 autobenches = false
 exclude = [
@@ -34,7 +34,7 @@ serde = { version = "1.0.154", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 dirs = "4.0.0"
-ethers = { version = "1.0.2", features = [ "abigen" ] }
+ethers = { version = "2.0.2", features = [ "abigen" ] }
 env_logger = "0.9.0"
 log = "0.4.17"
 tracing-test = "0.2.4"
