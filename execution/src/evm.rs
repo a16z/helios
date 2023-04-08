@@ -314,8 +314,8 @@ mod tests {
         ExecutionClient::new("testdata/").unwrap()
     }
 
-    #[test]
-    fn test_proof_db() {
+    #[tokio::test]
+    async fn test_proof_db() {
         // Construct proofdb params
         let execution = get_client();
         let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
