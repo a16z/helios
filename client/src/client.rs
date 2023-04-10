@@ -286,6 +286,8 @@ impl<DB: Database> Client<DB> {
             }
         }
 
+        self.save_last_checkpoint().await;
+
         self.start_advance_thread();
 
         Ok(())
@@ -392,19 +394,20 @@ impl<DB: Database> Client<DB> {
         Ok(())
     }
 
-    pub async fn shutdown(&self) {
+    /// Saves last checkpoint of the node.
+    async fn save_last_checkpoint(&self) {
         let node = self.node.read().await;
-        let checkpoint = if let Some(checkpoint) = node.get_last_checkpoint() {
-            checkpoint
-        } else {
-            return;
+        let _checkpoint = if let Some(_checkpoint) = node.get_last_checkpoint() {
+            info!("saving last checkpoint hash");
+            let res = self.db.save_checkpoint(_checkpoint);
+            if res.is_err() {
+                warn!("checkpoint save failed");
+            }
         };
+    }
 
-        info!("saving last checkpoint hash");
-        let res = self.db.save_checkpoint(checkpoint);
-        if res.is_err() {
-            warn!("checkpoint save failed");
-        }
+    pub async fn shutdown(&self) {
+        self.save_last_checkpoint().await;
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
