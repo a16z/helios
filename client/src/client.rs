@@ -397,9 +397,10 @@ impl<DB: Database> Client<DB> {
     /// Saves last checkpoint of the node.
     async fn save_last_checkpoint(&self) {
         let node = self.node.read().await;
-        let _checkpoint = if let Some(_checkpoint) = node.get_last_checkpoint() {
+
+        if let Some(checkpoint) = node.get_last_checkpoint() {
             info!("saving last checkpoint hash");
-            let res = self.db.save_checkpoint(_checkpoint);
+            let res = self.db.save_checkpoint(checkpoint);
             if res.is_err() {
                 warn!("checkpoint save failed");
             }
