@@ -112,8 +112,8 @@ trait EthRpc {
         slot: H256,
         block: BlockTag,
     ) -> Result<String, Error>;
-    #[method(name = "getCoinbase")]
-    async fn get_coinbase(&self) -> Result<Address, Error>;
+    #[method(name = "coinbase")]
+    async fn coinbase(&self) -> Result<Address, Error>;
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncingStatus, Error>;
 }
@@ -275,7 +275,7 @@ impl EthRpcServer for RpcInner {
         )
     }
 
-    async fn get_coinbase(&self) -> Result<Address, Error> {
+    async fn coinbase(&self) -> Result<Address, Error> {
         let node = self.node.read().await;
         Ok(node.get_coinbase().unwrap())
     }
