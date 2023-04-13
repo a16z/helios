@@ -20,7 +20,12 @@ use log::trace;
 use revm::{AccountInfo, Bytecode, Database, Env, TransactOut, TransactTo, EVM};
 
 use consensus::types::ExecutionPayload;
+
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_blocking;
+
+#[cfg(target_arch = "wasm32")]
+use std::thread;
 
 use crate::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
@@ -220,6 +225,7 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
         self.accounts = accounts;
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn get_account(&mut self, address: Address, slots: &[H256]) -> Result<Account> {
         let execution = self.execution.clone();
         let payload = self.current_payload.clone();
@@ -230,6 +236,20 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
         });
 
         block_on(handle)?
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn get_account(&mut self, address: Address, slots: &[H256]) -> Result<Account> {
+        let execution = self.execution.clone();
+        let payload = self.current_payload.clone();
+        let slots = slots.to_owned();
+
+        let handle = thread::spawn(move || {
+            let account_fut = execution.get_account(&address, Some(&slots), &payload);
+            block_on(account_fut)
+        });
+
+        handle.join().unwrap()
     }
 }
 
@@ -314,6 +334,7 @@ mod tests {
         ExecutionClient::new("testdata/").unwrap()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn test_proof_db() {
         // Construct proofdb params
