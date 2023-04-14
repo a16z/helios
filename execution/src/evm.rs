@@ -24,9 +24,6 @@ use consensus::types::ExecutionPayload;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_blocking;
 
-#[cfg(target_arch = "wasm32")]
-use std::thread;
-
 use crate::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
     errors::EvmError,
@@ -244,12 +241,8 @@ impl<'a, R: ExecutionRpc> ProofDB<'a, R> {
         let payload = self.current_payload.clone();
         let slots = slots.to_owned();
 
-        let handle = thread::spawn(move || {
-            let account_fut = execution.get_account(&address, Some(&slots), &payload);
-            block_on(account_fut)
-        });
-
-        handle.join().unwrap()
+        let account_fut = execution.get_account(&address, Some(&slots), &payload);
+        block_on(account_fut)
     }
 }
 
