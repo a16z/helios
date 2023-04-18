@@ -36,7 +36,9 @@ if [ "${ARCHITECTURE}" = "x86_64" ]; then
     ARCHITECTURE="amd64" # Intel.
   fi
 elif [ "${ARCHITECTURE}" = "arm64" ] ||[ "${ARCHITECTURE}" = "aarch64" ] ; then
-  ARCHITECTURE="arm64" # Arm.
+  ARCHITECTURE="arm64" # 64-bit Arm.
+elif [ "${ARCHITECTURE}" = "armv7l" ]; then
+  ARCHITECTURE="armv7l" # 32-bit Arm.
 else
   ARCHITECTURE="amd64" # Amd.
 fi
