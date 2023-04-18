@@ -165,3 +165,51 @@ jobs:
             helios_linux_amd64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux-armv7:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v1
+
+      - name: install rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          default: true
+          override: true
+
+      - name: install target
+        run: rustup target add armv7-unknown-linux-gnueabihf
+
+      - name: install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-arm-linux-gnueabihf
+          echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+          ldd --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "fresh2"
+
+      - name: build
+        run: cargo build --package cli --release --target armv7-unknown-linux-gnueabihf
+
+      - name: archive
+        run: tar -czvf "helios_linux_armv7.tar.gz" -C ./target/armv7-unknown-linux-gnueabihf/release helios
+
+      - name: generate tag name
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+
+      - name: release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          prerelease: true
+          files: |
+            helios_linux_armv7.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
