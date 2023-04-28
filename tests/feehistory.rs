@@ -11,18 +11,16 @@ async fn feehistory() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // Client Configuration
-    let api_key = env::var("execution_rpc").expect("execution_rpc env variable missing");
-    let checkpoint = "0x4d9b87a319c52e54068b7727a93dd3d52b83f7336ed93707bcdf7b37aefce700";
-    let consensus_rpc = "https://www.lightclientdata.org";
+    let api_key = env::var("MAINNET_RPC").expect("MAINNET_RPC env variable missing");
+    let consensus_rpc = env::var("CONSENSUS_RPC").expect("CONSENSUS_RPC env variable missing");
     let data_dir = "/tmp/helios";
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
 
     // Instantiate Client
     let mut client: Client<FileDB> = ClientBuilder::new()
         .network(Network::MAINNET)
-        .consensus_rpc(consensus_rpc)
+        .consensus_rpc(&consensus_rpc)
         .execution_rpc(&api_key)
-        .checkpoint(checkpoint)
         .load_external_fallback()
         .data_dir(PathBuf::from(data_dir))
         .build()?;
