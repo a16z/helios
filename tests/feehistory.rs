@@ -24,7 +24,8 @@ async fn feehistory() -> Result<()> {
             log::info!("Skipping feehistory test: MAINNET_CONSENSUS_RPC env variable not set");
             return Ok(());
         }
-    };    let data_dir = "/tmp/helios";
+    };
+    let data_dir = "/tmp/helios";
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
 
     // Instantiate Client
