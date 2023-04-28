@@ -1,9 +1,9 @@
+use dotenv::dotenv;
 use env_logger::Env;
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
 use std::time::Duration;
 use std::{env, path::PathBuf};
-use dotenv::dotenv;
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
