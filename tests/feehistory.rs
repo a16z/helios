@@ -1,3 +1,4 @@
+use dotenv::dotenv;
 use env_logger::Env;
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
@@ -6,21 +7,32 @@ use std::{env, path::PathBuf};
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
+    dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // Client Configuration
-    let api_key = env::var("MAINNET_RPC_URL").expect("MAINNET_RPC_URL env variable missing");
-    let checkpoint = "0x4d9b87a319c52e54068b7727a93dd3d52b83f7336ed93707bcdf7b37aefce700";
-    let consensus_rpc = "https://www.lightclientdata.org";
+    let api_key = match env::var("MAINNET_EXECUTION_RPC") {
+        Ok(val) => val,
+        Err(_) => {
+            log::info!("Skipping feehistory test: MAINNET_EXECUTION_RPC env variable not set");
+            return Ok(());
+        }
+    };
+    let consensus_rpc = match env::var("MAINNET_CONSENSUS_RPC") {
+        Ok(val) => val,
+        Err(_) => {
+            log::info!("Skipping feehistory test: MAINNET_CONSENSUS_RPC env variable not set");
+            return Ok(());
+        }
+    };
     let data_dir = "/tmp/helios";
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
 
     // Instantiate Client
     let mut client: Client<FileDB> = ClientBuilder::new()
         .network(Network::MAINNET)
-        .consensus_rpc(consensus_rpc)
+        .consensus_rpc(&consensus_rpc)
         .execution_rpc(&api_key)
-        .checkpoint(checkpoint)
         .load_external_fallback()
         .data_dir(PathBuf::from(data_dir))
         .build()?;

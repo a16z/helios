@@ -18,6 +18,22 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 
 To install Helios, run `heliosup`.
 
+## Testing
+
+To ensure that Helios works as expected, we have a comprehensive test suite that you can run. Before running the tests, make sure to create a `.env` file in the root of the project directory. You can copy the contents of the `.env.example` file and fill in your own secrets.
+
+To run all tests, use the following command:
+
+```sh
+cargo test-all
+```
+
+To run tests for an individual package, use this command, replacing <package-name> with the package you want to test:
+
+```sh
+cargo test -p <package-name>
+```
+
 ## Usage
 
 To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy or Infura:
@@ -30,7 +46,7 @@ helios --execution-rpc $ETH_RPC_URL
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
-Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run --example <example_name>` from inside the helios repository.
+Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run -p helios --example <example_name>` from inside the helios repository.
 
 Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 

@@ -25,7 +25,7 @@ pub async fn fetch_mainnet_checkpoint() -> eyre::Result<H256> {
 ///
 /// Requires a [Runtime](tokio::runtime::Runtime) to be passed in by reference.
 /// The client is parameterized with a [FileDB](client::FileDB).
-/// It will also use the environment variable `MAINNET_RPC_URL` to connect to a mainnet node.
+/// It will also use the environment variable `MAINNET_EXECUTION_RPC` to connect to a mainnet node.
 /// The client will use `https://www.lightclientdata.org` as the consensus RPC.
 pub fn construct_mainnet_client(
     rt: &tokio::runtime::Runtime,
@@ -34,7 +34,7 @@ pub fn construct_mainnet_client(
 }
 
 pub async fn inner_construct_mainnet_client() -> eyre::Result<client::Client<ConfigDB>> {
-    let benchmark_rpc_url = std::env::var("MAINNET_RPC_URL")?;
+    let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let mut client = client::ClientBuilder::new()
         .network(networks::Network::MAINNET)
         .consensus_rpc("https://www.lightclientdata.org")
@@ -48,7 +48,7 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<client::Client<Con
 pub async fn construct_mainnet_client_with_checkpoint(
     checkpoint: &str,
 ) -> eyre::Result<client::Client<ConfigDB>> {
-    let benchmark_rpc_url = std::env::var("MAINNET_RPC_URL")?;
+    let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let mut client = client::ClientBuilder::new()
         .network(networks::Network::MAINNET)
         .consensus_rpc("https://www.lightclientdata.org")
@@ -75,13 +75,13 @@ pub fn construct_runtime() -> tokio::runtime::Runtime {
 ///
 /// Requires a [Runtime](tokio::runtime::Runtime) to be passed in by reference.
 /// The client is parameterized with a [FileDB](client::FileDB).
-/// It will also use the environment variable `GOERLI_RPC_URL` to connect to a mainnet node.
+/// It will also use the environment variable `GOERLI_EXECUTION_RPC` to connect to a mainnet node.
 /// The client will use `http://testing.prater.beacon-api.nimbus.team` as the consensus RPC.
 pub fn construct_goerli_client(
     rt: &tokio::runtime::Runtime,
 ) -> eyre::Result<client::Client<ConfigDB>> {
     rt.block_on(async {
-        let benchmark_rpc_url = std::env::var("GOERLI_RPC_URL")?;
+        let benchmark_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
         let mut client = client::ClientBuilder::new()
             .network(networks::Network::GOERLI)
             .consensus_rpc("http://testing.prater.beacon-api.nimbus.team")
