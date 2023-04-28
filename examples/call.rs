@@ -24,8 +24,8 @@ abigen!(
 async fn main() -> eyre::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    // Load the rpc url using the `MAINNET_RPC` environment variable
-    let eth_rpc_url = std::env::var("MAINNET_RPC")?;
+    // Load the rpc url using the `MAINNET_EXECUTION_RPC` environment variable
+    let eth_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let consensus_rpc = "https://www.lightclientdata.org";
     log::info!("Consensus RPC URL: {}", consensus_rpc);
 

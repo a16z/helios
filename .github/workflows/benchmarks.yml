@@ -6,8 +6,8 @@ on:
   #   branches: [ "master" ]
 
 env:
-  MAINNET_RPC: ${{ secrets.MAINNET_RPC }}
-  GOERLI_RPC: ${{ secrets.GOERLI_RPC }}
+  MAINNET_EXECUTION_RPC: ${{ secrets.MAINNET_EXECUTION_RPC }}
+  GOERLI_EXECUTION_RPC: ${{ secrets.GOERLI_EXECUTION_RPC }}
 
 jobs:
   benches:

@@ -11,9 +11,20 @@ async fn feehistory() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // Client Configuration
-    let api_key = env::var("MAINNET_RPC").expect("MAINNET_RPC env variable missing");
-    let consensus_rpc = env::var("CONSENSUS_RPC").expect("CONSENSUS_RPC env variable missing");
-    let data_dir = "/tmp/helios";
+    let api_key = match env::var("MAINNET_EXECUTION_RPC") {
+        Ok(val) => val,
+        Err(_) => {
+            log::info!("Skipping feehistory test: MAINNET_EXECUTION_RPC env variable not set");
+            return Ok(());
+        }
+    };
+    let consensus_rpc = match env::var("MAINNET_CONSENSUS_RPC") {
+        Ok(val) => val,
+        Err(_) => {
+            log::info!("Skipping feehistory test: MAINNET_CONSENSUS_RPC env variable not set");
+            return Ok(());
+        }
+    };    let data_dir = "/tmp/helios";
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
 
     // Instantiate Client
