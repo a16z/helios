@@ -30,6 +30,10 @@ consensus = { path = "./consensus" }
 execution = { path = "./execution" }
 serde = { version = "1.0.154", features = ["derive"] }
 
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+dotenv = "0.15.0"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"

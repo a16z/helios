@@ -3,13 +3,15 @@ use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
 use std::time::Duration;
 use std::{env, path::PathBuf};
+use dotenv::dotenv;
 
 #[tokio::test]
 async fn feehistory() -> Result<()> {
+    dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // Client Configuration
-    let api_key = env::var("MAINNET_RPC_URL").expect("MAINNET_RPC_URL env variable missing");
+    let api_key = env::var("execution_rpc").expect("execution_rpc env variable missing");
     let checkpoint = "0x4d9b87a319c52e54068b7727a93dd3d52b83f7336ed93707bcdf7b37aefce700";
     let consensus_rpc = "https://www.lightclientdata.org";
     let data_dir = "/tmp/helios";
