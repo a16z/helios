@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use ethers::prelude::{Address, Http};
-use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
+use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient, FilterKind};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
@@ -153,5 +153,14 @@ impl ExecutionRpc for HttpRpc {
             .fee_history(block_count, block, reward_percentiles)
             .await
             .map_err(|e| RpcError::new("fee_history", e))?)
+    }
+
+    async fn new_filter(
+        &self, 
+        filter: Filter
+    ) -> Result<U256> {
+        Ok(
+            self.provider.new_filter(FilterKind::Logs(&filter)).await?
+        )
     }
 }
