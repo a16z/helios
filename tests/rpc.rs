@@ -97,3 +97,24 @@ async fn test_eth_get_block_transaction_count_by_number() {
         .unwrap();
     assert!(true);
 }
+
+#[tokio::test]
+async fn test_eth_get_block_transaction_count_by_hash() {
+    let client = match launch_client().await {
+        Ok(c) => c,
+        Err(e) => {
+            log::warn!(
+                "Skipping test_eth_get_block_transaction_count_by_hash: {}",
+                e
+            );
+            return;
+        }
+    };
+    let first_eth_hash: Vec<u8> =
+        "0x88e96d4537bea4d9c05d12549907b32561d3bf31f45aae734cdc119f13406cb6".into();
+    let block = client
+        .get_block_transaction_count_by_hash(&first_eth_hash)
+        .await
+        .unwrap();
+    assert!(true);
+}
