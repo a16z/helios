@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, path::PathBuf};
+use std::{fs::read_to_string, path::PathBuf, fmt::Debug};
 
 use async_trait::async_trait;
 use common::utils::hex_str_to_bytes;
@@ -7,8 +7,9 @@ use ethers::types::{
     Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::{eyre, Result};
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::types::CallOpts;
+use crate::types::{CallOpts, FilterChangesReturnType};
 
 use super::ExecutionRpc;
 
@@ -77,7 +78,7 @@ impl ExecutionRpc for MockRpc {
         Ok(serde_json::from_str(&fee_history)?)
     }
 
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesReturnType> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
     }

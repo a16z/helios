@@ -17,7 +17,7 @@ use consensus::types::{ExecutionPayload, Header};
 use consensus::ConsensusClient;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
-use execution::types::{CallOpts, ExecutionBlock};
+use execution::types::{CallOpts, ExecutionBlock, FilterChangesReturnType};
 use execution::ExecutionClient;
 
 use crate::errors::NodeError;
@@ -265,7 +265,7 @@ impl Node {
     }
 
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesReturnType> {
         self.execution.get_filter_changes(filter_id, &self.payloads).await
     }
 

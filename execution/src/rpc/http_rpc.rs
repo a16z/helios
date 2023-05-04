@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::any::{Any, TypeId};
 use std::str::FromStr;
 
 use async_trait::async_trait;
@@ -11,10 +11,8 @@ use ethers::types::{
     Filter, Log, Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::Result;
-use serde::Deserialize;
-use serde::{de::DeserializeOwned, Serialize};
 
-use crate::types::CallOpts;
+use crate::types::{CallOpts, FilterChangesReturnType};
 use common::errors::RpcError;
 
 use super::ExecutionRpc;
@@ -29,6 +27,20 @@ impl Clone for HttpRpc {
         Self::new(&self.url).unwrap()
     }
 }
+
+
+// test function, will remove before commiting it for production
+fn convert_to_enum(value: &dyn std::any::Any) -> Option<FilterChangesReturnType> {
+    if let Some(logs) = value.downcast_ref::<Vec<Log>>() {
+        Some(FilterChangesReturnType::Log(logs.clone()))
+    } else if let Some(hashes) = value.downcast_ref::<Vec<H256>>() {
+        Some(FilterChangesReturnType::H256(hashes.clone()))
+    } else {
+        None
+    }
+
+}
+
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -158,10 +170,16 @@ impl ExecutionRpc for HttpRpc {
             .map_err(|e| RpcError::new("fee_history", e))?)
     }
 
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>>{
-        Ok(self
-            .provider.get_filter_changes(filter_id)
-            .await
-            .map_err(|e| RpcError::new("get_filter_changes", e))?)
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesReturnType> {
+        let x = self
+        .provider.get_filter_changes(filter_id)
+        .await
+        .map_err(|e| RpcError::new("get_filter_changes", e)).unwrap();
+
+        // let y: FilterChangesReturnType = convert_to_enum(&x).unwrap();
+
+        // how to determine between log and h256??
+
+        Ok(FilterChangesReturnType::Log(x))
     }
 }

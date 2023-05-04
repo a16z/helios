@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Debug;
 use std::str::FromStr;
 
 use ethers::abi::AbiEncode;
@@ -12,10 +13,12 @@ use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
 use futures::future::join_all;
 use revm::KECCAK_EMPTY;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use triehash_ethereum::ordered_trie_root;
 
 use crate::errors::ExecutionError;
-use crate::types::Transactions;
+use crate::types::{Transactions, FilterChangesReturnType};
 
 use super::proof::{encode_account, verify_proof};
 use super::rpc::ExecutionRpc;
@@ -350,47 +353,55 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         &self,
         filter_id: U256,
         payloads: &BTreeMap<u64, ExecutionPayload>,
-    ) -> Result<Vec<Log>> {
+    ) -> Result<FilterChangesReturnType>{
         let filter_id = filter_id.clone();
 
-        let logs = self.rpc.get_filter_changes(filter_id).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
-
-        for (_pos, log) in logs.iter().enumerate() {
-            // For every log
-            // Get the hash of the tx that generated it
-            let tx_hash = log
-                .transaction_hash
-                .ok_or(eyre::eyre!("tx hash not found in log"))?;
-            // Get its proven receipt
-            let receipt = self
-                .get_transaction_receipt(&tx_hash, payloads)
-                .await?
-                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
-
-            // Check if the receipt contains the desired log
-            // Encoding logs for comparison
-            let receipt_logs_encoded = receipt
-                .logs
-                .iter()
-                .map(|log| log.rlp_bytes())
-                .collect::<Vec<_>>();
-
-            let log_encoded = log.rlp_bytes();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash.to_string(),
-                    log.log_index.unwrap(),
-                )
-                .into());
+        let filter_return = self.rpc.get_filter_changes(filter_id).await?;
+        
+        match filter_return {
+            FilterChangesReturnType::Log(logs) => {
+                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                    return Err(
+                        ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+                    );
+                }
+        
+                for (_pos, log) in logs.iter().enumerate() {
+                    // For every log
+                    // Get the hash of the tx that generated it
+                    let tx_hash = log
+                        .transaction_hash
+                        .ok_or(eyre::eyre!("tx hash not found in log"))?;
+                    // Get its proven receipt
+                    let receipt = self
+                        .get_transaction_receipt(&tx_hash, payloads)
+                        .await?
+                        .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
+        
+                    // Check if the receipt contains the desired log
+                    // Encoding logs for comparison
+                    let receipt_logs_encoded = receipt
+                        .logs
+                        .iter()
+                        .map(|log| log.rlp_bytes())
+                        .collect::<Vec<_>>();
+        
+                    let log_encoded = log.rlp_bytes();
+        
+                    if !receipt_logs_encoded.contains(&log_encoded) {
+                        return Err(ExecutionError::MissingLog(
+                            tx_hash.to_string(),
+                            log.log_index.unwrap(),
+                        )
+                        .into());
+                    }
+                }
+                Ok(FilterChangesReturnType::Log(logs))
+            },
+            FilterChangesReturnType::H256(h256s) => {
+                Ok(FilterChangesReturnType::H256(h256s))
             }
         }
-        Ok(logs)
     }
 
     pub async fn get_fee_history(

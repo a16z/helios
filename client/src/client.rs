@@ -11,7 +11,7 @@ use eyre::{eyre, Result};
 use common::types::BlockTag;
 use config::{CheckpointFallback, Config};
 use consensus::{types::Header, ConsensusClient};
-use execution::types::{CallOpts, ExecutionBlock};
+use execution::types::{CallOpts, ExecutionBlock, FilterChangesReturnType};
 use log::{error, info, warn};
 use tokio::sync::RwLock;
 
@@ -568,7 +568,7 @@ impl<DB: Database> Client<DB> {
         self.node.read().await.get_coinbase()
     }
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesReturnType> {
         self.node.read().await.get_filter_changes(filter_id).await
     }
 }
