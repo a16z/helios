@@ -3,8 +3,9 @@ use ethers::{
     types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
 };
 use eyre::Result;
-use log::info;
+use log::{info};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
+use std::net::{IpAddr, Ipv4Addr};
 use tokio::sync::RwLock;
 
 use jsonrpsee::{
@@ -24,22 +25,23 @@ use execution::types::{CallOpts, ExecutionBlock};
 pub struct Rpc {
     node: Arc<RwLock<Node>>,
     handle: Option<HttpServerHandle>,
-    port: u16,
+    address: SocketAddr,
 }
 
 impl Rpc {
-    pub fn new(node: Arc<RwLock<Node>>, port: u16) -> Self {
+    pub fn new(node: Arc<RwLock<Node>>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
+        let address = SocketAddr::new(ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)), port.unwrap_or(0));
         Rpc {
             node,
             handle: None,
-            port,
+            address,
         }
     }
 
     pub async fn start(&mut self) -> Result<SocketAddr> {
         let rpc_inner = RpcInner {
             node: self.node.clone(),
-            port: self.port,
+            address: self.address,
         };
 
         let (handle, addr) = start(rpc_inner).await?;
@@ -127,7 +129,7 @@ trait NetRpc {
 #[derive(Clone)]
 struct RpcInner {
     node: Arc<RwLock<Node>>,
-    port: u16,
+    address: SocketAddr,
 }
 
 #[async_trait]
@@ -313,9 +315,7 @@ impl NetRpcServer for RpcInner {
 }
 
 async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
-    let addr = format!("127.0.0.1:{}", rpc.port);
-    let server = HttpServerBuilder::default().build(addr).await?;
-
+    let server = HttpServerBuilder::default().build(rpc.address).await?;
     let addr = server.local_addr()?;
 
     let mut methods = Methods::new();

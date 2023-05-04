@@ -1,20 +1,21 @@
-use figment::{
-    providers::{Format, Serialized, Toml},
-    Figment,
-};
-use serde::Deserialize;
-use std::{path::PathBuf, process::exit};
-
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
 use crate::networks;
 use crate::types::{ChainConfig, Forks};
 use crate::utils::{bytes_deserialize, bytes_opt_deserialize};
+use figment::{
+    providers::{Format, Serialized, Toml},
+    Figment,
+};
+use serde::Deserialize;
+use std::net::{IpAddr, Ipv4Addr};
+use std::{path::PathBuf, process::exit};
 
 #[derive(Deserialize, Debug, Default)]
 pub struct Config {
     pub consensus_rpc: String,
     pub execution_rpc: String,
+    pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     #[serde(deserialize_with = "bytes_deserialize")]
     pub default_checkpoint: Vec<u8>,
@@ -58,7 +59,7 @@ impl Config {
 
                         println!("\x1b[91merror\x1b[0m: missing configuration field: {field}");
 
-                        println!("\n\ttry supplying the propoper command line argument: --{field}");
+                        println!("\n\ttry supplying the proper command line argument: --{field}");
 
                         println!("\talternatively, you can add the field to your helios.toml file or as an environment variable");
                         println!("\nfor more information, check the github README");
@@ -86,6 +87,7 @@ impl Config {
 
     pub fn to_base_config(&self) -> BaseConfig {
         BaseConfig {
+            rpc_bind_ip: self.rpc_bind_ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             rpc_port: self.rpc_port.unwrap_or(8545),
             consensus_rpc: Some(self.consensus_rpc.clone()),
             default_checkpoint: self.default_checkpoint.clone(),

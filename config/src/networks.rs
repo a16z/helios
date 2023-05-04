@@ -68,6 +68,7 @@ pub fn mainnet() -> BaseConfig {
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
+        ..std::default::Default::default()
     }
 }
 
@@ -106,5 +107,6 @@ pub fn goerli() -> BaseConfig {
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
+        ..std::default::Default::default()
     }
 }

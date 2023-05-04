@@ -4,6 +4,7 @@ use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
+use std::net::IpAddr;
 
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
@@ -85,6 +86,8 @@ fn get_config() -> Config {
 struct Cli {
     #[clap(short, long, default_value = "mainnet")]
     network: String,
+    #[clap(short = 'b', long, env)]
+    rpc_bind_ip: Option<IpAddr>,
     #[clap(short = 'p', long, env)]
     rpc_port: Option<u16>,
     #[clap(short = 'w', long, env)]
@@ -115,6 +118,7 @@ impl Cli {
             execution_rpc: self.execution_rpc.clone(),
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self.get_data_dir(),
+            rpc_bind_ip: self.rpc_bind_ip,
             rpc_port: self.rpc_port,
             fallback: self.fallback.clone(),
             load_external_fallback: self.load_external_fallback,
