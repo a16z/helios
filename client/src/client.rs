@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use config::networks::Network;
@@ -40,6 +41,8 @@ pub struct ClientBuilder {
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
     checkpoint: Option<Vec<u8>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    rpc_bind_ip: Option<IpAddr>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -151,6 +154,15 @@ impl ClientBuilder {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
+        let rpc_bind_ip = if self.rpc_bind_ip.is_some() {
+            self.rpc_bind_ip
+        } else if let Some(config) = &self.config {
+            config.rpc_bind_ip
+        } else {
+            None
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
         let rpc_port = if self.rpc_port.is_some() {
             self.rpc_port
         } else if let Some(config) = &self.config {
@@ -194,6 +206,10 @@ impl ClientBuilder {
             checkpoint,
             default_checkpoint,
             #[cfg(not(target_arch = "wasm32"))]
+            rpc_bind_ip,
+            #[cfg(target_arch = "wasm32")]
+            rpc_bind_ip: None,
+            #[cfg(not(target_arch = "wasm32"))]
             rpc_port,
             #[cfg(target_arch = "wasm32")]
             rpc_port: None,
@@ -233,9 +249,12 @@ impl<DB: Database> Client<DB> {
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
+        let mut rpc: Option<Rpc> = None;
 
         #[cfg(not(target_arch = "wasm32"))]
-        let rpc = config.rpc_port.map(|port| Rpc::new(node.clone(), port));
+        if config.rpc_bind_ip.is_some() || config.rpc_port.is_some() {
+            rpc = Some(Rpc::new(node.clone(), config.rpc_bind_ip, config.rpc_port));
+        }
 
         Ok(Client {
             node,

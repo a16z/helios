@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::{collections::HashMap, path::PathBuf};
 
 use figment::{providers::Serialized, value::Value};
@@ -9,6 +10,7 @@ pub struct CliConfig {
     pub execution_rpc: Option<String>,
     pub consensus_rpc: Option<String>,
     pub checkpoint: Option<Vec<u8>>,
+    pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub data_dir: PathBuf,
     pub fallback: Option<String>,
@@ -30,6 +32,10 @@ impl CliConfig {
 
         if let Some(checkpoint) = &self.checkpoint {
             user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
+        }
+
+        if let Some(ip) = self.rpc_bind_ip {
+            user_dict.insert("rpc_bind_ip", Value::from(ip.to_string()));
         }
 
         if let Some(port) = self.rpc_port {
