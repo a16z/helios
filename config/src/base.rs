@@ -1,6 +1,6 @@
 use serde::Serialize;
-use std::net::{IpAddr, Ipv4Addr};
 use std::default::Default;
+use std::net::{IpAddr, Ipv4Addr};
 
 use crate::types::{ChainConfig, Forks};
 use crate::utils::bytes_serialize;

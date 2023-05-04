@@ -3,9 +3,9 @@ use ethers::{
     types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
 };
 use eyre::Result;
-use log::{info};
-use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
+use log::info;
 use std::net::{IpAddr, Ipv4Addr};
+use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 
 use jsonrpsee::{
@@ -30,7 +30,10 @@ pub struct Rpc {
 
 impl Rpc {
     pub fn new(node: Arc<RwLock<Node>>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
-        let address = SocketAddr::new(ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)), port.unwrap_or(0));
+        let address = SocketAddr::new(
+            ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+            port.unwrap_or(0),
+        );
         Rpc {
             node,
             handle: None,

@@ -1,10 +1,10 @@
+use std::net::IpAddr;
 use std::{
     path::PathBuf,
     process::exit,
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use std::net::IpAddr;
 
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
