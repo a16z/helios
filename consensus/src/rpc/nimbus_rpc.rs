@@ -58,7 +58,7 @@ impl ConsensusRpc for NimbusRpc {
             .await
             .map_err(|e| RpcError::new("updates", e))?;
 
-        Ok(res.iter().map(|d| d.data.clone()).collect())
+        Ok(res.into_iter().map(|d| d.data).collect())
     }
 
     async fn get_finality_update(&self) -> Result<FinalityUpdate> {
