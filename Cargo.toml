@@ -48,7 +48,6 @@ tempfile = "3.4.0"
 hex = "0.4.3"
 
 [profile.release]
-strip = true
 opt-level = "z"
 lto = true
 codegen-units = 1
