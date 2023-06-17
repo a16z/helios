@@ -7,6 +7,7 @@ use ethers::types::{FeeHistory, Filter, Log, Transaction, TransactionReceipt, H2
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
+use once_cell::sync::Lazy;
 
 use common::utils::hex_str_to_bytes;
 use consensus::types::ExecutionPayload;
@@ -23,7 +24,14 @@ use super::types::{Account, ExecutionBlock};
 
 // We currently limit the max number of logs to fetch,
 // to avoid blocking the client for too long.
-const MAX_SUPPORTED_LOGS_NUMBER: usize = 5;
+const DEFAULT_MAX_SUPPORTED_LOGS_NUMBER: usize = 5;
+
+pub static MAX_SUPPORTED_LOGS_NUMBER: Lazy<usize> = Lazy::new(|| {
+    std::env::var("MAX_SUPPORTED_LOGS_NUMBER")
+        .unwrap_or_else(|_| DEFAULT_MAX_SUPPORTED_LOGS_NUMBER.to_string())
+        .parse::<usize>()
+        .unwrap_or(DEFAULT_MAX_SUPPORTED_LOGS_NUMBER)
+});
 
 #[derive(Clone)]
 pub struct ExecutionClient<R: ExecutionRpc> {
@@ -307,9 +315,9 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         };
 
         let logs = self.rpc.get_logs(&filter).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+        if logs.len() > *MAX_SUPPORTED_LOGS_NUMBER {
             return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+                ExecutionError::TooManyLogsToProve(logs.len(), *MAX_SUPPORTED_LOGS_NUMBER).into(),
             );
         }
 

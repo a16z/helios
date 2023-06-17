@@ -1723,6 +1723,7 @@ dependencies = [
  "hex",
  "hyper",
  "log",
+ "once_cell",
  "openssl",
  "reqwest",
  "revm",
