@@ -4,29 +4,37 @@ version = "0.4.1"
 edition = "2021"
 
 [dependencies]
-eyre = "0.6.8"
-futures = "0.3.23"
-serde = { version = "1.0.143", features = ["derive"] }
-serde_json = "1.0.85"
-hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
-milagro_bls = { git = "https://github.com/Snowfork/milagro_bls" }
-ethers = "2.0.2"
-bytes = "1.2.1"
-toml = "0.5.9"
-async-trait = "0.1.57"
-log = "0.4.17"
-chrono = "0.4.23"
-thiserror = "1.0.37"
-reqwest = { version = "0.11.13", features = ["json"] }
-superstruct = "0.7.0"
+# consensus
+ssz-rs.workspace = true
+milagro_bls.workspace = true
+
+# execution
+ethers.workspace = true
+
+# async/futures
+futures.workspace = true
+async-trait.workspace = true
+
+# io
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+#misc
+eyre.workspace = true
+hex.workspace = true
+bytes.workspace = true
+log.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+superstruct.workspace = true
 
 common = { path = "../common" }
 config = { path = "../config" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
-tokio = { version = "1", features = ["full"] }
+openssl.workspace = true
+tokio.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-timer = "0.2.5"
