@@ -36,7 +36,7 @@ impl Network {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         default_checkpoint: hex_str_to_bytes(
-            "0x766647f3c4e1fc91c0db9a9374032ae038778411fbff222974e11f2e3ce7dadf",
+            "0x69e3bb0e44b707636ff2c1d3385b20c21013c95f867c296c7ee84960edcbd103",
         )
         .unwrap(),
         rpc_port: 8545,
@@ -75,7 +75,7 @@ pub fn mainnet() -> BaseConfig {
 pub fn goerli() -> BaseConfig {
     BaseConfig {
         default_checkpoint: hex_str_to_bytes(
-            "0xd4344682866dbede543395ecf5adf9443a27f423a4b00f270458e7932686ced1",
+            "0x428474ba0c1ce5049efe4324d503f69f0370fae2095954db4864c57097c90574",
         )
         .unwrap(),
         rpc_port: 8545,
