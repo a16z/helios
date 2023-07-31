@@ -4,26 +4,31 @@ version = "0.4.1"
 edition = "2021"
 
 [dependencies]
-reqwest = { version = "0.11.13", features = ["json"] }
-eyre = "0.6.8"
-serde = { version = "1.0.143", features = ["derive"] }
-serde_json = "1.0.85"
-hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
-revm = { version = "2.3", default-features = false, features = ["std", "k256", "with-serde"] }
-ethers = "2.0.2"
-bytes = "1.2.1"
-futures = "0.3.23"
-toml = "0.5.9"
-triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
-async-trait = "0.1.57"
-log = "0.4.17"
-thiserror = "1.0.37"
-hyper = "0.14.23"
+# execution
+revm.workspace = true
+ethers.workspace = true
+triehash-ethereum.workspace = true
+
+# async/futures
+futures.workspace = true
+async-trait.workspace = true
+
+# io
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+# misc
+eyre.workspace = true
+hex.workspace = true
+bytes.workspace = true
+log.workspace = true
+thiserror.workspace = true
+hyper.workspace = true
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
-tokio = { version = "1", features = ["full"] }
+openssl.workspace = true
+tokio.workspace = true

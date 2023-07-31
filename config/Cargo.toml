@@ -5,20 +5,20 @@ version = "0.4.1"
 edition = "2021"
 
 [dependencies]
-eyre = "0.6.8"
-serde = { version = "1.0.143", features = ["derive"] }
-hex = "0.4.3"
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
-ethers = "2.0.2"
+eyre.workspace = true
+serde.workspace = true
+hex.workspace = true
+ethers.workspace = true
+thiserror.workspace = true
+log.workspace = true
+reqwest.workspace = true
+futures.workspace = true
+
 figment = { version = "0.10.7", features = ["toml", "env"] }
-thiserror = "1.0.37"
-log = "0.4.17"
-reqwest = "0.11.13"
 serde_yaml = "0.9.14"
 strum = { version = "0.24.1", features = ["derive"] }
-futures = "0.3.23"
 
 common = { path = "../common" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio.workspace = true
