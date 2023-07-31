@@ -15,7 +15,7 @@ thiserror = "1.0.37"
 log = "0.4.17"
 reqwest = "0.11.13"
 serde_yaml = "0.9.14"
-strum = "0.24.1"
+strum = { version = "0.24.1", features = ["derive"] }
 futures = "0.3.23"
 
 common = { path = "../common" }
