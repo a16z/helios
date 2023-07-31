@@ -71,6 +71,7 @@ execution = { path = "./execution" }
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 dotenv = "0.15.0"
+serde = { version = "1.0.154", features = ["derive"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }

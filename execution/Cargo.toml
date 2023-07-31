@@ -4,6 +4,9 @@ version = "0.4.1"
 edition = "2021"
 
 [dependencies]
+# consensus
+ssz-rs.workspace = true
+
 # execution
 revm.workspace = true
 ethers.workspace = true
