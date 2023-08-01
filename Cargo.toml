@@ -26,7 +26,7 @@ default-members = ["cli"]
 
 [workspace.dependencies]
 # consensus
-ssz-rs = { git = "https://github.com/ralexstokes/ssz-rs", rev = "d09f55b4f8554491e3431e01af1c32347a8781cd" }
+ssz-rs = { package = "ssz_rs", version = "0.9.0" }
 milagro_bls = { git = "https://github.com/Snowfork/milagro_bls" }
 
 # execution

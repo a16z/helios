@@ -88,6 +88,8 @@ impl ssz_rs::Deserialize for BeaconBlockBody {
     }
 }
 
+impl ssz_rs::SimpleSerialize for BeaconBlockBody {}
+
 #[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
 pub struct SignedBlsToExecutionChange {
     message: BlsToExecutionChange,
@@ -207,6 +209,8 @@ impl Default for ExecutionPayload {
         ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix::default())
     }
 }
+
+impl ssz_rs::SimpleSerialize for ExecutionPayload {}
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct ProposerSlashing {
@@ -456,7 +460,7 @@ where
 {
     let key: String = serde::Deserialize::deserialize(deserializer)?;
     let key_bytes = hex_str_to_bytes(&key).map_err(D::Error::custom)?;
-    Ok(Vector::from_iter(key_bytes))
+    Vector::try_from(key_bytes).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn pubkeys_deserialize<'de, D>(deserializer: D) -> Result<Vector<BLSPubKey, 512>, D::Error>
@@ -464,13 +468,16 @@ where
     D: serde::Deserializer<'de>,
 {
     let keys: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    keys.iter()
+    let keys = keys
+        .iter()
         .map(|key| {
             let key_bytes = hex_str_to_bytes(key)?;
-            Ok(Vector::from_iter(key_bytes))
+            Ok(Vector::try_from(key_bytes).map_err(|(_, err)| err)?)
         })
-        .collect::<Result<Vector<BLSPubKey, 512>>>()
-        .map_err(D::Error::custom)
+        .collect::<Result<Vec<BLSPubKey>>>()
+        .map_err(D::Error::custom)?;
+
+    Vector::try_from(keys).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn bytes_vector_deserialize<'de, D>(deserializer: D) -> Result<Vector<Bytes32, 33>, D::Error>
@@ -478,14 +485,16 @@ where
     D: serde::Deserializer<'de>,
 {
     let elems: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    elems
+    let elems = elems
         .iter()
         .map(|elem| {
             let elem_bytes = hex_str_to_bytes(elem)?;
-            Ok(Vector::from_iter(elem_bytes))
+            Ok(Vector::try_from(elem_bytes).map_err(|(_, err)| err)?)
         })
-        .collect::<Result<Vector<Bytes32, 33>>>()
-        .map_err(D::Error::custom)
+        .collect::<Result<Vec<Bytes32>>>()
+        .map_err(D::Error::custom)?;
+
+    Vector::try_from(elems).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn signature_deserialize<'de, D>(deserializer: D) -> Result<SignatureBytes, D::Error>
@@ -494,7 +503,7 @@ where
 {
     let sig: String = serde::Deserialize::deserialize(deserializer)?;
     let sig_bytes = hex_str_to_bytes(&sig).map_err(D::Error::custom)?;
-    Ok(Vector::from_iter(sig_bytes))
+    Vector::try_from(sig_bytes).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn branch_deserialize<'de, D>(deserializer: D) -> Result<Vec<Bytes32>, D::Error>
@@ -506,7 +515,7 @@ where
         .iter()
         .map(|elem| {
             let elem_bytes = hex_str_to_bytes(elem)?;
-            Ok(Vector::from_iter(elem_bytes))
+            Ok(Vector::try_from(elem_bytes).map_err(|(_, err)| err)?)
         })
         .collect::<Result<_>>()
         .map_err(D::Error::custom)
@@ -576,11 +585,12 @@ where
         .iter()
         .map(|tx| {
             let tx = hex_str_to_bytes(tx).unwrap();
-            let tx: Transaction = List::from_iter(tx);
+            let tx: Transaction = List::try_from(tx).unwrap();
             tx
         })
-        .collect::<List<Transaction, 1048576>>();
-    Ok(transactions)
+        .collect::<Vec<Transaction>>();
+
+    List::try_from(transactions).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn attesting_indices_deserialize<'de, D>(deserializer: D) -> Result<List<u64, 2048>, D::Error>
@@ -591,9 +601,9 @@ where
     let attesting_indices = attesting_indices
         .iter()
         .map(|i| i.parse().unwrap())
-        .collect::<List<u64, 2048>>();
+        .collect::<Vec<u64>>();
 
-    Ok(attesting_indices)
+    List::try_from(attesting_indices).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn header_deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>

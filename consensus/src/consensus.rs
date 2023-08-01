@@ -422,7 +422,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
                 if self.store.finalized_header.slot % 32 == 0 {
                     let checkpoint_res = self.store.finalized_header.hash_tree_root();
                     if let Ok(checkpoint) = checkpoint_res {
-                        self.last_checkpoint = Some(checkpoint.as_bytes().to_vec());
+                        self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
                     }
                 }
 
@@ -506,11 +506,10 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     ) -> bool {
         let res: Result<bool> = (move || {
             let pks: Vec<&PublicKey> = pks.iter().collect();
-            let header_root =
-                bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_bytes());
+            let header_root = bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_ref());
             let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
 
-            Ok(is_aggregate_valid(signature, signing_root.as_bytes(), &pks))
+            Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
         })();
 
         if let Ok(is_valid) = res {
@@ -524,7 +523,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let genesis_root = self.config.chain.genesis_root.to_vec().try_into().unwrap();
 
         let domain_type = &hex::decode("07000000")?[..];
-        let fork_version = Vector::from_iter(self.config.fork_version(slot));
+        let fork_version =
+            Vector::try_from(self.config.fork_version(slot)).map_err(|(_, err)| err)?;
         let domain = compute_domain(domain_type, fork_version, genesis_root)?;
         compute_signing_root(header, domain)
     }
