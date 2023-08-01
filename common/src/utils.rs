@@ -10,11 +10,11 @@ pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
 }
 
 pub fn bytes32_to_node(bytes: &Bytes32) -> Result<Node> {
-    Ok(Node::from_bytes(bytes.as_slice().try_into()?))
+    Ok(Node::try_from(bytes.as_slice())?)
 }
 
 pub fn bytes_to_bytes32(bytes: &[u8]) -> Bytes32 {
-    Vector::from_iter(bytes.to_vec())
+    Vector::try_from(bytes.to_vec()).unwrap()
 }
 
 pub fn address_to_hex_string(address: &Address) -> String {

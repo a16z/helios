@@ -68,7 +68,7 @@ pub fn compute_domain(
 ) -> Result<Bytes32> {
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
     let start = domain_type;
-    let end = &fork_data_root.as_bytes()[..28];
+    let end = &fork_data_root.as_ref()[..28];
     let d = [start, end].concat();
     Ok(d.to_vec().try_into().unwrap())
 }
