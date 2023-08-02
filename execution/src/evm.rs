@@ -123,7 +123,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let mut list = rpc
-            .create_access_list(&opts_moved, block)
+            .create_access_list(&opts_moved, block.into())
             .await
             .map_err(EvmError::RpcError)?
             .0;
@@ -139,7 +139,7 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         };
 
         let producer_account = AccessListItem {
-            address: Address::from_slice(payload.fee_recipient()),
+            address: Address::from_slice(&payload.fee_recipient()),
             storage_keys: Vec::default(),
         };
 
@@ -182,9 +182,9 @@ impl<'a, R: ExecutionRpc> Evm<'a, R> {
         env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
         env.tx.gas_price = opts.gas_price.unwrap_or(U256::zero());
 
-        env.block.number = U256::from(*payload.block_number());
-        env.block.coinbase = Address::from_slice(payload.fee_recipient());
-        env.block.timestamp = U256::from(*payload.timestamp());
+        env.block.number = U256::from(payload.block_number().as_u64());
+        env.block.coinbase = Address::from_slice(&payload.fee_recipient());
+        env.block.timestamp = U256::from(payload.timestamp().as_u64());
         env.block.difficulty = U256::from_little_endian(payload.prev_randao());
 
         env.cfg.chain_id = self.chain_id.into();

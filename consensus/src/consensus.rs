@@ -10,8 +10,6 @@ use log::{debug, info};
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 
-use common::types::*;
-use common::utils::*;
 use config::Config;
 
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
@@ -81,16 +79,16 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
-        let slot = slot.unwrap_or(self.store.optimistic_header.slot);
+        let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
         let mut block = self.rpc.get_block(slot).await?;
         let block_hash = block.hash_tree_root()?;
 
         let latest_slot = self.store.optimistic_header.slot;
         let finalized_slot = self.store.finalized_header.slot;
 
-        let verified_block_hash = if slot == latest_slot {
+        let verified_block_hash = if slot == latest_slot.as_u64() {
             self.store.optimistic_header.clone().hash_tree_root()?
-        } else if slot == finalized_slot {
+        } else if slot == finalized_slot.as_u64() {
             self.store.finalized_header.clone().hash_tree_root()?
         } else {
             return Err(ConsensusError::PayloadNotFound(slot).into());
@@ -158,7 +156,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     pub async fn sync(&mut self) -> Result<()> {
         self.bootstrap().await?;
 
-        let current_period = calc_sync_period(self.store.finalized_header.slot);
+        let current_period = calc_sync_period(self.store.finalized_header.slot.into());
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -196,7 +194,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         if self.store.next_sync_committee.is_none() {
             debug!("checking for sync committee update");
-            let current_period = calc_sync_period(self.store.finalized_header.slot);
+            let current_period = calc_sync_period(self.store.finalized_header.slot.into());
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
@@ -220,7 +218,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .await
             .map_err(|_| eyre!("could not fetch bootstrap"))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
+        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
 
         if !is_valid {
             if self.config.strict_checkpoint_age {
@@ -270,14 +268,14 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
         let valid_time = self.expected_current_slot() >= update.signature_slot
-            && update.signature_slot > update.attested_header.slot
+            && update.signature_slot > update.attested_header.slot.as_u64()
             && update.attested_header.slot >= update_finalized_slot;
 
         if !valid_time {
             return Err(ConsensusError::InvalidTimestamp.into());
         }
 
-        let store_period = calc_sync_period(self.store.finalized_header.slot);
+        let store_period = calc_sync_period(self.store.finalized_header.slot.into());
         let update_sig_period = calc_sync_period(update.signature_slot);
         let valid_period = if self.store.next_sync_committee.is_some() {
             update_sig_period == store_period || update_sig_period == store_period + 1
@@ -289,7 +287,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             return Err(ConsensusError::InvalidPeriod.into());
         }
 
-        let update_attested_period = calc_sync_period(update.attested_header.slot);
+        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
         let update_has_next_committee = self.store.next_sync_committee.is_none()
             && update.next_sync_committee.is_some()
             && update_attested_period == store_period;
@@ -378,15 +376,15 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             self.log_optimistic_update(update);
         }
 
-        let update_attested_period = calc_sync_period(update.attested_header.slot);
+        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
 
         let update_finalized_slot = update
             .finalized_header
             .as_ref()
-            .map(|h| h.slot)
+            .map(|h| h.slot.as_u64())
             .unwrap_or(0);
 
-        let update_finalized_period = calc_sync_period(update_finalized_slot);
+        let update_finalized_period = calc_sync_period(update_finalized_slot.into());
 
         let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
             && self.has_sync_update(update)
@@ -395,14 +393,14 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         let should_apply_update = {
             let has_majority = committee_bits * 3 >= 512 * 2;
-            let update_is_newer = update_finalized_slot > self.store.finalized_header.slot;
+            let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
             let good_update = update_is_newer || update_has_finalized_next_committee;
 
             has_majority && good_update
         };
 
         if should_apply_update {
-            let store_period = calc_sync_period(self.store.finalized_header.slot);
+            let store_period = calc_sync_period(self.store.finalized_header.slot.into());
 
             if self.store.next_sync_committee.is_none() {
                 self.store.next_sync_committee = update.next_sync_committee.clone();
@@ -415,11 +413,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
                 self.store.current_max_active_participants = 0;
             }
 
-            if update_finalized_slot > self.store.finalized_header.slot {
+            if update_finalized_slot > self.store.finalized_header.slot.as_u64() {
                 self.store.finalized_header = update.finalized_header.clone().unwrap();
                 self.log_finality_update(update);
 
-                if self.store.finalized_header.slot % 32 == 0 {
+                if self.store.finalized_header.slot.as_u64() % 32 == 0 {
                     let checkpoint_res = self.store.finalized_header.hash_tree_root();
                     if let Ok(checkpoint) = checkpoint_res {
                         self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
@@ -447,11 +445,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.finalized_header.slot);
+        let age = self.age(self.store.finalized_header.slot.as_u64());
 
         info!(
             "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.finalized_header.slot,
+            self.store.finalized_header.slot.as_u64(),
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -469,11 +467,11 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.optimistic_header.slot);
+        let age = self.age(self.store.optimistic_header.slot.as_u64());
 
         info!(
             "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.optimistic_header.slot,
+            self.store.optimistic_header.slot.as_u64(),
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -506,7 +504,8 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
     ) -> bool {
         let res: Result<bool> = (move || {
             let pks: Vec<&PublicKey> = pks.iter().collect();
-            let header_root = bytes_to_bytes32(attested_header.clone().hash_tree_root()?.as_ref());
+            let header_root =
+                Bytes32::try_from(attested_header.clone().hash_tree_root()?.as_ref())?;
             let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
 
             Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
@@ -645,8 +644,10 @@ fn is_current_committee_proof_valid(
 mod tests {
     use std::sync::Arc;
 
-    use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-    use ssz_rs::Vector;
+    use crate::{
+        constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
+        types::{BLSPubKey, SignatureBytes},
+    };
 
     use crate::{
         consensus::calc_sync_period,
@@ -680,7 +681,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update() {
         let client = get_client(false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot);
+        let period = calc_sync_period(client.store.finalized_header.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -694,7 +695,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_committee() {
         let client = get_client(false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot);
+        let period = calc_sync_period(client.store.finalized_header.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -702,7 +703,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.next_sync_committee.pubkeys[0] = Vector::default();
+        update.next_sync_committee.pubkeys[0] = BLSPubKey::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -714,7 +715,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_finality() {
         let client = get_client(false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot);
+        let period = calc_sync_period(client.store.finalized_header.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -734,7 +735,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_sig() {
         let client = get_client(false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot);
+        let period = calc_sync_period(client.store.finalized_header.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -742,7 +743,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.sync_aggregate.sync_committee_signature = Vector::default();
+        update.sync_aggregate.sync_committee_signature = SignatureBytes::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -782,7 +783,7 @@ mod tests {
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = Vector::default();
+        update.sync_aggregate.sync_committee_signature = SignatureBytes::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
@@ -806,7 +807,7 @@ mod tests {
         client.sync().await.unwrap();
 
         let mut update = client.rpc.get_optimistic_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = Vector::default();
+        update.sync_aggregate.sync_committee_signature = SignatureBytes::default();
 
         let err = client.verify_optimistic_update(&update).err().unwrap();
         assert_eq!(

@@ -1,9 +1,8 @@
-use common::{types::Bytes32, utils::bytes32_to_node};
 use eyre::Result;
 use milagro_bls::{AggregateSignature, PublicKey};
 use ssz_rs::prelude::*;
 
-use crate::types::{Header, SignatureBytes};
+use crate::types::{Bytes32, Header, SignatureBytes};
 
 pub fn calc_sync_period(slot: u64) -> u64 {
     let epoch = slot / 32; // 32 slots per epoch
@@ -89,4 +88,8 @@ pub fn branch_to_nodes(branch: Vec<Bytes32>) -> Result<Vec<Node>> {
         .iter()
         .map(bytes32_to_node)
         .collect::<Result<Vec<Node>>>()
+}
+
+pub fn bytes32_to_node(bytes: &Bytes32) -> Result<Node> {
+    Ok(Node::try_from(bytes.as_slice())?)
 }

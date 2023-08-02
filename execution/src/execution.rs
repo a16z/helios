@@ -54,7 +54,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         let proof = self
             .rpc
-            .get_proof(address, slots, *payload.block_number())
+            .get_proof(address, slots, payload.block_number().as_u64())
             .await?;
 
         let account_path = keccak256(address.as_bytes()).to_vec();
@@ -98,7 +98,10 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let code = if proof.code_hash == KECCAK_EMPTY {
             Vec::new()
         } else {
-            let code = self.rpc.get_code(address, *payload.block_number()).await?;
+            let code = self
+                .rpc
+                .get_code(address, payload.block_number().as_u64())
+                .await?;
             let code_hash = keccak256(&code).into();
 
             if proof.code_hash != code_hash {
@@ -144,7 +147,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let txs = if full_tx {
             let txs_fut = tx_hashes.iter().map(|hash| async move {
                 let mut payloads = BTreeMap::new();
-                payloads.insert(*payload.block_number(), payload.clone());
+                payloads.insert(payload.block_number().as_u64(), payload.clone());
                 let tx = self
                     .get_transaction(hash, &payloads)
                     .await?
@@ -163,19 +166,19 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         };
 
         Ok(ExecutionBlock {
-            number: *payload.block_number(),
+            number: payload.block_number().as_u64(),
             base_fee_per_gas: U256::from_little_endian(&payload.base_fee_per_gas().to_bytes_le()),
             difficulty: U256::from(0),
             extra_data: payload.extra_data().to_vec(),
-            gas_limit: *payload.gas_limit(),
-            gas_used: *payload.gas_used(),
+            gas_limit: payload.gas_limit().as_u64(),
+            gas_used: payload.gas_used().as_u64(),
             hash: H256::from_slice(payload.block_hash()),
             logs_bloom: payload.logs_bloom().to_vec(),
-            miner: Address::from_slice(payload.fee_recipient()),
+            miner: Address::from_slice(&payload.fee_recipient()),
             parent_hash: H256::from_slice(payload.parent_hash()),
             receipts_root: H256::from_slice(payload.receipts_root()),
             state_root: H256::from_slice(payload.state_root()),
-            timestamp: *payload.timestamp(),
+            timestamp: payload.timestamp().as_u64(),
             total_difficulty: 0,
             transactions: txs,
             mix_hash: H256::from_slice(payload.prev_randao()),
@@ -195,7 +198,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let tx = payload.transactions()[index].clone();
         let tx_hash = H256::from_slice(&keccak256(tx));
         let mut payloads = BTreeMap::new();
-        payloads.insert(*payload.block_number(), payload.clone());
+        payloads.insert(payload.block_number().as_u64(), payload.clone());
         let tx_option = self.get_transaction(&tx_hash, &payloads).await?;
         let tx = tx_option.ok_or(eyre::eyre!("not reachable"))?;
 
@@ -395,17 +398,21 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             let execution_payload = payloads
                 .get(&block_id)
                 .ok_or(ExecutionError::EmptyExecutionPayload())?;
+
             let converted_base_fee_per_gas = ethers::types::U256::from_little_endian(
                 &execution_payload.base_fee_per_gas().to_bytes_le(),
             );
+
             fee_history
                 .base_fee_per_gas
                 .push(converted_base_fee_per_gas);
-            let gas_used_ratio_helios = ((*execution_payload.gas_used() as f64
-                / *execution_payload.gas_limit() as f64)
+
+            let gas_used_ratio_helios = ((execution_payload.gas_used().as_u64() as f64
+                / execution_payload.gas_limit().as_u64() as f64)
                 * 10.0_f64.powi(12))
             .round()
                 / 10.0_f64.powi(12);
+
             fee_history.gas_used_ratio.push(gas_used_ratio_helios);
         }
 
