@@ -2,20 +2,18 @@ use eyre::Result;
 use serde::de::Error;
 use ssz_rs::prelude::*;
 
-use common::utils::hex_str_to_bytes;
 use superstruct::superstruct;
 
-use self::primitives::{ByteVector, U64};
+use self::primitives::{ByteList, ByteVector, U64};
 
 pub mod primitives;
-
-pub type Transaction = List<u8, 1073741824>;
 
 pub type Address = ByteVector<20>;
 pub type Bytes32 = ByteVector<32>;
 pub type LogsBloom = ByteVector<256>;
 pub type BLSPubKey = ByteVector<48>;
 pub type SignatureBytes = ByteVector<96>;
+pub type Transaction = ByteList<1073741824>;
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct BeaconBlock {
@@ -128,12 +126,10 @@ pub struct ExecutionPayload {
     pub gas_limit: U64,
     pub gas_used: U64,
     pub timestamp: U64,
-    #[serde(deserialize_with = "extra_data_deserialize")]
-    pub extra_data: List<u8, 32>,
+    pub extra_data: ByteList<32>,
     #[serde(deserialize_with = "u256_deserialize")]
     pub base_fee_per_gas: U256,
     pub block_hash: Bytes32,
-    #[serde(deserialize_with = "transactions_deserialize")]
     pub transactions: List<Transaction, 1048576>,
     #[superstruct(only(Capella))]
     withdrawals: List<Withdrawal, 16>,
@@ -221,8 +217,7 @@ pub struct AttesterSlashing {
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 struct IndexedAttestation {
-    #[serde(deserialize_with = "attesting_indices_deserialize")]
-    attesting_indices: List<u64, 2048>,
+    attesting_indices: List<U64, 2048>,
     data: AttestationData,
     signature: SignatureBytes,
 }
@@ -404,45 +399,6 @@ where
     let mut x_bytes = [0; 32];
     x.to_little_endian(&mut x_bytes);
     Ok(U256::from_bytes_le(x_bytes))
-}
-
-fn extra_data_deserialize<'de, D>(deserializer: D) -> Result<List<u8, 32>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let bytes: String = serde::Deserialize::deserialize(deserializer)?;
-    let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
-    Ok(bytes.to_vec().try_into().unwrap())
-}
-
-fn transactions_deserialize<'de, D>(deserializer: D) -> Result<List<Transaction, 1048576>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let transactions: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    let transactions = transactions
-        .iter()
-        .map(|tx| {
-            let tx = hex_str_to_bytes(tx).unwrap();
-            let tx: Transaction = List::try_from(tx).unwrap();
-            tx
-        })
-        .collect::<Vec<Transaction>>();
-
-    List::try_from(transactions).map_err(|(_, err)| D::Error::custom(err))
-}
-
-fn attesting_indices_deserialize<'de, D>(deserializer: D) -> Result<List<u64, 2048>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let attesting_indices: Vec<String> = serde::Deserialize::deserialize(deserializer)?;
-    let attesting_indices = attesting_indices
-        .iter()
-        .map(|i| i.parse().unwrap())
-        .collect::<Vec<u64>>();
-
-    List::try_from(attesting_indices).map_err(|(_, err)| D::Error::custom(err))
 }
 
 fn header_deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>

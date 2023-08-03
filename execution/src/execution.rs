@@ -141,7 +141,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let tx_hashes = payload
             .transactions()
             .iter()
-            .map(|tx| H256::from_slice(&keccak256(tx)))
+            .map(|tx| H256::from_slice(&keccak256(tx.as_slice())))
             .collect::<Vec<H256>>();
 
         let txs = if full_tx {
@@ -196,7 +196,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         index: usize,
     ) -> Result<Option<Transaction>> {
         let tx = payload.transactions()[index].clone();
-        let tx_hash = H256::from_slice(&keccak256(tx));
+        let tx_hash = H256::from_slice(&keccak256(tx.as_slice()));
         let mut payloads = BTreeMap::new();
         payloads.insert(payload.block_number().as_u64(), payload.clone());
         let tx_option = self.get_transaction(&tx_hash, &payloads).await?;
@@ -227,7 +227,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let tx_hashes = payload
             .transactions()
             .iter()
-            .map(|tx| H256::from_slice(&keccak256(tx)))
+            .map(|tx| H256::from_slice(&keccak256(tx.as_slice())))
             .collect::<Vec<H256>>();
 
         let receipts_fut = tx_hashes.iter().map(|hash| async move {
