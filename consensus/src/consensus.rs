@@ -384,7 +384,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
             .map(|h| h.slot.as_u64())
             .unwrap_or(0);
 
-        let update_finalized_period = calc_sync_period(update_finalized_slot.into());
+        let update_finalized_period = calc_sync_period(update_finalized_slot);
 
         let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
             && self.has_sync_update(update)

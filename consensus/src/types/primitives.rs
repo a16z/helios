@@ -193,6 +193,12 @@ impl From<U64> for u64 {
     }
 }
 
+impl From<u64> for U64 {
+    fn from(value: u64) -> Self {
+        Self { inner: value }
+    }
+}
+
 impl ssz_rs::Merkleized for U64 {
     fn hash_tree_root(&mut self) -> std::result::Result<Node, MerkleizationError> {
         self.inner.hash_tree_root()

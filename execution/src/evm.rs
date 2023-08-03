@@ -303,8 +303,7 @@ fn is_precompile(address: &Address) -> bool {
 #[cfg(test)]
 mod tests {
     use common::utils::hex_str_to_bytes;
-    use consensus::types::ExecutionPayloadBellatrix;
-    use ssz_rs::Vector;
+    use consensus::types::{primitives::ByteVector, ExecutionPayloadBellatrix};
 
     use crate::rpc::mock_rpc::MockRpc;
 
@@ -320,7 +319,7 @@ mod tests {
         let execution = get_client();
         let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
         let payload = ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix {
-            state_root: Vector::try_from(
+            state_root: ByteVector::try_from(
                 hex_str_to_bytes(
                     "0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d",
                 )
