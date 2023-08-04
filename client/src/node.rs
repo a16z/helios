@@ -97,37 +97,40 @@ impl Node {
         let latest_header = self.consensus.get_header();
         let latest_payload = self
             .consensus
-            .get_execution_payload(&Some(latest_header.slot))
+            .get_execution_payload(&Some(latest_header.slot.as_u64()))
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
 
         let finalized_header = self.consensus.get_finalized_header();
         let finalized_payload = self
             .consensus
-            .get_execution_payload(&Some(finalized_header.slot))
+            .get_execution_payload(&Some(finalized_header.slot.as_u64()))
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
 
         self.payloads
-            .insert(*latest_payload.block_number(), latest_payload);
-        self.payloads
-            .insert(*finalized_payload.block_number(), finalized_payload.clone());
+            .insert(latest_payload.block_number().as_u64(), latest_payload);
+        self.payloads.insert(
+            finalized_payload.block_number().as_u64(),
+            finalized_payload.clone(),
+        );
         self.finalized_payloads
-            .insert(*finalized_payload.block_number(), finalized_payload);
+            .insert(finalized_payload.block_number().as_u64(), finalized_payload);
 
         let start_slot = self
             .current_slot
-            .unwrap_or(latest_header.slot - self.history_size as u64);
+            .unwrap_or(latest_header.slot.as_u64() - self.history_size as u64);
         let backfill_payloads = self
             .consensus
-            .get_payloads(start_slot, latest_header.slot)
+            .get_payloads(start_slot, latest_header.slot.as_u64())
             .await
             .map_err(NodeError::ConsensusPayloadError)?;
         for payload in backfill_payloads {
-            self.payloads.insert(*payload.block_number(), payload);
+            self.payloads
+                .insert(payload.block_number().as_u64(), payload);
         }
 
-        self.current_slot = Some(latest_header.slot);
+        self.current_slot = Some(latest_header.slot.as_u64());
 
         while self.payloads.len() > self.history_size {
             self.payloads.pop_first();
@@ -284,7 +287,7 @@ impl Node {
         self.check_head_age()?;
 
         let payload = self.get_payload(BlockTag::Latest)?;
-        Ok(*payload.block_number())
+        Ok(payload.block_number().as_u64())
     }
 
     pub async fn get_block_by_number(
@@ -367,7 +370,7 @@ impl Node {
     pub fn get_coinbase(&self) -> Result<Address> {
         self.check_head_age()?;
         let payload = self.get_payload(BlockTag::Latest)?;
-        let coinbase_address = Address::from_slice(payload.fee_recipient());
+        let coinbase_address = Address::from_slice(payload.fee_recipient().as_slice());
         Ok(coinbase_address)
     }
 
@@ -408,7 +411,7 @@ impl Node {
     }
 
     fn check_head_age(&self) -> Result<(), NodeError> {
-        let synced_slot = self.consensus.get_header().slot;
+        let synced_slot = self.consensus.get_header().slot.as_u64();
         let expected_slot = self.consensus.expected_current_slot();
         let slot_delay = expected_slot - synced_slot;
 

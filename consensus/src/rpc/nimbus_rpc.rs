@@ -106,7 +106,7 @@ impl ConsensusRpc for NimbusRpc {
             .await
             .map_err(|e| RpcError::new("spec", e))?;
 
-        Ok(res.data.chain_id)
+        Ok(res.data.chain_id.into())
     }
 }
 
@@ -149,6 +149,6 @@ struct SpecResponse {
 
 #[derive(serde::Deserialize, Debug)]
 struct Spec {
-    #[serde(rename = "DEPOSIT_NETWORK_ID", deserialize_with = "u64_deserialize")]
-    chain_id: u64,
+    #[serde(rename = "DEPOSIT_NETWORK_ID")]
+    chain_id: primitives::U64,
 }

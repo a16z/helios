@@ -1,9 +1,6 @@
 use std::fmt::Display;
 
 use serde::{de::Error, Deserialize};
-use ssz_rs::Vector;
-
-pub type Bytes32 = Vector<u8, 32>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BlockTag {
