@@ -1,12 +1,15 @@
 use eyre::Result;
-use serde::de::Error;
 use ssz_rs::prelude::*;
 
 use superstruct::superstruct;
 
+use crate::superstruct_ssz;
+
 use self::primitives::{ByteList, ByteVector, U64};
+use self::utils::{header_deserialize, u256_deserialize};
 
 pub mod primitives;
+mod utils;
 
 pub type Address = ByteVector<20>;
 pub type Bytes32 = ByteVector<32>;
@@ -48,44 +51,13 @@ pub struct BeaconBlockBody {
     bls_to_execution_changes: List<SignedBlsToExecutionChange, 16>,
 }
 
-impl ssz_rs::Merkleized for BeaconBlockBody {
-    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
-        match self {
-            BeaconBlockBody::Bellatrix(body) => body.hash_tree_root(),
-            BeaconBlockBody::Capella(body) => body.hash_tree_root(),
-        }
+impl Default for BeaconBlockBody {
+    fn default() -> Self {
+        BeaconBlockBody::Bellatrix(BeaconBlockBodyBellatrix::default())
     }
 }
 
-impl ssz_rs::Sized for BeaconBlockBody {
-    fn is_variable_size() -> bool {
-        true
-    }
-
-    fn size_hint() -> usize {
-        0
-    }
-}
-
-impl ssz_rs::Serialize for BeaconBlockBody {
-    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
-        match self {
-            BeaconBlockBody::Bellatrix(body) => body.serialize(buffer),
-            BeaconBlockBody::Capella(body) => body.serialize(buffer),
-        }
-    }
-}
-
-impl ssz_rs::Deserialize for BeaconBlockBody {
-    fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
-    where
-        Self: Sized,
-    {
-        panic!("not implemented");
-    }
-}
-
-impl ssz_rs::SimpleSerialize for BeaconBlockBody {}
+superstruct_ssz!(BeaconBlockBody);
 
 #[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
 pub struct SignedBlsToExecutionChange {
@@ -98,12 +70,6 @@ pub struct BlsToExecutionChange {
     validator_index: U64,
     from_bls_pubkey: BLSPubKey,
     to_execution_address: Address,
-}
-
-impl Default for BeaconBlockBody {
-    fn default() -> Self {
-        BeaconBlockBody::Bellatrix(BeaconBlockBodyBellatrix::default())
-    }
 }
 
 #[superstruct(
@@ -135,6 +101,14 @@ pub struct ExecutionPayload {
     withdrawals: List<Withdrawal, 16>,
 }
 
+impl Default for ExecutionPayload {
+    fn default() -> Self {
+        ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix::default())
+    }
+}
+
+superstruct_ssz!(ExecutionPayload);
+
 #[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
 pub struct Withdrawal {
     index: U64,
@@ -142,51 +116,6 @@ pub struct Withdrawal {
     address: Address,
     amount: U64,
 }
-
-impl ssz_rs::Merkleized for ExecutionPayload {
-    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
-        match self {
-            ExecutionPayload::Bellatrix(payload) => payload.hash_tree_root(),
-            ExecutionPayload::Capella(payload) => payload.hash_tree_root(),
-        }
-    }
-}
-
-impl ssz_rs::Sized for ExecutionPayload {
-    fn is_variable_size() -> bool {
-        true
-    }
-
-    fn size_hint() -> usize {
-        0
-    }
-}
-
-impl ssz_rs::Serialize for ExecutionPayload {
-    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
-        match self {
-            ExecutionPayload::Bellatrix(payload) => payload.serialize(buffer),
-            ExecutionPayload::Capella(payload) => payload.serialize(buffer),
-        }
-    }
-}
-
-impl ssz_rs::Deserialize for ExecutionPayload {
-    fn deserialize(_encoding: &[u8]) -> Result<Self, DeserializeError>
-    where
-        Self: Sized,
-    {
-        panic!("not implemented");
-    }
-}
-
-impl Default for ExecutionPayload {
-    fn default() -> Self {
-        ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix::default())
-    }
-}
-
-impl ssz_rs::SimpleSerialize for ExecutionPayload {}
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct ProposerSlashing {
@@ -388,39 +317,4 @@ impl From<&OptimisticUpdate> for GenericUpdate {
             finality_branch: None,
         }
     }
-}
-
-fn u256_deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let val: String = serde::Deserialize::deserialize(deserializer)?;
-    let x = ethers::types::U256::from_dec_str(&val).map_err(D::Error::custom)?;
-    let mut x_bytes = [0; 32];
-    x.to_little_endian(&mut x_bytes);
-    Ok(U256::from_bytes_le(x_bytes))
-}
-
-fn header_deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let header: LightClientHeader = serde::Deserialize::deserialize(deserializer)?;
-
-    Ok(match header {
-        LightClientHeader::Unwrapped(header) => header,
-        LightClientHeader::Wrapped(header) => header.beacon,
-    })
-}
-
-#[derive(serde::Deserialize)]
-#[serde(untagged)]
-enum LightClientHeader {
-    Unwrapped(Header),
-    Wrapped(Beacon),
-}
-
-#[derive(serde::Deserialize)]
-struct Beacon {
-    beacon: Header,
 }
