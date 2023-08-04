@@ -174,7 +174,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             gas_used: payload.gas_used().as_u64(),
             hash: H256::from_slice(payload.block_hash()),
             logs_bloom: payload.logs_bloom().to_vec(),
-            miner: Address::from_slice(&payload.fee_recipient()),
+            miner: Address::from_slice(payload.fee_recipient()),
             parent_hash: H256::from_slice(payload.parent_hash()),
             receipts_root: H256::from_slice(payload.receipts_root()),
             state_root: H256::from_slice(payload.state_root()),
