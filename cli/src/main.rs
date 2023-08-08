@@ -30,10 +30,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    if let Err(err) = client.start().await {
-        error!("{}", err);
-        exit(1);
-    }
+    client.start_rpc().await?;
 
     register_shutdown_handler(client);
     std::future::pending().await

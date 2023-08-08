@@ -1,3 +1,8 @@
+use std::str::FromStr;
+
+use common::types::Block;
+use ethers::types::H256;
+use ethers::utils::rlp::{Decodable, Rlp};
 use eyre::Result;
 use ssz_rs::prelude::*;
 
@@ -315,6 +320,45 @@ impl From<&OptimisticUpdate> for GenericUpdate {
             next_sync_committee_branch: None,
             finalized_header: None,
             finality_branch: None,
+        }
+    }
+}
+
+impl Into<Block<ethers::types::Transaction>> for ExecutionPayload {
+    fn into(self) -> Block<ethers::types::Transaction> {
+        let empty_nonce = "0x0000000000000000".to_string();
+        let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+
+        let txs = self
+            .transactions()
+            .iter()
+            .map(|tx| ethers::types::Transaction::decode(&Rlp::new(tx.as_slice())).unwrap())
+            .collect();
+
+        Block {
+            number: self.block_number().as_u64().into(),
+            base_fee_per_gas: ethers::types::U256::from_little_endian(
+                &self.base_fee_per_gas().to_bytes_le(),
+            ),
+            difficulty: ethers::types::U256::from(0),
+            extra_data: self.extra_data().to_vec().into(),
+            gas_limit: self.gas_limit().as_u64().into(),
+            gas_used: self.gas_used().as_u64().into(),
+            hash: H256::from_slice(self.block_hash()),
+            logs_bloom: self.logs_bloom().to_vec().into(),
+            miner: ethers::types::Address::from_slice(self.fee_recipient()),
+            parent_hash: H256::from_slice(self.parent_hash()),
+            receipts_root: H256::from_slice(self.receipts_root()),
+            state_root: H256::from_slice(self.state_root()),
+            timestamp: self.timestamp().as_u64().into(),
+            total_difficulty: 0.into(),
+            transactions: txs,
+            mix_hash: H256::from_slice(self.prev_randao()),
+            nonce: empty_nonce,
+            sha3_uncles: H256::from_str(empty_uncle_hash).unwrap(),
+            size: 0.into(),
+            transactions_root: H256::default(),
+            uncles: vec![],
         }
     }
 }

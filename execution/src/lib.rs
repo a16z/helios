@@ -7,4 +7,5 @@ pub mod types;
 mod execution;
 pub use crate::execution::*;
 
+mod blocks;
 mod proof;

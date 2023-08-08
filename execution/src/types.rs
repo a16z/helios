@@ -1,13 +1,15 @@
 use std::{collections::HashMap, fmt};
 
+use consensus::types::ExecutionPayload;
 use ethers::{
     prelude::{Address, H256, U256},
     types::Transaction,
+    utils::rlp::{Decodable, Rlp},
 };
 use eyre::Result;
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
-use common::utils::u64_to_hex_string;
+use common::{types::Block, utils::u64_to_hex_string};
 
 #[derive(Default, Debug, Clone)]
 pub struct Account {
@@ -17,47 +19,6 @@ pub struct Account {
     pub code: Vec<u8>,
     pub storage_hash: H256,
     pub slots: HashMap<H256, U256>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ExecutionBlock {
-    #[serde(serialize_with = "serialize_u64_string")]
-    pub number: u64,
-    pub base_fee_per_gas: U256,
-    pub difficulty: U256,
-    #[serde(serialize_with = "serialize_bytes")]
-    pub extra_data: Vec<u8>,
-    #[serde(serialize_with = "serialize_u64_string")]
-    pub gas_limit: u64,
-    #[serde(serialize_with = "serialize_u64_string")]
-    pub gas_used: u64,
-    pub hash: H256,
-    #[serde(serialize_with = "serialize_bytes")]
-    pub logs_bloom: Vec<u8>,
-    pub miner: Address,
-    pub mix_hash: H256,
-    pub nonce: String,
-    pub parent_hash: H256,
-    pub receipts_root: H256,
-    pub sha3_uncles: H256,
-    #[serde(serialize_with = "serialize_u64_string")]
-    pub size: u64,
-    pub state_root: H256,
-    #[serde(serialize_with = "serialize_u64_string")]
-    pub timestamp: u64,
-    #[serde(serialize_with = "serialize_u64_string")]
-    pub total_difficulty: u64,
-    #[serde(serialize_with = "serialize_transactions")]
-    pub transactions: Transactions,
-    pub transactions_root: H256,
-    pub uncles: Vec<H256>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum Transactions {
-    Hashes(Vec<H256>),
-    Full(Vec<Transaction>),
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -82,6 +43,41 @@ impl fmt::Debug for CallOpts {
             .finish()
     }
 }
+
+// impl From<ExecutionPayload> for Block<Transaction> {
+//     fn from(payload: ExecutionPayload) -> Self {
+//         let empty_nonce = "0x0000000000000000".to_string();
+//         let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+//
+//         let txs = payload.transactions().into_iter().map(|tx| {
+//             Transaction::decode(&Rlp::new(tx.as_slice())).unwrap()
+//         }).collect();
+//
+//         Block<Transaction> {
+//             number: payload.block_number().as_u64(),
+//             base_fee_per_gas: U256::from_little_endian(&payload.base_fee_per_gas().to_bytes_le()),
+//             difficulty: U256::from(0),
+//             extra_data: payload.extra_data().to_vec(),
+//             gas_limit: payload.gas_limit().as_u64(),
+//             gas_used: payload.gas_used().as_u64(),
+//             hash: H256::from_slice(payload.block_hash()),
+//             logs_bloom: payload.logs_bloom().to_vec(),
+//             miner: Address::from_slice(payload.fee_recipient()),
+//             parent_hash: H256::from_slice(payload.parent_hash()),
+//             receipts_root: H256::from_slice(payload.receipts_root()),
+//             state_root: H256::from_slice(payload.state_root()),
+//             timestamp: payload.timestamp().as_u64(),
+//             total_difficulty: 0,
+//             transactions: txs,
+//             mix_hash: H256::from_slice(payload.prev_randao()),
+//             nonce: empty_nonce,
+//             sha3_uncles: H256::from_str(empty_uncle_hash)?,
+//             size: 0,
+//             transactions_root: H256::default(),
+//             uncles: vec![],
+//         }
+//     }
+// }
 
 fn bytes_deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
 where
@@ -111,28 +107,4 @@ where
 {
     let num_string = u64_to_hex_string(*x);
     s.serialize_str(&num_string)
-}
-
-fn serialize_transactions<S>(txs: &Transactions, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    match txs {
-        Transactions::Hashes(hashes) => {
-            let mut seq = s.serialize_seq(Some(hashes.len()))?;
-            for hash in hashes {
-                seq.serialize_element(&hash)?;
-            }
-
-            seq.end()
-        }
-        Transactions::Full(txs) => {
-            let mut seq = s.serialize_seq(Some(txs.len()))?;
-            for tx in txs {
-                seq.serialize_element(&tx)?;
-            }
-
-            seq.end()
-        }
-    }
 }

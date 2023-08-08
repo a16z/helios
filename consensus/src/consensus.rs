@@ -1,16 +1,20 @@
 use std::cmp;
+use std::marker::PhantomData;
+use std::process::exit;
 use std::sync::Arc;
 
 use chrono::Duration;
+use common::types::Block;
+use ethers::types::Transaction;
 use eyre::eyre;
 use eyre::Result;
-use futures::future::join_all;
-use log::warn;
-use log::{debug, info};
+use log::{debug, error, info, warn};
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
+use tokio::sync::broadcast::{channel, Receiver};
 
 use config::Config;
+use tokio::sync::watch;
 
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::errors::ConsensusError;
@@ -29,11 +33,62 @@ use wasm_timer::SystemTime;
 #[cfg(target_arch = "wasm32")]
 use wasm_timer::UNIX_EPOCH;
 
-// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
-// does not implement force updates
+pub struct ConsensusClient<R: ConsensusRpc + 'static> {
+    pub block_recv: Receiver<Block<Transaction>>,
+    pub finalized_block_recv: watch::Receiver<Option<Block<Transaction>>>,
+    phantom: PhantomData<R>,
+}
+
+impl<R: ConsensusRpc> ConsensusClient<R> {
+    pub fn new(rpc: &str, checkpoint_block_root: &[u8], config: Arc<Config>) -> Result<Self> {
+        let mut inner = Inner::<R>::new(rpc, checkpoint_block_root, config)?;
+        let (block_send, block_recv) = channel(128);
+        let (finalized_block_send, finalized_block_recv) = watch::channel(None);
+
+        tokio::spawn(async move {
+            if let Err(err) = inner.check_rpc().await {
+                error!("{}", err);
+                exit(1);
+            }
+
+            if let Err(err) = inner.sync().await {
+                error!("{}", err);
+                exit(1);
+            }
+
+            loop {
+                if let Err(err) = inner.advance().await {
+                    error!("{}", err);
+                    exit(1);
+                }
+
+                let latest_slot = inner.get_header().slot.as_u64();
+                let finalized_slot = inner.get_finalized_header().slot.as_u64();
+
+                if let Ok(payload) = inner.get_execution_payload(&Some(latest_slot)).await {
+                    println!("send");
+                    _ = block_send.send(payload.into());
+                }
+
+                if let Ok(payload) = inner.get_execution_payload(&Some(finalized_slot)).await {
+                    _ = finalized_block_send.send(Some(payload.into()));
+                }
+
+                let duration = inner.duration_until_next_update();
+                tokio::time::sleep(duration.to_std().unwrap()).await;
+            }
+        });
+
+        Ok(Self {
+            block_recv,
+            finalized_block_recv,
+            phantom: PhantomData::default(),
+        })
+    }
+}
 
 #[derive(Debug)]
-pub struct ConsensusClient<R: ConsensusRpc> {
+struct Inner<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
     initial_checkpoint: Vec<u8>,
@@ -51,15 +106,11 @@ struct LightClientStore {
     current_max_active_participants: u64,
 }
 
-impl<R: ConsensusRpc> ConsensusClient<R> {
-    pub fn new(
-        rpc: &str,
-        checkpoint_block_root: &[u8],
-        config: Arc<Config>,
-    ) -> Result<ConsensusClient<R>> {
+impl<R: ConsensusRpc> Inner<R> {
+    pub fn new(rpc: &str, checkpoint_block_root: &[u8], config: Arc<Config>) -> Result<Self> {
         let rpc = R::new(rpc);
 
-        Ok(ConsensusClient {
+        Ok(Self {
             rpc,
             store: LightClientStore::default(),
             last_checkpoint: None,
@@ -105,45 +156,45 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         }
     }
 
-    pub async fn get_payloads(
-        &self,
-        start_slot: u64,
-        end_slot: u64,
-    ) -> Result<Vec<ExecutionPayload>> {
-        let payloads_fut = (start_slot..end_slot)
-            .rev()
-            .map(|slot| self.rpc.get_block(slot));
+    // pub async fn get_payloads(
+    //     &self,
+    //     start_slot: u64,
+    //     end_slot: u64,
+    // ) -> Result<Vec<ExecutionPayload>> {
+    //     let payloads_fut = (start_slot..end_slot)
+    //         .rev()
+    //         .map(|slot| self.rpc.get_block(slot));
 
-        let mut prev_parent_hash: Bytes32 = self
-            .rpc
-            .get_block(end_slot)
-            .await?
-            .body
-            .execution_payload()
-            .parent_hash()
-            .clone();
+    //     let mut prev_parent_hash: Bytes32 = self
+    //         .rpc
+    //         .get_block(end_slot)
+    //         .await?
+    //         .body
+    //         .execution_payload()
+    //         .parent_hash()
+    //         .clone();
 
-        let mut payloads: Vec<ExecutionPayload> = Vec::new();
-        for result in join_all(payloads_fut).await {
-            if result.is_err() {
-                continue;
-            }
-            let payload = result.unwrap().body.execution_payload().clone();
-            if payload.block_hash() != &prev_parent_hash {
-                warn!(
-                    "error while backfilling blocks: {}",
-                    ConsensusError::InvalidHeaderHash(
-                        format!("{prev_parent_hash:02X?}"),
-                        format!("{:02X?}", payload.parent_hash()),
-                    )
-                );
-                break;
-            }
-            prev_parent_hash = payload.parent_hash().clone();
-            payloads.push(payload);
-        }
-        Ok(payloads)
-    }
+    //     let mut payloads: Vec<ExecutionPayload> = Vec::new();
+    //     for result in join_all(payloads_fut).await {
+    //         if result.is_err() {
+    //             continue;
+    //         }
+    //         let payload = result.unwrap().body.execution_payload().clone();
+    //         if payload.block_hash() != &prev_parent_hash {
+    //             warn!(
+    //                 "error while backfilling blocks: {}",
+    //                 ConsensusError::InvalidHeaderHash(
+    //                     format!("{prev_parent_hash:02X?}"),
+    //                     format!("{:02X?}", payload.parent_hash()),
+    //                 )
+    //             );
+    //             break;
+    //         }
+    //         prev_parent_hash = payload.parent_hash().clone();
+    //         payloads.push(payload);
+    //     }
+    //     Ok(payloads)
+    // }
 
     pub fn get_header(&self) -> &Header {
         &self.store.optimistic_header
@@ -530,6 +581,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
     fn age(&self, slot: u64) -> Duration {
         let expected_time = self.slot_timestamp(slot);
+
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
         chrono::Duration::from_std(delay).unwrap()
