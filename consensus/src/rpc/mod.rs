@@ -6,8 +6,7 @@ use eyre::Result;
 
 use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[async_trait]
 pub trait ConsensusRpc: Send + Sync {
     fn new(path: &str) -> Self;
     async fn get_bootstrap(&self, block_root: &'_ [u8]) -> Result<Bootstrap>;
