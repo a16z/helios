@@ -620,7 +620,7 @@ impl<R: ConsensusRpc> Inner<R> {
         chrono::Duration::from_std(delay).unwrap()
     }
 
-    pub fn expected_current_slot(&self) -> u64 {
+    fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let genesis_time = self.config.chain.genesis_time;
         let since_genesis = now - std::time::Duration::from_secs(genesis_time);
@@ -630,24 +630,6 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
         slot * 12 + self.config.chain.genesis_time
-    }
-
-    /// Gets the duration until the next update
-    /// Updates are scheduled for 4 seconds into each slot
-    pub fn duration_until_next_update(&self) -> Duration {
-        let current_slot = self.expected_current_slot();
-        let next_slot = current_slot + 1;
-        let next_slot_timestamp = self.slot_timestamp(next_slot);
-
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let time_to_next_slot = next_slot_timestamp - now;
-        let next_update = time_to_next_slot + 4;
-
-        Duration::seconds(next_update as i64)
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old
