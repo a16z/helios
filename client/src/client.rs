@@ -2,7 +2,6 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use config::networks::Network;
-use consensus::errors::ConsensusError;
 use ethers::prelude::{Address, U256};
 use ethers::types::{
     FeeHistory, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
@@ -10,10 +9,9 @@ use ethers::types::{
 use eyre::{eyre, Result};
 
 use common::types::BlockTag;
-use config::{CheckpointFallback, Config};
-use consensus::ConsensusClient;
+use config::Config;
 use execution::types::{CallOpts, ExecutionBlock};
-use log::{error, info, warn};
+use log::{info, warn};
 use tokio::sync::RwLock;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -29,7 +27,6 @@ use gloo_timers::callback::Interval;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::database::Database;
-use crate::errors::NodeError;
 use crate::node::Node;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -234,8 +231,8 @@ pub struct Client<DB: Database> {
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
     db: DB,
-    fallback: Option<String>,
-    load_external_fallback: bool,
+    // fallback: Option<String>,
+    // load_external_fallback: bool,
 }
 
 impl<DB: Database> Client<DB> {
@@ -261,8 +258,8 @@ impl<DB: Database> Client<DB> {
             #[cfg(not(target_arch = "wasm32"))]
             rpc,
             db,
-            fallback: config.fallback.clone(),
-            load_external_fallback: config.load_external_fallback,
+            // fallback: config.fallback.clone(),
+            // load_external_fallback: config.load_external_fallback,
         })
     }
 
