@@ -718,20 +718,18 @@ mod tests {
     use std::sync::Arc;
 
     use crate::{
-        constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
-        types::{BLSPubKey, SignatureBytes},
-    };
-
-    use crate::{
         consensus::calc_sync_period,
+        constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::Header,
-        ConsensusClient,
+        types::{BLSPubKey, SignatureBytes},
+        Inner,
     };
+
     use config::{networks, Config};
 
-    async fn get_client(strict_checkpoint_age: bool) -> ConsensusClient<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool) -> Inner<MockRpc> {
         let base_config = networks::goerli();
         let config = Config {
             consensus_rpc: String::new(),
@@ -746,7 +744,7 @@ mod tests {
             hex::decode("1e591af1e90f2db918b2a132991c7c2ee9a4ab26da496bd6e71e4f0bd65ea870")
                 .unwrap();
 
-        let mut client = ConsensusClient::new("testdata/", &checkpoint, Arc::new(config)).unwrap();
+        let mut client = Inner::new("testdata/", &checkpoint, Arc::new(config)).unwrap();
         client.bootstrap().await.unwrap();
         client
     }

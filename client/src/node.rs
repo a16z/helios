@@ -28,7 +28,6 @@ pub struct Node {
     pub config: Arc<Config>,
     payloads: BTreeMap<u64, ExecutionPayload>,
     finalized_payloads: BTreeMap<u64, ExecutionPayload>,
-    current_slot: Option<u64>,
     pub history_size: usize,
 }
 
@@ -53,7 +52,6 @@ impl Node {
             config,
             payloads,
             finalized_payloads,
-            current_slot: None,
             history_size: 64,
         })
     }
@@ -75,58 +73,6 @@ impl Node {
             .to_std()
             .unwrap()
     }
-
-    // async fn update_payloads(&mut self) -> Result<(), NodeError> {
-    //     let latest_header = self.consensus.get_header();
-    //     let latest_payload = self
-    //         .consensus
-    //         .get_execution_payload(&Some(latest_header.slot.as_u64()))
-    //         .await
-    //         .map_err(NodeError::ConsensusPayloadError)?;
-
-    //     let finalized_header = self.consensus.get_finalized_header();
-    //     let finalized_payload = self
-    //         .consensus
-    //         .get_execution_payload(&Some(finalized_header.slot.as_u64()))
-    //         .await
-    //         .map_err(NodeError::ConsensusPayloadError)?;
-
-    //     self.payloads
-    //         .insert(latest_payload.block_number().as_u64(), latest_payload);
-    //     self.payloads.insert(
-    //         finalized_payload.block_number().as_u64(),
-    //         finalized_payload.clone(),
-    //     );
-    //     self.finalized_payloads
-    //         .insert(finalized_payload.block_number().as_u64(), finalized_payload);
-
-    //     let start_slot = self
-    //         .current_slot
-    //         .unwrap_or(latest_header.slot.as_u64() - self.history_size as u64);
-    //     let backfill_payloads = self
-    //         .consensus
-    //         .get_payloads(start_slot, latest_header.slot.as_u64())
-    //         .await
-    //         .map_err(NodeError::ConsensusPayloadError)?;
-    //     for payload in backfill_payloads {
-    //         self.payloads
-    //             .insert(payload.block_number().as_u64(), payload);
-    //     }
-
-    //     self.current_slot = Some(latest_header.slot.as_u64());
-
-    //     while self.payloads.len() > self.history_size {
-    //         self.payloads.pop_first();
-    //     }
-
-    //     // only save one finalized block per epoch
-    //     // finality updates only occur on epoch boundaries
-    //     while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
-    //         self.finalized_payloads.pop_first();
-    //     }
-
-    //     Ok(())
-    // }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
         self.check_blocktag_age(&block)?;
@@ -345,21 +291,12 @@ impl Node {
         }
     }
 
-    // pub fn get_header(&self) -> Result<Header> {
-    //     self.check_head_age()?;
-    //     Ok(self.consensus.get_header().clone())
-    // }
-
     pub fn get_coinbase(&self) -> Result<Address> {
         self.check_head_age()?;
         let payload = self.get_payload(BlockTag::Latest)?;
         let coinbase_address = Address::from_slice(payload.fee_recipient().as_slice());
         Ok(coinbase_address)
     }
-
-    // pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
-    //     self.consensus.last_checkpoint.clone()
-    // }
 
     fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload, BlockNotFoundError> {
         match block {
