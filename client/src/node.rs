@@ -13,7 +13,7 @@ use common::types::BlockTag;
 use config::Config;
 
 use consensus::rpc::nimbus_rpc::NimbusRpc;
-use consensus::types::{ExecutionPayload, Header};
+use consensus::types::ExecutionPayload;
 use consensus::ConsensusClient;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
@@ -26,10 +26,9 @@ pub struct Node {
     pub consensus: ConsensusClient<NimbusRpc>,
     pub execution: Arc<ExecutionClient<HttpRpc>>,
     pub config: Arc<Config>,
-    payloads: BTreeMap<u64, ExecutionPayload>,
-    finalized_payloads: BTreeMap<u64, ExecutionPayload>,
-    current_slot: Option<u64>,
     pub history_size: usize,
+    payloads: BTreeMap<u64, ExecutionPayload>,
+    finalized_payload: Option<ExecutionPayload>,
 }
 
 impl Node {
@@ -44,46 +43,27 @@ impl Node {
             ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,
         );
 
-        let payloads = BTreeMap::new();
-        let finalized_payloads = BTreeMap::new();
-
         Ok(Node {
             consensus,
             execution,
             config,
-            payloads,
-            finalized_payloads,
-            current_slot: None,
             history_size: 64,
+            payloads: BTreeMap::new(),
+            finalized_payload: None,
         })
     }
 
-    pub async fn sync(&mut self) -> Result<(), NodeError> {
-        let chain_id = self.config.chain.chain_id;
-        self.execution
-            .check_rpc(chain_id)
-            .await
-            .map_err(NodeError::ExecutionError)?;
+    pub async fn advance(&mut self) {
+        while let Ok(payload) = self.consensus.payload_recv.try_recv() {
+            self.payloads
+                .insert(payload.block_number().as_u64(), payload);
+        }
 
-        self.consensus
-            .check_rpc()
-            .await
-            .map_err(NodeError::ConsensusSyncError)?;
+        while self.payloads.len() > self.history_size {
+            self.payloads.pop_first();
+        }
 
-        self.consensus
-            .sync()
-            .await
-            .map_err(NodeError::ConsensusSyncError)?;
-
-        self.update_payloads().await
-    }
-
-    pub async fn advance(&mut self) -> Result<(), NodeError> {
-        self.consensus
-            .advance()
-            .await
-            .map_err(NodeError::ConsensusAdvanceError)?;
-        self.update_payloads().await
+        self.finalized_payload = self.consensus.finalized_payload_recv.borrow().to_owned();
     }
 
     pub fn duration_until_next_update(&self) -> Duration {
@@ -91,58 +71,6 @@ impl Node {
             .duration_until_next_update()
             .to_std()
             .unwrap()
-    }
-
-    async fn update_payloads(&mut self) -> Result<(), NodeError> {
-        let latest_header = self.consensus.get_header();
-        let latest_payload = self
-            .consensus
-            .get_execution_payload(&Some(latest_header.slot.as_u64()))
-            .await
-            .map_err(NodeError::ConsensusPayloadError)?;
-
-        let finalized_header = self.consensus.get_finalized_header();
-        let finalized_payload = self
-            .consensus
-            .get_execution_payload(&Some(finalized_header.slot.as_u64()))
-            .await
-            .map_err(NodeError::ConsensusPayloadError)?;
-
-        self.payloads
-            .insert(latest_payload.block_number().as_u64(), latest_payload);
-        self.payloads.insert(
-            finalized_payload.block_number().as_u64(),
-            finalized_payload.clone(),
-        );
-        self.finalized_payloads
-            .insert(finalized_payload.block_number().as_u64(), finalized_payload);
-
-        let start_slot = self
-            .current_slot
-            .unwrap_or(latest_header.slot.as_u64() - self.history_size as u64);
-        let backfill_payloads = self
-            .consensus
-            .get_payloads(start_slot, latest_header.slot.as_u64())
-            .await
-            .map_err(NodeError::ConsensusPayloadError)?;
-        for payload in backfill_payloads {
-            self.payloads
-                .insert(payload.block_number().as_u64(), payload);
-        }
-
-        self.current_slot = Some(latest_header.slot.as_u64());
-
-        while self.payloads.len() > self.history_size {
-            self.payloads.pop_first();
-        }
-
-        // only save one finalized block per epoch
-        // finality updates only occur on epoch boundaries
-        while self.finalized_payloads.len() > usize::max(self.history_size / 32, 1) {
-            self.finalized_payloads.pop_first();
-        }
-
-        Ok(())
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
@@ -362,20 +290,11 @@ impl Node {
         }
     }
 
-    pub fn get_header(&self) -> Result<Header> {
-        self.check_head_age()?;
-        Ok(self.consensus.get_header().clone())
-    }
-
     pub fn get_coinbase(&self) -> Result<Address> {
         self.check_head_age()?;
         let payload = self.get_payload(BlockTag::Latest)?;
         let coinbase_address = Address::from_slice(payload.fee_recipient().as_slice());
         Ok(coinbase_address)
-    }
-
-    pub fn get_last_checkpoint(&self) -> Option<Vec<u8>> {
-        self.consensus.last_checkpoint.clone()
     }
 
     fn get_payload(&self, block: BlockTag) -> Result<&ExecutionPayload, BlockNotFoundError> {
@@ -385,10 +304,8 @@ impl Node {
                 Ok(payload.ok_or(BlockNotFoundError::new(BlockTag::Latest))?.1)
             }
             BlockTag::Finalized => {
-                let payload = self.finalized_payloads.last_key_value();
-                Ok(payload
-                    .ok_or(BlockNotFoundError::new(BlockTag::Finalized))?
-                    .1)
+                let payload = &self.finalized_payload.as_ref();
+                Ok(payload.ok_or(BlockNotFoundError::new(BlockTag::Finalized))?)
             }
             BlockTag::Number(num) => {
                 let payload = self.payloads.get(&num);
@@ -411,13 +328,13 @@ impl Node {
     }
 
     fn check_head_age(&self) -> Result<(), NodeError> {
-        let synced_slot = self.consensus.get_header().slot.as_u64();
-        let expected_slot = self.consensus.expected_current_slot();
-        let slot_delay = expected_slot - synced_slot;
+        // let synced_slot = self.consensus.get_header().slot.as_u64();
+        // let expected_slot = self.consensus.expected_current_slot();
+        // let slot_delay = expected_slot - synced_slot;
 
-        if slot_delay > 10 {
-            return Err(NodeError::OutOfSync(slot_delay));
-        }
+        // if slot_delay > 10 {
+        //     return Err(NodeError::OutOfSync(slot_delay));
+        // }
 
         Ok(())
     }

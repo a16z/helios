@@ -1,4 +1,5 @@
 use std::cmp;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use chrono::Duration;
@@ -11,6 +12,10 @@ use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 
 use config::Config;
+use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::watch;
+use tokio::time::sleep;
 
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::errors::ConsensusError;
@@ -29,11 +34,16 @@ use wasm_timer::SystemTime;
 #[cfg(target_arch = "wasm32")]
 use wasm_timer::UNIX_EPOCH;
 
-// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md
-// does not implement force updates
+pub struct ConsensusClient<R: ConsensusRpc> {
+    pub payload_recv: Receiver<ExecutionPayload>,
+    pub finalized_payload_recv: watch::Receiver<Option<ExecutionPayload>>,
+    pub checkpoint_recv: watch::Receiver<Option<Vec<u8>>>,
+    genesis_time: u64,
+    phantom: PhantomData<R>,
+}
 
 #[derive(Debug)]
-pub struct ConsensusClient<R: ConsensusRpc> {
+pub struct Inner<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
     initial_checkpoint: Vec<u8>,
@@ -57,9 +67,84 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         checkpoint_block_root: &[u8],
         config: Arc<Config>,
     ) -> Result<ConsensusClient<R>> {
-        let rpc = R::new(rpc);
+        let (payload_send, payload_recv) = channel(256);
+        let (finalized_payload_send, finalized_payload_recv) = watch::channel(None);
+        let (checkpoint_send, checkpoint_recv) = watch::channel(None);
+
+        let rpc = rpc.to_string();
+        let checkpoint = checkpoint_block_root.to_vec();
+        let genesis_time = config.chain.genesis_time;
+
+        tokio::spawn(async move {
+            let mut inner = Inner::<R>::new(&rpc, &checkpoint, config).unwrap();
+            inner.sync().await.unwrap();
+
+            loop {
+                inner.advance().await.unwrap();
+
+                let slot = inner.get_header().slot.as_u64();
+                let payload = inner.get_execution_payload(&Some(slot)).await.unwrap();
+                let finalized_slot = inner.get_finalized_header().slot.as_u64();
+                let finalized_payload = inner
+                    .get_execution_payload(&Some(finalized_slot))
+                    .await
+                    .unwrap();
+
+                payload_send.send(payload).await.unwrap();
+                finalized_payload_send
+                    .send(Some(finalized_payload))
+                    .unwrap();
+
+                checkpoint_send.send(inner.last_checkpoint.clone()).unwrap();
+
+                sleep(std::time::Duration::from_secs(12)).await;
+            }
+        });
 
         Ok(ConsensusClient {
+            payload_recv,
+            finalized_payload_recv,
+            checkpoint_recv,
+            genesis_time,
+            phantom: PhantomData,
+        })
+    }
+
+    pub fn expected_current_slot(&self) -> u64 {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let since_genesis = now - std::time::Duration::from_secs(self.genesis_time);
+
+        since_genesis.as_secs() / 12
+    }
+
+    /// Gets the duration until the next update
+    /// Updates are scheduled for 4 seconds into each slot
+    pub fn duration_until_next_update(&self) -> Duration {
+        let current_slot = self.expected_current_slot();
+        let next_slot = current_slot + 1;
+        let next_slot_timestamp = self.slot_timestamp(next_slot);
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let time_to_next_slot = next_slot_timestamp - now;
+        let next_update = time_to_next_slot + 4;
+
+        Duration::seconds(next_update as i64)
+    }
+
+    fn slot_timestamp(&self, slot: u64) -> u64 {
+        slot * 12 + self.genesis_time
+    }
+}
+
+impl<R: ConsensusRpc> Inner<R> {
+    pub fn new(rpc: &str, checkpoint_block_root: &[u8], config: Arc<Config>) -> Result<Inner<R>> {
+        let rpc = R::new(rpc);
+
+        Ok(Inner {
             rpc,
             store: LightClientStore::default(),
             last_checkpoint: None,
@@ -535,7 +620,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         chrono::Duration::from_std(delay).unwrap()
     }
 
-    pub fn expected_current_slot(&self) -> u64 {
+    fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let genesis_time = self.config.chain.genesis_time;
         let since_genesis = now - std::time::Duration::from_secs(genesis_time);
@@ -547,31 +632,15 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    /// Gets the duration until the next update
-    /// Updates are scheduled for 4 seconds into each slot
-    pub fn duration_until_next_update(&self) -> Duration {
-        let current_slot = self.expected_current_slot();
-        let next_slot = current_slot + 1;
-        let next_slot_timestamp = self.slot_timestamp(next_slot);
-
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let time_to_next_slot = next_slot_timestamp - now;
-        let next_update = time_to_next_slot + 4;
-
-        Duration::seconds(next_update as i64)
-    }
-
     // Determines blockhash_slot age and returns true if it is less than 14 days old
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
         let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
 
-        let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
+        let slot_age = current_slot_timestamp
+            .checked_sub(blockhash_slot_timestamp)
+            .unwrap_or_default();
 
         slot_age < self.config.max_checkpoint_age
     }
@@ -645,21 +714,19 @@ mod tests {
     use std::sync::Arc;
 
     use crate::{
-        constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
-        types::{BLSPubKey, SignatureBytes},
-    };
-
-    use crate::{
         consensus::calc_sync_period,
+        constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::Header,
-        ConsensusClient,
+        types::{BLSPubKey, SignatureBytes},
+        Inner,
     };
+
     use config::{networks, Config};
 
-    async fn get_client(strict_checkpoint_age: bool) -> ConsensusClient<MockRpc> {
-        let base_config = networks::goerli();
+    async fn get_client(strict_checkpoint_age: bool) -> Inner<MockRpc> {
+        let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
             execution_rpc: String::new(),
@@ -670,10 +737,10 @@ mod tests {
         };
 
         let checkpoint =
-            hex::decode("1e591af1e90f2db918b2a132991c7c2ee9a4ab26da496bd6e71e4f0bd65ea870")
+            hex::decode("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275")
                 .unwrap();
 
-        let mut client = ConsensusClient::new("testdata/", &checkpoint, Arc::new(config)).unwrap();
+        let mut client = Inner::new("testdata/", &checkpoint, Arc::new(config)).unwrap();
         client.bootstrap().await.unwrap();
         client
     }
