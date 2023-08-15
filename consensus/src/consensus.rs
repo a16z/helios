@@ -656,7 +656,9 @@ impl<R: ConsensusRpc> Inner<R> {
         let current_slot_timestamp = self.slot_timestamp(current_slot);
         let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
 
-        let slot_age = current_slot_timestamp - blockhash_slot_timestamp;
+        let slot_age = current_slot_timestamp
+            .checked_sub(blockhash_slot_timestamp)
+            .unwrap_or_default();
 
         slot_age < self.config.max_checkpoint_age
     }
@@ -742,7 +744,7 @@ mod tests {
     use config::{networks, Config};
 
     async fn get_client(strict_checkpoint_age: bool) -> Inner<MockRpc> {
-        let base_config = networks::goerli();
+        let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
             execution_rpc: String::new(),
@@ -753,7 +755,7 @@ mod tests {
         };
 
         let checkpoint =
-            hex::decode("1e591af1e90f2db918b2a132991c7c2ee9a4ab26da496bd6e71e4f0bd65ea870")
+            hex::decode("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275")
                 .unwrap();
 
         let mut client = Inner::new("testdata/", &checkpoint, Arc::new(config)).unwrap();

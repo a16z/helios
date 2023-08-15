@@ -4,7 +4,7 @@ use config::{networks, Config};
 use consensus::{rpc::mock_rpc::MockRpc, ConsensusClient};
 
 async fn setup() -> ConsensusClient<MockRpc> {
-    let base_config = networks::goerli();
+    let base_config = networks::mainnet();
     let config = Config {
         consensus_rpc: String::new(),
         execution_rpc: String::new(),
@@ -15,7 +15,7 @@ async fn setup() -> ConsensusClient<MockRpc> {
     };
 
     let checkpoint =
-        hex::decode("1e591af1e90f2db918b2a132991c7c2ee9a4ab26da496bd6e71e4f0bd65ea870").unwrap();
+        hex::decode("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275").unwrap();
 
     ConsensusClient::new("testdata/", &checkpoint, Arc::new(config)).unwrap()
 }
@@ -25,5 +25,5 @@ async fn test_sync() {
     let mut client = setup().await;
 
     let payload = client.payload_recv.recv().await.unwrap();
-    assert_eq!(payload.block_number().as_u64(), 7530932);
+    assert_eq!(payload.block_number().as_u64(), 17923113);
 }
