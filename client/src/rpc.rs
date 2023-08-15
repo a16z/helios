@@ -20,7 +20,7 @@ use common::{
     types::BlockTag,
     utils::{hex_str_to_bytes, u64_to_hex_string},
 };
-use execution::types::{CallOpts, ExecutionBlock};
+use execution::types::{CallOpts, ExecutionBlock, FilterChangesReturnType};
 
 pub struct Rpc {
     node: Arc<RwLock<Node>>,
@@ -121,6 +121,8 @@ trait EthRpc {
     async fn coinbase(&self) -> Result<Address, Error>;
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncingStatus, Error>;
+    #[method(name = "getFilterChanges")]
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesReturnType, Error>;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -306,6 +308,11 @@ impl EthRpcServer for RpcInner {
         let storage = convert_err(node.get_storage_at(&address, slot, block).await)?;
 
         Ok(format_hex(&storage))
+    }
+
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesReturnType, Error> {
+        let node = self.node.read().await;
+        convert_err(node.get_filter_changes(filter_id).await)
     }
 }
 

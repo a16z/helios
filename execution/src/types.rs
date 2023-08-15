@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use ethers::{
     prelude::{Address, H256, U256},
-    types::Transaction,
+    types::{Transaction, Log},
 };
 use eyre::Result;
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
@@ -17,6 +17,12 @@ pub struct Account {
     pub code: Vec<u8>,
     pub storage_hash: H256,
     pub slots: HashMap<H256, U256>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum FilterChangesReturnType {
+    Log(Vec<Log>),
+    H256(Vec<H256>)
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
