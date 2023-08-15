@@ -26,9 +26,9 @@ pub struct Node {
     pub consensus: ConsensusClient<NimbusRpc>,
     pub execution: Arc<ExecutionClient<HttpRpc>>,
     pub config: Arc<Config>,
-    payloads: BTreeMap<u64, ExecutionPayload>,
-    finalized_payloads: BTreeMap<u64, ExecutionPayload>,
     pub history_size: usize,
+    payloads: BTreeMap<u64, ExecutionPayload>,
+    finalized_payload: Option<ExecutionPayload>,
 }
 
 impl Node {
@@ -43,16 +43,13 @@ impl Node {
             ExecutionClient::new(execution_rpc).map_err(NodeError::ExecutionClientCreationError)?,
         );
 
-        let payloads = BTreeMap::new();
-        let finalized_payloads = BTreeMap::new();
-
         Ok(Node {
             consensus,
             execution,
             config,
-            payloads,
-            finalized_payloads,
             history_size: 64,
+            payloads: BTreeMap::new(),
+            finalized_payload: None,
         })
     }
 
@@ -65,6 +62,8 @@ impl Node {
         while self.payloads.len() > self.history_size {
             self.payloads.pop_first();
         }
+
+        self.finalized_payload = self.consensus.finalized_payload_recv.borrow().to_owned();
     }
 
     pub fn duration_until_next_update(&self) -> Duration {
@@ -305,10 +304,8 @@ impl Node {
                 Ok(payload.ok_or(BlockNotFoundError::new(BlockTag::Latest))?.1)
             }
             BlockTag::Finalized => {
-                let payload = self.finalized_payloads.last_key_value();
-                Ok(payload
-                    .ok_or(BlockNotFoundError::new(BlockTag::Finalized))?
-                    .1)
+                let payload = &self.finalized_payload.as_ref();
+                Ok(payload.ok_or(BlockNotFoundError::new(BlockTag::Finalized))?)
             }
             BlockTag::Number(num) => {
                 let payload = self.payloads.get(&num);

@@ -36,6 +36,7 @@ use wasm_timer::UNIX_EPOCH;
 
 pub struct ConsensusClient<R: ConsensusRpc> {
     pub payload_recv: Receiver<ExecutionPayload>,
+    pub finalized_payload_recv: watch::Receiver<Option<ExecutionPayload>>,
     pub checkpoint_recv: watch::Receiver<Option<Vec<u8>>>,
     genesis_time: u64,
     phantom: PhantomData<R>,
@@ -67,6 +68,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         config: Arc<Config>,
     ) -> Result<ConsensusClient<R>> {
         let (payload_send, payload_recv) = channel(256);
+        let (finalized_payload_send, finalized_payload_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
 
         let rpc = rpc.to_string();
@@ -82,8 +84,17 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
                 let slot = inner.get_header().slot.as_u64();
                 let payload = inner.get_execution_payload(&Some(slot)).await.unwrap();
+                let finalized_slot = inner.get_finalized_header().slot.as_u64();
+                let finalized_payload = inner
+                    .get_execution_payload(&Some(finalized_slot))
+                    .await
+                    .unwrap();
 
                 payload_send.send(payload).await.unwrap();
+                finalized_payload_send
+                    .send(Some(finalized_payload))
+                    .unwrap();
+
                 checkpoint_send.send(inner.last_checkpoint.clone()).unwrap();
 
                 sleep(std::time::Duration::from_secs(12)).await;
@@ -92,6 +103,7 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
 
         Ok(ConsensusClient {
             payload_recv,
+            finalized_payload_recv,
             checkpoint_recv,
             genesis_time,
             phantom: PhantomData,
