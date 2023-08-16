@@ -56,7 +56,43 @@ Helios also provides documentation of its supported RPC methods in the [rpc.md](
 ./docker/docker.sh
 ```
 
-In the Docker container run:
+For the network that we will connect to, get a recent checkpoint, which is a beaconchain blockhash, rather than a execution block hash, so we don't get it from https://goerli.etherscan.io/blocks. Instead go to https://prater.beaconcha.in/ and get the blockhash for the first block in any finalised epoch that is no older than ~2 weeks old. For example at the time of writing, the first blockhash in epoch 197110 https://prater.beaconcha.in/epochs is 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b which corresponds to https://prater.beaconcha.in/slot/7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b, and should work. Normally, when it fails the fallback would kick in and automatically fetch a better one, but due to the refactors I mentioned that feature is currently not working.
+
+In the Docker container run the following and paste the values contained in config.md:
+
+```
+mkdir -p ~/.helios
+~/.helios/helios.toml
+vim ~/.helios/helios.toml
+mkdir -p /root/.helios/data/goerli
+```
+
+Paste:
+```
+[goerli]
+# The consensus rpc to use. This should be a trusted rpc endpoint. Defaults to Nimbus testnet.
+consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
+# [REQUIRED] The execution rpc to use. This should be a trusted rpc endpoint.
+execution_rpc = "https://ethereum-goerli-rpc.allthatnode.com"
+# The port to run the JSON-RPC server on. By default, Helios will use port 8545.
+rpc_port = 8545
+# The latest checkpoint. This should be a trusted checkpoint that is no greater than ~2 weeks old.
+# If you are unsure what checkpoint to use, you can skip this option and set either `load_external_fallback` or `fallback` values (described below) to fetch a checkpoint. Though this is not recommended and less secure.
+checkpoint = "0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b"
+# The directory to store the checkpoint database in. If not provided, Helios will use "~/.helios/data/goerli", where `goerli` is the network.
+# It is recommended to set this directory to a persistent location mapped to a fast storage device.
+data_dir = "/root/.helios/data/goerli"
+# The maximum age of a checkpoint in seconds. If the checkpoint is older than this, Helios will attempt to fetch a new checkpoint.
+max_checkpoint_age = 86400
+# A checkpoint fallback is used if no checkpoint is provided or the given checkpoint is too old.
+# This is expected to be a trusted checkpoint sync api (like provided in https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
+fallback = "https://sync-goerli.beaconcha.in"
+# If no checkpoint is provided, or the checkpoint is too old, Helios will attempt to dynamically fetch a checkpoint from a maintained list of checkpoint sync apis.
+# NOTE: This is an insecure feature and not recommended for production use. Checkpoint manipulation is possible.
+load_external_fallback = true
+```
+
+Then run:
 ```
 cargo run -p helios --example client
 ```

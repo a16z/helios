@@ -13,14 +13,14 @@ async fn main() -> Result<()> {
     builder = builder.network(networks::Network::GOERLI);
 
     // Set the consensus rpc url
-    builder = builder.consensus_rpc("https://www.lightclientdata.org");
+    builder = builder.consensus_rpc("http://testing.prater.beacon-api.nimbus.team");
 
     // Set the execution rpc url
     builder = builder.execution_rpc("https://ethereum-goerli-rpc.allthatnode.com");
 
     // Set the checkpoint to the last known checkpoint. See config.md
     builder =
-        builder.checkpoint("b5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495");
+        builder.checkpoint("7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b");
 
     // Set the rpc port
     builder = builder.rpc_port(8545);
