@@ -5,7 +5,7 @@ use ethers::prelude::*;
 use std::{path::PathBuf, sync::Arc};
 
 use helios::{
-    client::{Client, ClientBuilder, FileDB},
+    client::{Client, ClientBuilder},
     config::networks::Network,
     types::{BlockTag, CallOpts},
 };
@@ -31,7 +31,7 @@ async fn main() -> eyre::Result<()> {
 
     // Construct the client
     let data_dir = PathBuf::from("/tmp/helios");
-    let mut client: Client<FileDB> = ClientBuilder::new()
+    let mut client: Client = ClientBuilder::new()
         .network(Network::MAINNET)
         .data_dir(data_dir)
         .consensus_rpc(consensus_rpc)

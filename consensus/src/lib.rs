@@ -1,5 +1,6 @@
 #![feature(more_qualified_paths)]
 
+pub mod database;
 pub mod errors;
 pub mod rpc;
 pub mod types;

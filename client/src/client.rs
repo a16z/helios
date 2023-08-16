@@ -26,7 +26,6 @@ use gloo_timers::callback::Interval;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 
-use crate::database::Database;
 use crate::node::Node;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -109,7 +108,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
+    pub fn build(self) -> Result<Client> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -226,23 +225,14 @@ impl ClientBuilder {
     }
 }
 
-pub struct Client<DB: Database> {
+pub struct Client {
     node: Arc<RwLock<Node>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
-    db: DB,
-    // fallback: Option<String>,
-    // load_external_fallback: bool,
 }
 
-impl<DB: Database> Client<DB> {
-    fn new(mut config: Config) -> Result<Self> {
-        let db = DB::new(&config)?;
-        if config.checkpoint.is_none() {
-            let checkpoint = db.load_checkpoint()?;
-            config.checkpoint = Some(checkpoint);
-        }
-
+impl Client {
+    fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
         let node = Arc::new(RwLock::new(node));
@@ -257,9 +247,6 @@ impl<DB: Database> Client<DB> {
             node,
             #[cfg(not(target_arch = "wasm32"))]
             rpc,
-            db,
-            // fallback: config.fallback.clone(),
-            // load_external_fallback: config.load_external_fallback,
         })
     }
 
@@ -406,22 +393,11 @@ impl<DB: Database> Client<DB> {
     //     Ok(())
     // }
 
-    /// Saves last checkpoint of the node.
-    async fn save_last_checkpoint(&self) {
-        let node = self.node.read().await;
-        let checkpoint = node.consensus.checkpoint_recv.borrow().to_owned();
-
-        if let Some(checkpoint) = checkpoint {
-            info!("saving last checkpoint hash");
-            let res = self.db.save_checkpoint(checkpoint);
-            if res.is_err() {
-                warn!("checkpoint save failed");
-            }
-        };
-    }
-
     pub async fn shutdown(&self) {
-        self.save_last_checkpoint().await;
+        info!("shutting down");
+        if let Err(err) = self.node.read().await.consensus.shutdown() {
+            warn!("graceful shutdown failed: {}", err);
+        }
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
