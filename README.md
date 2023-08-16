@@ -71,7 +71,14 @@ error: linking with `cc` failed: exit status: 1
 ```
 
 Note:
-* This has not been necessary, but to use an older Rust version use `--default-toolchain=1.68.0` in Dockerfile, specify associated `nightly-2023-01-01` and run `rustup target add wasm32-unknown-unknown` and `cargo build` again
+* This has not been necessary, but to use an older Rust version use `--default-toolchain=1.68.0` in Dockerfile, specify associated `nightly-2023-01-01` and run `rustup target add wasm32-unknown-unknown` and change rust-toolchain to the following before running `cargo build` again
+```
+[toolchain]
+channel = "nightly-2023-01-01"
+components = [ "rustfmt" ]
+targets = [ "wasm32-unknown-unknown" ]
+profile = "minimal"
+```
 
 ### Warning
 
