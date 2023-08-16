@@ -12,9 +12,8 @@ RUN apt-get -y update --fix-missing && \
   apt-get -y upgrade && \
   apt-get install -y build-essential pkg-config libfontconfig-dev && \
   apt-get install -y git curl wget jq lsof unzip vim && \
-  # remove Cargo.lock otherwise get the following error:
+  # remove Cargo.lock and add `libfontconfig-dev` otherwise get the following error:
   # error: failed to run custom build command for `yeslogic-fontconfig-sys v3.2.0`
-  # reference: https://substrate.stackexchange.com/questions/7714/cannot-run-substrate-on-a-fresh-macbook-m2
   rm /opt/helios-test/Cargo.lock && \
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/ | sh -s -- --default-toolchain nightly -y && \
   rustup default nightly-2023-07-31 && \
