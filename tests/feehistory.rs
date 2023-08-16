@@ -29,7 +29,7 @@ async fn feehistory() -> Result<()> {
     log::info!("Using consensus RPC URL: {}", consensus_rpc);
 
     // Instantiate Client
-    let mut client: Client<FileDB> = ClientBuilder::new()
+    let mut client: Client = ClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc(&consensus_rpc)
         .execution_rpc(&api_key)

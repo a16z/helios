@@ -12,7 +12,8 @@ pub trait Database {
     fn new(config: &Config) -> Result<Self>
     where
         Self: Sized;
-    fn save_checkpoint(&self, checkpoint: Vec<u8>) -> Result<()>;
+
+    fn save_checkpoint(&self, checkpoint: &[u8]) -> Result<()>;
     fn load_checkpoint(&self) -> Result<Vec<u8>>;
 }
 
@@ -35,7 +36,7 @@ impl Database for FileDB {
         eyre::bail!("data dir not in config")
     }
 
-    fn save_checkpoint(&self, checkpoint: Vec<u8>) -> Result<()> {
+    fn save_checkpoint(&self, checkpoint: &[u8]) -> Result<()> {
         fs::create_dir_all(&self.data_dir)?;
 
         let mut f = fs::OpenOptions::new()
@@ -44,7 +45,7 @@ impl Database for FileDB {
             .truncate(true)
             .open(self.data_dir.join("checkpoint"))?;
 
-        f.write_all(checkpoint.as_slice())?;
+        f.write_all(checkpoint)?;
 
         Ok(())
     }
@@ -83,7 +84,7 @@ impl Database for ConfigDB {
         Ok(self.checkpoint.clone())
     }
 
-    fn save_checkpoint(&self, _checkpoint: Vec<u8>) -> Result<()> {
+    fn save_checkpoint(&self, _checkpoint: &[u8]) -> Result<()> {
         Ok(())
     }
 }

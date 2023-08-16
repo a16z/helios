@@ -52,8 +52,7 @@
 
 pub mod client {
     #[cfg(not(target_arch = "wasm32"))]
-    pub use client::database::FileDB;
-    pub use client::{database::ConfigDB, Client, ClientBuilder};
+    pub use client::{Client, ClientBuilder};
 }
 
 pub mod config {
