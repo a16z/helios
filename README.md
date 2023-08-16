@@ -50,6 +50,29 @@ Helios provides examples in the [`examples/`](./examples/) directory. To run an 
 
 Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 
+## Experiment
+
+```
+./docker/docker.sh
+```
+
+In the Docker container run:
+```
+cargo run -p helios --example client
+```
+
+If it outputs the following even though that file exists, the just run the above `cargo run ...` command again
+```
+error: linking with `cc` failed: exit status: 1
+  |
+  = note: LC_ALL="C" PATH=" ...
+...
+/usr/bin/ld: cannot find /opt/target/debug/examples/client-d9f966683b8158f6.4mjdt1mhb4psknyb.rcgu.o: No such file or directory
+```
+
+Note:
+* This has not been necessary, but to use an older Rust version use `--default-toolchain=1.68.0` in Dockerfile, specify associated `nightly-2023-01-01` and run `rustup target add wasm32-unknown-unknown` and `cargo build` again
+
 ### Warning
 
 Helios is still experimental software. While we hope you try it out, we do not suggest adding it as your main RPC in wallets yet. Sending high-value transactions from a wallet connected to Helios is discouraged.
