@@ -1,13 +1,15 @@
 use std::cmp;
 use std::marker::PhantomData;
+use std::process;
 use std::sync::Arc;
 
 use chrono::Duration;
+use config::CheckpointFallback;
+use config::Network;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
-use log::warn;
-use log::{debug, info};
+use log::{debug, error, info, warn};
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 
@@ -77,8 +79,27 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         });
 
         tokio::spawn(async move {
-            let mut inner = Inner::<R>::new(&rpc, config);
-            inner.sync(&initial_checkpoint).await.unwrap();
+            let mut inner = Inner::<R>::new(&rpc, config.clone());
+
+            let res = inner.sync(&initial_checkpoint).await;
+            if let Err(err) = res {
+                if config.load_external_fallback {
+                    let res = sync_all_fallbacks(&mut inner, config.chain.chain_id).await;
+                    if let Err(err) = res {
+                        error!("sync failed: {}", err);
+                        process::exit(1);
+                    }
+                } else if let Some(fallback) = &config.fallback {
+                    let res = sync_fallback(&mut inner, fallback).await;
+                    if let Err(err) = res {
+                        error!("sync failed: {}", err);
+                        process::exit(1);
+                    }
+                } else {
+                    error!("sync failed: {}", err);
+                    process::exit(1);
+                }
+            }
 
             loop {
                 inner.advance().await.unwrap();
@@ -149,6 +170,22 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     fn slot_timestamp(&self, slot: u64) -> u64 {
         slot * 12 + self.genesis_time
     }
+}
+
+async fn sync_fallback<R: ConsensusRpc>(inner: &mut Inner<R>, fallback: &str) -> Result<()> {
+    let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
+    inner.sync(checkpoint.as_bytes()).await
+}
+
+async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64) -> Result<()> {
+    let network = Network::from_chain_id(chain_id)?;
+    let checkpoint = CheckpointFallback::new()
+        .build()
+        .await?
+        .fetch_latest_checkpoint(&network)
+        .await?;
+
+    inner.sync(checkpoint.as_bytes()).await
 }
 
 impl<R: ConsensusRpc> Inner<R> {
@@ -249,6 +286,9 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn sync(&mut self, checkpoint: &[u8]) -> Result<()> {
+        self.store = LightClientStore::default();
+        self.last_checkpoint = None;
+
         self.bootstrap(checkpoint).await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot.into());
