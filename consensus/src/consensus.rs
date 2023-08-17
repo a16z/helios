@@ -184,6 +184,7 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64
         .await?
         .fetch_latest_checkpoint(&network)
         .await?;
+
     inner.sync(checkpoint.as_bytes()).await
 }
 
