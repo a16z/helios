@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use dirs::home_dir;
 
 use eyre::Result;
 
@@ -12,11 +13,14 @@ async fn main() -> Result<()> {
     // Set the network to goerli
     builder = builder.network(networks::Network::GOERLI);
 
+    let execution_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
+    let consensus_rpc_url = std::env::var("GOERLI_CONSENSUS_RPC")?;
+
     // Set the consensus rpc url
-    builder = builder.consensus_rpc("http://testing.prater.beacon-api.nimbus.team");
+    builder = builder.consensus_rpc(&consensus_rpc_url);
 
     // Set the execution rpc url
-    builder = builder.execution_rpc("https://ethereum-goerli-rpc.allthatnode.com");
+    builder = builder.execution_rpc(&execution_rpc_url);
 
     // Set the checkpoint to the last known checkpoint. See config.md
     builder =
@@ -26,13 +30,16 @@ async fn main() -> Result<()> {
     builder = builder.rpc_port(8545);
 
     // Set the data dir
-    builder = builder.data_dir(PathBuf::from("/tmp/helios"));
+    let data_path = home_dir().unwrap().join(".helios/data/goerli");
+    builder = builder.data_dir(PathBuf::from(data_path));
 
     // Set the fallback service. See config.md
-    builder = builder.fallback("https://sync-goerli.beaconcha.in");
+    // builder = builder.fallback("https://sync-goerli.beaconcha.in");
 
     // Enable lazy checkpoints
-    builder = builder.load_external_fallback();
+    // builder = builder.load_external_fallback();
+
+    // builder = builder.strict_checkpoint_age();
 
     // Build the client
     let _client: Client<FileDB> = builder.build().unwrap();

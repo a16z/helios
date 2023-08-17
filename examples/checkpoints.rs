@@ -21,6 +21,18 @@ async fn main() -> Result<()> {
         .unwrap();
     println!("Fetched latest goerli checkpoint: {goerli_checkpoint}");
 
+    // Note: Use `{:#?}` to pretty print the checkpoints
+
+    // Let's get a list of all the fallback service endpoints for goerli
+    let endpoints = cf.get_all_fallback_endpoints(&networks::Network::GOERLI);
+    println!("Fetched all goerli fallback endpoints: {endpoints:#?}");
+
+    // Since we built the checkpoint fallback services, we can also just get the raw checkpoint fallback services.
+    // The `get_fallback_services` method returns a reference to the internal list of CheckpointFallbackService objects
+    // for the given network.
+    let services = cf.get_fallback_services(&networks::Network::GOERLI);
+    println!("Fetched all goerli fallback services: {services:#?}");
+
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::MAINNET)
@@ -30,13 +42,13 @@ async fn main() -> Result<()> {
 
     // Let's get a list of all the fallback service endpoints for mainnet
     let endpoints = cf.get_all_fallback_endpoints(&networks::Network::MAINNET);
-    println!("Fetched all mainnet fallback endpoints: {endpoints:?}");
+    println!("Fetched all mainnet fallback endpoints: {endpoints:#?}");
 
     // Since we built the checkpoint fallback services, we can also just get the raw checkpoint fallback services.
     // The `get_fallback_services` method returns a reference to the internal list of CheckpointFallbackService objects
     // for the given network.
     let services = cf.get_fallback_services(&networks::Network::MAINNET);
-    println!("Fetched all mainnet fallback services: {services:?}");
+    println!("Fetched all mainnet fallback services: {services:#?}");
 
     Ok(())
 }

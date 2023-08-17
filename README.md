@@ -50,7 +50,7 @@ Helios provides examples in the [`examples/`](./examples/) directory. To run an 
 
 Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 
-## Experiment
+### Experiment
 
 ```
 ./docker/docker.sh
@@ -58,7 +58,8 @@ Helios also provides documentation of its supported RPC methods in the [rpc.md](
 
 For the network that we will connect to, get a recent checkpoint, which is a beaconchain blockhash, rather than a execution block hash, so we don't get it from https://goerli.etherscan.io/blocks. Instead go to https://prater.beaconcha.in/ and get the blockhash for the first block in any finalised epoch that is no older than ~2 weeks old. For example at the time of writing, the first blockhash in epoch 197110 https://prater.beaconcha.in/epochs is 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b which corresponds to https://prater.beaconcha.in/slot/7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b, and should work. Normally, when it fails the fallback would kick in and automatically fetch a better one, but due to the refactors I mentioned that feature is currently not working.
 
-In the Docker container run the following and paste the values contained in config.md:
+In the Docker container run the following and paste the values contained in config.md. Obtain the Alchemy API key from https://www.alchemy.com. For the Goerli `[goerli] execution_rpc =` value, it is possible to use https://ethereum-goerli-rpc.allthatnode.com instead of an Alchemy API key.
+For the Goerli `[goerli] consensus_rpc =` value, use http://testing.prater.beacon-api.nimbus.team instead of https://www.lightclientdata.org since the later is for Mainnet.
 
 ```
 mkdir -p ~/.helios
@@ -93,11 +94,46 @@ load_external_fallback = true
 ```
 
 Then run:
-```
-cargo run -p helios --example client
-```
+* Example: basic - **TODO: fix errors**
+    ```
+    cargo run -p helios --example basic
+    ```
+* Example: client - **TODO: fix errors**
+    ```
+    cargo run -p helios --example client
+    ```
+* Example: config - WORKS
+    ```
+    cargo run -p helios --example config
+    ```
+* Example: checkpoints - WORKS
+    ```
+    cargo run -p helios --example checkpoints
+    ```
+* Example: call - **TODO: fix errors shown below**
+    ```
+    cargo run -p helios --example call
+    ```
 
-If it outputs the following even though that file exists, the just run the above `cargo run ...` command again
+    * Errors:
+        ```
+        [2023-08-17T05:46:31Z INFO  call] [ABIGEN] 0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac::renderBroker(uint256) -> Response Length: 106476
+        thread 'tokio-runtime-worker' panicked at 'called `Result::unwrap()` on an `Err` value: could not fetch bootstrap rpc error on method: bootstrap, message: error decoding response body: missing field `data` at line 1 column 49
+
+        Location:
+            /opt/consensus/src/consensus.rs:308:26', /opt/consensus/src/consensus.rs:83:32
+        note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+        [2023-08-17T05:46:32Z INFO  call] [ABIGEN] 0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac::renderBroker(uint256, uint256) -> Response Length: 64549
+        [2023-08-17T05:46:32Z DEBUG call] Calling helios client on block: Latest
+        Error: block not available: latest
+
+        Location:
+            /rustc/a17c7968b727d8413801961fc4e89869b6ab00d3/library/core/src/convert/mod.rs:716:9
+        ```
+
+#### Troubleshooting
+
+* If it outputs the following even though that file exists, then just run the above `cargo run ...` command again
 ```
 error: linking with `cc` failed: exit status: 1
   |
@@ -105,6 +141,13 @@ error: linking with `cc` failed: exit status: 1
 ...
 /usr/bin/ld: cannot find /opt/target/debug/examples/client-d9f966683b8158f6.4mjdt1mhb4psknyb.rcgu.o: No such file or directory
 ```
+
+* Likewise if it outputs the following, then just try run the above `cargo run ...` command again:
+```
+error: failed to build archive: No such file or directory
+```
+
+* If endpoints are using shell environment variables with std::env::var in the examples that were set by running `source .env` and then the endpoints in the .env file are subsequently modified, then it is necessary to run `source ./.env` or `. ./.env` again otherwise the shell environment variables will not be updated https://www.thorsten-hans.com/working-with-environment-variables-in-rust/
 
 Note:
 * This has not been necessary, but to use an older Rust version use `--default-toolchain=1.68.0` in Dockerfile, specify associated `nightly-2023-01-01` and run `rustup target add wasm32-unknown-unknown` and change rust-toolchain to the following before running `cargo build` again

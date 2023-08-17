@@ -2,6 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use env_logger::Env;
 use ethers::{types::Address, utils};
+use dirs::home_dir;
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
 
@@ -9,23 +10,25 @@ use helios::{config::networks::Network, prelude::*};
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>";
+    let untrusted_execution_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
     log::info!("Using untrusted RPC URL [REDACTED]");
 
-    let consensus_rpc = "https://www.lightclientdata.org";
-    log::info!("Using consensus RPC URL: {}", consensus_rpc);
+    let consensus_rpc_url = std::env::var("GOERLI_CONSENSUS_RPC")?;
+    log::info!("Using consensus RPC URL: {}", consensus_rpc_url);
+
+    let data_path = home_dir().unwrap().join(".helios/data/goerli");
 
     let mut client: Client<FileDB> = ClientBuilder::new()
-        .network(Network::MAINNET)
-        .consensus_rpc(consensus_rpc)
-        .execution_rpc(untrusted_rpc_url)
+        .network(Network::GOERLI)
+        .consensus_rpc(&consensus_rpc_url)
+        .execution_rpc(&untrusted_execution_rpc_url)
         .load_external_fallback()
-        .data_dir(PathBuf::from("/tmp/helios"))
+        .data_dir(PathBuf::from(data_path))
         .build()?;
 
     log::info!(
         "Built client on network \"{}\" with external checkpoint fallbacks",
-        Network::MAINNET
+        Network::GOERLI
     );
 
     client.start().await?;

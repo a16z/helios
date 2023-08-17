@@ -3,6 +3,7 @@
 use env_logger::Env;
 use ethers::prelude::*;
 use std::{path::PathBuf, sync::Arc};
+use dirs::home_dir;
 
 use helios::{
     client::{Client, ClientBuilder, FileDB},
@@ -25,17 +26,21 @@ async fn main() -> eyre::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     // Load the rpc url using the `MAINNET_EXECUTION_RPC` environment variable
-    let eth_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
-    let consensus_rpc = "https://www.lightclientdata.org";
-    log::info!("Consensus RPC URL: {}", consensus_rpc);
+    let execution_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
+    log::debug!("execution_rpc_url: {:?}", execution_rpc_url);
+    let consensus_rpc_url = std::env::var("MAINNET_CONSENSUS_RPC")?;
+    log::info!("Consensus RPC URL: {}", consensus_rpc_url);
+
+    let data_path = home_dir().unwrap().join(".helios/data/mainnet");
 
     // Construct the client
-    let data_dir = PathBuf::from("/tmp/helios");
+    let data_dir = PathBuf::from(data_path);
     let mut client: Client<FileDB> = ClientBuilder::new()
         .network(Network::MAINNET)
         .data_dir(data_dir)
-        .consensus_rpc(consensus_rpc)
-        .execution_rpc(&eth_rpc_url)
+        .checkpoint("7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b")
+        .consensus_rpc(&consensus_rpc_url)
+        .execution_rpc(&execution_rpc_url)
         .load_external_fallback()
         .build()?;
     log::info!(
@@ -48,6 +53,7 @@ async fn main() -> eyre::Result<()> {
 
     // Call the erroneous account method
     // The expected asset is: https://0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac.w3eth.io/renderBroker/5
+    // Note: This contract is on mainnet but not on goerli.
     // Retrieved by calling `renderBroker(5)` on the contract: https://etherscan.io/address/0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac#code
     let account = "0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac";
     let method = "renderBroker(uint256)";
@@ -55,7 +61,7 @@ async fn main() -> eyre::Result<()> {
     let argument = U256::from(5);
     let address = account.parse::<Address>()?;
     let block = BlockTag::Latest;
-    let provider = Provider::<Http>::try_from(eth_rpc_url)?;
+    let provider = Provider::<Http>::try_from(execution_rpc_url)?;
     let render = Renderer::new(address, Arc::new(provider.clone()));
     log::debug!("Context: call @ {account}::{method} <{argument}>");
 
