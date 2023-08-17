@@ -1,4 +1,5 @@
 use common::utils::hex_str_to_bytes;
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
 
@@ -29,6 +30,14 @@ impl Network {
         match self {
             Self::MAINNET => mainnet(),
             Self::GOERLI => goerli(),
+        }
+    }
+
+    pub fn from_chain_id(id: u64) -> Result<Self> {
+        match id {
+            1 => Ok(Network::MAINNET),
+            5 => Ok(Network::GOERLI),
+            _ => Err(eyre::eyre!("chain id not known")),
         }
     }
 }
