@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use config::{networks, Config};
-use consensus::{rpc::mock_rpc::MockRpc, ConsensusClient};
+use consensus::{database::ConfigDB, rpc::mock_rpc::MockRpc, ConsensusClient};
 
-async fn setup() -> ConsensusClient<MockRpc> {
+async fn setup() -> ConsensusClient<MockRpc, ConfigDB> {
     let base_config = networks::mainnet();
     let config = Config {
         consensus_rpc: String::new(),
@@ -11,13 +11,14 @@ async fn setup() -> ConsensusClient<MockRpc> {
         chain: base_config.chain,
         forks: base_config.forks,
         max_checkpoint_age: 123123123,
+        checkpoint: Some(
+            hex::decode("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275")
+                .unwrap(),
+        ),
         ..Default::default()
     };
 
-    let checkpoint =
-        hex::decode("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275").unwrap();
-
-    ConsensusClient::new("testdata/", &checkpoint, Arc::new(config)).unwrap()
+    ConsensusClient::new("testdata/", Arc::new(config)).unwrap()
 }
 
 #[tokio::test]

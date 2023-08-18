@@ -8,7 +8,6 @@ use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
 use wasm_bindgen::prelude::*;
 
-use client::database::ConfigDB;
 use config::{networks, Config};
 
 #[allow(unused_macros)]
@@ -20,7 +19,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    inner: client::Client<ConfigDB>,
+    inner: client::Client,
     chain_id: u64,
 }
 
@@ -64,8 +63,7 @@ impl Client {
             ..Default::default()
         };
 
-        let inner: client::Client<ConfigDB> =
-            client::ClientBuilder::new().config(config).build().unwrap();
+        let inner: client::Client = client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { inner, chain_id }
     }

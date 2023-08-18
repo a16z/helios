@@ -12,7 +12,7 @@ use dirs::home_dir;
 use env_logger::Env;
 use eyre::Result;
 
-use client::{database::FileDB, Client, ClientBuilder};
+use client::{Client, ClientBuilder};
 use config::{CliConfig, Config};
 use futures::executor::block_on;
 use log::{error, info};
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     std::future::pending().await
 }
 
-fn register_shutdown_handler(client: Client<FileDB>) {
+fn register_shutdown_handler(client: Client) {
     let client = Arc::new(client);
     let shutdown_counter = Arc::new(Mutex::new(0));
 

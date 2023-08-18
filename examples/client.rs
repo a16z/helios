@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
     builder = builder.strict_checkpoint_age();
 
     // Build the client
-    let _client: Client<FileDB> = builder.build().unwrap();
+    let _client: Client = builder.build().unwrap();
     println!("Constructed client!");
 
     Ok(())

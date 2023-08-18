@@ -6,7 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use dirs::home_dir;
 
 use helios::{
-    client::{Client, ClientBuilder, FileDB},
+    client::{Client, ClientBuilder},
     config::networks::Network,
     types::{BlockTag, CallOpts},
 };
@@ -42,7 +42,7 @@ async fn main() -> eyre::Result<()> {
 
     // Construct the client
     let data_dir = PathBuf::from(data_path);
-    let mut client: Client<FileDB> = ClientBuilder::new()
+    let mut client: Client = ClientBuilder::new()
         .network(Network::MAINNET)
         .data_dir(data_dir)
         .checkpoint(mainnet_checkpoint_stripped)

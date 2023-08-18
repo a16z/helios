@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     let mainnet_data_dir_ext = std::env::var("MAINNET_DATA_DIR_EXT")?;
     let data_path = home_dir().unwrap().join(mainnet_data_dir_ext);
 
-    let mut client: Client<FileDB> = ClientBuilder::new()
+    let mut client: Client = ClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc(&consensus_rpc_url)
         .execution_rpc(&untrusted_execution_rpc_url)
