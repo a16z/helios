@@ -27,18 +27,25 @@ async fn main() -> eyre::Result<()> {
 
     // Load the rpc url using the `MAINNET_EXECUTION_RPC` environment variable
     let execution_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
-    log::debug!("execution_rpc_url: {:?}", execution_rpc_url);
+    log::info!("Execution RPC URL: {:?}", execution_rpc_url);
     let consensus_rpc_url = std::env::var("MAINNET_CONSENSUS_RPC")?;
     log::info!("Consensus RPC URL: {}", consensus_rpc_url);
 
-    let data_path = home_dir().unwrap().join(".helios/data/mainnet");
+    let mainnet_data_dir_ext = std::env::var("MAINNET_DATA_DIR_EXT")?;
+    let data_path = home_dir().unwrap().join(mainnet_data_dir_ext);
+
+    let mainnet_checkpoint = std::env::var("MAINNET_CHECKPOINT")?;
+    let mut mainnet_checkpoint_stripped = "";
+    if let Some(stripped) = mainnet_checkpoint.strip_prefix("0x") {
+        mainnet_checkpoint_stripped = stripped;
+    }
 
     // Construct the client
     let data_dir = PathBuf::from(data_path);
     let mut client: Client<FileDB> = ClientBuilder::new()
         .network(Network::MAINNET)
         .data_dir(data_dir)
-        .checkpoint("7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b")
+        .checkpoint(mainnet_checkpoint_stripped)
         .consensus_rpc(&consensus_rpc_url)
         .execution_rpc(&execution_rpc_url)
         .load_external_fallback()
@@ -53,7 +60,7 @@ async fn main() -> eyre::Result<()> {
 
     // Call the erroneous account method
     // The expected asset is: https://0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac.w3eth.io/renderBroker/5
-    // Note: This contract is on mainnet but not on goerli.
+    // Note: The contract is only on Mainnet so this example does not work on Goerli.
     // Retrieved by calling `renderBroker(5)` on the contract: https://etherscan.io/address/0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac#code
     let account = "0x8bb9a8baeec177ae55ac410c429cbbbbb9198cac";
     let method = "renderBroker(uint256)";

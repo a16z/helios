@@ -75,9 +75,6 @@ impl<R: ConsensusRpc> ConsensusClient<R> {
         let checkpoint = checkpoint_block_root.to_vec();
         let genesis_time = config.chain.genesis_time;
 
-        println!("rpc: {:?}", &rpc);
-        println!("checkpoint: {:?}", &checkpoint);
-
         tokio::spawn(async move {
             let mut inner = Inner::<R>::new(&rpc, &checkpoint, config).unwrap();
             inner.sync().await.unwrap();
@@ -300,13 +297,11 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     async fn bootstrap(&mut self) -> Result<()> {
-        println!("initial checkpoint: {:?}", self.initial_checkpoint);
         let mut bootstrap = self
             .rpc
             .get_bootstrap(&self.initial_checkpoint)
             .await
             .map_err(|e| eyre!("could not fetch bootstrap {}", e))?;
-        println!("bootstrap fetched successful");
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
 
         if !is_valid {
@@ -316,7 +311,6 @@ impl<R: ConsensusRpc> Inner<R> {
                 warn!("checkpoint too old, consider using a more recent block");
             }
         }
-        println!("checkpoint valid");
 
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
@@ -331,12 +325,10 @@ impl<R: ConsensusRpc> Inner<R> {
         if !header_valid {
             return Err(ConsensusError::InvalidHeaderHash(expected_hash, header_hash).into());
         }
-        println!("header valid");
 
         if !committee_valid {
             return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
         }
-        println!("committee valid");
 
         self.store = LightClientStore {
             finalized_header: bootstrap.header.clone(),

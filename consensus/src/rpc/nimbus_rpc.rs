@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use eyre::Result;
 use std::cmp;
-use std::collections::HashMap;
-use reqwest::redirect;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
@@ -29,38 +27,17 @@ impl ConsensusRpc for NimbusRpc {
             "{}/eth/v1/beacon/light_client/bootstrap/0x{}",
             self.rpc, root_hex
         );
-        println!("get_bootstrap req {:?}", req);
 
-        let mut map = HashMap::new();
-        map.insert("body", "json");
-
-        let custom = redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() > 5 {
-                attempt.error("too many redirects")
-            } else if attempt.url().host_str() == Some("example.domain") {
-                // prevent redirects to 'example.domain'
-                attempt.stop()
-            } else {
-                attempt.follow()
-            }
-        });
-        let client = reqwest::Client::builder()
-            .redirect(custom)
-            // disable proxies https://docs.rs/reqwest/0.11.13/reqwest/index.html
-            .no_proxy()
-            .build()?;
-        // let client = reqwest::Client::new();
-
+        let client = reqwest::Client::new();
         let res = client
             .get(req)
-            .json(&map)
             .send()
             .await
             .map_err(|e| RpcError::new("bootstrap", e))?
             .json::<BootstrapResponse>()
             .await
             .map_err(|e| RpcError::new("bootstrap", e))?;
-        println!("get_bootstrap res {:?}", res);
+
         Ok(res.data)
     }
 

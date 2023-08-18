@@ -21,8 +21,6 @@ async fn main() -> Result<()> {
         .unwrap();
     println!("Fetched latest goerli checkpoint: {goerli_checkpoint}");
 
-    // Note: Use `{:#?}` to pretty print the checkpoints
-
     // Let's get a list of all the fallback service endpoints for goerli
     let endpoints = cf.get_all_fallback_endpoints(&networks::Network::GOERLI);
     println!("Fetched all goerli fallback endpoints: {endpoints:#?}");

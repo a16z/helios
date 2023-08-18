@@ -10,16 +10,17 @@ use helios::{config::networks::Network, prelude::*};
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let untrusted_execution_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
+    let untrusted_execution_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     log::info!("Using untrusted RPC URL [REDACTED]");
 
-    let consensus_rpc_url = std::env::var("GOERLI_CONSENSUS_RPC")?;
+    let consensus_rpc_url = std::env::var("MAINNET_CONSENSUS_RPC")?;
     log::info!("Using consensus RPC URL: {}", consensus_rpc_url);
 
-    let data_path = home_dir().unwrap().join(".helios/data/goerli");
+    let mainnet_data_dir_ext = std::env::var("MAINNET_DATA_DIR_EXT")?;
+    let data_path = home_dir().unwrap().join(mainnet_data_dir_ext);
 
     let mut client: Client<FileDB> = ClientBuilder::new()
-        .network(Network::GOERLI)
+        .network(Network::MAINNET)
         .consensus_rpc(&consensus_rpc_url)
         .execution_rpc(&untrusted_execution_rpc_url)
         .load_external_fallback()
@@ -28,7 +29,7 @@ async fn main() -> Result<()> {
 
     log::info!(
         "Built client on network \"{}\" with external checkpoint fallbacks",
-        Network::GOERLI
+        Network::MAINNET
     );
 
     client.start().await?;
