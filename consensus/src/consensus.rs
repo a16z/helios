@@ -4,6 +4,7 @@ use std::process;
 use std::sync::Arc;
 
 use chrono::Duration;
+use common::types::Block;
 use config::CheckpointFallback;
 use config::Network;
 use eyre::eyre;
@@ -38,8 +39,8 @@ use wasm_timer::SystemTime;
 use wasm_timer::UNIX_EPOCH;
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
-    pub payload_recv: Receiver<ExecutionPayload>,
-    pub finalized_payload_recv: watch::Receiver<Option<ExecutionPayload>>,
+    pub block_recv: Option<Receiver<Block>>,
+    pub finalized_block_recv: Option<watch::Receiver<Option<Block>>>,
     pub checkpoint_recv: watch::Receiver<Option<Vec<u8>>>,
     genesis_time: u64,
     db: DB,
@@ -66,8 +67,8 @@ struct LightClientStore {
 
 impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     pub fn new(rpc: &str, config: Arc<Config>) -> Result<ConsensusClient<R, DB>> {
-        let (payload_send, payload_recv) = channel(256);
-        let (finalized_payload_send, finalized_payload_recv) = watch::channel(None);
+        let (block_send, block_recv) = channel(256);
+        let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
 
         let rpc = rpc.to_string();
@@ -112,10 +113,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                     .await
                     .unwrap();
 
-                payload_send.send(payload).await.unwrap();
-                finalized_payload_send
-                    .send(Some(finalized_payload))
-                    .unwrap();
+                _ = block_send.send(payload.into()).await;
+                _ = finalized_block_send.send(Some(finalized_payload.into()));
 
                 checkpoint_send.send(inner.last_checkpoint.clone()).unwrap();
 
@@ -124,8 +123,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         });
 
         Ok(ConsensusClient {
-            payload_recv,
-            finalized_payload_recv,
+            block_recv: Some(block_recv),
+            finalized_block_recv: Some(finalized_block_recv),
             checkpoint_recv,
             genesis_time,
             db,

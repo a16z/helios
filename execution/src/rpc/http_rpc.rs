@@ -69,10 +69,7 @@ impl ExecutionRpc for HttpRpc {
         raw_tx.gas = Some(opts.gas.unwrap_or(U256::from(100_000_000)));
         raw_tx.max_fee_per_gas = Some(U256::zero());
         raw_tx.max_priority_fee_per_gas = Some(U256::zero());
-        raw_tx.data = opts
-            .data
-            .as_ref()
-            .map(|data| Bytes::from(data.as_slice().to_owned()));
+        raw_tx.data = opts.data.as_ref().map(|data| data.to_owned());
 
         let tx = TypedTransaction::Eip1559(raw_tx);
         let list = self
