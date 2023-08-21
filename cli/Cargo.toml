@@ -1,13 +1,10 @@
-cargo-features = ["different-binary-name"]
-
 [package]
 name = "cli"
 version = "0.4.1"
 edition = "2021"
 
 [[bin]]
-name = "cli"
-filename = "helios"
+name = "helios"
 path = "src/main.rs"
 
 [dependencies]

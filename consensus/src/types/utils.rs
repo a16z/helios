@@ -45,14 +45,13 @@ struct Beacon {
     beacon: Header,
 }
 
-#[macro_export]
 macro_rules! superstruct_ssz {
-    ($type:ty) => {
+    ($type:tt) => {
         impl ssz_rs::Merkleized for $type {
             fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
                 match self {
-                    <$type>::Bellatrix(inner) => inner.hash_tree_root(),
-                    <$type>::Capella(inner) => inner.hash_tree_root(),
+                    $type::Bellatrix(inner) => inner.hash_tree_root(),
+                    $type::Capella(inner) => inner.hash_tree_root(),
                 }
             }
         }
@@ -70,8 +69,8 @@ macro_rules! superstruct_ssz {
         impl ssz_rs::Serialize for $type {
             fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
                 match self {
-                    <$type>::Bellatrix(inner) => inner.serialize(buffer),
-                    <$type>::Capella(inner) => inner.serialize(buffer),
+                    $type::Bellatrix(inner) => inner.serialize(buffer),
+                    $type::Capella(inner) => inner.serialize(buffer),
                 }
             }
         }
@@ -88,6 +87,9 @@ macro_rules! superstruct_ssz {
         impl ssz_rs::SimpleSerialize for $type {}
     };
 }
+
+/// this has to go after macro definition
+pub(crate) use superstruct_ssz;
 
 impl From<ExecutionPayload> for Block {
     fn from(value: ExecutionPayload) -> Block {

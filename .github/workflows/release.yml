@@ -10,10 +10,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v1
 
-      - name: install rust nightly
+      - name: install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           default: true
           override: true
 
@@ -31,7 +31,7 @@ jobs:
       - name: generate tag name
         id: tag
         run: |
-          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+          echo "::set-output name=release_tag::${GITHUB_SHA}"
 
       - name: release
         uses: softprops/action-gh-release@v1
@@ -49,10 +49,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v1
 
-      - name: install rust nightly
+      - name: install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           default: true
           override: true
 
@@ -70,7 +70,7 @@ jobs:
       - name: generate tag name
         id: tag
         run: |
-          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+          echo "::set-output name=release_tag::${GITHUB_SHA}"
 
       - name: release
         uses: softprops/action-gh-release@v1
@@ -88,10 +88,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v1
 
-      - name: install rust nightly
+      - name: install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           default: true
           override: true
 
@@ -115,7 +115,7 @@ jobs:
       - name: generate tag name
         id: tag
         run: |
-          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+          echo "::set-output name=release_tag::${GITHUB_SHA}"
 
       - name: release
         uses: softprops/action-gh-release@v1
@@ -133,10 +133,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v1
 
-      - name: install rust nightly
+      - name: install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           default: true
           override: true
 
@@ -154,7 +154,7 @@ jobs:
       - name: generate tag name
         id: tag
         run: |
-          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+          echo "::set-output name=release_tag::${GITHUB_SHA}"
 
       - name: release
         uses: softprops/action-gh-release@v1
@@ -172,10 +172,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v1
 
-      - name: install rust nightly
+      - name: install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           default: true
           override: true
 
@@ -202,7 +202,7 @@ jobs:
       - name: generate tag name
         id: tag
         run: |
-          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+          echo "::set-output name=release_tag::${GITHUB_SHA}"
 
       - name: release
         uses: softprops/action-gh-release@v1
