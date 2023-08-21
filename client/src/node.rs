@@ -15,7 +15,7 @@ use config::Config;
 
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::ConsensusClient;
-// use execution::evm::Evm;
+use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::types::CallOpts;
 use execution::ExecutionClient;
@@ -62,34 +62,21 @@ impl Node {
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
-        //     self.check_blocktag_age(&block)?;
+        self.check_blocktag_age(&block)?;
 
-        //     let payload = self.get_payload(block)?;
-        //     let mut evm = Evm::new(
-        //         self.execution.clone(),
-        //         payload,
-        //         &self.payloads,
-        //         self.chain_id(),
-        //     );
-        //     evm.call(opts).await.map_err(NodeError::ExecutionEvmError)
+        let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
 
-        unimplemented!()
+        evm.call(opts).await.map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
-        //     self.check_head_age()?;
+        self.check_head_age()?;
 
-        //     let payload = self.get_payload(BlockTag::Latest)?;
-        //     let mut evm = Evm::new(
-        //         self.execution.clone(),
-        //         payload,
-        //         &self.payloads,
-        //         self.chain_id(),
-        //     );
-        //     evm.estimate_gas(opts)
-        //         .await
-        //         .map_err(NodeError::ExecutionEvmError)
-        unimplemented!()
+        let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
+
+        evm.estimate_gas(opts)
+            .await
+            .map_err(NodeError::ExecutionEvmError)
     }
 
     pub async fn get_balance(&self, address: &Address, tag: BlockTag) -> Result<U256> {

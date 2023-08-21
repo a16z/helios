@@ -1,7 +1,7 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use async_trait::async_trait;
-use common::utils::hex_str_to_bytes;
+use common::{types::BlockTag, utils::hex_str_to_bytes};
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
     Transaction, TransactionReceipt, H256,
@@ -35,7 +35,7 @@ impl ExecutionRpc for MockRpc {
         Ok(serde_json::from_str(&proof)?)
     }
 
-    async fn create_access_list(&self, _opts: &CallOpts, _block: u64) -> Result<AccessList> {
+    async fn create_access_list(&self, _opts: &CallOpts, _block: BlockTag) -> Result<AccessList> {
         Err(eyre!("not implemented"))
     }
 

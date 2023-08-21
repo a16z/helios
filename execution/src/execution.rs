@@ -9,7 +9,7 @@ use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
 
 use futures::future::join_all;
-use revm::KECCAK_EMPTY;
+use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
 use common::types::{Block, BlockTag, Transactions};
@@ -103,7 +103,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             slot_map.insert(storage_proof.key, storage_proof.value);
         }
 
-        let code = if proof.code_hash == KECCAK_EMPTY {
+        let code = if proof.code_hash == KECCAK_EMPTY.into() {
             Vec::new()
         } else {
             let code = self.rpc.get_code(address, block.number.as_u64()).await?;
