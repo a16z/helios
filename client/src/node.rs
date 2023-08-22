@@ -1,17 +1,18 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use consensus::database::FileDB;
 use ethers::prelude::{Address, U256};
 use ethers::types::{
     Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
 };
-use execution::state::State;
 use eyre::{eyre, Result};
+use wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use common::types::{Block, BlockTag};
 use config::Config;
+use execution::state::State;
 
+use consensus::database::FileDB;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::ConsensusClient;
 use execution::evm::Evm;
@@ -61,7 +62,7 @@ impl Node {
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
-        self.check_blocktag_age(&block)?;
+        self.check_blocktag_age(&block).await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
 
@@ -69,7 +70,7 @@ impl Node {
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
-        self.check_head_age()?;
+        self.check_head_age().await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
 
@@ -79,14 +80,14 @@ impl Node {
     }
 
     pub async fn get_balance(&self, address: &Address, tag: BlockTag) -> Result<U256> {
-        self.check_blocktag_age(&tag)?;
+        self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
         Ok(account.balance)
     }
 
     pub async fn get_nonce(&self, address: &Address, tag: BlockTag) -> Result<u64> {
-        self.check_blocktag_age(&tag)?;
+        self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
         Ok(account.nonce)
@@ -107,7 +108,7 @@ impl Node {
     }
 
     pub async fn get_code(&self, address: &Address, tag: BlockTag) -> Result<Vec<u8>> {
-        self.check_blocktag_age(&tag)?;
+        self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
         Ok(account.code)
@@ -119,7 +120,7 @@ impl Node {
         slot: H256,
         tag: BlockTag,
     ) -> Result<U256> {
-        self.check_head_age()?;
+        self.check_head_age().await?;
 
         let account = self
             .execution
@@ -164,7 +165,7 @@ impl Node {
 
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub async fn get_gas_price(&self) -> Result<U256> {
-        self.check_head_age()?;
+        self.check_head_age().await?;
 
         let block = self.execution.get_block(BlockTag::Latest, false).await?;
         let base_fee = block.base_fee_per_gas;
@@ -179,14 +180,14 @@ impl Node {
     }
 
     pub async fn get_block_number(&self) -> Result<U256> {
-        self.check_head_age()?;
+        self.check_head_age().await?;
 
         let block = self.execution.get_block(BlockTag::Latest, false).await?;
         Ok(U256::from(block.number.as_u64()))
     }
 
     pub async fn get_block_by_number(&self, tag: BlockTag, full_tx: bool) -> Result<Option<Block>> {
-        self.check_blocktag_age(&tag)?;
+        self.check_blocktag_age(&tag).await?;
 
         match self.execution.get_block(tag, full_tx).await {
             Ok(block) => Ok(Some(block)),
@@ -208,7 +209,7 @@ impl Node {
     }
 
     pub async fn syncing(&self) -> Result<SyncingStatus> {
-        if self.check_head_age().is_ok() {
+        if self.check_head_age().await.is_ok() {
             Ok(SyncingStatus::IsFalse)
         } else {
             let latest_synced_block = self.get_block_number().await?;
@@ -240,27 +241,37 @@ impl Node {
     }
 
     pub async fn get_coinbase(&self) -> Result<Address> {
-        self.check_head_age()?;
+        self.check_head_age().await?;
 
         let block = self.execution.get_block(BlockTag::Latest, false).await?;
         Ok(block.miner)
     }
 
-    fn check_head_age(&self) -> Result<(), NodeError> {
-        // let synced_slot = self.consensus.get_header().slot.as_u64();
-        // let expected_slot = self.consensus.expected_current_slot();
-        // let slot_delay = expected_slot - synced_slot;
+    async fn check_head_age(&self) -> Result<(), NodeError> {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-        // if slot_delay > 10 {
-        //     return Err(NodeError::OutOfSync(slot_delay));
-        // }
+        let block_timestap = self
+            .execution
+            .get_block(BlockTag::Latest, false)
+            .await
+            .map_err(|_| NodeError::OutOfSync(timestamp))?
+            .timestamp
+            .as_u64();
+
+        let delay = timestamp.checked_sub(block_timestap).unwrap_or_default();
+        if delay > 60 {
+            return Err(NodeError::OutOfSync(delay));
+        }
 
         Ok(())
     }
 
-    fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), NodeError> {
+    async fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), NodeError> {
         match block {
-            BlockTag::Latest => self.check_head_age(),
+            BlockTag::Latest => self.check_head_age().await,
             BlockTag::Finalized => Ok(()),
             BlockTag::Number(_) => Ok(()),
         }

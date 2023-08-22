@@ -12,6 +12,7 @@ milagro_bls.workspace = true
 ethers.workspace = true
 
 # async/futures
+tokio.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 
@@ -28,14 +29,11 @@ log.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 superstruct.workspace = true
+wasm-timer.workspace = true
 
 common = { path = "../common" }
 config = { path = "../config" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openssl.workspace = true
-tokio.workspace = true
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-timer = "0.2.5"
 

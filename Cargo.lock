@@ -707,6 +707,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "wasm-bindgen-futures",
+ "wasm-timer",
 ]
 
 [[package]]

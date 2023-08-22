@@ -12,6 +12,8 @@ ethers.workspace = true
 futures.workspace = true
 log.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+wasm-timer.workspace = true
 
 common = { path = "../common" }
 consensus = { path = "../consensus" }
@@ -20,10 +22,8 @@ config = { path = "../config" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jsonrpsee = { version = "0.15.1", features = ["full"] }
-tokio.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-timers = "0.2.6"
 wasm-bindgen-futures = "0.4.33"
-tokio = { workspace = true, features = ["sync"] }
 
