@@ -61,7 +61,7 @@ impl<R: ExecutionRpc> Evm<R> {
             .as_mut()
             .unwrap()
             .state
-            .prefetch_state(&opts)
+            .prefetch_state(opts)
             .await
             .map_err(|err| EvmError::Generic(err.to_string()))?;
 
@@ -86,14 +86,12 @@ impl<R: ExecutionRpc> Evm<R> {
         let mut env = Env::default();
 
         env.tx.transact_to = TransactTo::Call(opts.to.unwrap_or_default().into());
-        env.tx.caller = opts
-            .from
-            .map(|caller| B160::from(caller))
-            .unwrap_or_default();
+        env.tx.caller = opts.from.map(B160::from).unwrap_or_default();
         env.tx.value = opts
             .value
             .map(|value| B256::from(value).into())
             .unwrap_or_default();
+
         env.tx.data = Bytes::from(opts.data.clone().unwrap_or_default().to_vec());
         env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
         env.tx.gas_price = opts
@@ -127,7 +125,7 @@ struct ProofDB<R: ExecutionRpc> {
     state: EvmState<R>,
 }
 
-impl<'a, R: ExecutionRpc> ProofDB<R> {
+impl<R: ExecutionRpc> ProofDB<R> {
     pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<R>>) -> Self {
         let state = EvmState::new(execution.clone(), tag);
         ProofDB { execution, state }
@@ -234,7 +232,7 @@ impl<R: ExecutionRpc> EvmState<R> {
         let mut list = self
             .execution
             .rpc
-            .create_access_list(&opts, self.block)
+            .create_access_list(opts, self.block)
             .await
             .map_err(EvmError::RpcError)?
             .0;
@@ -293,7 +291,7 @@ impl<R: ExecutionRpc> EvmState<R> {
         for (address, account) in account_map {
             let info = AccountInfo::new(
                 account.balance.into(),
-                account.nonce.into(),
+                account.nonce,
                 Bytecode::new_raw(account.code.into()),
             );
 
@@ -315,7 +313,7 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
     type Error = Report;
 
     fn basic(&mut self, address: B160) -> Result<Option<AccountInfo>, Report> {
-        if is_precompile(&address.into()) {
+        if is_precompile(&address) {
             return Ok(Some(AccountInfo::default()));
         }
 
@@ -324,7 +322,7 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
             hex::encode(address.as_bytes())
         );
 
-        Ok(Some(self.state.get_basic(address.into())?))
+        Ok(Some(self.state.get_basic(address)?))
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Report> {

@@ -3,9 +3,7 @@ use std::sync::Arc;
 
 use config::networks::Network;
 use ethers::prelude::{Address, U256};
-use ethers::types::{
-    Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
-};
+use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
 use common::types::{Block, BlockTag};

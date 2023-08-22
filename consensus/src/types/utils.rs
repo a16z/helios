@@ -89,12 +89,12 @@ macro_rules! superstruct_ssz {
     };
 }
 
-impl Into<Block> for ExecutionPayload {
-    fn into(self) -> Block {
+impl From<ExecutionPayload> for Block {
+    fn from(value: ExecutionPayload) -> Block {
         let empty_nonce = "0x0000000000000000".to_string();
         let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
-        let txs = self
+        let txs = value
             .transactions()
             .iter()
             .map(|tx| {
@@ -104,24 +104,24 @@ impl Into<Block> for ExecutionPayload {
             .collect::<Vec<Transaction>>();
 
         Block {
-            number: self.block_number().as_u64().into(),
+            number: value.block_number().as_u64().into(),
             base_fee_per_gas: ethers::types::U256::from_little_endian(
-                &self.base_fee_per_gas().to_bytes_le(),
+                &value.base_fee_per_gas().to_bytes_le(),
             ),
             difficulty: ethers::types::U256::from(0),
-            extra_data: self.extra_data().to_vec().into(),
-            gas_limit: self.gas_limit().as_u64().into(),
-            gas_used: self.gas_used().as_u64().into(),
-            hash: H256::from_slice(self.block_hash()),
-            logs_bloom: self.logs_bloom().to_vec().into(),
-            miner: Address::from_slice(self.fee_recipient()),
-            parent_hash: H256::from_slice(self.parent_hash()),
-            receipts_root: H256::from_slice(self.receipts_root()),
-            state_root: H256::from_slice(self.state_root()),
-            timestamp: self.timestamp().as_u64().into(),
+            extra_data: value.extra_data().to_vec().into(),
+            gas_limit: value.gas_limit().as_u64().into(),
+            gas_used: value.gas_used().as_u64().into(),
+            hash: H256::from_slice(value.block_hash()),
+            logs_bloom: value.logs_bloom().to_vec().into(),
+            miner: Address::from_slice(value.fee_recipient()),
+            parent_hash: H256::from_slice(value.parent_hash()),
+            receipts_root: H256::from_slice(value.receipts_root()),
+            state_root: H256::from_slice(value.state_root()),
+            timestamp: value.timestamp().as_u64().into(),
             total_difficulty: 0.into(),
             transactions: Transactions::Full(txs),
-            mix_hash: H256::from_slice(self.prev_randao()),
+            mix_hash: H256::from_slice(value.prev_randao()),
             nonce: empty_nonce,
             sha3_uncles: H256::from_str(empty_uncle_hash).unwrap(),
             size: 0.into(),
