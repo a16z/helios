@@ -4,21 +4,23 @@ use std::process;
 use std::sync::Arc;
 
 use chrono::Duration;
-use common::types::Block;
-use config::CheckpointFallback;
-use config::Network;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
 use log::{debug, error, info, warn};
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
+use wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use config::Config;
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::watch;
 use tokio::time::sleep;
+
+use common::types::Block;
+use config::CheckpointFallback;
+use config::Config;
+use config::Network;
 
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
@@ -27,16 +29,6 @@ use crate::errors::ConsensusError;
 use super::rpc::ConsensusRpc;
 use super::types::*;
 use super::utils::*;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::SystemTime;
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::UNIX_EPOCH;
-
-#[cfg(target_arch = "wasm32")]
-use wasm_timer::SystemTime;
-#[cfg(target_arch = "wasm32")]
-use wasm_timer::UNIX_EPOCH;
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,

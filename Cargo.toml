@@ -37,7 +37,7 @@ triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", r
 # async/futures
 async-trait = "0.1.57"
 futures = "0.3.23"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt", "sync", "macros"] }
 
 # io
 reqwest = { version = "0.11.13", features = ["json"] }
@@ -55,7 +55,7 @@ thiserror = "1.0.37"
 superstruct = "0.7.0"
 openssl = { version = "0.10", features = ["vendored"] }
 hyper = "0.14.23"
-
+wasm-timer = "0.2.5"
 
 ######################################
 # Top Level Dependencies

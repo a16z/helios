@@ -12,7 +12,7 @@ pub enum NodeError {
     #[error("execution error: {0}")]
     ExecutionError(Report),
 
-    #[error("out of sync: {0} slots behind")]
+    #[error("out of sync: {0} seconds behind")]
     OutOfSync(u64),
 
     #[error("consensus payload error: {0}")]
