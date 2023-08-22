@@ -3,7 +3,7 @@ use std::fmt::Display;
 use ethers::types::{Address, Bytes, Transaction, H256, U256, U64};
 use serde::{de::Error, ser::SerializeSeq, Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub number: U64,
@@ -33,6 +33,12 @@ pub struct Block {
 pub enum Transactions {
     Hashes(Vec<H256>),
     Full(Vec<Transaction>),
+}
+
+impl Default for Transactions {
+    fn default() -> Self {
+        Self::Full(Vec::new())
+    }
 }
 
 impl Transactions {

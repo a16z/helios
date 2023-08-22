@@ -46,6 +46,10 @@ impl State {
         Self { inner }
     }
 
+    pub async fn push_block(&self, block: Block) {
+        self.inner.write().await.push_block(block);
+    }
+
     // full block fetch
 
     pub async fn get_block(&self, tag: BlockTag) -> Option<Block> {

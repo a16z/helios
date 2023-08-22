@@ -71,12 +71,10 @@ impl<R: ExecutionRpc> Evm<R> {
             let mut db = self.evm.db.take().unwrap();
 
             if res.is_err() && db.state.needs_update() {
-                println!("updating state");
                 db.state.update_state().await.unwrap();
                 self.evm = EVM::<ProofDB<R>>::new();
                 self.evm.database(db);
             } else {
-                println!("breaking");
                 break res;
             }
         };
@@ -352,58 +350,35 @@ fn is_precompile(address: &B160) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use common::utils::hex_str_to_bytes;
-    use consensus::types::{primitives::ByteVector, ExecutionPayloadBellatrix};
+    use tokio::sync::{mpsc::channel, watch};
 
-    use crate::rpc::mock_rpc::MockRpc;
+    use crate::{rpc::mock_rpc::MockRpc, state::State};
 
     use super::*;
 
     fn get_client() -> ExecutionClient<MockRpc> {
-        ExecutionClient::new("testdata/").unwrap()
+        let (_, block_recv) = channel(256);
+        let (_, finalized_recv) = watch::channel(None);
+        let state = State::new(block_recv, finalized_recv, 64);
+        ExecutionClient::new("testdata/", state).unwrap()
     }
 
     #[tokio::test]
     async fn test_proof_db() {
         // Construct proofdb params
         let execution = get_client();
-        let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
-        let payload = ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix {
-            state_root: ByteVector::try_from(
-                hex_str_to_bytes(
-                    "0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d",
-                )
-                .unwrap(),
-            )
-            .unwrap(),
-            ..ExecutionPayloadBellatrix::default()
-        });
+        let tag = BlockTag::Latest;
 
-        let mut payloads = BTreeMap::new();
-        payloads.insert(7530933, payload.clone());
+        // Construct the proof database with the given client 
+        let mut proof_db = ProofDB::new(tag, Arc::new(execution));
 
-        // Construct the proof database with the given client and payloads
-        let mut proof_db = ProofDB::new(Arc::new(execution), &payload, &payloads);
-
-        // Set the proof db accounts
-        let slot = U256::from(1337);
-        let mut accounts = HashMap::new();
-        let account = Account {
-            balance: U256::from(100),
-            code: hex_str_to_bytes("0x").unwrap(),
-            ..Default::default()
-        };
-        accounts.insert(address, account);
-        proof_db.set_accounts(accounts);
+        let address = B160::from_str("0x388C818CA8B9251b393131C08a736A67ccB19297").unwrap();
+        let info = AccountInfo::new(U256::from(500), 10, Bytecode::new_raw(Bytes::default()));
+        proof_db.state.basic.insert(address, info.clone());
 
         // Get the account from the proof database
-        let storage_proof = proof_db.storage(address, slot);
+        let account = proof_db.basic(address).unwrap().unwrap();
 
-        // Check that the storage proof correctly returns a slot not found error
-        let expected_err: eyre::Report = SlotNotFoundError::new(H256::from_uint(&slot)).into();
-        assert_eq!(
-            expected_err.to_string(),
-            storage_proof.unwrap_err().to_string()
-        );
+        assert_eq!(account, info);
     }
 }
