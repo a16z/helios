@@ -83,7 +83,7 @@ async fn main() -> eyre::Result<()> {
         gas: Some(U256::from(U64::MAX.as_u64())),
         gas_price: None,
         value: None,
-        data: Some(encoded_call.to_vec()),
+        data: Some(encoded_call),
     };
     log::debug!("Calling helios client on block: {block:?}");
     let result = client.call(&call_opts, block).await?;

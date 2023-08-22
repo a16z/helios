@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use common::types::BlockTag;
 use ethers::prelude::{Address, Http};
 use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
 use ethers::types::transaction::eip2718::TypedTransaction;
@@ -59,8 +60,12 @@ impl ExecutionRpc for HttpRpc {
         Ok(proof_response)
     }
 
-    async fn create_access_list(&self, opts: &CallOpts, block: u64) -> Result<AccessList> {
-        let block = Some(BlockId::from(block));
+    async fn create_access_list(&self, opts: &CallOpts, block: BlockTag) -> Result<AccessList> {
+        let block = match block {
+            BlockTag::Latest => BlockId::Number(BlockNumber::Latest),
+            BlockTag::Finalized => BlockId::Number(BlockNumber::Finalized),
+            BlockTag::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
+        };
 
         let mut raw_tx = Eip1559TransactionRequest::new();
         raw_tx.to = Some(opts.to.unwrap_or_default().into());
@@ -69,15 +74,12 @@ impl ExecutionRpc for HttpRpc {
         raw_tx.gas = Some(opts.gas.unwrap_or(U256::from(100_000_000)));
         raw_tx.max_fee_per_gas = Some(U256::zero());
         raw_tx.max_priority_fee_per_gas = Some(U256::zero());
-        raw_tx.data = opts
-            .data
-            .as_ref()
-            .map(|data| Bytes::from(data.as_slice().to_owned()));
+        raw_tx.data = opts.data.as_ref().map(|data| data.to_owned());
 
         let tx = TypedTransaction::Eip1559(raw_tx);
         let list = self
             .provider
-            .create_access_list(&tx, block)
+            .create_access_list(&tx, Some(block))
             .await
             .map_err(|e| RpcError::new("create_access_list", e))?;
 

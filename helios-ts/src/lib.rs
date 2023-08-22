@@ -80,7 +80,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn get_block_number(&self) -> u32 {
-        self.inner.get_block_number().await.unwrap() as u32
+        self.inner.get_block_number().await.unwrap().as_u32()
     }
 
     #[wasm_bindgen]
@@ -112,7 +112,7 @@ impl Client {
     pub async fn get_block_transaction_count_by_hash(&self, hash: JsValue) -> u32 {
         let hash: H256 = serde_wasm_bindgen::from_value(hash).unwrap();
         self.inner
-            .get_block_transaction_count_by_hash(&hash.as_bytes().to_vec())
+            .get_block_transaction_count_by_hash(&hash)
             .await
             .unwrap() as u32
     }

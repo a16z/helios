@@ -3,30 +3,18 @@ use std::sync::Arc;
 
 use config::networks::Network;
 use ethers::prelude::{Address, U256};
-use ethers::types::{
-    FeeHistory, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
-};
+use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
-use common::types::BlockTag;
+use common::types::{Block, BlockTag};
 use config::Config;
-use execution::types::{CallOpts, ExecutionBlock};
+use execution::types::CallOpts;
 use log::{info, warn};
-use tokio::sync::RwLock;
+
+use crate::node::Node;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::spawn;
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::time::sleep;
-
-#[cfg(target_arch = "wasm32")]
-use gloo_timers::callback::Interval;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::spawn_local;
-
-use crate::node::Node;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::rpc::Rpc;
@@ -226,7 +214,7 @@ impl ClientBuilder {
 }
 
 pub struct Client {
-    node: Arc<RwLock<Node>>,
+    node: Arc<Node>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc>,
 }
@@ -235,7 +223,7 @@ impl Client {
     fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
-        let node = Arc::new(RwLock::new(node));
+        let node = Arc::new(node);
         let mut rpc: Option<Rpc> = None;
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -256,88 +244,42 @@ impl Client {
             rpc.start().await?;
         }
 
-        self.start_advance_thread();
-
         Ok(())
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn start_advance_thread(&self) {
-        let node = self.node.clone();
-        spawn(async move {
-            loop {
-                node.write().await.advance().await;
-
-                let next_update = node.read().await.duration_until_next_update();
-                sleep(next_update).await;
-            }
-        });
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn start_advance_thread(&self) {
-        let node = self.node.clone();
-        Interval::new(12000, move || {
-            let node = node.clone();
-            spawn_local(async move {
-                let res = node.write().await.advance().await;
-                if let Err(err) = res {
-                    warn!("consensus error: {}", err);
-                }
-            });
-        })
-        .forget();
     }
 
     pub async fn shutdown(&self) {
         info!("shutting down");
-        if let Err(err) = self.node.read().await.consensus.shutdown() {
+        if let Err(err) = self.node.consensus.shutdown() {
             warn!("graceful shutdown failed: {}", err);
         }
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
-        self.node
-            .read()
-            .await
-            .call(opts, block)
-            .await
-            .map_err(|err| err.into())
+        self.node.call(opts, block).await.map_err(|err| err.into())
     }
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
-        self.node
-            .read()
-            .await
-            .estimate_gas(opts)
-            .await
-            .map_err(|err| err.into())
+        self.node.estimate_gas(opts).await.map_err(|err| err.into())
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
-        self.node.read().await.get_balance(address, block).await
+        self.node.get_balance(address, block).await
     }
 
     pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
-        self.node.read().await.get_nonce(address, block).await
+        self.node.get_nonce(address, block).await
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &Vec<u8>) -> Result<u64> {
-        self.node
-            .read()
-            .await
-            .get_block_transaction_count_by_hash(hash)
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &H256) -> Result<u64> {
+        self.node.get_block_transaction_count_by_hash(hash).await
     }
 
     pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
-        self.node
-            .read()
-            .await
-            .get_block_transaction_count_by_number(block)
+        self.node.get_block_transaction_count_by_number(block).await
     }
 
     pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
-        self.node.read().await.get_code(address, block).await
+        self.node.get_code(address, block).await
     }
 
     pub async fn get_storage_at(
@@ -346,110 +288,71 @@ impl Client {
         slot: H256,
         block: BlockTag,
     ) -> Result<U256> {
-        self.node
-            .read()
-            .await
-            .get_storage_at(address, slot, block)
-            .await
+        self.node.get_storage_at(address, slot, block).await
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
-        self.node.read().await.send_raw_transaction(bytes).await
+        self.node.send_raw_transaction(bytes).await
     }
 
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: &H256,
     ) -> Result<Option<TransactionReceipt>> {
-        self.node
-            .read()
-            .await
-            .get_transaction_receipt(tx_hash)
-            .await
+        self.node.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: &H256) -> Result<Option<Transaction>> {
-        self.node
-            .read()
-            .await
-            .get_transaction_by_hash(tx_hash)
-            .await
+    pub async fn get_transaction_by_hash(&self, tx_hash: &H256) -> Option<Transaction> {
+        self.node.get_transaction_by_hash(tx_hash).await
     }
 
     pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
-        self.node.read().await.get_logs(filter).await
+        self.node.get_logs(filter).await
     }
 
     pub async fn get_gas_price(&self) -> Result<U256> {
-        self.node.read().await.get_gas_price()
+        self.node.get_gas_price().await
     }
 
     pub async fn get_priority_fee(&self) -> Result<U256> {
-        self.node.read().await.get_priority_fee()
+        self.node.get_priority_fee()
     }
 
-    pub async fn get_block_number(&self) -> Result<u64> {
-        self.node.read().await.get_block_number()
-    }
-
-    pub async fn get_fee_history(
-        &self,
-        block_count: u64,
-        last_block: u64,
-        reward_percentiles: &[f64],
-    ) -> Result<Option<FeeHistory>> {
-        self.node
-            .read()
-            .await
-            .get_fee_history(block_count, last_block, reward_percentiles)
-            .await
+    pub async fn get_block_number(&self) -> Result<U256> {
+        self.node.get_block_number().await
     }
 
     pub async fn get_block_by_number(
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<ExecutionBlock>> {
-        self.node
-            .read()
-            .await
-            .get_block_by_number(block, full_tx)
-            .await
+    ) -> Result<Option<Block>> {
+        self.node.get_block_by_number(block, full_tx).await
     }
 
-    pub async fn get_block_by_hash(
-        &self,
-        hash: &Vec<u8>,
-        full_tx: bool,
-    ) -> Result<Option<ExecutionBlock>> {
-        self.node
-            .read()
-            .await
-            .get_block_by_hash(hash, full_tx)
-            .await
+    pub async fn get_block_by_hash(&self, hash: &H256, full_tx: bool) -> Result<Option<Block>> {
+        self.node.get_block_by_hash(hash, full_tx).await
     }
 
     pub async fn get_transaction_by_block_hash_and_index(
         &self,
-        block_hash: &Vec<u8>,
-        index: usize,
-    ) -> Result<Option<Transaction>> {
+        block_hash: &H256,
+        index: u64,
+    ) -> Option<Transaction> {
         self.node
-            .read()
-            .await
             .get_transaction_by_block_hash_and_index(block_hash, index)
             .await
     }
 
     pub async fn chain_id(&self) -> u64 {
-        self.node.read().await.chain_id()
+        self.node.chain_id()
     }
 
     pub async fn syncing(&self) -> Result<SyncingStatus> {
-        self.node.read().await.syncing()
+        self.node.syncing().await
     }
 
     pub async fn get_coinbase(&self) -> Result<Address> {
-        self.node.read().await.get_coinbase()
+        self.node.get_coinbase().await
     }
 }

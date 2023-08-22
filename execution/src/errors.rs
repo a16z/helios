@@ -47,9 +47,6 @@ pub enum EvmError {
     #[error("evm error: {0:?}")]
     Generic(String),
 
-    #[error("evm execution failed: {0:?}")]
-    Revm(revm::Return),
-
     #[error("rpc error: {0:?}")]
     RpcError(Report),
 }

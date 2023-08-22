@@ -23,8 +23,8 @@ async fn setup() -> ConsensusClient<MockRpc, ConfigDB> {
 
 #[tokio::test]
 async fn test_sync() {
-    let mut client = setup().await;
+    let client = setup().await;
 
-    let payload = client.payload_recv.recv().await.unwrap();
-    assert_eq!(payload.block_number().as_u64(), 17923113);
+    let block = client.block_recv.unwrap().recv().await.unwrap();
+    assert_eq!(block.number.as_u64(), 17923113);
 }
