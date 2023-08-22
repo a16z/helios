@@ -138,6 +138,11 @@ impl State {
         let inner = self.inner.read().await;
         inner.blocks.last_key_value().map(|entry| *entry.0)
     }
+
+    pub async fn oldest_block_number(&self) -> Option<u64> {
+        let inner = self.inner.read().await;
+        inner.blocks.first_key_value().map(|entry| *entry.0)
+    }
 }
 
 #[derive(Default)]

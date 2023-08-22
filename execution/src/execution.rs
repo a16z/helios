@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use common::errors::BlockNotFoundError;
 use ethers::abi::AbiEncode;
-use ethers::prelude::{Address, U256};
-use ethers::types::{FeeHistory, Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::prelude::Address;
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
@@ -14,7 +14,6 @@ use triehash_ethereum::ordered_trie_root;
 
 use common::types::{Block, BlockTag, Transactions};
 use common::utils::hex_str_to_bytes;
-use consensus::types::ExecutionPayload;
 
 use crate::errors::ExecutionError;
 use crate::state::State;
@@ -270,124 +269,6 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
         Ok(logs)
     }
-
-    pub async fn get_fee_history(
-        &self,
-        block_count: u64,
-        last_block: u64,
-        _reward_percentiles: &[f64],
-        payloads: &BTreeMap<u64, ExecutionPayload>,
-    ) -> Result<Option<FeeHistory>> {
-        // Extract the latest and oldest block numbers from the payloads
-        let helios_latest_block_number = *payloads
-            .last_key_value()
-            .ok_or(ExecutionError::EmptyExecutionPayload())?
-            .0;
-        let helios_oldest_block_number = *payloads
-            .first_key_value()
-            .ok_or(ExecutionError::EmptyExecutionPayload())?
-            .0;
-
-        // Case where all requested blocks are earlier than Helios' latest block number
-        // So helios can't prove anything in this range
-        if last_block < helios_oldest_block_number {
-            return Err(
-                ExecutionError::InvalidBlockRange(last_block, helios_latest_block_number).into(),
-            );
-        }
-
-        // If the requested block is more recent than helios' latest block
-        // we can only return up to helios' latest block
-        let mut request_latest_block = last_block;
-        if request_latest_block > helios_latest_block_number {
-            request_latest_block = helios_latest_block_number;
-        }
-
-        // Requested oldest block is further out than what helios' synced
-        let mut request_oldest_block = request_latest_block - block_count;
-        if request_oldest_block < helios_oldest_block_number {
-            request_oldest_block = helios_oldest_block_number;
-        }
-
-        // Construct a fee history
-        let mut fee_history = FeeHistory {
-            oldest_block: U256::from(request_oldest_block),
-            base_fee_per_gas: vec![],
-            gas_used_ratio: vec![],
-            reward: payloads.iter().map(|_| vec![]).collect::<Vec<Vec<U256>>>(),
-        };
-        for block_id in request_oldest_block..=request_latest_block {
-            let execution_payload = payloads
-                .get(&block_id)
-                .ok_or(ExecutionError::EmptyExecutionPayload())?;
-
-            let converted_base_fee_per_gas = ethers::types::U256::from_little_endian(
-                &execution_payload.base_fee_per_gas().to_bytes_le(),
-            );
-
-            fee_history
-                .base_fee_per_gas
-                .push(converted_base_fee_per_gas);
-
-            let gas_used_ratio_helios = ((execution_payload.gas_used().as_u64() as f64
-                / execution_payload.gas_limit().as_u64() as f64)
-                * 10.0_f64.powi(12))
-            .round()
-                / 10.0_f64.powi(12);
-
-            fee_history.gas_used_ratio.push(gas_used_ratio_helios);
-        }
-
-        Ok(Some(fee_history))
-    }
-}
-
-/// Verifies a fee history against an rpc.
-pub async fn verify_fee_history(
-    rpc: &impl ExecutionRpc,
-    calculated_fee_history: &FeeHistory,
-    block_count: u64,
-    request_latest_block: u64,
-    reward_percentiles: &[f64],
-) -> Result<()> {
-    let fee_history = rpc
-        .get_fee_history(block_count, request_latest_block, reward_percentiles)
-        .await?;
-
-    for (_pos, _base_fee_per_gas) in fee_history.base_fee_per_gas.iter().enumerate() {
-        // Break at last iteration
-        // Otherwise, this would add an additional block
-        if _pos == block_count as usize {
-            continue;
-        }
-
-        // Check base fee per gas
-        let block_to_check = (fee_history.oldest_block + _pos as u64).as_u64();
-        let fee_to_check = calculated_fee_history.base_fee_per_gas[_pos];
-        let gas_ratio_to_check = calculated_fee_history.gas_used_ratio[_pos];
-        if *_base_fee_per_gas != fee_to_check {
-            return Err(ExecutionError::InvalidBaseGaseFee(
-                fee_to_check,
-                *_base_fee_per_gas,
-                block_to_check,
-            )
-            .into());
-        }
-
-        // Check gas used ratio
-        let rpc_gas_used_rounded =
-            (fee_history.gas_used_ratio[_pos] * 10.0_f64.powi(12)).round() / 10.0_f64.powi(12);
-        if gas_ratio_to_check != rpc_gas_used_rounded {
-            return Err(ExecutionError::InvalidGasUsedRatio(
-                gas_ratio_to_check,
-                rpc_gas_used_rounded,
-                block_to_check,
-            )
-            .into());
-        }
-    }
-
-    Ok(())
 }
 
 fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {

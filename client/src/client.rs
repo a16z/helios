@@ -4,7 +4,7 @@ use std::sync::Arc;
 use config::networks::Network;
 use ethers::prelude::{Address, U256};
 use ethers::types::{
-    FeeHistory, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
+    Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256,
 };
 use eyre::{eyre, Result};
 
@@ -322,17 +322,6 @@ impl Client {
 
     pub async fn get_block_number(&self) -> Result<U256> {
         self.node.get_block_number().await
-    }
-
-    pub async fn get_fee_history(
-        &self,
-        block_count: u64,
-        last_block: u64,
-        reward_percentiles: &[f64],
-    ) -> Result<Option<FeeHistory>> {
-        self.node
-            .get_fee_history(block_count, last_block, reward_percentiles)
-            .await
     }
 
     pub async fn get_block_by_number(

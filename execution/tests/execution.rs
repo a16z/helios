@@ -1,13 +1,13 @@
 use std::str::FromStr;
 
 use common::types::{Block, BlockTag, Transactions};
-use ethers::types::{Address, Filter, H256, U256, Transaction};
+use ethers::types::{Address, Filter, Transaction, H256, U256};
 
 use ethers::utils::rlp::{Decodable, Rlp};
 use execution::rpc::mock_rpc::MockRpc;
-use execution::ExecutionClient;
 use execution::state::State;
-use tokio::sync::mpsc::channel; 
+use execution::ExecutionClient;
+use tokio::sync::mpsc::channel;
 use tokio::sync::watch;
 
 fn create_state() -> State {
@@ -26,7 +26,10 @@ async fn test_get_account() {
 
     let address = Address::from_str("14f9D4aF749609c1438528C0Cce1cC3f6D411c47").unwrap();
     let block = Block {
-        state_root: H256::from_str("0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d").unwrap(),
+        state_root: H256::from_str(
+            "0xaa02f5db2ee75e3da400d10f3c30e894b6016ce8a2501680380a907b6674ce0d",
+        )
+        .unwrap(),
         ..Default::default()
     };
 
@@ -53,7 +56,9 @@ async fn test_get_account_bad_proof() {
     state.push_block(block).await;
 
     let execution = create_client(state);
-    let account_res = execution.get_account(&address, None, BlockTag::Latest).await;
+    let account_res = execution
+        .get_account(&address, None, BlockTag::Latest)
+        .await;
 
     assert!(account_res.is_err());
 }
@@ -73,10 +78,7 @@ async fn test_get_tx() {
     state.push_block(block).await;
 
     let execution = create_client(state);
-    let tx = execution
-        .get_transaction(hash)
-        .await
-        .unwrap();
+    let tx = execution.get_transaction(hash).await.unwrap();
 
     assert_eq!(tx.hash(), tx_hash);
 }
@@ -102,14 +104,16 @@ async fn test_get_logs() {
 
     let block = Block {
         number: 7530933.into(),
-        receipts_root: H256::from_str("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f").unwrap(),
+        receipts_root: H256::from_str(
+            "dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f",
+        )
+        .unwrap(),
         transactions: Transactions::Full(vec![tx]),
         ..Default::default()
     };
 
     let state = create_state();
     state.push_block(block).await;
-
 
     let execution = create_client(state);
     let filter = Filter::new();
@@ -129,7 +133,10 @@ async fn test_get_receipt() {
 
     let block = Block {
         number: 7530933.into(),
-        receipts_root: H256::from_str("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f").unwrap(),
+        receipts_root: H256::from_str(
+            "dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f",
+        )
+        .unwrap(),
         transactions: Transactions::Full(vec![tx]),
         ..Default::default()
     };
@@ -180,10 +187,7 @@ async fn test_get_receipt_not_included() {
     let tx_hash =
         H256::from_str("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f").unwrap();
 
-    let receipt_opt = execution
-        .get_transaction_receipt(&tx_hash)
-        .await
-        .unwrap();
+    let receipt_opt = execution.get_transaction_receipt(&tx_hash).await.unwrap();
 
     assert!(receipt_opt.is_none());
 }
@@ -214,7 +218,10 @@ async fn test_get_tx_by_block_hash_and_index() {
     let block = Block {
         number: 7530933.into(),
         hash: block_hash,
-        receipts_root: H256::from_str("dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f").unwrap(),
+        receipts_root: H256::from_str(
+            "dd82a78eccb333854f0c99e5632906e092d8a49c27a21c25cae12b82ec2a113f",
+        )
+        .unwrap(),
         transactions: Transactions::Full(vec![tx]),
         ..Default::default()
     };

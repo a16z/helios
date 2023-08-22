@@ -4,12 +4,11 @@ use std::time::Duration;
 use consensus::database::FileDB;
 use ethers::prelude::{Address, U256};
 use ethers::types::{
-    FeeHistory, Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
+    Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
 };
 use execution::state::State;
 use eyre::{eyre, Result};
 
-use common::errors::BlockNotFoundError;
 use common::types::{Block, BlockTag};
 use config::Config;
 
@@ -193,18 +192,6 @@ impl Node {
             Ok(block) => Ok(Some(block)),
             Err(_) => Ok(None),
         }
-    }
-
-    pub async fn get_fee_history(
-        &self,
-        block_count: u64,
-        last_block: u64,
-        reward_percentiles: &[f64],
-    ) -> Result<Option<FeeHistory>> {
-        //     self.execution
-        //         .get_fee_history(block_count, last_block, reward_percentiles, &self.payloads)
-        //         .await
-        unimplemented!()
     }
 
     pub async fn get_block_by_hash(&self, hash: &H256, full_tx: bool) -> Result<Option<Block>> {

@@ -369,7 +369,7 @@ mod tests {
         let execution = get_client();
         let tag = BlockTag::Latest;
 
-        // Construct the proof database with the given client 
+        // Construct the proof database with the given client
         let mut proof_db = ProofDB::new(tag, Arc::new(execution));
 
         let address = B160::from_str("0x388C818CA8B9251b393131C08a736A67ccB19297").unwrap();
