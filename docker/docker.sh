@@ -3,6 +3,29 @@
 trap "echo; exit" INT
 trap "echo; exit" HUP
 
+# install `realpath` on macOS from Homebrew `coreutils`
+# reference: https://unix.stackexchange.com/a/336138/269147
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  set -e
+  printf "\n*** Mac OS (Darwin) detected."
+  printf "\n*** Installation of Homebrew and coreutils is required by this script."
+  printf "\n*** Press SPACE to continue the installation or Ctrl+C to exit..."
+  while true; do
+    read -n1 -r
+    [[ $REPLY == ' ' ]] && break
+  done
+  printf "\n*** Continuing..."
+
+  if ! which brew >/dev/null 2>&1; then
+    printf "\n*** Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+  fi
+
+  brew update
+  printf "\n*** Installing coreutils..."
+  brew install coreutils
+fi
+
 PARENT_DIR=$( echo $(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")") )
 # generate .env file from .env.example if it does not exist
 # https://stackoverflow.com/a/47677632/3208553
