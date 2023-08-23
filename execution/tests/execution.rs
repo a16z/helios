@@ -158,6 +158,11 @@ async fn test_get_receipt() {
 }
 
 #[tokio::test]
+async fn test_get_filter_logs() {
+    todo!();
+}
+
+#[tokio::test]
 async fn test_get_receipt_bad_proof() {
     let tx = Transaction::decode(&Rlp::new(&hex::decode("02f8b20583623355849502f900849502f91082ea6094326c977e6efc84e512bb9c30f76e30c160ed06fb80b844a9059cbb0000000000000000000000007daccf9b3c1ae2fa5c55f1c978aeef700bc83be0000000000000000000000000000000000000000000000001158e460913d00000c080a0e1445466b058b6f883c0222f1b1f3e2ad9bee7b5f688813d86e3fa8f93aa868ca0786d6e7f3aefa8fe73857c65c32e4884d8ba38d0ecfb947fbffb82e8ee80c167").unwrap())).unwrap();
 

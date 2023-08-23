@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use common::types::BlockTag;
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
-    Transaction, TransactionReceipt, H256,
+    Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::Result;
 
@@ -31,6 +31,11 @@ pub trait ExecutionRpc: Send + Clone + Sync + 'static {
     async fn get_transaction_receipt(&self, tx_hash: &H256) -> Result<Option<TransactionReceipt>>;
     async fn get_transaction(&self, tx_hash: &H256) -> Result<Option<Transaction>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
+    async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>>;
+    async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool>;
+    async fn get_new_filter(&self, filter: &Filter) -> Result<U256>;
+    async fn get_new_block_filter(&self) -> Result<U256>;
+    async fn get_new_pending_transaction_filter(&self) -> Result<U256>;
     async fn chain_id(&self) -> Result<u64>;
     async fn get_fee_history(
         &self,

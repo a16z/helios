@@ -3,7 +3,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use common::types::BlockTag;
 use ethers::prelude::{Address, Http};
-use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
+use ethers::providers::{HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient, FilterKind};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::{
@@ -132,6 +132,26 @@ impl ExecutionRpc for HttpRpc {
             .get_logs(filter)
             .await
             .map_err(|e| RpcError::new("get_logs", e))?)
+    }
+
+    async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
+        Ok(self.provider.get_filter_changes(filter_id).await.map_err(|e| RpcError::new("get_filter_changes", e))?)
+    }
+
+    async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool> {
+        Ok(self.provider.uninstall_filter(filter_id).await.map_err(|e| RpcError::new("uninstall_filter", e))?)
+    }
+
+    async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
+        Ok(self.provider.new_filter(FilterKind::Logs(filter)).await.map_err(|e| RpcError::new("get_new_filter", e))?)
+    }
+
+    async fn get_new_block_filter(&self) -> Result<U256> {
+        Ok(self.provider.new_filter(FilterKind::NewBlocks).await.map_err(|e| RpcError::new("get_new_block_filter", e))?)
+    }
+
+    async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
+        Ok(self.provider.new_filter(FilterKind::PendingTransactions).await.map_err(|e| RpcError::new("get_new_pending_transactions", e))?)
     }
 
     async fn chain_id(&self) -> Result<u64> {

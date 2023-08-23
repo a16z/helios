@@ -163,6 +163,26 @@ impl Node {
         self.execution.get_logs(filter).await
     }
 
+    pub async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
+        self.execution.get_filter_changes(filter_id).await
+    }
+
+    pub async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool> {
+        self.execution.uninstall_filter(filter_id).await
+    }
+
+    pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
+        self.execution.get_new_filter(filter).await
+    }
+
+    pub async fn get_new_block_filter(&self) -> Result<U256> {
+        self.execution.get_new_block_filter().await
+    }
+
+    pub async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
+        self.execution.get_new_pending_transaction_filter().await
+    }
+
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub async fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age().await?;

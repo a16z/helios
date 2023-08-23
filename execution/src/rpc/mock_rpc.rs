@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use common::{types::BlockTag, utils::hex_str_to_bytes};
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
-    Transaction, TransactionReceipt, H256,
+    Transaction, TransactionReceipt, H256, U256,
 };
 use eyre::{eyre, Result};
 
@@ -61,6 +61,27 @@ impl ExecutionRpc for MockRpc {
     async fn get_logs(&self, _filter: &Filter) -> Result<Vec<Log>> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
+    }
+
+    async fn get_filter_changes(&self, _filter_id: &U256) -> Result<Vec<Log>> {
+        let logs = read_to_string(self.path.join("logs.json"))?;
+        Ok(serde_json::from_str(&logs)?)
+    }
+
+    async fn uninstall_filter(&self, _filter_id: &U256) -> Result<bool> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_new_filter(&self, _filter: &Filter) -> Result<U256> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_new_block_filter(&self) -> Result<U256> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
+        Err(eyre!("not implemented"))
     }
 
     async fn chain_id(&self) -> Result<u64> {
