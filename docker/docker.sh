@@ -61,6 +61,7 @@ if ! which realpath >/dev/null 2>&1; then
 fi
 
 PARENT_DIR=$( echo $(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")") )
+
 # generate .env file from .env.example if it does not exist
 # https://stackoverflow.com/a/47677632/3208553
 if [ -e .env ]
@@ -81,7 +82,7 @@ printf "\n*** Please wait... \n***"
 
 # https://stackoverflow.com/a/25554904/3208553
 set +e
-bash -e << "TRY"
+bash -e <<TRY
   docker build -f ${PARENT_DIR}/docker/Dockerfile -t helios:latest ./
 TRY
 if [ $? -ne 0 ]; then
