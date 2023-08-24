@@ -241,10 +241,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(logs)
     }
 
-       pub async fn get_filter_changes(
-        &self, 
-        filter_id: &U256,
-    ) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
         let logs = self.rpc.get_filter_changes(filter_id).await?;
         if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
             return Err(
@@ -259,10 +256,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         self.rpc.uninstall_filter(filter_id).await
     }
 
-    pub async fn get_new_filter(
-        &self, 
-        filter: &Filter,
-    ) -> Result<U256> {
+    pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
         let filter = filter.clone();
 
         // avoid submitting a filter for logs for a block helios hasn't seen yet
@@ -288,7 +282,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         self.rpc.get_new_pending_transaction_filter().await
     }
 
-    async fn verify_logs(&self, logs: &[Log]) -> Result<()>{
+    async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
         for (_pos, log) in logs.iter().enumerate() {
             // For every log
             // Get the hash of the tx that generated it
@@ -322,7 +316,6 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(())
     }
 }
-
 
 fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
     let mut stream = RlpStream::new();
