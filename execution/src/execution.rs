@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use common::errors::BlockNotFoundError;
 use ethers::abi::AbiEncode;
 use ethers::prelude::Address;
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256};
+use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256, U256};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{encode, Encodable, RlpStream};
 use eyre::Result;
@@ -237,6 +237,52 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             );
         }
 
+        self.verify_logs(&logs).await?;
+        Ok(logs)
+    }
+
+    pub async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
+        let logs = self.rpc.get_filter_changes(filter_id).await?;
+        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+            return Err(
+                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+            );
+        }
+        self.verify_logs(&logs).await?;
+        Ok(logs)
+    }
+
+    pub async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool> {
+        self.rpc.uninstall_filter(filter_id).await
+    }
+
+    pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
+        let filter = filter.clone();
+
+        // avoid submitting a filter for logs for a block helios hasn't seen yet
+        let filter = if filter.get_to_block().is_none() && filter.get_block_hash().is_none() {
+            let block = self.state.latest_block_number().await.unwrap();
+            let filter = filter.to_block(block);
+            if filter.get_from_block().is_none() {
+                filter.from_block(block)
+            } else {
+                filter
+            }
+        } else {
+            filter
+        };
+        self.rpc.get_new_filter(&filter).await
+    }
+
+    pub async fn get_new_block_filter(&self) -> Result<U256> {
+        self.rpc.get_new_block_filter().await
+    }
+
+    pub async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
+        self.rpc.get_new_pending_transaction_filter().await
+    }
+
+    async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
         for (_pos, log) in logs.iter().enumerate() {
             // For every log
             // Get the hash of the tx that generated it
@@ -267,7 +313,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
                 .into());
             }
         }
-        Ok(logs)
+        Ok(())
     }
 }
 
