@@ -237,36 +237,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             );
         }
 
-        for (_pos, log) in logs.iter().enumerate() {
-            // For every log
-            // Get the hash of the tx that generated it
-            let tx_hash = log
-                .transaction_hash
-                .ok_or(eyre::eyre!("tx hash not found in log"))?;
-            // Get its proven receipt
-            let receipt = self
-                .get_transaction_receipt(&tx_hash)
-                .await?
-                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
-
-            // Check if the receipt contains the desired log
-            // Encoding logs for comparison
-            let receipt_logs_encoded = receipt
-                .logs
-                .iter()
-                .map(|log| log.rlp_bytes())
-                .collect::<Vec<_>>();
-
-            let log_encoded = log.rlp_bytes();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash.to_string(),
-                    log.log_index.unwrap(),
-                )
-                .into());
-            }
-        }
+        self.verify_logs(&logs).await?;
         Ok(logs)
     }
 
@@ -274,43 +245,13 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         &self, 
         filter_id: &U256,
     ) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_filter_changes(&filter_id).await?;
+        let logs = self.rpc.get_filter_changes(filter_id).await?;
         if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
             return Err(
                 ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
             );
         }
-
-        for (_pos, log) in logs.iter().enumerate() {
-            // For every log
-            // Get the hash of the tx that generated it
-            let tx_hash = log
-                .transaction_hash
-                .ok_or(eyre::eyre!("tx hash not found in log"))?;
-            // Get its proven receipt
-            let receipt = self
-                .get_transaction_receipt(&tx_hash)
-                .await?
-                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
-
-            // Check if the receipt contains the desired log
-            // Encoding logs for comparison
-            let receipt_logs_encoded = receipt
-                .logs
-                .iter()
-                .map(|log| log.rlp_bytes())
-                .collect::<Vec<_>>();
-
-            let log_encoded = log.rlp_bytes();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash.to_string(),
-                    log.log_index.unwrap(),
-                )
-                .into());
-            }
-        }
+        self.verify_logs(&logs).await?;
         Ok(logs)
     }
 
@@ -346,7 +287,42 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     pub async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
         self.rpc.get_new_pending_transaction_filter().await
     }
+
+    async fn verify_logs(&self, logs: &[Log]) -> Result<()>{
+        for (_pos, log) in logs.iter().enumerate() {
+            // For every log
+            // Get the hash of the tx that generated it
+            let tx_hash = log
+                .transaction_hash
+                .ok_or(eyre::eyre!("tx hash not found in log"))?;
+            // Get its proven receipt
+            let receipt = self
+                .get_transaction_receipt(&tx_hash)
+                .await?
+                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
+
+            // Check if the receipt contains the desired log
+            // Encoding logs for comparison
+            let receipt_logs_encoded = receipt
+                .logs
+                .iter()
+                .map(|log| log.rlp_bytes())
+                .collect::<Vec<_>>();
+
+            let log_encoded = log.rlp_bytes();
+
+            if !receipt_logs_encoded.contains(&log_encoded) {
+                return Err(ExecutionError::MissingLog(
+                    tx_hash.to_string(),
+                    log.log_index.unwrap(),
+                )
+                .into());
+            }
+        }
+        Ok(())
+    }
 }
+
 
 fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
     let mut stream = RlpStream::new();
