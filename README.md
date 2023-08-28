@@ -104,7 +104,7 @@ A comprehensive breakdown of config options is available in the [config.md](./co
 
 ### Using Helios as a Library
 
-Helios can be imported into any Rust project. Helios requires the Rust nightly toolchain to compile.
+Helios can be imported into any Rust project.
 
 ```rust
 use std::{str::FromStr, env};
@@ -212,7 +212,7 @@ To learn more about [helios](https://github.com/a16z/helios) benchmarking and to
 
 ## Contributing
 
-All contributions to Helios are welcome. Before opening a PR, please submit an issue detailing the bug or feature. When opening a PR, please ensure that your contribution builds on the nightly rust toolchain, has been linted with `cargo fmt`, and contains tests when applicable.
+All contributions to Helios are welcome. Before opening a PR, please submit an issue detailing the bug or feature. When opening a PR, please ensure that your contribution builds, has been linted with `cargo fmt`, and contains tests when applicable.
 
 ## Telegram
 
