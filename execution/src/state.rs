@@ -187,6 +187,8 @@ impl Inner {
     }
 
     pub fn push_finalized_block(&mut self, block: Block) {
+        self.finalized_block = Some(block.clone());
+
         if let Some(old_block) = self.blocks.get(&block.number.as_u64()) {
             if old_block.hash != block.hash {
                 self.remove_block(old_block.number.as_u64());
