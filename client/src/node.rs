@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use ethers::prelude::{Address, U256};
 use ethers::types::{
@@ -52,13 +51,6 @@ impl Node {
             config,
             history_size: 64,
         })
-    }
-
-    pub fn duration_until_next_update(&self) -> Duration {
-        self.consensus
-            .duration_until_next_update()
-            .to_std()
-            .unwrap()
     }
 
     pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
@@ -232,14 +224,14 @@ impl Node {
         if self.check_head_age().await.is_ok() {
             Ok(SyncingStatus::IsFalse)
         } else {
-            let latest_synced_block = self.get_block_number().await?;
+            let starting_block = 0.into();
+            let latest_synced_block = self.get_block_number().await.unwrap_or(starting_block);
             let highest_block = self.consensus.expected_current_slot();
 
             Ok(SyncingStatus::IsSyncing(Box::new(SyncProgress {
                 current_block: latest_synced_block.as_u64().into(),
                 highest_block: highest_block.into(),
-                // TODO: use better start value
-                starting_block: 0.into(),
+                starting_block: starting_block.as_u64().into(),
 
                 // these fields don't make sense for helios
                 pulled_states: None,

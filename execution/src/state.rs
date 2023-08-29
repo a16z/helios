@@ -33,7 +33,7 @@ impl State {
                         }
                     },
                     _ = finalized_block_recv.changed() => {
-                        let block = finalized_block_recv.borrow().clone();
+                        let block = finalized_block_recv.borrow_and_update().clone();
                         if let Some(block) = block {
                             inner_ref.write().await.push_finalized_block(block);
                         }
