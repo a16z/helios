@@ -148,10 +148,6 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 
         since_genesis.as_secs() / 12
     }
-
-    fn slot_timestamp(&self, slot: u64) -> u64 {
-        slot * 12 + self.genesis_time
-    }
 }
 
 async fn sync_fallback<R: ConsensusRpc>(inner: &mut Inner<R>, fallback: &str) -> Result<()> {
