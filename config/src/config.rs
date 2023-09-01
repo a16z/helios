@@ -1,14 +1,15 @@
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
-use crate::networks;
 use crate::types::{ChainConfig, Forks};
 use crate::utils::{bytes_deserialize, bytes_opt_deserialize};
+use crate::Network;
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
 use serde::Deserialize;
 use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
 use std::{path::PathBuf, process::exit};
 
 #[derive(Deserialize, Debug, Default)]
@@ -33,11 +34,9 @@ pub struct Config {
 
 impl Config {
     pub fn from_file(config_path: &PathBuf, network: &str, cli_config: &CliConfig) -> Self {
-        let base_config = match network {
-            "mainnet" => networks::mainnet(),
-            "goerli" => networks::goerli(),
-            _ => BaseConfig::default(),
-        };
+        let base_config = Network::from_str(network)
+            .map(|n| n.to_base_config())
+            .unwrap_or(BaseConfig::default());
 
         let base_provider = Serialized::from(base_config, network);
         let toml_provider = Toml::file(config_path).nested();

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use common::utils::hex_str_to_bytes;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -23,6 +25,20 @@ use crate::types::{ChainConfig, Fork, Forks};
 pub enum Network {
     MAINNET,
     GOERLI,
+    SEPOLIA,
+}
+
+impl FromStr for Network {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "mainnet" => Ok(Self::MAINNET),
+            "goerli" => Ok(Self::GOERLI),
+            "sepolia" => Ok(Self::SEPOLIA),
+            _ => Err(eyre::eyre!("network not recognized")),
+        }
+    }
 }
 
 impl Network {
@@ -30,6 +46,7 @@ impl Network {
         match self {
             Self::MAINNET => mainnet(),
             Self::GOERLI => goerli(),
+            Self::SEPOLIA => sepolia(),
         }
     }
 
@@ -113,6 +130,45 @@ pub fn goerli() -> BaseConfig {
             capella: Fork {
                 epoch: 162304,
                 fork_version: hex_str_to_bytes("0x03001020").unwrap(),
+            },
+        },
+        max_checkpoint_age: 1_209_600, // 14 days
+        ..std::default::Default::default()
+    }
+}
+
+pub fn sepolia() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: hex_str_to_bytes(
+            "0x362414b2939270da11c114792cdb7571faba47866fa9d8fbf7468cb121905c40",
+        )
+        .unwrap(),
+        rpc_port: 8545,
+        consensus_rpc: None,
+        chain: ChainConfig {
+            chain_id: 11155111,
+            genesis_time: 1655733600,
+            genesis_root: hex_str_to_bytes(
+                "0xd8ea171f3c94aea21ebc42a1ed61052acf3f9209c00e4efbaaddac09ed9b8078",
+            )
+            .unwrap(),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x90000069").unwrap(),
+            },
+            altair: Fork {
+                epoch: 50,
+                fork_version: hex_str_to_bytes("0x90000070").unwrap(),
+            },
+            bellatrix: Fork {
+                epoch: 100,
+                fork_version: hex_str_to_bytes("0x90000071").unwrap(),
+            },
+            capella: Fork {
+                epoch: 56832,
+                fork_version: hex_str_to_bytes("0x90000072").unwrap(),
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
