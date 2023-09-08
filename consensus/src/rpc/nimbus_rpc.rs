@@ -5,6 +5,8 @@ use std::cmp;
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
+use backoff::ExponentialBackoff;
+use backoff::future::retry_notify;
 use common::errors::RpcError;
 
 #[derive(Debug)]
@@ -63,12 +65,15 @@ impl ConsensusRpc for NimbusRpc {
 
     async fn get_finality_update(&self) -> Result<FinalityUpdate> {
         let req = format!("{}/eth/v1/beacon/light_client/finality_update", self.rpc);
-        let res = reqwest::get(req)
-            .await
-            .map_err(|e| RpcError::new("finality_update", e))?
-            .json::<FinalityUpdateResponse>()
-            .await
-            .map_err(|e| RpcError::new("finality_update", e))?;
+        let res = retry_notify(
+            ExponentialBackoff::default(),
+            || async {
+                Ok(reqwest::get(req.as_str()).await?.json::<FinalityUpdateResponse>().await?)
+            },
+            |e, dur| {
+                println!("finality_update rpc error occurred at {:?}: {}", dur, e)
+            }
+        ).await?;
 
         Ok(res.data)
     }
