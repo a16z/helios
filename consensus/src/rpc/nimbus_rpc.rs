@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use eyre::Result;
+use log::warn;
 use std::cmp;
 
 use super::ConsensusRpc;
@@ -71,7 +72,7 @@ impl ConsensusRpc for NimbusRpc {
                 Ok(reqwest::get(req.as_str()).await?.json::<FinalityUpdateResponse>().await?)
             },
             |e, dur| {
-                println!("finality_update rpc error occurred at {:?}: {}", dur, e)
+                warn!("finality_update rpc error occurred at {:?}: {}", dur, e)
             }
         ).await?;
 
@@ -80,36 +81,45 @@ impl ConsensusRpc for NimbusRpc {
 
     async fn get_optimistic_update(&self) -> Result<OptimisticUpdate> {
         let req = format!("{}/eth/v1/beacon/light_client/optimistic_update", self.rpc);
-        let res = reqwest::get(req)
-            .await
-            .map_err(|e| RpcError::new("optimistic_update", e))?
-            .json::<OptimisticUpdateResponse>()
-            .await
-            .map_err(|e| RpcError::new("optimistic_update", e))?;
+        let res = retry_notify(
+            ExponentialBackoff::default(),
+            || async {
+                Ok(reqwest::get(req.as_str()).await?.json::<OptimisticUpdateResponse>().await?)
+            },
+            |e, dur| {
+                warn!("optimistic_update rpc error occurred at {:?}: {}", dur, e)
+            }
+        ).await?;
 
         Ok(res.data)
     }
 
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock> {
         let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
-        let res = reqwest::get(req)
-            .await
-            .map_err(|e| RpcError::new("blocks", e))?
-            .json::<BeaconBlockResponse>()
-            .await
-            .map_err(|e| RpcError::new("blocks", e))?;
+        let res = retry_notify(
+            ExponentialBackoff::default(),
+            || async {
+                Ok(reqwest::get(req.as_str()).await?.json::<BeaconBlockResponse>().await?)
+            },
+            |e, dur| {
+                warn!("block rpc error occurred at {:?}: {}", dur, e)
+            }
+        ).await?;
 
         Ok(res.data.message)
     }
 
     async fn chain_id(&self) -> Result<u64> {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
-        let res = reqwest::get(req)
-            .await
-            .map_err(|e| RpcError::new("spec", e))?
-            .json::<SpecResponse>()
-            .await
-            .map_err(|e| RpcError::new("spec", e))?;
+        let res = retry_notify(
+            ExponentialBackoff::default(),
+            || async {
+                Ok(reqwest::get(req.as_str()).await?.json::<SpecResponse>().await?)
+            },
+            |e, dur| {
+                warn!("chain id rpc error occurred at {:?}: {}", dur, e)
+            }
+        ).await?;
 
         Ok(res.data.chain_id.into())
     }
