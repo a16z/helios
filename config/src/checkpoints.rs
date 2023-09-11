@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use backoff::ExponentialBackoff;
+use backoff::future::retry_notify;
 use ethers::types::H256;
+use log::warn;
 use serde::{Deserialize, Serialize};
 
 use crate::networks;
@@ -88,7 +91,14 @@ impl CheckpointFallback {
     pub async fn build(mut self) -> eyre::Result<Self> {
         // Fetch the services
         let client = reqwest::Client::new();
-        let res = client.get(CHECKPOINT_SYNC_SERVICES_LIST).send().await?;
+        let res: reqwest::Response = retry_notify(ExponentialBackoff::default(),
+            || async {
+                Ok(client.get(CHECKPOINT_SYNC_SERVICES_LIST).send().await?)
+            },
+            |e: reqwest::Error, dur| {
+                warn!("fetching checkpoint fallback services error occurred at {:?}: {}", dur, e)
+            }
+        ).await?;
         let yaml = res.text().await?;
 
         // Parse the yaml content results.
@@ -124,7 +134,14 @@ impl CheckpointFallback {
     async fn query_service(endpoint: &str) -> Option<RawSlotResponse> {
         let client = reqwest::Client::new();
         let constructed_url = Self::construct_url(endpoint);
-        let res = client.get(&constructed_url).send().await.ok()?;
+        let res: reqwest::Response = retry_notify(ExponentialBackoff::default(),
+            || async {
+                Ok(client.get(&constructed_url).send().await?)
+            },
+            |e: reqwest::Error, dur| {
+                warn!("querying checkpoint service error occurred at {:?}: {}", dur, e)
+            }
+        ).await.ok()?;
         let raw: RawSlotResponse = res.json().await.ok()?;
         Some(raw)
     }
@@ -201,7 +218,14 @@ impl CheckpointFallback {
         // Fetch the url
         let client = reqwest::Client::new();
         let constructed_url = Self::construct_url(url);
-        let res = client.get(constructed_url).send().await?;
+        let res: reqwest::Response = retry_notify(ExponentialBackoff::default(),
+            || async {
+                Ok(client.get(&constructed_url).send().await?)
+            },
+            |e: reqwest::Error, dur| {
+                warn!("fetching checkpoint error occurred at {:?}: {}", dur, e)
+            }
+        ).await?;
         let raw: RawSlotResponse = res.json().await?;
         let slot = raw.data.slots[0].clone();
         slot.block_root

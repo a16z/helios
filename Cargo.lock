@@ -811,6 +811,7 @@ dependencies = [
 name = "config"
 version = "0.4.1"
 dependencies = [
+ "backoff",
  "common",
  "ethers",
  "eyre",
