@@ -15,6 +15,18 @@ pub struct NimbusRpc {
     rpc: String,
 }
 
+async fn get(req: &str) -> Result<reqwest::Response, reqwest::Error> {
+    retry_notify(
+        ExponentialBackoff::default(),
+        || async {
+            Ok(reqwest::get(req).await?)
+        },
+        |e, dur| {
+            warn!("rpc error occurred at {:?}: {}", dur, e)
+        }
+    ).await
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ConsensusRpc for NimbusRpc {
@@ -33,7 +45,7 @@ impl ConsensusRpc for NimbusRpc {
 
         let client = reqwest::Client::new();
         let res = client
-            .get(req)
+            .get(req)   // TODO implement backoff
             .send()
             .await
             .map_err(|e| RpcError::new("bootstrap", e))?
@@ -53,7 +65,7 @@ impl ConsensusRpc for NimbusRpc {
 
         let client = reqwest::Client::new();
         let res = client
-            .get(req)
+            .get(req)   // TODO implement backoff
             .send()
             .await
             .map_err(|e| RpcError::new("updates", e))?
@@ -66,15 +78,7 @@ impl ConsensusRpc for NimbusRpc {
 
     async fn get_finality_update(&self) -> Result<FinalityUpdate> {
         let req = format!("{}/eth/v1/beacon/light_client/finality_update", self.rpc);
-        let res = retry_notify(
-            ExponentialBackoff::default(),
-            || async {
-                Ok(reqwest::get(req.as_str()).await?.json::<FinalityUpdateResponse>().await?)
-            },
-            |e, dur| {
-                warn!("finality_update rpc error occurred at {:?}: {}", dur, e)
-            }
-        ).await?;
+        let res = get(&req).await?.json::<FinalityUpdateResponse>().await?;
 
         Ok(res.data)
     }
