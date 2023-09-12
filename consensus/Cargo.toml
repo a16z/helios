@@ -30,6 +30,7 @@ chrono.workspace = true
 thiserror.workspace = true
 superstruct.workspace = true
 wasm-timer.workspace = true
+backoff.workspace = true
 
 common = { path = "../common" }
 config = { path = "../config" }

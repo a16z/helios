@@ -13,6 +13,7 @@ thiserror.workspace = true
 log.workspace = true
 reqwest.workspace = true
 futures.workspace = true
+backoff.workspace = true
 
 figment = { version = "0.10.7", features = ["toml", "env"] }
 serde_yaml = "0.9.14"
