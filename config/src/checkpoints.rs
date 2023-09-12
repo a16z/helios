@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use backoff::ExponentialBackoff;
 use backoff::future::retry_notify;
+use backoff::ExponentialBackoff;
 use ethers::types::H256;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -79,13 +79,10 @@ pub struct CheckpointFallback {
 async fn get(req: &str) -> Result<reqwest::Response, reqwest::Error> {
     retry_notify(
         ExponentialBackoff::default(),
-        || async {
-            Ok(reqwest::get(req).await?)
-        },
-        |e, dur| {
-            warn!("rpc error occurred at {:?}: {}", dur, e)
-        }
-    ).await
+        || async { Ok(reqwest::get(req).await?) },
+        |e, dur| warn!("rpc error occurred at {:?}: {}", dur, e),
+    )
+    .await
 }
 
 impl CheckpointFallback {
