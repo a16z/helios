@@ -76,6 +76,18 @@ pub struct CheckpointFallback {
     pub networks: Vec<networks::Network>,
 }
 
+async fn get(req: &str) -> Result<reqwest::Response, reqwest::Error> {
+    retry_notify(
+        ExponentialBackoff::default(),
+        || async {
+            Ok(reqwest::get(req).await?)
+        },
+        |e, dur| {
+            warn!("rpc error occurred at {:?}: {}", dur, e)
+        }
+    ).await
+}
+
 impl CheckpointFallback {
     /// Constructs a new checkpoint fallback service.
     pub fn new() -> Self {
@@ -90,15 +102,7 @@ impl CheckpointFallback {
     /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
     pub async fn build(mut self) -> eyre::Result<Self> {
         // Fetch the services
-        let client = reqwest::Client::new();
-        let res: reqwest::Response = retry_notify(ExponentialBackoff::default(),
-            || async {
-                Ok(client.get(CHECKPOINT_SYNC_SERVICES_LIST).send().await?)
-            },
-            |e: reqwest::Error, dur| {
-                warn!("fetching checkpoint fallback services error occurred at {:?}: {}", dur, e)
-            }
-        ).await?;
+        let res = get(CHECKPOINT_SYNC_SERVICES_LIST).await?;
         let yaml = res.text().await?;
 
         // Parse the yaml content results.
@@ -132,16 +136,8 @@ impl CheckpointFallback {
     }
 
     async fn query_service(endpoint: &str) -> Option<RawSlotResponse> {
-        let client = reqwest::Client::new();
         let constructed_url = Self::construct_url(endpoint);
-        let res: reqwest::Response = retry_notify(ExponentialBackoff::default(),
-            || async {
-                Ok(client.get(&constructed_url).send().await?)
-            },
-            |e: reqwest::Error, dur| {
-                warn!("querying checkpoint service error occurred at {:?}: {}", dur, e)
-            }
-        ).await.ok()?;
+        let res = get(&constructed_url).await.ok()?;
         let raw: RawSlotResponse = res.json().await.ok()?;
         Some(raw)
     }
@@ -216,16 +212,8 @@ impl CheckpointFallback {
     /// service api url.
     pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<H256> {
         // Fetch the url
-        let client = reqwest::Client::new();
         let constructed_url = Self::construct_url(url);
-        let res: reqwest::Response = retry_notify(ExponentialBackoff::default(),
-            || async {
-                Ok(client.get(&constructed_url).send().await?)
-            },
-            |e: reqwest::Error, dur| {
-                warn!("fetching checkpoint error occurred at {:?}: {}", dur, e)
-            }
-        ).await?;
+        let res = get(&constructed_url).await?;
         let raw: RawSlotResponse = res.json().await?;
         let slot = raw.data.slots[0].clone();
         slot.block_root
