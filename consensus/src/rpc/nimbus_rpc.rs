@@ -7,6 +7,7 @@ use std::cmp;
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
+use common::errors::RpcError;
 use backoff::ExponentialBackoff;
 use backoff::future::retry_notify;
 
@@ -43,7 +44,7 @@ impl ConsensusRpc for NimbusRpc {
             self.rpc, root_hex
         );
 
-        let res: BootstrapResponse = get(&req).await?;
+        let res: BootstrapResponse = get(&req).await.map_err(|e| RpcError::new("bootstrap", e))?;
 
         Ok(res.data)
     }
@@ -55,35 +56,35 @@ impl ConsensusRpc for NimbusRpc {
             self.rpc, period, count
         );
 
-        let res: UpdateResponse = get(&req).await?;
+        let res: UpdateResponse = get(&req).await.map_err(|e| RpcError::new("updates", e))?;
 
         Ok(res.into_iter().map(|d| d.data).collect())
     }
 
     async fn get_finality_update(&self) -> Result<FinalityUpdate> {
         let req = format!("{}/eth/v1/beacon/light_client/finality_update", self.rpc);
-        let res: FinalityUpdateResponse = get(&req).await?;
+        let res: FinalityUpdateResponse = get(&req).await.map_err(|e| RpcError::new("finality_update", e))?;
 
         Ok(res.data)
     }
 
     async fn get_optimistic_update(&self) -> Result<OptimisticUpdate> {
         let req = format!("{}/eth/v1/beacon/light_client/optimistic_update", self.rpc);
-        let res: OptimisticUpdateResponse = get(&req).await?;
+        let res: OptimisticUpdateResponse = get(&req).await.map_err(|e| RpcError::new("optimistic_update", e))?;
 
         Ok(res.data)
     }
 
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock> {
         let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
-        let res: BeaconBlockResponse = get(&req).await?;
+        let res: BeaconBlockResponse = get(&req).await.map_err(|e| RpcError::new("blocks", e))?;
 
         Ok(res.data.message)
     }
 
     async fn chain_id(&self) -> Result<u64> {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
-        let res: SpecResponse = get(&req).await?;
+        let res: SpecResponse = get(&req).await.map_err(|e| RpcError::new("spec", e))?;
 
         Ok(res.data.chain_id.into())
     }
