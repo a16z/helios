@@ -74,7 +74,7 @@ pub fn bench_full_sync_with_call_checkpoint_fallback(c: &mut Criterion) {
         let addr = "0x00000000219ab540356cbb839cbe05303d7705fa";
         let rt = harness::construct_runtime();
         b.iter(|| {
-            let client = std::sync::Arc::new(harness::construct_mainnet_client(&rt).unwrap());
+            let client = harness::construct_mainnet_client(&rt).unwrap();
             harness::get_balance(&rt, client, addr).unwrap();
         })
     });
