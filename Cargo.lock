@@ -697,8 +697,8 @@ dependencies = [
  "env_logger",
  "eyre",
  "futures",
- "log",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -715,11 +715,11 @@ dependencies = [
  "gloo-timers",
  "hex",
  "jsonrpsee",
- "log",
  "serde",
  "ssz_rs",
  "thiserror",
  "tokio",
+ "tracing",
  "wasm-bindgen-futures",
  "wasm-timer",
 ]
@@ -818,13 +818,13 @@ dependencies = [
  "figment",
  "futures",
  "hex",
- "log",
  "reqwest",
  "serde",
  "serde_yaml",
  "strum 0.24.1",
  "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -841,7 +841,6 @@ dependencies = [
  "eyre",
  "futures",
  "hex",
- "log",
  "milagro_bls",
  "openssl",
  "reqwest",
@@ -851,6 +850,7 @@ dependencies = [
  "superstruct",
  "thiserror",
  "tokio",
+ "tracing",
  "wasm-timer",
 ]
 
@@ -1756,7 +1756,6 @@ dependencies = [
  "futures",
  "hex",
  "hyper",
- "log",
  "openssl",
  "reqwest",
  "revm",
@@ -1765,6 +1764,7 @@ dependencies = [
  "ssz_rs",
  "thiserror",
  "tokio",
+ "tracing",
  "triehash-ethereum",
 ]
 

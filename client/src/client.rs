@@ -9,7 +9,7 @@ use eyre::{eyre, Result};
 use common::types::{Block, BlockTag};
 use config::Config;
 use execution::types::CallOpts;
-use log::{info, warn};
+use tracing::{info, warn};
 
 use crate::node::Node;
 
@@ -248,9 +248,9 @@ impl Client {
     }
 
     pub async fn shutdown(&self) {
-        info!("shutting down");
+        info!(target: "helios::client","shutting down");
         if let Err(err) = self.node.consensus.shutdown() {
-            warn!("graceful shutdown failed: {}", err);
+            warn!(target: "helios::client", error = %err, "graceful shutdown failed");
         }
     }
 

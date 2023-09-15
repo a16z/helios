@@ -26,7 +26,7 @@ serde_json.workspace = true
 eyre.workspace = true
 hex.workspace = true
 bytes.workspace = true
-log.workspace = true
+tracing.workspace = true
 thiserror.workspace = true
 hyper.workspace = true
 

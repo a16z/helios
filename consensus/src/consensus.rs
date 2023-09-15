@@ -7,7 +7,7 @@ use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
-use log::{debug, error, info, warn};
+use tracing::{debug, error, info, warn};
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 use tokio::sync::mpsc::Sender;
@@ -89,17 +89,17 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 if config.load_external_fallback {
                     let res = sync_all_fallbacks(&mut inner, config.chain.chain_id).await;
                     if let Err(err) = res {
-                        error!("sync failed: {}", err);
+                        error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
                     }
                 } else if let Some(fallback) = &config.fallback {
                     let res = sync_fallback(&mut inner, fallback).await;
                     if let Err(err) = res {
-                        error!("sync failed: {}", err);
+                        error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
                     }
                 } else {
-                    error!("sync failed: {}", err);
+                    error!(target: "helios::consensus", err = %err, "sync failed");
                     process::exit(1);
                 }
             }
@@ -111,13 +111,13 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 
                 let res = inner.advance().await;
                 if let Err(err) = res {
-                    warn!("advance error: {}", err);
+                    warn!(target: "helios::consensus", "advance error: {}", err);
                     continue;
                 }
 
                 let res = inner.send_blocks().await;
                 if let Err(err) = res {
-                    warn!("send error: {}", err);
+                    warn!(target: "helios::consensus", "send error: {}", err);
                     continue;
                 }
             }
@@ -250,11 +250,12 @@ impl<R: ConsensusRpc> Inner<R> {
             let payload = result.unwrap().body.execution_payload().clone();
             if payload.block_hash() != &prev_parent_hash {
                 warn!(
-                    "error while backfilling blocks: {}",
-                    ConsensusError::InvalidHeaderHash(
+                    target: "helios::consensus",
+                    error = %ConsensusError::InvalidHeaderHash(
                         format!("{prev_parent_hash:02X?}"),
                         format!("{:02X?}", payload.parent_hash()),
-                    )
+                    ),
+                    "error while backfilling blocks"
                 );
                 break;
             }
@@ -290,6 +291,7 @@ impl<R: ConsensusRpc> Inner<R> {
         self.apply_optimistic_update(&optimistic_update);
 
         info!(
+            target: "helios::consensus",
             "consensus client in sync with checkpoint: 0x{}",
             hex::encode(checkpoint)
         );
@@ -307,7 +309,7 @@ impl<R: ConsensusRpc> Inner<R> {
         self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            debug!("checking for sync committee update");
+            debug!(target: "helios::consensus", "checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot.into());
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
@@ -316,7 +318,7 @@ impl<R: ConsensusRpc> Inner<R> {
                 let res = self.verify_update(update);
 
                 if res.is_ok() {
-                    info!("updating sync committee");
+                    info!(target: "helios::consensus", "updating sync committee");
                     self.apply_update(update);
                 }
             }
@@ -370,7 +372,7 @@ impl<R: ConsensusRpc> Inner<R> {
             if self.config.strict_checkpoint_age {
                 return Err(ConsensusError::CheckpointTooOld.into());
             } else {
-                warn!("checkpoint too old, consider using a more recent block");
+                warn!(target: "helios::consensus", "checkpoint too old, consider using a more recent block");
             }
         }
 
@@ -551,7 +553,7 @@ impl<R: ConsensusRpc> Inner<R> {
             if self.store.next_sync_committee.is_none() {
                 self.store.next_sync_committee = update.next_sync_committee.clone();
             } else if update_finalized_period == store_period + 1 {
-                info!("sync committee updated");
+                info!(target: "helios::consensus", "sync committee updated");
                 self.store.current_sync_committee = self.store.next_sync_committee.clone().unwrap();
                 self.store.next_sync_committee = update.next_sync_committee.clone();
                 self.store.previous_max_active_participants =
@@ -594,6 +596,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let age = self.age(self.store.finalized_header.slot.as_u64());
 
         info!(
+            target: "helios::consensus",
             "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             self.store.finalized_header.slot.as_u64(),
             participation,
@@ -616,6 +619,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let age = self.age(self.store.optimistic_header.slot.as_u64());
 
         info!(
+            target: "helios::consensus",
             "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             self.store.optimistic_header.slot.as_u64(),
             participation,

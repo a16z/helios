@@ -15,7 +15,7 @@ use eyre::Result;
 use client::{Client, ClientBuilder};
 use config::{CliConfig, Config};
 use futures::executor::block_on;
-use log::{error, info};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,13 +25,13 @@ async fn main() -> Result<()> {
     let mut client = match ClientBuilder::new().config(config).build() {
         Ok(client) => client,
         Err(err) => {
-            error!("{}", err);
+            error!(target: "helios::runner", error = %err);
             exit(1);
         }
     };
 
     if let Err(err) = client.start().await {
-        error!("{}", err);
+        error!(target: "helios::runner", error = %err);
         exit(1);
     }
 
@@ -50,11 +50,12 @@ fn register_shutdown_handler(client: Client) {
         let counter_value = *counter;
 
         if counter_value == 3 {
-            info!("forced shutdown");
+            info!(target: "helios::runner", "forced shutdown");
             exit(0);
         }
 
         info!(
+            target: "helios::runner",
             "shutting down... press ctrl-c {} more times to force quit",
             3 - counter_value
         );

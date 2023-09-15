@@ -5,7 +5,7 @@ use common::types::BlockTag;
 use ethers::types::transaction::eip2930::AccessListItem;
 use eyre::{Report, Result};
 use futures::future::join_all;
-use log::trace;
+use tracing::trace;
 use revm::{
     primitives::{
         AccountInfo, Bytecode, Env, ExecutionResult, ResultAndState, TransactTo, B160, B256, U256,
@@ -318,6 +318,7 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         }
 
         trace!(
+            target: "helios::evm",
             "fetch basic evm state for address=0x{}",
             hex::encode(address.as_bytes())
         );
@@ -326,13 +327,13 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Report> {
-        trace!("fetch block hash for block={:?}", number);
+        trace!(target: "helios::evm", "fetch block hash for block={:?}", number);
         let number_ethers: ethers::types::U256 = number.into();
         self.state.get_block_hash(number_ethers.as_u64())
     }
 
     fn storage(&mut self, address: B160, slot: U256) -> Result<U256, Report> {
-        trace!("fetch evm state for address={:?}, slot={}", address, slot);
+        trace!(target: "helios::evm", "fetch evm state for address={:?}, slot={}", address, slot);
         self.state.get_storage(address, slot)
     }
 

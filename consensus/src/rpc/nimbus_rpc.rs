@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use eyre::Result;
-use log::warn;
+use tracing::warn;
 use serde::de::DeserializeOwned;
 use std::cmp;
 
@@ -20,7 +20,7 @@ async fn get<R: DeserializeOwned>(req: &str) -> Result<R, reqwest::Error> {
     retry_notify(
         ExponentialBackoff::default(),
         || async { Ok(reqwest::get(req).await?.json::<R>().await?) },
-        |e, dur| warn!("rpc error occurred at {:?}: {}", dur, e),
+        |e, dur| warn!(target: "helios::nimbus_rpc",  "rpc error occurred at {:?}: {}", dur, e),
     )
     .await
 }

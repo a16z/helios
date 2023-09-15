@@ -3,7 +3,7 @@ use ethers::{
     types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
 };
 use eyre::Result;
-use log::info;
+use tracing::info;
 use std::net::{IpAddr, Ipv4Addr};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 
@@ -49,7 +49,7 @@ impl Rpc {
         let (handle, addr) = start(rpc_inner).await?;
         self.handle = Some(handle);
 
-        info!("rpc server started at {}", addr);
+        info!(target: "helios::rpc", "rpc server started at {}", addr);
 
         Ok(addr)
     }
