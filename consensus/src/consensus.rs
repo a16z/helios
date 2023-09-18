@@ -7,10 +7,10 @@ use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
-use tracing::{debug, error, info, warn};
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 use tokio::sync::mpsc::Sender;
+use tracing::{debug, error, info, warn};
 use wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::channel;

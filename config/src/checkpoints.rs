@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use backoff::future::retry_notify;
 use backoff::ExponentialBackoff;
 use ethers::types::H256;
-use tracing::warn;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::networks;
 

@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use eyre::Result;
-use tracing::warn;
 use serde::de::DeserializeOwned;
 use std::cmp;
+use tracing::warn;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
