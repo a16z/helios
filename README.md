@@ -21,6 +21,9 @@ To install Helios, run `heliosup`.
 ## Testing
 
 To ensure that Helios works as expected, we have a comprehensive test suite that you can run. Before running the tests, make sure to create a `.env` file in the root of the project directory. You can copy the contents of the `.env.example` file and fill in your own secrets.
+```sh
+cp .env.example .env
+```
 
 To run all tests, use the following command:
 
@@ -42,11 +45,13 @@ To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provi
 helios --execution-rpc $ETH_RPC_URL
 ```
 
-`$ETH_RPC_URL` must be an Ethereum provider that supports the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy.
+`$ETH_RPC_URL` must be an [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy.
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
-Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run -p helios --example <example_name>` from inside the helios repository.
+Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run -p helios --example <example_name>` from inside the helios repository.  Replace `<example_name>` with a filename from that directory excluding its file extension.
+
+> When running the examples you are using Helios as a library, so the config files (e.g. ~/.helios/helios.toml) and CLI arguments are not used, and instead all configuration is done using the `ClientBuilder`.
 
 Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 
@@ -54,11 +59,11 @@ Helios also provides documentation of its supported RPC methods in the [rpc.md](
 
 Helios is still experimental software. While we hope you try it out, we do not suggest adding it as your main RPC in wallets yet. Sending high-value transactions from a wallet connected to Helios is discouraged.
 
-### Additional Options
+### Additional CLI Options <a id="additional-cli-options"></a>
 
 `--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
-`--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon blockhash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
+`--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
 `--network` or `-n` sets the network to sync to. Current valid options are `mainnet` and `goerli`, however users can add custom networks in their configuration files.
 
@@ -83,7 +88,7 @@ This can be run like so: `helios --load-external-fallback` (or `helios -l` with 
 
 `--help` or `-h` prints the help message.
 
-### Configuration Files
+### Configuration Files <a id="configuration-files"></a>
 
 All configuration options can be set on a per-network level in `~/.helios/helios.toml`. Here is an example config file:
 
@@ -163,6 +168,66 @@ async fn main() -> Result<()> {
     Ok(())
 }
 ```
+
+### Supported Ethereum Execution API Providers <a id="supported-execution-api-providers"></a>
+
+Ethereum Execution API provider JSON RPC endpoints used must support the `eth_getProof` endpoint. [Alchemy](https://www.alchemy.com) provides private endpoints that support the `eth_getProof` endpoint https://docs.alchemy.com/reference/eth-getproof but require you to obtain API keys. Alternatively, [All That Node](https://www.allthatnode.com/ethereum.dsrv) provides public JSON RPC endpoints that are rate limited and are not intended for dApp building. JSON RPC endpoints including associated API Keys if required should be added to your .env file.
+
+For example, the following cURL request should return a response `{"jsonrpc":"2.0","id":1,"result":{...}}` to demonstrate that the All That Node public JSON RPC endpoints on the Ethereum Goerli network and Mainnet support the `eth_getProof` endpoint.
+
+```sh
+curl https://ethereum-goerli-rpc.allthatnode.com \
+-X POST \
+-H "Content-Type: application/json" \
+-d '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",["0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"],"latest"],"id":1}'
+```
+
+```sh
+curl https://ethereum-mainnet-rpc.allthatnode.com \
+-X POST \
+-H "Content-Type: application/json" \
+-d '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",["0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"],"latest"],"id":1}'
+```
+
+### Suppported Checkpoints <a id="supported-checkpoints"></a>
+
+A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Goerli is shown at https://goerli.etherscan.io/blocks
+
+Checkpoints may be obtained from the following links:
+* Ethereum Mainnet https://beaconcha.in
+* Goerli Testnet https://prater.beaconcha.in/
+
+It is recommmended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
+
+For example, to obtain a recent checkpoint for Goerli Testnet go to https://prater.beaconcha.in/ and get the block hash of the first block in any finalised epoch. At the time of writing, the [first block hash in epoch 197110](https://prater.beaconcha.in/epoch/197110) is the [oldest slot 6307520](https://prater.beaconcha.in/slot/6307520) that has a Block Root of 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b and is the latest checkpoint value to use.
+
+This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Goerli Testnet:
+```bash
+helios \
+    --network goerli \
+    --consensus-rpc http://testing.prater.beacon-api.nimbus.team \
+    --execution-rpc https://ethereum-goerli-rpc.allthatnode.com \
+    --checkpoint 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b
+```
+
+For example, to obtain a recent checkpoint for Ethereum Mainnet go to https://beaconcha.in and get the block hash of the first block in any finalised epoch. At the time of writing the [first block hash in epoch 222705](https://beaconcha.in/epoch/222705) is the [oldest slot 7126560](https://beaconcha.in/slot/7126560) that has a Block Root of 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2 and is the latest checkpoint value to use.
+
+This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Mainnet:
+```bash
+helios \
+    --network mainnet \
+    --consensus-rpc https://www.lightclientdata.org \
+    --execution-rpc https://ethereum-mainnet-rpc.allthatnode.com \
+    --checkpoint 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2
+```
+
+If you wish to use a [Configuration File](#configuration-files) instead of CLI arguments then you should replace the example checkpoints in the configuration file with the latest checkpoints obtained above.
+
+> **Warning**
+>
+> Some configuration file values are not yet being interpreted. See https://github.com/a16z/helios/issues/261
+>
+> If a provide checkpoint fails the fallback would normally kick in and automatically fetch a better checkpoint if that feature is working.
 
 ## Architecture
 ```mermaid
