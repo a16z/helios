@@ -14,8 +14,8 @@ tracing.workspace = true
 futures.workspace = true
 
 clap = { version = "3.2.18", features = ["derive", "env"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 dirs = "4.0.0"
-env_logger = "0.9.0"
 ctrlc = "3.2.3"
 
 client = { path = "../client" }
