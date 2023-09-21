@@ -9,17 +9,27 @@ use std::{
 use clap::Parser;
 use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
-use env_logger::Env;
 use eyre::Result;
+use futures::executor::block_on;
+use tracing::{error, info};
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use tracing_subscriber::FmtSubscriber;
 
 use client::{Client, ClientBuilder};
 use config::{CliConfig, Config};
-use futures::executor::block_on;
-use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env()
+        .expect("invalid env filter");
+
+    let subscriber = FmtSubscriber::builder()
+        .with_env_filter(env_filter)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
 
     let config = get_config();
     let mut client = match ClientBuilder::new().config(config).build() {

@@ -694,11 +694,11 @@ dependencies = [
  "config",
  "ctrlc",
  "dirs",
- "env_logger",
  "eyre",
  "futures",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
