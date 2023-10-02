@@ -63,7 +63,7 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 `--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
-`--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
+`--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal to the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
 `--network` or `-n` sets the network to sync to. Current valid options are `mainnet` and `goerli`, however users can add custom networks in their configuration files.
 
@@ -80,7 +80,7 @@ For example, say you set a checkpoint value that is too outdated and Helios cann
 If this flag is set, Helios will query all network apis in the community-maintained list
 at [ethpandaops/checkpoint-synz-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml) for their latest slots.
 The list of slots is filtered for healthy apis and the most frequent checkpoint occurring in the latest epoch will be returned.
-Note: this is a community-maintained list and thus no security guarantees are provided. Use this is a last resort if your checkpoint passed into `--checkpoint` fails.
+Note: this is a community-maintained list and thus no security guarantees are provided. Use this as a last resort if your checkpoint passed into `--checkpoint` fails.
 This is not recommended as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
 This can be run like so: `helios --load-external-fallback` (or `helios -l` with the shorthand).
 
@@ -189,7 +189,7 @@ curl https://ethereum-mainnet-rpc.allthatnode.com \
 -d '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",["0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"],"latest"],"id":1}'
 ```
 
-### Suppported Checkpoints <a id="supported-checkpoints"></a>
+### Supported Checkpoints <a id="supported-checkpoints"></a>
 
 A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Goerli is shown at https://goerli.etherscan.io/blocks
 
@@ -197,7 +197,7 @@ Checkpoints may be obtained from the following links:
 * Ethereum Mainnet https://beaconcha.in
 * Goerli Testnet https://prater.beaconcha.in/
 
-It is recommmended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
+It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
 For example, to obtain a recent checkpoint for Goerli Testnet go to https://prater.beaconcha.in/ and get the block hash of the first block in any finalised epoch. At the time of writing, the [first block hash in epoch 197110](https://prater.beaconcha.in/epoch/197110) is the [oldest slot 6307520](https://prater.beaconcha.in/slot/6307520) that has a Block Root of 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b and is the latest checkpoint value to use.
 
