@@ -56,7 +56,7 @@ load_external_fallback = true
 All configuration options below are available on a per-network level, where network is specified by a header (eg `[mainnet]` or `[goerli]`). Many of these options can be configured through cli flags as well. See [README.md](./README.md#additional-options) or run `helios --help` for more information.
 
 
-- `consensus_rpc` - The URL of the consensus RPC endpoint used to fetch the latest beacon chain head and sync status. This must be a consenus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+- `consensus_rpc` - The URL of the consensus RPC endpoint used to fetch the latest beacon chain head and sync status. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
 - `execution_rpc` - The URL of the execution RPC endpoint used to fetch the latest execution chain head and sync status. This must be an execution node that supports the light client execution api. We recommend using Geth for this.
 
