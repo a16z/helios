@@ -45,7 +45,7 @@ To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provi
 helios --execution-rpc $ETH_RPC_URL
 ```
 
-`$ETH_RPC_URL` must be an [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy.
+`$ETH_RPC_URL` must be a [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy.
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
