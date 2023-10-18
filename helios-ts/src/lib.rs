@@ -4,6 +4,7 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use common::types::BlockTag;
+use consensus::database::ConfigDB;
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
 use wasm_bindgen::prelude::*;
@@ -19,7 +20,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    inner: client::Client,
+    inner: client::Client<ConfigDB>,
     chain_id: u64,
 }
 
@@ -63,7 +64,8 @@ impl Client {
             ..Default::default()
         };
 
-        let inner: client::Client = client::ClientBuilder::new().config(config).build().unwrap();
+        let inner: client::Client<ConfigDB> =
+            client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { inner, chain_id }
     }

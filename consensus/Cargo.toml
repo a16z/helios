@@ -35,6 +35,10 @@ backoff.workspace = true
 common = { path = "../common" }
 config = { path = "../config" }
 
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.37"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openssl.workspace = true
 

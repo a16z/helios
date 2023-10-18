@@ -53,6 +53,7 @@
 pub mod client {
     #[cfg(not(target_arch = "wasm32"))]
     pub use client::{Client, ClientBuilder};
+    pub use consensus::database::*;
 }
 
 pub mod config {

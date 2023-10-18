@@ -2,6 +2,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use config::networks::Network;
+use consensus::database::Database;
 use ethers::prelude::{Address, U256};
 use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
@@ -96,7 +97,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Client> {
+    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -209,22 +210,24 @@ impl ClientBuilder {
             strict_checkpoint_age,
         };
 
-        Client::new(config)
+        Client::<DB>::new(config)
     }
 }
 
-pub struct Client {
-    node: Arc<Node>,
+pub struct Client<DB: Database> {
+    node: Arc<Node<DB>>,
     #[cfg(not(target_arch = "wasm32"))]
-    rpc: Option<Rpc>,
+    rpc: Option<Rpc<DB>>,
 }
 
-impl Client {
+impl<DB: Database> Client<DB> {
     fn new(config: Config) -> Result<Self> {
         let config = Arc::new(config);
         let node = Node::new(config.clone())?;
         let node = Arc::new(node);
-        let mut rpc: Option<Rpc> = None;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut rpc: Option<Rpc<DB>> = None;
 
         #[cfg(not(target_arch = "wasm32"))]
         if config.rpc_bind_ip.is_some() || config.rpc_port.is_some() {

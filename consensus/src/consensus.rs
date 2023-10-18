@@ -75,7 +75,12 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 .unwrap_or(config.default_checkpoint.clone())
         });
 
-        tokio::spawn(async move {
+        #[cfg(not(target_arch = "wasm32"))]
+        let run = tokio::spawn;
+        #[cfg(target_arch = "wasm32")]
+        let run = wasm_bindgen_futures::spawn_local;
+
+        run(async move {
             let mut inner = Inner::<R>::new(
                 &rpc,
                 block_send,

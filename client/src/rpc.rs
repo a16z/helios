@@ -1,3 +1,4 @@
+use consensus::database::Database;
 use ethers::{
     abi::AbiEncode,
     types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
@@ -21,14 +22,14 @@ use common::{
 };
 use execution::types::CallOpts;
 
-pub struct Rpc {
-    node: Arc<Node>,
+pub struct Rpc<DB: Database> {
+    node: Arc<Node<DB>>,
     handle: Option<HttpServerHandle>,
     address: SocketAddr,
 }
 
-impl Rpc {
-    pub fn new(node: Arc<Node>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
+impl<DB: Database> Rpc<DB> {
+    pub fn new(node: Arc<Node<DB>>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
         let address = SocketAddr::new(
             ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             port.unwrap_or(0),
@@ -135,13 +136,13 @@ trait NetRpc {
 }
 
 #[derive(Clone)]
-struct RpcInner {
-    node: Arc<Node>,
+struct RpcInner<DB: Database> {
+    node: Arc<Node<DB>>,
     address: SocketAddr,
 }
 
 #[async_trait]
-impl EthRpcServer for RpcInner {
+impl<DB: Database> EthRpcServer for RpcInner<DB> {
     async fn get_balance(&self, address: &str, block: BlockTag) -> Result<String, Error> {
         let address = convert_err(Address::from_str(address))?;
         let balance = convert_err(self.node.get_balance(&address, block).await)?;
@@ -307,13 +308,13 @@ impl EthRpcServer for RpcInner {
 }
 
 #[async_trait]
-impl NetRpcServer for RpcInner {
+impl<DB: Database> NetRpcServer for RpcInner<DB> {
     async fn version(&self) -> Result<String, Error> {
         Ok(self.node.chain_id().to_string())
     }
 }
 
-async fn start(rpc: RpcInner) -> Result<(HttpServerHandle, SocketAddr)> {
+async fn start<DB: Database>(rpc: RpcInner<DB>) -> Result<(HttpServerHandle, SocketAddr)> {
     let server = HttpServerBuilder::default().build(rpc.address).await?;
     let addr = server.local_addr()?;
 

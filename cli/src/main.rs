@@ -17,6 +17,7 @@ use tracing_subscriber::FmtSubscriber;
 
 use client::{Client, ClientBuilder};
 use config::{CliConfig, Config};
+use consensus::database::FileDB;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -32,7 +33,7 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
 
     let config = get_config();
-    let mut client = match ClientBuilder::new().config(config).build() {
+    let mut client = match ClientBuilder::new().config(config).build::<FileDB>() {
         Ok(client) => client,
         Err(err) => {
             error!(target: "helios::runner", error = %err);
@@ -49,7 +50,7 @@ async fn main() -> Result<()> {
     std::future::pending().await
 }
 
-fn register_shutdown_handler(client: Client) {
+fn register_shutdown_handler(client: Client<FileDB>) {
     let client = Arc::new(client);
     let shutdown_counter = Arc::new(Mutex::new(0));
 
