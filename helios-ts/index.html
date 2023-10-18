@@ -16,8 +16,7 @@
 
       helios.createHeliosProvider(config).then(heliosProvider => {
         heliosProvider.sync().then(() => {
-          // window.provider = new ethers.providers.Web3Provider(heliosProvider);
-          window.provider = heliosProvider;
+          window.provider = new ethers.providers.Web3Provider(heliosProvider);
         });
       });
     </script>
