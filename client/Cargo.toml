@@ -27,3 +27,5 @@ jsonrpsee = { version = "0.15.1", features = ["full"] }
 gloo-timers = "0.2.6"
 wasm-bindgen-futures = "0.4.33"
 
+[target.wasm32-unknown-unknown.dependencies]
+parking_lot = { version = "0.11", features = ["wasm-bindgen"] }
