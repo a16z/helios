@@ -7,7 +7,10 @@ use common::types::BlockTag;
 use consensus::database::ConfigDB;
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
+
 use wasm_bindgen::prelude::*;
+
+use wasm_bindgen_test::*;
 
 use config::{networks, Config};
 
@@ -182,4 +185,9 @@ impl Client {
         let logs = self.inner.get_logs(&filter).await.unwrap();
         serde_wasm_bindgen::to_value(&logs).unwrap()
     }
+}
+
+#[wasm_bindgen_test]
+async fn test_stuff() {
+    // assert!(false);
 }
