@@ -4,8 +4,10 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use common::types::BlockTag;
+use consensus::database::ConfigDB;
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
+
 use wasm_bindgen::prelude::*;
 
 use config::{networks, Config};
@@ -19,7 +21,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    inner: client::Client,
+    inner: client::Client<ConfigDB>,
     chain_id: u64,
 }
 
@@ -63,7 +65,8 @@ impl Client {
             ..Default::default()
         };
 
-        let inner: client::Client = client::ClientBuilder::new().config(config).build().unwrap();
+        let inner: client::Client<ConfigDB> =
+            client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { inner, chain_id }
     }
@@ -124,6 +127,18 @@ impl Client {
             .get_block_transaction_count_by_number(block)
             .await
             .unwrap() as u32
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_block_by_number(&self, block: JsValue, full_tx: bool) -> JsValue {
+        let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
+        let block = self
+            .inner
+            .get_block_by_number(block, full_tx)
+            .await
+            .unwrap()
+            .unwrap();
+        serde_wasm_bindgen::to_value(&block).unwrap()
     }
 
     #[wasm_bindgen]

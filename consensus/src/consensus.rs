@@ -16,7 +16,6 @@ use wasm_timer::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::watch;
-use tokio::time::sleep;
 
 use common::types::Block;
 use config::CheckpointFallback;
@@ -75,7 +74,13 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 .unwrap_or(config.default_checkpoint.clone())
         });
 
-        tokio::spawn(async move {
+        #[cfg(not(target_arch = "wasm32"))]
+        let run = tokio::spawn;
+
+        #[cfg(target_arch = "wasm32")]
+        let run = wasm_bindgen_futures::spawn_local;
+
+        run(async move {
             let mut inner = Inner::<R>::new(
                 &rpc,
                 block_send,
@@ -107,7 +112,9 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
             _ = inner.send_blocks().await;
 
             loop {
-                sleep(inner.duration_until_next_update().to_std().unwrap()).await;
+                wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
+                    .await
+                    .unwrap();
 
                 let res = inner.advance().await;
                 if let Err(err) = res {

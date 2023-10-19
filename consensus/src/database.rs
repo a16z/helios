@@ -8,7 +8,7 @@ use std::{
 use config::Config;
 use eyre::Result;
 
-pub trait Database {
+pub trait Database: Clone + Sync + Send + 'static {
     fn new(config: &Config) -> Result<Self>
     where
         Self: Sized;
@@ -18,6 +18,7 @@ pub trait Database {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
 pub struct FileDB {
     data_dir: PathBuf,
     default_checkpoint: Vec<u8>,
@@ -66,6 +67,7 @@ impl Database for FileDB {
     }
 }
 
+#[derive(Clone)]
 pub struct ConfigDB {
     checkpoint: Vec<u8>,
 }

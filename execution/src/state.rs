@@ -24,7 +24,12 @@ impl State {
         let inner = Arc::new(RwLock::new(Inner::new(history_length)));
         let inner_ref = inner.clone();
 
-        tokio::spawn(async move {
+        #[cfg(not(target_arch = "wasm32"))]
+        let run = tokio::spawn;
+        #[cfg(target_arch = "wasm32")]
+        let run = wasm_bindgen_futures::spawn_local;
+
+        run(async move {
             loop {
                 select! {
                     block = block_recv.recv() => {

@@ -11,7 +11,7 @@ use common::types::{Block, BlockTag};
 use config::Config;
 use execution::state::State;
 
-use consensus::database::FileDB;
+use consensus::database::Database;
 use consensus::rpc::nimbus_rpc::NimbusRpc;
 use consensus::ConsensusClient;
 use execution::evm::Evm;
@@ -21,14 +21,14 @@ use execution::ExecutionClient;
 
 use crate::errors::NodeError;
 
-pub struct Node {
-    pub consensus: ConsensusClient<NimbusRpc, FileDB>,
+pub struct Node<DB: Database> {
+    pub consensus: ConsensusClient<NimbusRpc, DB>,
     pub execution: Arc<ExecutionClient<HttpRpc>>,
     pub config: Arc<Config>,
     pub history_size: usize,
 }
 
-impl Node {
+impl<DB: Database> Node<DB> {
     pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
         let consensus_rpc = &config.consensus_rpc;
         let execution_rpc = &config.execution_rpc;
