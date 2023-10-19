@@ -379,4 +379,12 @@ impl<DB: Database> Client<DB> {
     pub async fn get_coinbase(&self) -> Result<Address> {
         self.node.get_coinbase().await
     }
+
+    pub async fn wait_synced(&self) {
+        loop {
+            if let Ok(SyncingStatus::IsFalse) = self.syncing().await {
+                break;
+            }
+        }
+    }
 }
