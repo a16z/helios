@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::net::IpAddr;
 use std::sync::Arc;
 

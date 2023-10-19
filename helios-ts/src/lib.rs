@@ -132,7 +132,12 @@ impl Client {
     #[wasm_bindgen]
     pub async fn get_block_by_number(&self, block: JsValue, full_tx: bool) -> JsValue {
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
-        let block = self.inner.get_block_by_number(block, full_tx).await.unwrap().unwrap();
+        let block = self
+            .inner
+            .get_block_by_number(block, full_tx)
+            .await
+            .unwrap()
+            .unwrap();
         serde_wasm_bindgen::to_value(&block).unwrap()
     }
 
@@ -191,4 +196,3 @@ impl Client {
         serde_wasm_bindgen::to_value(&logs).unwrap()
     }
 }
-
