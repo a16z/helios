@@ -74,7 +74,6 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 .unwrap_or(config.default_checkpoint.clone())
         });
 
-
         #[cfg(not(target_arch = "wasm32"))]
         let run = tokio::spawn;
 
@@ -113,7 +112,9 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
             _ = inner.send_blocks().await;
 
             loop {
-                wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap()).await.unwrap();
+                wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
+                    .await
+                    .unwrap();
 
                 let res = inner.advance().await;
                 if let Err(err) = res {
