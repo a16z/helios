@@ -81,7 +81,6 @@ dirs = "4.0.0"
 ethers = { version = "2.0.2", features = [ "abigen" ] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing = "0.1.37"
-log = "0.4.17"
 tracing-test = "0.2.4"
 criterion = { version = "0.4", features = [ "async_tokio", "plotters" ]}
 plotters = "0.3.4"

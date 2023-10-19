@@ -2286,7 +2286,6 @@ dependencies = [
  "execution",
  "eyre",
  "hex",
- "log",
  "plotters",
  "serde",
  "tempfile",
