@@ -10,8 +10,6 @@ use execution::types::CallOpts;
 
 use wasm_bindgen::prelude::*;
 
-use wasm_bindgen_test::*;
-
 use config::{networks, Config};
 
 #[allow(unused_macros)]
@@ -132,6 +130,13 @@ impl Client {
     }
 
     #[wasm_bindgen]
+    pub async fn get_block_by_number(&self, block: JsValue, full_tx: bool) -> JsValue {
+        let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
+        let block = self.inner.get_block_by_number(block, full_tx).await.unwrap().unwrap();
+        serde_wasm_bindgen::to_value(&block).unwrap()
+    }
+
+    #[wasm_bindgen]
     pub async fn get_code(&self, addr: JsValue, block: JsValue) -> String {
         let addr: Address = serde_wasm_bindgen::from_value(addr).unwrap();
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
@@ -187,7 +192,3 @@ impl Client {
     }
 }
 
-#[wasm_bindgen_test]
-async fn test_stuff() {
-    // assert!(false);
-}

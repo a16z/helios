@@ -79,6 +79,12 @@ export class HeliosProvider {
       case "net_version": {
         return this.#chainId;
       };
+      case "eth_getBlockByNumber": {
+        return this.#client.get_block_by_number(req.params[0], req.params[1]);
+      };
+      default: {
+        throw `method not implemented: ${req.method}`;
+      };
     }
   }
 }
