@@ -24,7 +24,7 @@ pub enum ExecutionError {
     MissingLog(String, U256),
     #[error("too many logs to prove: {0}, current limit is: {1}")]
     TooManyLogsToProve(usize, usize),
-    #[error("execution rpc is for the incorect network")]
+    #[error("execution rpc is for the incorrect network")]
     IncorrectRpcNetwork(),
     #[error("Invalid base gas fee helios {0} vs rpc endpoint {1} at block {2}")]
     InvalidBaseGaseFee(U256, U256, u64),
