@@ -1,6 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use config::networks::Network;
 use consensus::database::Database;
@@ -12,6 +13,7 @@ use common::types::{Block, BlockTag};
 use config::Config;
 use execution::types::CallOpts;
 use tracing::{info, warn};
+use wasm_timer::Delay;
 
 use crate::node::Node;
 
@@ -378,5 +380,15 @@ impl<DB: Database> Client<DB> {
 
     pub async fn get_coinbase(&self) -> Result<Address> {
         self.node.get_coinbase().await
+    }
+
+    pub async fn wait_synced(&self) {
+        loop {
+            if let Ok(SyncingStatus::IsFalse) = self.syncing().await {
+                break;
+            }
+
+            Delay::new(Duration::from_millis(100)).await.unwrap();
+        }
     }
 }

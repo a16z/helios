@@ -62,7 +62,7 @@ impl Network {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         default_checkpoint: hex_str_to_bytes(
-            "0x69e3bb0e44b707636ff2c1d3385b20c21013c95f867c296c7ee84960edcbd103",
+            "0x7e495f50102bed2aae9e698b73a2a640de548658998033d732feb1c0c0c7f80b",
         )
         .unwrap(),
         rpc_port: 8545,
@@ -101,7 +101,7 @@ pub fn mainnet() -> BaseConfig {
 pub fn goerli() -> BaseConfig {
     BaseConfig {
         default_checkpoint: hex_str_to_bytes(
-            "0x428474ba0c1ce5049efe4324d503f69f0370fae2095954db4864c57097c90574",
+            "0xf6e9d5fdd7c406834e888961beab07b2443b64703c36acc1274ae1ce8bb48839",
         )
         .unwrap(),
         rpc_port: 8545,
@@ -140,7 +140,7 @@ pub fn goerli() -> BaseConfig {
 pub fn sepolia() -> BaseConfig {
     BaseConfig {
         default_checkpoint: hex_str_to_bytes(
-            "0x362414b2939270da11c114792cdb7571faba47866fa9d8fbf7468cb121905c40",
+            "0x4135bf01bddcfadac11143ba911f1c7f0772fdd6b87742b0bc229887bbf62b48",
         )
         .unwrap(),
         rpc_port: 8545,
