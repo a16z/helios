@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
         .with_env_filter(env_filter)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
+    tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 
     let config = get_config();
     let mut client = match ClientBuilder::new().config(config).build::<FileDB>() {
