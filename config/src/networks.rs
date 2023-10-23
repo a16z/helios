@@ -1,26 +1,19 @@
+use std::fmt::Display;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use common::utils::hex_str_to_bytes;
+#[cfg(not(target_arch = "wasm32"))]
+use dirs::home_dir;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter};
+use strum::EnumIter;
 
 use crate::base::BaseConfig;
 use crate::types::{ChainConfig, Fork, Forks};
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    EnumIter,
-    Display,
-    Hash,
-    Eq,
-    PartialEq,
-    PartialOrd,
-    Ord,
+    Debug, Clone, Copy, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,
 )]
 pub enum Network {
     MAINNET,
@@ -38,6 +31,18 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::SEPOLIA),
             _ => Err(eyre::eyre!("network not recognized")),
         }
+    }
+}
+
+impl Display for Network {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Self::MAINNET => "mainnet",
+            Self::GOERLI => "goerli",
+            Self::SEPOLIA => "sepolia",
+        };
+
+        f.write_str(str)
     }
 }
 
@@ -94,6 +99,8 @@ pub fn mainnet() -> BaseConfig {
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::MAINNET)),
         ..std::default::Default::default()
     }
 }
@@ -133,6 +140,8 @@ pub fn goerli() -> BaseConfig {
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::GOERLI)),
         ..std::default::Default::default()
     }
 }
@@ -172,6 +181,15 @@ pub fn sepolia() -> BaseConfig {
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::SEPOLIA)),
         ..std::default::Default::default()
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn data_dir(network: Network) -> PathBuf {
+    home_dir()
+        .unwrap()
+        .join(format!(".helios/data/{}", network.to_string()))
 }

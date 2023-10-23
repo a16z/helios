@@ -49,6 +49,8 @@ impl Config {
             .select(network)
             .extract();
 
+        println!("{:?}", config_res);
+
         match config_res {
             Ok(config) => config,
             Err(err) => {
@@ -93,6 +95,9 @@ impl Config {
             chain: self.chain.clone(),
             forks: self.forks.clone(),
             max_checkpoint_age: self.max_checkpoint_age,
+            data_dir: self.data_dir.clone(),
+            load_external_fallback: self.load_external_fallback,
+            strict_checkpoint_age: self.strict_checkpoint_age,
         }
     }
 }
