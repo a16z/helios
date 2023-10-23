@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::default::Default;
 use std::net::{IpAddr, Ipv4Addr};
+use std::path::PathBuf;
 
 use crate::types::{ChainConfig, Forks};
 use crate::utils::bytes_serialize;
@@ -19,6 +20,9 @@ pub struct BaseConfig {
     pub chain: ChainConfig,
     pub forks: Forks,
     pub max_checkpoint_age: u64,
+    pub data_dir: Option<PathBuf>,
+    pub load_external_fallback: bool,
+    pub strict_checkpoint_age: bool,
 }
 
 impl Default for BaseConfig {
@@ -31,6 +35,9 @@ impl Default for BaseConfig {
             chain: Default::default(),
             forks: Default::default(),
             max_checkpoint_age: 0,
+            data_dir: None,
+            load_external_fallback: false,
+            strict_checkpoint_age: false,
         }
     }
 }

@@ -12,10 +12,10 @@ pub struct CliConfig {
     pub checkpoint: Option<Vec<u8>>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
-    pub data_dir: PathBuf,
+    pub data_dir: Option<PathBuf>,
     pub fallback: Option<String>,
-    pub load_external_fallback: bool,
-    pub strict_checkpoint_age: bool,
+    pub load_external_fallback: Option<bool>,
+    pub strict_checkpoint_age: Option<bool>,
 }
 
 impl CliConfig {
@@ -42,21 +42,21 @@ impl CliConfig {
             user_dict.insert("rpc_port", Value::from(port));
         }
 
-        user_dict.insert("data_dir", Value::from(self.data_dir.to_str().unwrap()));
+        if let Some(data_dir) = self.data_dir.as_ref() {
+            user_dict.insert("data_dir", Value::from(data_dir.to_str().unwrap()));
+        }
 
         if let Some(fallback) = &self.fallback {
             user_dict.insert("fallback", Value::from(fallback.clone()));
         }
 
-        user_dict.insert(
-            "load_external_fallback",
-            Value::from(self.load_external_fallback),
-        );
+        if let Some(l) = self.load_external_fallback {
+            user_dict.insert("load_external_fallback", Value::from(l));
+        }
 
-        user_dict.insert(
-            "strict_checkpoint_age",
-            Value::from(self.strict_checkpoint_age),
-        );
+        if let Some(s) = self.strict_checkpoint_age {
+            user_dict.insert("strict_checkpoint_age", Value::from(s));
+        }
 
         Serialized::from(user_dict, network)
     }

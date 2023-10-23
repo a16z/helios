@@ -815,6 +815,7 @@ version = "0.4.1"
 dependencies = [
  "backoff",
  "common",
+ "dirs",
  "ethers",
  "eyre",
  "figment",
