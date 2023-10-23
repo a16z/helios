@@ -49,8 +49,6 @@ impl Config {
             .select(network)
             .extract();
 
-        println!("{:?}", config_res);
-
         match config_res {
             Ok(config) => config,
             Err(err) => {

@@ -1,4 +1,5 @@
 use std::fmt::Display;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use std::str::FromStr;
 
