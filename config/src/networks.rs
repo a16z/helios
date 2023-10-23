@@ -191,5 +191,5 @@ pub fn sepolia() -> BaseConfig {
 fn data_dir(network: Network) -> PathBuf {
     home_dir()
         .unwrap()
-        .join(format!(".helios/data/{}", network.to_string()))
+        .join(format!(".helios/data/{}", network))
 }
