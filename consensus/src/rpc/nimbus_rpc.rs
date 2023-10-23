@@ -16,13 +16,15 @@ pub struct NimbusRpc {
     rpc: String,
 }
 
-async fn get<R: DeserializeOwned>(req: &str) -> Result<R, reqwest::Error> {
-    retry_notify(
+async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
+    let bytes = retry_notify(
         ExponentialBackoff::default(),
-        || async { Ok(reqwest::get(req).await?.json::<R>().await?) },
+        || async { Ok(reqwest::get(req).await?.bytes().await?) },
         |e, dur| warn!(target: "helios::nimbus_rpc",  "rpc error occurred at {:?}: {}", dur, e),
     )
-    .await
+    .await?;
+
+    Ok(serde_json::from_slice::<R>(&bytes)?)
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
