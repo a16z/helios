@@ -6,7 +6,7 @@ Helios is a fully trustless, efficient, and portable Ethereum light client writt
 
 Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
 
-The entire size of Helios's binary is 5.3Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
+Helios has a small binary size and compiles into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
 ## Installing
 
@@ -18,28 +18,9 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 
 To install Helios, run `heliosup`.
 
-## Testing
-
-To ensure that Helios works as expected, we have a comprehensive test suite that you can run. Before running the tests, make sure to create a `.env` file in the root of the project directory. You can copy the contents of the `.env.example` file and fill in your own secrets.
-```sh
-cp .env.example .env
-```
-
-To run all tests, use the following command:
-
-```sh
-cargo test-all
-```
-
-To run tests for an individual package, use this command, replacing <package-name> with the package you want to test:
-
-```sh
-cargo test -p <package-name>
-```
-
 ## Usage
 
-To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy or Infura:
+To run Helios, run the below command, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy:
 
 ```
 helios --execution-rpc $ETH_RPC_URL
@@ -48,10 +29,6 @@ helios --execution-rpc $ETH_RPC_URL
 `$ETH_RPC_URL` must be a [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the `eth_getProof` endpoint. Infura does not currently support this. We recommend using Alchemy.
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
-
-Helios provides examples in the [`examples/`](./examples/) directory. To run an example, you can execute `cargo run -p helios --example <example_name>` from inside the helios repository.  Replace `<example_name>` with a filename from that directory excluding its file extension.
-
-> When running the examples you are using Helios as a library, so the config files (e.g. ~/.helios/helios.toml) and CLI arguments are not used, and instead all configuration is done using the `ClientBuilder`.
 
 Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
 
@@ -264,6 +241,25 @@ subgraph "External Network"
 UntrustedExecutionRpc
 UntrustedConsensusRpc
 end
+```
+
+## Testing
+
+To ensure that Helios works as expected, we have a comprehensive test suite that you can run. Before running the tests, make sure to create a `.env` file in the root of the project directory. You can copy the contents of the `.env.example` file and fill in your own secrets.
+```sh
+cp .env.example .env
+```
+
+To run all tests, use the following command:
+
+```sh
+cargo test-all
+```
+
+To run tests for an individual package, use this command, replacing <package-name> with the package you want to test:
+
+```sh
+cargo test -p <package-name>
 ```
 
 ## Benchmarks
