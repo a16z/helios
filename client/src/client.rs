@@ -13,7 +13,7 @@ use common::types::{Block, BlockTag};
 use config::Config;
 use execution::types::CallOpts;
 use tracing::{info, warn};
-use wasm_timer::Delay;
+use zduny_wasm_timer::Delay;
 
 use crate::node::Node;
 

@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "cli"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "clap",
  "client",
@@ -704,7 +704,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "common",
  "config",
@@ -723,7 +723,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wasm-bindgen-futures",
- "wasm-timer",
+ "zduny-wasm-timer",
 ]
 
 [[package]]
@@ -799,7 +799,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "common"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "ethers",
  "eyre",
@@ -811,7 +811,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "backoff",
  "common",
@@ -832,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "consensus"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "backoff",
@@ -857,7 +857,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wasm-bindgen-futures",
- "wasm-timer",
+ "zduny-wasm-timer",
 ]
 
 [[package]]
@@ -1738,7 +1738,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "execution"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2274,7 +2274,7 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "helios"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "client",
  "common",
@@ -5661,21 +5661,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasm-timer"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be0ecb0db480561e9a7642b5d3e4187c128914e58aa84330b9493e3eb68c5e7f"
-dependencies = [
- "futures",
- "js-sys",
- "parking_lot 0.11.2",
- "pin-utils",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "web-sys"
 version = "0.3.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5902,6 +5887,21 @@ dependencies = [
  "dlib",
  "once_cell",
  "pkg-config",
+]
+
+[[package]]
+name = "zduny-wasm-timer"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f22d6a02cbc84ea1993b0b341833a55a0866a3378c3a76e0ca664bc2574e370"
+dependencies = [
+ "futures",
+ "js-sys",
+ "parking_lot 0.12.1",
+ "pin-utils",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

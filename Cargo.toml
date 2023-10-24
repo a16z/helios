@@ -55,7 +55,7 @@ thiserror = "1.0.37"
 superstruct = "0.7.0"
 openssl = { version = "0.10", features = ["vendored"] }
 hyper = "0.14.23"
-wasm-timer = "0.2.5"
+zduny-wasm-timer = "0.2.8"
 backoff = { version = "0.4.0", features = ["tokio"] }
 
 ######################################

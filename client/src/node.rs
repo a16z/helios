@@ -5,7 +5,7 @@ use ethers::types::{
     Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
 };
 use eyre::{eyre, Result};
-use wasm_timer::{SystemTime, UNIX_EPOCH};
+use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use common::types::{Block, BlockTag};
 use config::Config;
