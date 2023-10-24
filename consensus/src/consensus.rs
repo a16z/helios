@@ -11,7 +11,7 @@ use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info, warn};
-use wasm_timer::{SystemTime, UNIX_EPOCH};
+use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
@@ -112,7 +112,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
             _ = inner.send_blocks().await;
 
             loop {
-                wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
+                zduny_wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
                     .await
                     .unwrap();
 
