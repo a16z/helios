@@ -110,7 +110,10 @@ function mapToObj(map: Map<any, any> | undefined): Object | undefined {
   if(!map) return undefined;
 
   return Array.from(map).reduce((obj: any, [key, value]) => {
-    obj[key] = value;
+    if (value !== undefined) {
+      obj[key] = value;
+    }
+
     return obj;
   }, {});
 }
