@@ -109,19 +109,18 @@ impl From<ExecutionPayload> for Block {
                 tx.from = tx.recover_from().unwrap();
                 tx.transaction_index = Some(i.into());
 
-                match (tx.max_fee_per_gas, tx.max_priority_fee_per_gas) {
-                    (Some(max_fee), Some(max_priority_fee)) => {
-                        let base_fee = ethers::types::U256::from_little_endian(
-                            &value.base_fee_per_gas().to_bytes_le(),
-                        );
+                if let (Some(max_fee), Some(max_priority_fee)) =
+                    (tx.max_fee_per_gas, tx.max_priority_fee_per_gas)
+                {
+                    let base_fee = ethers::types::U256::from_little_endian(
+                        &value.base_fee_per_gas().to_bytes_le(),
+                    );
 
-                        tx.gas_price = if max_fee >= max_priority_fee + base_fee {
-                            Some(base_fee + max_priority_fee)
-                        } else {
-                            Some(max_fee)
-                        };
-                    }
-                    _ => (),
+                    tx.gas_price = if max_fee >= max_priority_fee + base_fee {
+                        Some(base_fee + max_priority_fee)
+                    } else {
+                        Some(max_fee)
+                    };
                 }
 
                 tx
