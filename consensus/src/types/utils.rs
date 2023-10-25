@@ -99,9 +99,32 @@ impl From<ExecutionPayload> for Block {
         let txs = value
             .transactions()
             .iter()
-            .map(|tx| {
+            .enumerate()
+            .map(|(i, tx)| {
                 let rlp = Rlp::new(tx.as_slice());
-                Transaction::decode(&rlp).unwrap()
+                let mut tx = Transaction::decode(&rlp).unwrap();
+
+                tx.block_number = Some(value.block_number().as_u64().into());
+                tx.block_hash = Some(H256::from_slice(value.block_hash()));
+                tx.from = tx.recover_from().unwrap();
+                tx.transaction_index = Some(i.into());
+
+                match (tx.max_fee_per_gas, tx.max_priority_fee_per_gas) {
+                    (Some(max_fee), Some(max_priority_fee)) => {
+                        let base_fee = ethers::types::U256::from_little_endian(
+                            &value.base_fee_per_gas().to_bytes_le(),
+                        );
+
+                        tx.gas_price = if max_fee >= max_priority_fee + base_fee {
+                            Some(base_fee + max_priority_fee)
+                        } else {
+                            Some(max_fee)
+                        };
+                    }
+                    _ => (),
+                }
+
+                tx
             })
             .collect::<Vec<Transaction>>();
 
