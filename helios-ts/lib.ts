@@ -41,7 +41,6 @@ export class HeliosProvider {
       };
       case "eth_getTransactionByHash": {
         let tx = await this.#client.get_transaction_by_hash(req.params[0]);
-        console.log(mapToObj(tx));
         return mapToObj(tx);
       };
       case "eth_getTransactionCount": {
