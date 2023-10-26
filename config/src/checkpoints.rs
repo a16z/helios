@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ethers::types::H256;
 use eyre::Result;
-use retri::{BackoffSettings, retry};
+use retri::{retry, BackoffSettings};
 use serde::{Deserialize, Serialize};
 
 use crate::networks;
