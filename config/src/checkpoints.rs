@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use backoff::future::retry_notify;
-use backoff::ExponentialBackoff;
 use ethers::types::H256;
+use eyre::Result;
+use retri::{retry, BackoffSettings};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::networks;
 
@@ -76,11 +75,10 @@ pub struct CheckpointFallback {
     pub networks: Vec<networks::Network>,
 }
 
-async fn get(req: &str) -> Result<reqwest::Response, reqwest::Error> {
-    retry_notify(
-        ExponentialBackoff::default(),
-        || async { Ok(reqwest::get(req).await?) },
-        |e, dur| warn!(target: "helios::checkpoint", "rpc error occurred at {:?}: {}", dur, e),
+async fn get(req: &str) -> Result<reqwest::Response> {
+    retry(
+        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?) },
+        BackoffSettings::default(),
     )
     .await
 }

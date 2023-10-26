@@ -1,14 +1,13 @@
+use std::cmp;
+
 use async_trait::async_trait;
 use eyre::Result;
+use retri::{retry, BackoffSettings};
 use serde::de::DeserializeOwned;
-use std::cmp;
-use tracing::warn;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::types::*;
-use backoff::future::retry_notify;
-use backoff::ExponentialBackoff;
 use common::errors::RpcError;
 
 #[derive(Debug)]
@@ -17,10 +16,9 @@ pub struct NimbusRpc {
 }
 
 async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
-    let bytes = retry_notify(
-        ExponentialBackoff::default(),
-        || async { Ok(reqwest::get(req).await?.bytes().await?) },
-        |e, dur| warn!(target: "helios::nimbus_rpc",  "rpc error occurred at {:?}: {}", dur, e),
+    let bytes = retry(
+        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?.bytes().await?) },
+        BackoffSettings::default(),
     )
     .await?;
 
