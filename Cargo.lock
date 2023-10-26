@@ -4072,7 +4072,8 @@ dependencies = [
 [[package]]
 name = "retri"
 version = "0.1.0"
-source = "git+https://github.com/ncitron/retri?rev=ca724f0e0a033e29fbd0d898f98c407705201a9a#ca724f0e0a033e29fbd0d898f98c407705201a9a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6262146231c1ef2e31ad7b2a2492bc652fafd6b76568da7b63ac1d5f3674ee4"
 dependencies = [
  "zduny-wasm-timer",
 ]
