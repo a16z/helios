@@ -1,9 +1,9 @@
+use std::cmp;
+
 use async_trait::async_trait;
 use eyre::Result;
+use retri::{retry, BackoffSettings};
 use serde::de::DeserializeOwned;
-use std::cmp;
-use std::time::Duration;
-use tracing::warn;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
@@ -16,18 +16,11 @@ pub struct NimbusRpc {
 }
 
 async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
-    let mut counter = 0;
-    let bytes = loop {
-        let res = async { Ok::<_, reqwest::Error>(reqwest::get(req).await?.bytes().await?) }.await;
-        if res.is_ok() || counter > 10 {
-            break res;
-        }
-
-        warn!(target: "helios::nimbus_rpc", "retrying request");
-
-        counter += 1;
-        zduny_wasm_timer::Delay::new(Duration::from_millis(100)).await?;
-    }?;
+    let bytes = retry(
+        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?.bytes().await?) },
+        BackoffSettings::default(),
+    )
+    .await?;
 
     Ok(serde_json::from_slice::<R>(&bytes)?)
 }
