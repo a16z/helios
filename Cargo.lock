@@ -835,7 +835,6 @@ name = "consensus"
 version = "0.5.1"
 dependencies = [
  "async-trait",
- "backoff",
  "bytes",
  "chrono",
  "common",
