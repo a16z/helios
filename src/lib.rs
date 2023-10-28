@@ -51,7 +51,6 @@
 //! Errors used across helios.
 
 pub mod client {
-    #[cfg(not(target_arch = "wasm32"))]
     pub use client::{Client, ClientBuilder};
     pub use consensus::database::*;
 }
