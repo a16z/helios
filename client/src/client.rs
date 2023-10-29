@@ -69,6 +69,12 @@ impl ClientBuilder {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub fn rpc_bind_ip(mut self, ip: IpAddr) -> Self {
+        self.rpc_bind_ip = Some(ip);
+        self
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn rpc_port(mut self, port: u16) -> Self {
         self.rpc_port = Some(port);
         self
