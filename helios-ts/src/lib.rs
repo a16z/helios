@@ -77,6 +77,11 @@ impl Client {
     }
 
     #[wasm_bindgen]
+    pub async fn wait_synced(&self) {
+        self.inner.wait_synced().await;
+    }
+
+    #[wasm_bindgen]
     pub fn chain_id(&self) -> u32 {
         self.chain_id as u32
     }

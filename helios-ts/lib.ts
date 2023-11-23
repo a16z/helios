@@ -27,6 +27,10 @@ export class HeliosProvider {
   async sync() {
     await this.#client.sync();
   }
+
+  async waitSynced() {
+    await this.#client.wait_synced();
+  }
   
   async request(req: Request): Promise<any> {
     switch(req.method) {
