@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
+use dotenv::dotenv;
 
 use helios::{
     client::{Client, ClientBuilder, FileDB},
@@ -26,6 +27,7 @@ async fn main() -> eyre::Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
 
     // Load the rpc url using the `MAINNET_EXECUTION_RPC` environment variable
+    dotenv().ok();
     let eth_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let consensus_rpc = "https://www.lightclientdata.org";
     info!("Consensus RPC URL: {}", consensus_rpc);
