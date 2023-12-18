@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 
+use dotenv::dotenv;
 use ethers::prelude::*;
 use std::path::PathBuf;
 use tracing::info;
@@ -26,6 +27,7 @@ async fn main() -> eyre::Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
 
     // Load the rpc url using the `MAINNET_EXECUTION_RPC` environment variable
+    dotenv().ok();
     let eth_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let consensus_rpc = "https://www.lightclientdata.org";
     info!("Consensus RPC URL: {}", consensus_rpc);
