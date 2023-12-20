@@ -62,7 +62,19 @@ async fn main() -> eyre::Result<()> {
     };
 
     let result = client.call(&call_opts, BlockTag::Latest).await?;
-    info!("[HELIOS] DAI total supply: {:?}", result);
+    info!("[HELIOS] DAI total supply: {}", format_total_supply(&result, 18));
 
     Ok(())
+}
+
+fn format_total_supply(response: &[u8], decimals: u32) -> String {
+    assert_eq!(response.len(), 32, "32 bytes is expected as a result of a totalSupply() call");
+    let hi = u128::from_be_bytes(response[..16].try_into().unwrap());
+    assert_eq!(hi, 0, "totalSupply() result is expected to fit in 16 bytes");
+    let lo = u128::from_be_bytes(response[16..].try_into().unwrap());
+
+    let decimals = 10u128.pow(decimals);
+    let n = lo / decimals;
+    let r = lo % decimals;
+    format!("{n}.{r}")
 }
