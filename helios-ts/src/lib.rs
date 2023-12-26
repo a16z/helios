@@ -4,13 +4,16 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use common::types::BlockTag;
-use consensus::database::ConfigDB;
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
 
 use wasm_bindgen::prelude::*;
 
 use config::{networks, Config};
+
+use crate::storage::StorageDB;
+
+pub mod storage;
 
 #[allow(unused_macros)]
 macro_rules! log {
@@ -21,7 +24,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    inner: client::Client<ConfigDB>,
+    inner: client::Client<StorageDB>,
     chain_id: u64,
 }
 
@@ -65,7 +68,7 @@ impl Client {
             ..Default::default()
         };
 
-        let inner: client::Client<ConfigDB> =
+        let inner: client::Client<StorageDB> =
             client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { inner, chain_id }
