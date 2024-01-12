@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 
 use config::{networks, Config};
 
-use crate::storage::StorageDB;
+use crate::storage::LocalStorageDB;
 
 pub mod storage;
 
@@ -24,7 +24,7 @@ macro_rules! log {
 
 #[wasm_bindgen]
 pub struct Client {
-    inner: client::Client<StorageDB>,
+    inner: client::Client<LocalStorageDB>,
     chain_id: u64,
 }
 
@@ -68,7 +68,7 @@ impl Client {
             ..Default::default()
         };
 
-        let inner: client::Client<StorageDB> =
+        let inner: client::Client<LocalStorageDB> =
             client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { inner, chain_id }

@@ -31,7 +31,7 @@ export class HeliosProvider {
   async waitSynced() {
     await this.#client.wait_synced();
   }
-  
+
   async request(req: Request): Promise<any> {
     switch(req.method) {
       case "eth_getBalance": {
