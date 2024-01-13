@@ -10,11 +10,10 @@ use wasm_bindgen::prelude::*;
 pub struct LocalStorageDB;
 
 impl Database for LocalStorageDB {
-    fn new(config: &Config) -> Result<Self> {
+    fn new(_config: &Config) -> Result<Self> {
         console_error_panic_hook::set_once();
         let window = web_sys::window().unwrap();
         if let Ok(Some(_local_storage)) = window.local_storage() {
-            Self.save_checkpoint(&config.default_checkpoint)?;
             return Ok(Self {});
         }
 
