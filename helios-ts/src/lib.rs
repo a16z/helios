@@ -34,8 +34,8 @@ impl Database for DatabaseType {
     fn new(config: &Config) -> Result<Self> {
         // Implement this method based on the behavior of ConfigDB and LocalStorageDB
         match config.database_type.as_deref() {
-            Some("memory") => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
-            Some("local_storage") => Ok(DatabaseType::LocalStorage(LocalStorageDB::new(config)?)),
+            Some("config") => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
+            Some("localstorage") => Ok(DatabaseType::LocalStorage(LocalStorageDB::new(config)?)),
             _ => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
         }
     }

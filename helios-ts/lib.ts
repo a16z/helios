@@ -20,7 +20,7 @@ export class HeliosProvider {
     const consensusRpc = config.consensusRpc;
     const checkpoint = config.checkpoint;
     const network = config.network ?? Network.MAINNET;
-    const dbType = config.dbType ?? "local_storage";
+    const dbType = config.dbType ?? "localstorage";
 
     this.#client = new Client(
       executionRpc,
@@ -108,8 +108,8 @@ export type Config = {
   consensusRpc?: string;
   checkpoint?: string;
   network?: Network;
-  /** Where to cache checkpoints, default to "local_storage" */
-  dbType?: "local_storage" | "memory";
+  /** Where to cache checkpoints, default to "localstorage" */
+  dbType?: "localstorage" | "config";
 };
 
 export enum Network {
