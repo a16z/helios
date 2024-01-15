@@ -30,6 +30,7 @@ pub struct Config {
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
     pub strict_checkpoint_age: bool,
+    pub database_type: Option<String>,
 }
 
 impl Config {

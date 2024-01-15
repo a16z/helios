@@ -4,13 +4,18 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use common::types::BlockTag;
-use consensus::database::ConfigDB;
+use consensus::database::{ConfigDB, Database};
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
+use eyre::Result;
 
 use wasm_bindgen::prelude::*;
 
 use config::{networks, Config};
+
+use crate::storage::LocalStorageDB;
+
+pub mod storage;
 
 #[allow(unused_macros)]
 macro_rules! log {
@@ -19,9 +24,40 @@ macro_rules! log {
     }
 }
 
+#[derive(Clone)]
+pub enum DatabaseType {
+    Memory(ConfigDB),
+    LocalStorage(LocalStorageDB),
+}
+
+impl Database for DatabaseType {
+    fn new(config: &Config) -> Result<Self> {
+        // Implement this method based on the behavior of ConfigDB and LocalStorageDB
+        match config.database_type.as_deref() {
+            Some("config") => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
+            Some("localstorage") => Ok(DatabaseType::LocalStorage(LocalStorageDB::new(config)?)),
+            _ => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
+        }
+    }
+
+    fn load_checkpoint(&self) -> Result<Vec<u8>> {
+        match self {
+            DatabaseType::Memory(db) => db.load_checkpoint(),
+            DatabaseType::LocalStorage(db) => db.load_checkpoint(),
+        }
+    }
+
+    fn save_checkpoint(&self, checkpoint: &[u8]) -> Result<()> {
+        match self {
+            DatabaseType::Memory(db) => db.save_checkpoint(checkpoint),
+            DatabaseType::LocalStorage(db) => db.save_checkpoint(checkpoint),
+        }
+    }
+}
+
 #[wasm_bindgen]
 pub struct Client {
-    inner: client::Client<ConfigDB>,
+    inner: client::Client<DatabaseType>,
     chain_id: u64,
 }
 
@@ -33,6 +69,7 @@ impl Client {
         consensus_rpc: Option<String>,
         network: String,
         checkpoint: Option<String>,
+        db_type: String,
     ) -> Self {
         console_error_panic_hook::set_once();
 
@@ -62,10 +99,11 @@ impl Client {
             chain: base.chain,
             forks: base.forks,
 
+            database_type: Some(db_type),
             ..Default::default()
         };
 
-        let inner: client::Client<ConfigDB> =
+        let inner: client::Client<DatabaseType> =
             client::ClientBuilder::new().config(config).build().unwrap();
 
         Self { inner, chain_id }

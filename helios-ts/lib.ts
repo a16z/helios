@@ -1,7 +1,8 @@
 import init, { Client } from "./pkg/index";
 
-
-export async function createHeliosProvider(config: Config): Promise<HeliosProvider> {
+export async function createHeliosProvider(
+  config: Config
+): Promise<HeliosProvider> {
   const wasmData = require("./pkg/index_bg.wasm");
   await init(wasmData);
   return new HeliosProvider(config);
@@ -19,8 +20,15 @@ export class HeliosProvider {
     const consensusRpc = config.consensusRpc;
     const checkpoint = config.checkpoint;
     const network = config.network ?? Network.MAINNET;
+    const dbType = config.dbType ?? "localstorage";
 
-    this.#client = new Client(executionRpc, consensusRpc, network, checkpoint);
+    this.#client = new Client(
+      executionRpc,
+      consensusRpc,
+      network,
+      checkpoint,
+      dbType
+    );
     this.#chainId = this.#client.chain_id();
   }
 
@@ -31,74 +39,78 @@ export class HeliosProvider {
   async waitSynced() {
     await this.#client.wait_synced();
   }
-  
+
   async request(req: Request): Promise<any> {
-    switch(req.method) {
+    switch (req.method) {
       case "eth_getBalance": {
         return this.#client.get_balance(req.params[0], req.params[1]);
-      };
+      }
       case "eth_chainId": {
         return this.#chainId;
-      };
+      }
       case "eth_blockNumber": {
         return this.#client.get_block_number();
-      };
+      }
       case "eth_getTransactionByHash": {
         let tx = await this.#client.get_transaction_by_hash(req.params[0]);
         return mapToObj(tx);
-      };
+      }
       case "eth_getTransactionCount": {
         return this.#client.get_transaction_count(req.params[0], req.params[1]);
-      };
+      }
       case "eth_getBlockTransactionCountByHash": {
         return this.#client.get_block_transaction_count_by_hash(req.params[0]);
-      };
+      }
       case "eth_getBlockTransactionCountByNumber": {
-        return this.#client.get_block_transaction_count_by_number(req.params[0]);
-      };
+        return this.#client.get_block_transaction_count_by_number(
+          req.params[0]
+        );
+      }
       case "eth_getCode": {
         return this.#client.get_code(req.params[0], req.params[1]);
-      };
+      }
       case "eth_call": {
         return this.#client.call(req.params[0], req.params[1]);
-      };
+      }
       case "eth_estimateGas": {
         return this.#client.estimate_gas(req.params[0]);
-      };
+      }
       case "eth_gasPrice": {
         return this.#client.gas_price();
-      };
+      }
       case "eth_maxPriorityFeePerGas": {
         return this.#client.max_priority_fee_per_gas();
-      };
+      }
       case "eth_sendRawTransaction": {
         return this.#client.send_raw_transaction(req.params[0]);
-      };
+      }
       case "eth_getTransactionReceipt": {
         return this.#client.get_transaction_receipt(req.params[0]);
-      };
+      }
       case "eth_getLogs": {
         return this.#client.get_logs(req.params[0]);
-      };
+      }
       case "net_version": {
         return this.#chainId;
-      };
+      }
       case "eth_getBlockByNumber": {
         return this.#client.get_block_by_number(req.params[0], req.params[1]);
-      };
+      }
       default: {
         throw `method not implemented: ${req.method}`;
-      };
+      }
     }
   }
 }
 
 export type Config = {
-  executionRpc: string,
-  consensusRpc?: string,
-  checkpoint?: string,
-  network?: Network,
-}
+  executionRpc: string;
+  consensusRpc?: string;
+  checkpoint?: string;
+  network?: Network;
+  /** Where to cache checkpoints, default to "localstorage" */
+  dbType?: "localstorage" | "config";
+};
 
 export enum Network {
   MAINNET = "mainnet",
@@ -106,12 +118,12 @@ export enum Network {
 }
 
 type Request = {
-  method: string,
-  params: any[],
-}
+  method: string;
+  params: any[];
+};
 
 function mapToObj(map: Map<any, any> | undefined): Object | undefined {
-  if(!map) return undefined;
+  if (!map) return undefined;
 
   return Array.from(map).reduce((obj: any, [key, value]) => {
     if (value !== undefined) {
@@ -121,4 +133,3 @@ function mapToObj(map: Map<any, any> | undefined): Object | undefined {
     return obj;
   }, {});
 }
-

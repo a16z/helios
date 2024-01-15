@@ -7,7 +7,7 @@ module.exports = {
     rules: [
       {
         test: /\.ts?$/,
-        use: 'ts-loader',
+        use: "ts-loader",
         exclude: /node_modules/,
       },
       {
@@ -17,16 +17,16 @@ module.exports = {
     ],
   },
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: [".ts", ".js"],
   },
   output: {
     filename: "lib.js",
-    globalObject: 'this', 
+    globalObject: "this",
     path: path.resolve(__dirname, "dist"),
     library: {
       name: "helios",
       type: "umd",
-    }
+    },
   },
   experiments: {
     asyncWebAssembly: true,

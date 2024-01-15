@@ -217,6 +217,7 @@ impl ClientBuilder {
             fallback,
             load_external_fallback,
             strict_checkpoint_age,
+            database_type: None,
         };
 
         Client::<DB>::new(config)
