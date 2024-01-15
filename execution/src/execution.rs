@@ -283,7 +283,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
-        for (_pos, log) in logs.iter().enumerate() {
+        for log in logs.iter() {
             // For every log
             // Get the hash of the tx that generated it
             let tx_hash = log
