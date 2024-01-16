@@ -31,7 +31,7 @@ milagro_bls = { git = "https://github.com/Snowfork/milagro_bls" }
 
 # execution
 ethers = "2.0.11"
-revm = { git = "https://github.com/bluealloy/revm", rev = "ac5c74824fb1a5935a65252903a2585ab9dd7825", default-features = false, features = ["std", "serde"] }
+revm = { git = "https://github.com/bluealloy/revm", rev = "23cbac479f616eba5ab11ddfe6d5814b9c492202", default-features = false, features = ["std", "serde"] }
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
 
 # async/futures
