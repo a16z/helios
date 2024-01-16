@@ -405,7 +405,12 @@ mod tests {
         let mut proof_db = ProofDB::new(tag, Arc::new(execution));
 
         let address = Address::from_str("0x388C818CA8B9251b393131C08a736A67ccB19297").unwrap();
-        let info = AccountInfo::new(U256::from(500), 10, KECCAK_EMPTY, Bytecode::new_raw(Bytes::default()));
+        let info = AccountInfo::new(
+            U256::from(500),
+            10,
+            KECCAK_EMPTY,
+            Bytecode::new_raw(Bytes::default()),
+        );
         proof_db.state.basic.insert(address, info.clone());
 
         // Get the account from the proof database
