@@ -26,7 +26,7 @@ pub struct BeaconBlock {
 }
 
 #[superstruct(
-    variants(Bellatrix, Capella),
+    variants(Bellatrix, Capella, Deneb),
     variant_attributes(
         derive(serde::Deserialize, Clone, Debug, SimpleSerialize, Default),
         serde(deny_unknown_fields)
@@ -47,6 +47,8 @@ pub struct BeaconBlockBody {
     pub execution_payload: ExecutionPayload,
     #[superstruct(only(Capella))]
     bls_to_execution_changes: List<SignedBlsToExecutionChange, 16>,
+    #[superstruct(only(Deneb))]
+    blob_kzg_commitments: List<ByteVector<48>, 4096>,
 }
 
 impl Default for BeaconBlockBody {
@@ -71,7 +73,7 @@ pub struct BlsToExecutionChange {
 }
 
 #[superstruct(
-    variants(Bellatrix, Capella),
+    variants(Bellatrix, Capella, Deneb),
     variant_attributes(
         derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone),
         serde(deny_unknown_fields)
@@ -97,6 +99,10 @@ pub struct ExecutionPayload {
     pub transactions: List<Transaction, 1048576>,
     #[superstruct(only(Capella))]
     withdrawals: List<Withdrawal, 16>,
+    #[superstruct(only(Deneb))]
+    blob_gas_used: U64,
+    #[superstruct(only(Deneb))]
+    excess_blob_gas: U64,
 }
 
 impl Default for ExecutionPayload {

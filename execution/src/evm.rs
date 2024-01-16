@@ -1,13 +1,13 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use bytes::Bytes;
 use common::types::BlockTag;
 use ethers::types::transaction::eip2930::AccessListItem;
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
     primitives::{
-        AccountInfo, Bytecode, Env, ExecutionResult, ResultAndState, TransactTo, B160, B256, U256,
+        AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult, ResultAndState, TransactTo,
+        B256, U256,
     },
     Database, EVM,
 };
@@ -39,7 +39,9 @@ impl<R: ExecutionRpc> Evm<R> {
 
         match tx.result {
             ExecutionResult::Success { output, .. } => Ok(output.into_data().to_vec()),
-            ExecutionResult::Revert { output, .. } => Err(EvmError::Revert(Some(output))),
+            ExecutionResult::Revert { output, .. } => {
+                Err(EvmError::Revert(Some(output.to_vec().into())))
+            }
             ExecutionResult::Halt { .. } => Err(EvmError::Revert(None)),
         }
     }
@@ -84,19 +86,21 @@ impl<R: ExecutionRpc> Evm<R> {
 
     async fn get_env(&self, opts: &CallOpts, tag: BlockTag) -> Env {
         let mut env = Env::default();
+        let to = convert_address(&opts.to.unwrap_or_default());
+        let from = convert_address(&opts.from.unwrap_or_default());
 
-        env.tx.transact_to = TransactTo::Call(opts.to.unwrap_or_default().into());
-        env.tx.caller = opts.from.map(B160::from).unwrap_or_default();
+        env.tx.transact_to = TransactTo::Call(to);
+        env.tx.caller = from;
         env.tx.value = opts
             .value
-            .map(|value| B256::from(value).into())
+            .map(|value| convert_u256(&value))
             .unwrap_or_default();
 
         env.tx.data = Bytes::from(opts.data.clone().unwrap_or_default().to_vec());
         env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
         env.tx.gas_price = opts
             .gas_price
-            .map(|g| B256::from(g).into())
+            .map(|gas_price| convert_u256(&gas_price))
             .unwrap_or_default();
 
         let block = self
@@ -110,11 +114,10 @@ impl<R: ExecutionRpc> Evm<R> {
             .unwrap();
 
         env.block.number = U256::from(block.number.as_u64());
-        env.block.coinbase = block.miner.into();
+        env.block.coinbase = convert_address(&block.miner);
         env.block.timestamp = U256::from(block.timestamp.as_u64());
-        env.block.difficulty = block.difficulty.into();
-
-        env.cfg.chain_id = U256::from(self.chain_id);
+        env.block.difficulty = convert_u256(&block.difficulty);
+        env.cfg.chain_id = self.chain_id;
 
         env
     }
@@ -133,15 +136,15 @@ impl<R: ExecutionRpc> ProofDB<R> {
 }
 
 enum StateAccess {
-    Basic(B160),
+    Basic(Address),
     BlockHash(u64),
-    Storage(B160, U256),
+    Storage(Address, U256),
 }
 
 struct EvmState<R: ExecutionRpc> {
-    basic: HashMap<B160, AccountInfo>,
+    basic: HashMap<Address, AccountInfo>,
     block_hash: HashMap<u64, B256>,
-    storage: HashMap<B160, HashMap<U256, U256>>,
+    storage: HashMap<Address, HashMap<U256, U256>>,
     block: BlockTag,
     access: Option<StateAccess>,
     execution: Arc<ExecutionClient<R>>,
@@ -163,32 +166,45 @@ impl<R: ExecutionRpc> EvmState<R> {
         if let Some(access) = &self.access.take() {
             match access {
                 StateAccess::Basic(address) => {
+                    let address_ethers = ethers::types::Address::from_slice(address.as_slice());
                     let account = self
                         .execution
-                        .get_account(&(*address).into(), None, self.block)
+                        .get_account(&address_ethers, None, self.block)
                         .await?;
+
                     let bytecode = Bytecode::new_raw(account.code.into());
-                    let account = AccountInfo::new(account.balance.into(), account.nonce, bytecode);
+                    let code_hash = B256::from_slice(account.code_hash.as_bytes());
+                    let balance = convert_u256(&account.balance);
+
+                    let account = AccountInfo::new(balance, account.nonce, code_hash, bytecode);
                     self.basic.insert(*address, account);
                 }
                 StateAccess::Storage(address, slot) => {
+                    let address_ethers = ethers::types::Address::from_slice(address.as_slice());
                     let slot_ethers = ethers::types::H256::from_slice(&slot.to_be_bytes::<32>());
                     let slots = [slot_ethers];
                     let account = self
                         .execution
-                        .get_account(&(*address).into(), Some(&slots), self.block)
+                        .get_account(&address_ethers, Some(&slots), self.block)
                         .await?;
 
                     let storage = self.storage.entry(*address).or_default();
                     let value = *account.slots.get(&slot_ethers).unwrap();
-                    storage.insert(*slot, value.into());
+
+                    let mut value_slice = [0u8; 32];
+                    value.to_big_endian(value_slice.as_mut_slice());
+                    let value = U256::from_be_slice(&value_slice);
+
+                    storage.insert(*slot, value);
                 }
                 StateAccess::BlockHash(number) => {
                     let block = self
                         .execution
                         .get_block(BlockTag::Number(*number), false)
                         .await?;
-                    self.block_hash.insert(*number, block.hash.into());
+
+                    let hash = B256::from_slice(block.hash.as_bytes());
+                    self.block_hash.insert(*number, hash);
                 }
             }
         }
@@ -200,7 +216,7 @@ impl<R: ExecutionRpc> EvmState<R> {
         self.access.is_some()
     }
 
-    pub fn get_basic(&mut self, address: B160) -> Result<AccountInfo> {
+    pub fn get_basic(&mut self, address: Address) -> Result<AccountInfo> {
         if let Some(account) = self.basic.get(&address) {
             Ok(account.clone())
         } else {
@@ -209,7 +225,7 @@ impl<R: ExecutionRpc> EvmState<R> {
         }
     }
 
-    pub fn get_storage(&mut self, address: B160, slot: U256) -> Result<U256> {
+    pub fn get_storage(&mut self, address: Address, slot: U256) -> Result<U256> {
         let storage = self.storage.entry(address).or_default();
         if let Some(slot) = storage.get(&slot) {
             Ok(*slot)
@@ -289,19 +305,23 @@ impl<R: ExecutionRpc> EvmState<R> {
         }
 
         for (address, account) in account_map {
-            let info = AccountInfo::new(
-                account.balance.into(),
-                account.nonce,
-                Bytecode::new_raw(account.code.into()),
-            );
+            let bytecode = Bytecode::new_raw(account.code.into());
+            let code_hash = B256::from_slice(account.code_hash.as_bytes());
+            let balance = convert_u256(&account.balance);
 
-            self.basic.insert(address.into(), info);
+            let info = AccountInfo::new(balance, account.nonce, code_hash, bytecode);
+
+            let address = convert_address(&address);
+            self.basic.insert(address, info);
 
             for (slot, value) in account.slots {
+                let slot = B256::from_slice(slot.as_bytes());
+                let value = convert_u256(&value);
+
                 self.storage
-                    .entry(address.into())
+                    .entry(address)
                     .or_default()
-                    .insert(B256::from(slot).into(), value.into());
+                    .insert(B256::from(slot).into(), value);
             }
         }
 
@@ -312,7 +332,7 @@ impl<R: ExecutionRpc> EvmState<R> {
 impl<R: ExecutionRpc> Database for ProofDB<R> {
     type Error = Report;
 
-    fn basic(&mut self, address: B160) -> Result<Option<AccountInfo>, Report> {
+    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Report> {
         if is_precompile(&address) {
             return Ok(Some(AccountInfo::default()));
         }
@@ -320,7 +340,7 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         trace!(
             target: "helios::evm",
             "fetch basic evm state for address=0x{}",
-            hex::encode(address.as_bytes())
+            hex::encode(address.as_slice())
         );
 
         Ok(Some(self.state.get_basic(address)?))
@@ -328,11 +348,13 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Report> {
         trace!(target: "helios::evm", "fetch block hash for block={:?}", number);
-        let number_ethers: ethers::types::U256 = number.into();
-        self.state.get_block_hash(number_ethers.as_u64())
+        let number = number
+            .try_into()
+            .map_err(|_| eyre::eyre!("invalid block number"))?;
+        self.state.get_block_hash(number)
     }
 
-    fn storage(&mut self, address: B160, slot: U256) -> Result<U256, Report> {
+    fn storage(&mut self, address: Address, slot: U256) -> Result<U256, Report> {
         trace!(target: "helios::evm", "fetch evm state for address={:?}, slot={}", address, slot);
         self.state.get_storage(address, slot)
     }
@@ -342,13 +364,24 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
     }
 }
 
-fn is_precompile(address: &B160) -> bool {
-    address.le(&B160::from_str("0x0000000000000000000000000000000000000009").unwrap())
-        && address.gt(&B160::zero())
+fn is_precompile(address: &Address) -> bool {
+    address.le(&Address::from_str("0x0000000000000000000000000000000000000009").unwrap())
+        && address.gt(&Address::ZERO)
+}
+
+fn convert_u256(value: &ethers::types::U256) -> U256 {
+    let mut value_slice = [0u8; 32];
+    value.to_big_endian(value_slice.as_mut_slice());
+    U256::from_be_slice(&value_slice)
+}
+
+fn convert_address(value: &ethers::types::Address) -> Address {
+    Address::from_slice(value.as_bytes())
 }
 
 #[cfg(test)]
 mod tests {
+    use revm::primitives::KECCAK_EMPTY;
     use tokio::sync::{mpsc::channel, watch};
 
     use crate::{rpc::mock_rpc::MockRpc, state::State};
@@ -371,8 +404,13 @@ mod tests {
         // Construct the proof database with the given client
         let mut proof_db = ProofDB::new(tag, Arc::new(execution));
 
-        let address = B160::from_str("0x388C818CA8B9251b393131C08a736A67ccB19297").unwrap();
-        let info = AccountInfo::new(U256::from(500), 10, Bytecode::new_raw(Bytes::default()));
+        let address = Address::from_str("0x388C818CA8B9251b393131C08a736A67ccB19297").unwrap();
+        let info = AccountInfo::new(
+            U256::from(500),
+            10,
+            KECCAK_EMPTY,
+            Bytecode::new_raw(Bytes::default()),
+        );
         proof_db.state.basic.insert(address, info.clone());
 
         // Get the account from the proof database

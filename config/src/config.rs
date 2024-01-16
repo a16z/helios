@@ -80,6 +80,8 @@ impl Config {
             self.forks.bellatrix.fork_version.clone()
         } else if epoch >= self.forks.altair.epoch {
             self.forks.altair.fork_version.clone()
+        } else if epoch >= self.forks.deneb.epoch {
+            self.forks.deneb.fork_version.clone()
         } else {
             self.forks.genesis.fork_version.clone()
         }

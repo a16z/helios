@@ -102,7 +102,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             slot_map.insert(storage_proof.key, storage_proof.value);
         }
 
-        let code = if proof.code_hash == KECCAK_EMPTY.into() {
+        let code = if proof.code_hash == H256::from_slice(KECCAK_EMPTY.as_slice()) {
             Vec::new()
         } else {
             let code = self.rpc.get_code(address, block.number.as_u64()).await?;

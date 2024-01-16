@@ -98,6 +98,10 @@ pub fn mainnet() -> BaseConfig {
                 epoch: 194048,
                 fork_version: hex_str_to_bytes("0x03000000").unwrap(),
             },
+            deneb: Fork {
+                epoch: u64::MAX,
+                fork_version: hex_str_to_bytes("0x04000000").unwrap(),
+            },
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
@@ -139,6 +143,10 @@ pub fn goerli() -> BaseConfig {
                 epoch: 162304,
                 fork_version: hex_str_to_bytes("0x03001020").unwrap(),
             },
+            deneb: Fork {
+                epoch: 231680,
+                fork_version: hex_str_to_bytes("0x04001020").unwrap(),
+            },
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
@@ -179,6 +187,10 @@ pub fn sepolia() -> BaseConfig {
             capella: Fork {
                 epoch: 56832,
                 fork_version: hex_str_to_bytes("0x90000072").unwrap(),
+            },
+            deneb: Fork {
+                epoch: u64::MAX,
+                fork_version: hex_str_to_bytes("0x90000073").unwrap(),
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
