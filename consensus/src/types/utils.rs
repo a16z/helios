@@ -52,6 +52,7 @@ macro_rules! superstruct_ssz {
                 match self {
                     $type::Bellatrix(inner) => inner.hash_tree_root(),
                     $type::Capella(inner) => inner.hash_tree_root(),
+                    $type::Deneb(inner) => inner.hash_tree_root(),
                 }
             }
         }
@@ -71,6 +72,7 @@ macro_rules! superstruct_ssz {
                 match self {
                     $type::Bellatrix(inner) => inner.serialize(buffer),
                     $type::Capella(inner) => inner.serialize(buffer),
+                    $type::Deneb(inner) => inner.serialize(buffer),
                 }
             }
         }
