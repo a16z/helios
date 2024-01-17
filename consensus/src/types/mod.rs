@@ -45,7 +45,7 @@ pub struct BeaconBlockBody {
     voluntary_exits: List<SignedVoluntaryExit, 16>,
     sync_aggregate: SyncAggregate,
     pub execution_payload: ExecutionPayload,
-    #[superstruct(only(Capella))]
+    #[superstruct(only(Capella, Deneb))]
     bls_to_execution_changes: List<SignedBlsToExecutionChange, 16>,
     #[superstruct(only(Deneb))]
     blob_kzg_commitments: List<ByteVector<48>, 4096>,
@@ -97,7 +97,7 @@ pub struct ExecutionPayload {
     pub base_fee_per_gas: U256,
     pub block_hash: Bytes32,
     pub transactions: List<Transaction, 1048576>,
-    #[superstruct(only(Capella))]
+    #[superstruct(only(Capella, Deneb))]
     withdrawals: List<Withdrawal, 16>,
     #[superstruct(only(Deneb))]
     blob_gas_used: U64,

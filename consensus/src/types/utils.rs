@@ -104,7 +104,7 @@ impl From<ExecutionPayload> for Block {
             .enumerate()
             .map(|(i, tx)| {
                 let rlp = Rlp::new(tx.as_slice());
-                let mut tx = Transaction::decode(&rlp).unwrap();
+                let mut tx = Transaction::decode(&rlp)?;
 
                 tx.block_number = Some(value.block_number().as_u64().into());
                 tx.block_hash = Some(H256::from_slice(value.block_hash()));
@@ -125,8 +125,9 @@ impl From<ExecutionPayload> for Block {
                     };
                 }
 
-                tx
+                Ok::<_, eyre::Report>(tx)
             })
+            .filter_map(|tx| tx.ok())
             .collect::<Vec<Transaction>>();
 
         Block {
