@@ -548,6 +548,10 @@ impl<R: ConsensusRpc> Inner<R> {
 
         let should_apply_update = {
             let has_majority = committee_bits * 3 >= 512 * 2;
+            if !has_majority {
+                tracing::warn!("skipping block with low vote count");
+            }
+
             let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
             let good_update = update_is_newer || update_has_finalized_next_committee;
 
@@ -583,8 +587,6 @@ impl<R: ConsensusRpc> Inner<R> {
                     self.store.optimistic_header = self.store.finalized_header.clone();
                 }
             }
-        } else {
-            tracing::warn!("skipping block with low vote count");
         }
     }
 
