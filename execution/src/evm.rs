@@ -58,14 +58,14 @@ impl<R: ExecutionRpc> Evm<R> {
 
     async fn call_inner(&mut self, opts: &CallOpts) -> Result<ResultAndState, EvmError> {
         let env = self.get_env(opts, self.tag).await;
-        self.evm
+        _ = self
+            .evm
             .db
             .as_mut()
             .unwrap()
             .state
             .prefetch_state(opts)
-            .await
-            .map_err(|err| EvmError::Generic(err.to_string()))?;
+            .await;
 
         let tx_res = loop {
             self.evm.env = env.clone();

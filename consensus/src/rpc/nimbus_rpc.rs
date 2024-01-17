@@ -78,6 +78,8 @@ impl ConsensusRpc for NimbusRpc {
 
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock> {
         let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
+        // let res = reqwest::get(&req).await?.text().await?;
+        // println!("{}", res);
         let res: BeaconBlockResponse = get(&req).await.map_err(|e| RpcError::new("blocks", e))?;
 
         Ok(res.data.message)

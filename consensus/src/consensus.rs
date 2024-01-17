@@ -583,6 +583,8 @@ impl<R: ConsensusRpc> Inner<R> {
                     self.store.optimistic_header = self.store.finalized_header.clone();
                 }
             }
+        } else {
+            tracing::warn!("skipping block with low vote count");
         }
     }
 
@@ -598,7 +600,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn log_finality_update(&self, update: &GenericUpdate) {
         let participation =
-            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.finalized_header.slot.as_u64());
 
@@ -621,7 +623,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn log_optimistic_update(&self, update: &GenericUpdate) {
         let participation =
-            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512_f32 * 100f32;
+            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.optimistic_header.slot.as_u64());
 
