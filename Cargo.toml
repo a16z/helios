@@ -27,7 +27,7 @@ default-members = ["cli"]
 [workspace.dependencies]
 # consensus
 ssz-rs = { package = "ssz_rs", version = "0.9.0" }
-milagro_bls = { package = "snowbridge-milagro-bls", git = "https://github.com/Snowfork/milagro_bls" }
+milagro_bls = { package = "snowbridge-milagro-bls", git = "https://github.com/Snowfork/milagro_bls", rev = "6a95c9e33c6a41d9137761e593d53742ebb964de" }
 
 # execution
 ethers = "2.0.11"
