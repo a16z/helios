@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use ethers::types::H256;
 use eyre::Result;
 use retri::{retry, BackoffSettings};
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{self, Error},
+    Deserialize, Serialize,
+};
 
 use crate::networks;
 
@@ -22,6 +25,7 @@ pub struct RawSlotResponseData {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Slot {
+    #[serde(deserialize_with = "deserialize_slot")]
     pub slot: u64,
     pub block_root: Option<H256>,
     pub state_root: Option<H256>,
@@ -277,4 +281,18 @@ impl CheckpointFallback {
     ) -> &Vec<CheckpointFallbackService> {
         self.services[network].as_ref()
     }
+}
+
+fn deserialize_slot<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    let s: &str = de::Deserialize::deserialize(deserializer)?;
+    let s = if s.starts_with('"') {
+        &s[1..s.len() - 1]
+    } else {
+        s
+    };
+
+    s.parse().map_err(D::Error::custom)
 }
