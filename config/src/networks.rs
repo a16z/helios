@@ -20,6 +20,7 @@ pub enum Network {
     MAINNET,
     GOERLI,
     SEPOLIA,
+    HOLESKY,
 }
 
 impl FromStr for Network {
@@ -30,6 +31,7 @@ impl FromStr for Network {
             "mainnet" => Ok(Self::MAINNET),
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
+            "holesky" => Ok(Self::HOLESKY),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -41,6 +43,7 @@ impl Display for Network {
             Self::MAINNET => "mainnet",
             Self::GOERLI => "goerli",
             Self::SEPOLIA => "sepolia",
+            Self::HOLESKY => "holesky",
         };
 
         f.write_str(str)
@@ -53,6 +56,7 @@ impl Network {
             Self::MAINNET => mainnet(),
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
+            Self::HOLESKY => holesky(),
         }
     }
 
@@ -189,13 +193,58 @@ pub fn sepolia() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x90000072").unwrap(),
             },
             deneb: Fork {
-                epoch: u64::MAX,
+                epoch: 132608,
                 fork_version: hex_str_to_bytes("0x90000073").unwrap(),
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::SEPOLIA)),
+        ..std::default::Default::default()
+    }
+}
+
+pub fn holesky() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: hex_str_to_bytes(
+            "0xd8fad84478f4947c3d09cfefde36d09bb9e71217f650610a3eb730eba54cdf1f",
+        )
+        .unwrap(),
+        rpc_port: 8545,
+        consensus_rpc: None,
+        chain: ChainConfig {
+            chain_id: 17000,
+            genesis_time: 1695902400,
+            genesis_root: hex_str_to_bytes(
+                "0x9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1",
+            )
+            .unwrap(),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x01017000").unwrap(),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x02017000").unwrap(),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x03017000").unwrap(),
+            },
+            capella: Fork {
+                epoch: 256,
+                fork_version: hex_str_to_bytes("0x04017000").unwrap(),
+            },
+            deneb: Fork {
+                epoch: 29696,
+                fork_version: hex_str_to_bytes("0x05017000").unwrap(),
+            },
+        },
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::HOLESKY)),
         ..std::default::Default::default()
     }
 }
