@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.5.2"
+version = "0.5.4"
 edition = "2021"
 autobenches = false
 exclude = [
