@@ -2,7 +2,7 @@ use ethers::types::{Bytes, EIP1186ProofResponse};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::{decode_list, RlpStream};
 
-pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &[u8], value: &[u8]) -> bool {
+pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> bool {
     let mut expected_hash = root.to_vec();
     let mut path_offset = 0;
 
@@ -38,7 +38,7 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &[u8], value: &[u8]) 
                 }
 
                 // inclusion proof
-                if &node_list[1] == value {
+                if node_list[1] == value {
                     return paths_match(
                         &node_list[0],
                         skip_length(&node_list[0]),
@@ -107,7 +107,7 @@ fn is_empty_value(value: &[u8]) -> bool {
     let empty_account = stream.out();
 
     let is_empty_slot = value.len() == 1 && value[0] == 0x80;
-    let is_empty_account = value == &empty_account;
+    let is_empty_account = value == empty_account;
     is_empty_slot || is_empty_account
 }
 

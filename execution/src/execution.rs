@@ -89,7 +89,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             let is_valid = verify_proof(
                 &storage_proof.proof,
                 proof.storage_hash.as_bytes(),
-                &key_hash.to_vec(),
+                &key_hash,
                 &value,
             );
 
