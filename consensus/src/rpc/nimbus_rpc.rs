@@ -41,6 +41,8 @@ impl ConsensusRpc for NimbusRpc {
             self.rpc, root_hex
         );
 
+        println!("{}", req);
+
         let res: BootstrapResponse = get(&req).await.map_err(|e| RpcError::new("bootstrap", e))?;
 
         Ok(res.data)

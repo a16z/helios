@@ -72,7 +72,7 @@ impl Network {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         default_checkpoint: hex_str_to_bytes(
-            "0x7e495f50102bed2aae9e698b73a2a640de548658998033d732feb1c0c0c7f80b",
+            "0xc7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce",
         )
         .unwrap(),
         rpc_port: 8545,
