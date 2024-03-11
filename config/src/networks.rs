@@ -103,7 +103,7 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x03000000").unwrap(),
             },
             deneb: Fork {
-                epoch: u64::MAX,
+                epoch: 269568,
                 fork_version: hex_str_to_bytes("0x04000000").unwrap(),
             },
         },
