@@ -265,7 +265,7 @@ impl<DB: Database> Node<DB> {
             .unwrap()
             .as_secs();
 
-        let block_timestap = self
+        let block_timestamp = self
             .execution
             .get_block(BlockTag::Latest, false)
             .await
@@ -273,7 +273,7 @@ impl<DB: Database> Node<DB> {
             .timestamp
             .as_u64();
 
-        let delay = timestamp.checked_sub(block_timestap).unwrap_or_default();
+        let delay = timestamp.checked_sub(block_timestamp).unwrap_or_default();
         if delay > 60 {
             return Err(NodeError::OutOfSync(delay));
         }
