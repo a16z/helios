@@ -92,7 +92,11 @@ impl CheckpointFallback {
     pub fn new() -> Self {
         Self {
             services: Default::default(),
-            networks: [networks::Network::MAINNET, networks::Network::GOERLI].to_vec(),
+            networks: vec![
+                networks::Network::MAINNET,
+                networks::Network::GOERLI,
+                networks::Network::SEPOLIA,
+            ],
         }
     }
 
