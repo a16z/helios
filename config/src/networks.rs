@@ -64,6 +64,8 @@ impl Network {
         match id {
             1 => Ok(Network::MAINNET),
             5 => Ok(Network::GOERLI),
+            11155111 => Ok(Network::SEPOLIA),
+            17000 => Ok(Network::HOLESKY),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
