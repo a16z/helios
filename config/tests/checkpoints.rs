@@ -10,7 +10,11 @@ async fn test_checkpoint_fallback() {
 
     assert_eq!(
         cf.networks,
-        [networks::Network::MAINNET, networks::Network::GOERLI].to_vec()
+        vec![
+            networks::Network::MAINNET, 
+            networks::Network::GOERLI, 
+            networks::Network::SEPOLIA
+        ],
     );
 }
 
