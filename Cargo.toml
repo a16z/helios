@@ -78,7 +78,7 @@ serde = { version = "1.0.154", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 dirs = "4.0.0"
-ethers = { version = "2.0.2", features = [ "abigen" ] }
+ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing = "0.1.37"
 tracing-test = "0.2.4"
