@@ -363,7 +363,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let time_to_next_slot = next_slot_timestamp - now;
         let next_update = time_to_next_slot + 4;
 
-        Duration::seconds(next_update as i64)
+        Duration::try_seconds(next_update as i64).unwrap()
     }
 
     async fn bootstrap(&mut self, checkpoint: &[u8]) -> Result<()> {
