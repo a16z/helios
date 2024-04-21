@@ -46,6 +46,8 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
+`--rpc-bind-ip` or `-b` sets the ip that binds to the JSON-RPC server. Be default, Helios will use `127.0.0.1`. Use `0.0.0.0` to allow remote access.
+
 `--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
 `--fallback` or `-f` sets the checkpoint fallback url (a string). This is only used if the checkpoint provided by the `--checkpoint` flag is too outdated for Helios to use to sync.
@@ -82,7 +84,6 @@ checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495
 ```
 
 A comprehensive breakdown of config options is available in the [config.md](./config.md) file.
-
 
 ### Using Helios as a Library
 
@@ -171,14 +172,16 @@ curl https://ethereum-mainnet-rpc.allthatnode.com \
 A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Goerli is shown at https://goerli.etherscan.io/blocks
 
 Checkpoints may be obtained from the following links:
-* Ethereum Mainnet https://beaconcha.in
-* Goerli Testnet https://prater.beaconcha.in/
+
+- Ethereum Mainnet https://beaconcha.in
+- Goerli Testnet https://prater.beaconcha.in/
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
 For example, to obtain a recent checkpoint for Goerli Testnet go to https://prater.beaconcha.in/ and get the block hash of the first block in any finalised epoch. At the time of writing, the [first block hash in epoch 197110](https://prater.beaconcha.in/epoch/197110) is the [oldest slot 6307520](https://prater.beaconcha.in/slot/6307520) that has a Block Root of 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b and is the latest checkpoint value to use.
 
 This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Goerli Testnet:
+
 ```bash
 helios \
     --network goerli \
@@ -190,6 +193,7 @@ helios \
 For example, to obtain a recent checkpoint for Ethereum Mainnet go to https://beaconcha.in and get the block hash of the first block in any finalised epoch. At the time of writing the [first block hash in epoch 222705](https://beaconcha.in/epoch/222705) is the [oldest slot 7126560](https://beaconcha.in/slot/7126560) that has a Block Root of 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2 and is the latest checkpoint value to use.
 
 This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Mainnet:
+
 ```bash
 helios \
     --network mainnet \
@@ -207,6 +211,7 @@ If you wish to use a [Configuration File](#configuration-files) instead of CLI a
 > If a provide checkpoint fails the fallback would normally kick in and automatically fetch a better checkpoint if that feature is working.
 
 ## Architecture
+
 ```mermaid
 graph LR
 
@@ -246,6 +251,7 @@ end
 ## Testing
 
 To ensure that Helios works as expected, we have a comprehensive test suite that you can run. Before running the tests, make sure to create a `.env` file in the root of the project directory. You can copy the contents of the `.env.example` file and fill in your own secrets.
+
 ```sh
 cp .env.example .env
 ```
@@ -269,7 +275,6 @@ Benchmarks are defined in the [benches](./benches/) subdirectory. They are built
 To run all benchmarks, you can use `cargo bench`. To run a specific benchmark, you can use `cargo bench --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](./Cargo.toml) file under a `[[bench]]` section.
 
 To learn more about [helios](https://github.com/a16z/helios) benchmarking and to view benchmark flamegraphs, view the [benchmark readme](./benches/README.md).
-
 
 ## Contributing
 

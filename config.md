@@ -12,6 +12,8 @@ consensus_rpc = "https://www.lightclientdata.org"
 execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 # The port to run the JSON-RPC server on. By default, Helios will use port 8545.
 rpc_port = 8545
+# The ip that binds to the JSON-RPC server. Be default, Helios will use 127.0.0.1. Use 0.0.0.0 to allow access from remote.
+rpc_bind_ip = "127.0.0.1"
 # The latest checkpoint. This should be a trusted checkpoint that is no greater than ~2 weeks old.
 # If you are unsure what checkpoint to use, you can skip this option and set either `load_external_fallback` or `fallback` values (described below) to fetch a checkpoint. Though this is not recommended and less secure.
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
@@ -34,6 +36,8 @@ consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
 execution_rpc = "https://eth-goerli.g.alchemy.com/v2/XXXXX"
 # The port to run the JSON-RPC server on. By default, Helios will use port 8545.
 rpc_port = 8545
+# The ip that binds to the JSON-RPC server. Be default, Helios will use 127.0.0.1. Use 0.0.0.0 to allow access from remote.
+rpc_bind_ip = "127.0.0.1"
 # The latest checkpoint. This should be a trusted checkpoint that is no greater than ~2 weeks old.
 # If you are unsure what checkpoint to use, you can skip this option and set either `load_external_fallback` or `fallback` values (described below) to fetch a checkpoint. Though this is not recommended and less secure.
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
@@ -61,6 +65,8 @@ All configuration options below are available on a per-network level, where netw
 - `execution_rpc` - The URL of the execution RPC endpoint used to fetch the latest execution chain head and sync status. This must be an execution node that supports the light client execution api. We recommend using Geth for this.
 
 - `rpc_port` - The port to run the JSON-RPC server on. By default, Helios will use port 8545.
+
+- `rpc_bind_ip` - The ip that binds to the JSON-RPC server. Be default, Helios will use 127.0.0.1. Use 0.0.0.0 to allow access from remote.
 
 - `checkpoint` - The latest checkpoint. This should be a trusted checkpoint that is no greater than ~2 weeks old. If you are unsure what checkpoint to use, you can skip this option and set either `load_external_fallback` or `fallback` values (described below) to fetch a checkpoint. Though this is not recommended and less secure.
 
