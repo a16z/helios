@@ -173,8 +173,8 @@ curl https://ethereum-mainnet-rpc.allthatnode.com \
 A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Goerli is shown at https://goerli.etherscan.io/blocks
 
 Checkpoints may be obtained from the following links:
-- Ethereum Mainnet https://beaconcha.in
-- Goerli Testnet https://prater.beaconcha.in/
+* Ethereum Mainnet https://beaconcha.in
+* Goerli Testnet https://prater.beaconcha.in/
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
