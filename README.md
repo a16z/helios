@@ -46,6 +46,8 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
+`--rpc-bind-ip` or `-b` sets the ip that binds to the JSON-RPC server. Be default, Helios will use `127.0.0.1`. Use `0.0.0.0` to allow remote access.
+
 `--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
 `--fallback` or `-f` sets the checkpoint fallback url (a string). This is only used if the checkpoint provided by the `--checkpoint` flag is too outdated for Helios to use to sync.
