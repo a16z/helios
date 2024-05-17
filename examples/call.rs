@@ -24,7 +24,7 @@ async fn main() -> eyre::Result<()> {
         .with_env_filter(env_filter)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
+    tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 
     // Load the rpc url using the `MAINNET_EXECUTION_RPC` environment variable
     dotenv().ok();
