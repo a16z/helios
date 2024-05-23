@@ -43,4 +43,4 @@ getrandom = { version = "0.2.1", features = ["js"] }
 openssl.workspace = true
 
 [target.wasm32-unknown-unknown.dependencies]
-parking_lot = { version = "0.11", features = ["wasm-bindgen"] }
+parking_lot = { version = "0.12.2" }
