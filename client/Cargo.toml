@@ -21,11 +21,11 @@ execution = { path = "../execution" }
 config = { path = "../config" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-jsonrpsee = { version = "0.15.1", features = ["full"] }
+jsonrpsee = { version = "0.17.1", features = ["full"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-gloo-timers = "0.2.6"
+gloo-timers = "0.3.0"
 wasm-bindgen-futures = "0.4.33"
 
 [target.wasm32-unknown-unknown.dependencies]
-parking_lot = { version = "0.11", features = ["wasm-bindgen"] }
+parking_lot = { version = "0.12.2" }
