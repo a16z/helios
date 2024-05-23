@@ -14,12 +14,19 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    // Fetch the latest goerli checkpoint
-    let goerli_checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::GOERLI)
+    // Fetch the latest sepolia checkpoint
+    let sepolia_checkpoint = cf
+        .fetch_latest_checkpoint(&networks::Network::SEPOLIA)
         .await
         .unwrap();
-    println!("Fetched latest goerli checkpoint: {goerli_checkpoint}");
+    println!("Fetched latest goerli checkpoint: {sepolia_checkpoint}");
+
+    // Fetch the latest holesky checkpoint
+    let holesky_checkpoint = cf
+        .fetch_latest_checkpoint(&networks::Network::SEPOLIA)
+        .await
+        .unwrap();
+    println!("Fetched latest goerli checkpoint: {holesky_checkpoint}");
 
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf
