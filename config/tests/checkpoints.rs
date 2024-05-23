@@ -10,7 +10,6 @@ async fn test_checkpoint_fallback() {
     assert_eq!(cf.services.get(&networks::Network::SEPOLIA), None);
     assert_eq!(cf.services.get(&networks::Network::HOLESKY), None);
 
-
     assert_eq!(
         cf.networks,
         [
@@ -34,7 +33,6 @@ async fn test_construct_checkpoints() {
     assert!(cf.services[&networks::Network::GOERLI].len() > 1);
     assert!(cf.services[&networks::Network::SEPOLIA].len() > 1);
     assert!(cf.services[&networks::Network::HOLESKY].len() > 1);
-
 }
 
 #[tokio::test]
@@ -49,9 +47,9 @@ async fn test_fetch_latest_checkpoints() {
         .unwrap();
     assert!(checkpoint != H256::zero());
     let checkpoint = cf
-    .fetch_latest_checkpoint(&networks::Network::HOLESKY)
-    .await
-    .unwrap();
+        .fetch_latest_checkpoint(&networks::Network::HOLESKY)
+        .await
+        .unwrap();
     assert!(checkpoint != H256::zero());
     let checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::MAINNET)
