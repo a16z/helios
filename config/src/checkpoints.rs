@@ -96,6 +96,7 @@ impl CheckpointFallback {
                 networks::Network::MAINNET,
                 networks::Network::GOERLI,
                 networks::Network::SEPOLIA,
+                networks::Network::HOLESKY,
             ],
         }
     }
