@@ -55,6 +55,10 @@ pub mod client {
     pub use consensus::database::*;
 }
 
+pub mod consensus {
+    pub use consensus::*;
+}
+
 pub mod config {
     pub use config::{checkpoints, networks, Config};
 }
