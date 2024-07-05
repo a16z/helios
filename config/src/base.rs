@@ -3,8 +3,8 @@ use std::default::Default;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 
-use primitives::config::types::{ChainConfig, Forks};
-use primitives::config::utils::bytes_serialize;
+use common::config::types::{ChainConfig, Forks};
+use common::config::utils::bytes_serialize;
 
 /// The base configuration for a network.
 #[derive(Serialize)]

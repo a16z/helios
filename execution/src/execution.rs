@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use primitives::common::errors::BlockNotFoundError;
+use common::errors::BlockNotFoundError;
 use ethers::abi::AbiEncode;
 use ethers::prelude::Address;
 use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256, U256};
@@ -12,8 +12,8 @@ use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
-use primitives::common::types::{Block, BlockTag, Transactions};
-use primitives::common::utils::hex_str_to_bytes;
+use common::types::{Block, BlockTag, Transactions};
+use common::utils::hex_str_to_bytes;
 
 use crate::errors::ExecutionError;
 use crate::state::State;

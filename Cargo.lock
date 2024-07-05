@@ -820,13 +820,13 @@ version = "0.5.5"
 dependencies = [
  "clap",
  "client",
+ "common",
  "config",
  "consensus",
  "ctrlc",
  "dirs",
  "eyre",
  "futures",
- "primitives",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -836,6 +836,7 @@ dependencies = [
 name = "client"
 version = "0.5.5"
 dependencies = [
+ "common",
  "config",
  "consensus",
  "ethers",
@@ -846,7 +847,6 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "parking_lot",
- "primitives",
  "serde",
  "ssz_rs",
  "thiserror",
@@ -921,16 +921,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "bls12_381",
+ "bytes",
+ "ethers-core",
+ "eyre",
+ "hex",
+ "serde",
+ "serde_json",
+ "snowbridge-milagro-bls",
+ "ssz_rs",
+ "superstruct",
+ "thiserror",
+ "zduny-wasm-timer",
+]
+
+[[package]]
 name = "config"
 version = "0.5.5"
 dependencies = [
+ "common",
  "dirs",
  "ethers-core",
  "eyre",
  "figment",
  "futures",
  "hex",
- "primitives",
  "reqwest 0.12.5",
  "retri",
  "serde",
@@ -948,6 +966,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "chrono",
+ "common",
  "config",
  "ethers-core",
  "eyre",
@@ -955,7 +974,6 @@ dependencies = [
  "getrandom 0.2.15",
  "hex",
  "parking_lot",
- "primitives",
  "reqwest 0.12.5",
  "retri",
  "serde",
@@ -1830,6 +1848,7 @@ version = "0.5.5"
 dependencies = [
  "async-trait",
  "bytes",
+ "common",
  "consensus",
  "ethers",
  "eyre",
@@ -1837,7 +1856,6 @@ dependencies = [
  "hex",
  "hyper 1.4.0",
  "openssl",
- "primitives",
  "reqwest 0.12.5",
  "revm",
  "serde",
@@ -2410,6 +2428,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 name = "helios"
 version = "0.5.5"
 dependencies = [
+ "common",
  "config",
  "consensus",
  "criterion",
@@ -2419,7 +2438,6 @@ dependencies = [
  "eyre",
  "hex",
  "plotters",
- "primitives",
  "serde",
  "tempfile",
  "tokio",
@@ -2433,6 +2451,7 @@ name = "helios-ts"
 version = "0.1.0"
 dependencies = [
  "client",
+ "common",
  "config",
  "consensus",
  "console_error_panic_hook",
@@ -2440,7 +2459,6 @@ dependencies = [
  "execution",
  "eyre",
  "hex",
- "primitives",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3954,24 +3972,6 @@ dependencies = [
  "impl-serde 0.4.0",
  "scale-info",
  "uint 0.9.5",
-]
-
-[[package]]
-name = "primitives"
-version = "0.1.0"
-dependencies = [
- "bls12_381",
- "bytes",
- "ethers-core",
- "eyre",
- "hex",
- "serde",
- "serde_json",
- "snowbridge-milagro-bls",
- "ssz_rs",
- "superstruct",
- "thiserror",
- "zduny-wasm-timer",
 ]
 
 [[package]]

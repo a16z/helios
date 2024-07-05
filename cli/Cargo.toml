@@ -21,4 +21,4 @@ ctrlc = "3.2.3"
 client = { path = "../client" }
 config = { path = "../config" }
 consensus = { path = "../consensus" }
-primitives = { path = "../primitives" }
+common = { path = "../common" }

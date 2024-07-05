@@ -26,7 +26,7 @@ client = { path = "../client" }
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }
 config = { path = "../config" }
-primitives = { path = "../primitives" }
+common = { path = "../common" }
 
 
 [dependencies.web-sys]
