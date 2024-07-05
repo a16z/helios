@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use common::types::BlockTag;
+use primitives::common::types::BlockTag;
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
     Transaction, TransactionReceipt, H256, U256,

@@ -1,4 +1,4 @@
-use ethers::prelude::Address;
+use ethers_core::types::Address;
 use eyre::Result;
 
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {

@@ -3,7 +3,7 @@ extern crate web_sys;
 
 use std::str::FromStr;
 
-use common::types::BlockTag;
+use primitives::common::types::BlockTag;
 use consensus::database::{ConfigDB, Database};
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;

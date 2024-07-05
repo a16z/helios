@@ -1,9 +1,8 @@
-pub mod constants;
-pub mod errors;
+pub use primitives::execution::{constants, errors, types};
+
 pub mod evm;
 pub mod rpc;
 pub mod state;
-pub mod types;
 
 mod execution;
 pub use crate::execution::*;

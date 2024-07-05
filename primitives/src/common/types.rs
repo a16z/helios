@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use ethers::types::{Address, Bytes, Transaction, H256, U256, U64};
+use ethers_core::types::{Address, Bytes, Transaction, H256, U256, U64};
 use serde::{de::Error, ser::SerializeSeq, Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]

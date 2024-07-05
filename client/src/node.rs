@@ -7,9 +7,9 @@ use ethers::types::{
 use eyre::{eyre, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use common::types::{Block, BlockTag};
 use config::Config;
 use execution::state::State;
+use primitives::common::types::{Block, BlockTag};
 
 use consensus::database::Database;
 use consensus::rpc::nimbus_rpc::NimbusRpc;

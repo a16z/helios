@@ -16,11 +16,11 @@ use jsonrpsee::{
 
 use crate::{errors::NodeError, node::Node};
 
-use common::{
+use execution::types::CallOpts;
+use primitives::common::{
     types::{Block, BlockTag},
     utils::{hex_str_to_bytes, u64_to_hex_string},
 };
-use execution::types::CallOpts;
 
 pub struct Rpc<DB: Database> {
     node: Arc<Node<DB>>,
