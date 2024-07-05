@@ -60,23 +60,18 @@ mod bls12_381_impl {
         /// PublicKeys must all be verified via Proof of Possession before running this function.
         /// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.3.4
         pub fn fast_aggregate_verify(&self, msg: &[u8], public_keys: &[&PublicKey]) -> bool {
-            println!("cycle-tracker-start: fast_aggregate_verify");
             // Require at least one PublicKey
             if public_keys.is_empty() {
                 return false;
             }
 
-            println!("cycle-tracker-start: subgroup-check-g2");
             // Subgroup check for signature
             if !subgroup_check_g2(&self.point) {
                 return false;
             }
-            println!("cycle-tracker-end: subgroup-check-g2");
 
             // Aggregate PublicKeys
-            println!("cycle-tracker-start: aggregate-public-keys");
             let aggregate_public_key = PublicKey::aggregate(public_keys);
-            println!("cycle-tracker-end: aggregate-public-keys");
             if aggregate_public_key.is_err() {
                 return false;
             }
@@ -90,17 +85,12 @@ mod bls12_381_impl {
             // Points must be affine for pairing
             let sig_point = self.point;
             let key_point = aggregate_public_key.point;
-            println!("cycle-tracker-start: hash-to-curve-g2");
             let msg_hash = G2Affine::from(bls12_381::G2Projective::hash_to_curve_g2(msg));
-            println!("cycle-tracker-end: hash-to-curve-g2");
             let generator_g1_negative = G1Affine::from(-G1Projective::generator());
 
             // Faster ate2 evaualtion checks e(S, -G1) * e(H, PK) == 1
-            println!("cycle-tracker-start: ate2-evaluation");
             let temp = ate2_evaluation(&sig_point, &generator_g1_negative, &msg_hash, &key_point);
-            println!("cycle-tracker-end: ate2-evaluation");
 
-            println!("cycle-tracker-end: fast_aggregate_verify");
             temp
         }
     }
