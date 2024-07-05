@@ -1,8 +1,7 @@
-use eyre::Result;
-use milagro_bls::{AggregateSignature, PublicKey};
-use ssz_rs::prelude::*;
-
+use crate::crypto::bls::{AggregateSignature, PublicKey};
 use crate::types::{Bytes32, Header, SignatureBytes};
+use eyre::Result;
+use ssz_rs::prelude::*;
 
 pub fn calc_sync_period(slot: u64) -> u64 {
     let epoch = slot / 32; // 32 slots per epoch
@@ -11,6 +10,7 @@ pub fn calc_sync_period(slot: u64) -> u64 {
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
     let sig_res = AggregateSignature::from_bytes(sig_bytes);
+
     match sig_res {
         Ok(sig) => sig.fast_aggregate_verify(msg, pks),
         Err(_) => false,

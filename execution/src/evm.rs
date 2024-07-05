@@ -1,9 +1,9 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use common::types::BlockTag;
 use ethers::types::transaction::eip2930::AccessListItem;
 use eyre::{Report, Result};
 use futures::future::join_all;
+use primitives::common::types::BlockTag;
 use revm::{
     primitives::{
         AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult, ResultAndState, TransactTo,

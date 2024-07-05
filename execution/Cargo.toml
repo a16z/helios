@@ -30,8 +30,8 @@ tracing.workspace = true
 thiserror.workspace = true
 hyper.workspace = true
 
-common = { path = "../common" }
 consensus = { path = "../consensus" }
+primitives = { path = "../primitives" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openssl.workspace = true

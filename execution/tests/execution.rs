@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use common::types::{Block, BlockTag, Transactions};
 use ethers::types::{Address, Filter, Transaction, H256, U256};
+use primitives::common::types::{Block, BlockTag, Transactions};
 
 use ethers::utils::rlp::{Decodable, Rlp};
 use execution::rpc::mock_rpc::MockRpc;

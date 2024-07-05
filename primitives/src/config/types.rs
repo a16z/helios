@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{bytes_deserialize, bytes_serialize};
+use crate::config::utils::{bytes_deserialize, bytes_serialize};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct ChainConfig {

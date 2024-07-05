@@ -50,11 +50,6 @@
 //!
 //! Errors used across helios.
 
-pub mod client {
-    pub use client::{Client, ClientBuilder};
-    pub use consensus::database::*;
-}
-
 pub mod consensus {
     pub use consensus::*;
 }
@@ -64,19 +59,26 @@ pub mod config {
 }
 
 pub mod types {
-    pub use common::types::{Block, BlockTag, Transactions};
-    pub use execution::types::{Account, CallOpts};
-}
-
-pub mod errors {
-    pub use common::errors::*;
-    pub use consensus::errors::*;
-    pub use execution::errors::*;
+    pub use primitives::common::types::{Block, BlockTag, Transactions};
+    pub use primitives::execution::types::{Account, CallOpts};
 }
 
 pub mod prelude {
-    pub use crate::client::*;
     pub use crate::config::*;
     pub use crate::errors::*;
     pub use crate::types::*;
+}
+
+pub mod errors {
+    pub use primitives::common::errors::*;
+    pub use primitives::consensus::errors::*;
+    pub use primitives::execution::errors::*;
+}
+
+pub mod constants {
+    pub use primitives::execution::constants::*;
+}
+
+pub mod primitives {
+    pub use primitives::*;
 }

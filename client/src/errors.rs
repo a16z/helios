@@ -1,4 +1,4 @@
-use common::errors::BlockNotFoundError;
+use primitives::common::errors::BlockNotFoundError;
 use execution::errors::EvmError;
 use eyre::Report;
 use thiserror::Error;

@@ -5,3 +5,4 @@ target
 helios-ts/node_modules
 helios-ts/dist
 helios-ts/helios-*.tgz
+.vscode

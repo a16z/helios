@@ -1,9 +1,12 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use super::ConsensusRpc;
-use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use primitives::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use async_trait::async_trait;
 use eyre::Result;
+
+
+
 pub struct MockRpc {
     testdata: PathBuf,
 }

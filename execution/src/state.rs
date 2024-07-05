@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use common::types::{Block, BlockTag, Transactions};
+use primitives::common::types::{Block, BlockTag, Transactions};
 use ethers::types::{Address, Transaction, H256, U256};
 use tokio::{
     select,

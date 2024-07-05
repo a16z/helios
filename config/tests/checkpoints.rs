@@ -1,5 +1,5 @@
 use config::networks;
-use ethers::types::H256;
+use ethers_core::types::H256;
 
 #[tokio::test]
 async fn test_checkpoint_fallback() {

@@ -7,10 +7,10 @@ use std::{
 };
 
 use clap::Parser;
-use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
 use eyre::Result;
 use futures::executor::block_on;
+use primitives::common::utils::hex_str_to_bytes;
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;

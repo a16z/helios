@@ -7,8 +7,8 @@ use serde::de::DeserializeOwned;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-use crate::types::*;
-use common::errors::RpcError;
+use primitives::common::errors::RpcError;
+use primitives::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update, U64};
 
 #[derive(Debug)]
 pub struct NimbusRpc {
@@ -131,5 +131,5 @@ struct SpecResponse {
 #[derive(serde::Deserialize, Debug)]
 struct Spec {
     #[serde(rename = "DEPOSIT_NETWORK_ID")]
-    chain_id: primitives::U64,
+    chain_id: U64,
 }

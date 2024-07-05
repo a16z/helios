@@ -1,4 +1,4 @@
-use common::utils::hex_str_to_bytes;
+use crate::common::utils::hex_str_to_bytes;
 
 pub fn bytes_deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where

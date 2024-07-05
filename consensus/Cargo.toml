@@ -9,7 +9,7 @@ ssz-rs.workspace = true
 milagro_bls.workspace = true
 
 # execution
-ethers.workspace = true
+ethers-core.workspace = true
 
 # async/futures
 tokio.workspace = true
@@ -32,15 +32,11 @@ superstruct.workspace = true
 zduny-wasm-timer.workspace = true
 retri.workspace = true
 
-common = { path = "../common" }
 config = { path = "../config" }
-
+primitives = { path = "../primitives" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.37"
 getrandom = { version = "0.2.1", features = ["js"] }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openssl.workspace = true
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }
