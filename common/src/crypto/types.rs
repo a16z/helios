@@ -7,19 +7,23 @@ use eyre::Result;
 #[cfg(feature = "bls12_381")]
 mod bls12_381_impl {
     use super::*;
-    use bls12_381::{G1Affine, G1Projective, G2Affine, Scalar};
+    use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, Gt, Scalar};
+
+    /// A BLS public key.
     #[derive(Debug)]
     pub struct PublicKey {
         pub point: G1Affine,
     }
 
     impl PublicKey {
+        /// Instantiate a PublicKey from compressed bytes.
         pub fn from_bytes_unchecked(bytes: &BLSPubKey) -> Result<Self> {
             let point: G1Affine =
                 G1Affine::from_compressed(bytes.as_ref().try_into().unwrap()).unwrap();
             Ok(Self { point })
         }
 
+        /// Instantiate a new aggregate public key from a vector of PublicKeys.
         pub fn aggregate(keys: &[&PublicKey]) -> Result<Self> {
             if keys.is_empty() {
                 return Err(eyre::eyre!("No keys to aggregate"));
@@ -35,17 +39,26 @@ mod bls12_381_impl {
         }
     }
 
+    /// Allows for the adding/combining of multiple BLS Signatures.
+    ///
+    /// This may be verified against some aggregated public key.
     #[derive(Debug)]
     pub struct AggregateSignature {
         pub point: G2Affine,
     }
 
     impl AggregateSignature {
+        /// Instatiate an AggregateSignature from some bytes.
         pub fn from_bytes(bytes: &SignatureBytes) -> Result<Self> {
             let point = G2Affine::from_compressed(bytes.as_ref().try_into().unwrap()).unwrap();
             Ok(Self { point })
         }
 
+        /// FastAggregateVerify
+        ///
+        /// Verifies an AggregateSignature against a list of PublicKeys.
+        /// PublicKeys must all be verified via Proof of Possession before running this function.
+        /// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.3.4
         pub fn fast_aggregate_verify(&self, msg: &[u8], public_keys: &[&PublicKey]) -> bool {
             println!("cycle-tracker-start: fast_aggregate_verify");
             // Require at least one PublicKey
@@ -92,13 +105,12 @@ mod bls12_381_impl {
         }
     }
 
+    // Verifies a G2 point is in subgroup `r`.
     pub fn subgroup_check_g2(point: &G2Affine) -> bool {
         let r = Scalar::from_hex(CURVE_ORDER).unwrap();
         let check = point * r;
         check.is_identity().into()
     }
-
-    use bls12_381::{multi_miller_loop, G2Prepared, Gt};
 
     /// Evaluation of e(S, -G1) * e(H, PK) == 1
     pub fn ate2_evaluation(p1: &G2Affine, q1: &G1Affine, r1: &G2Affine, s1: &G1Affine) -> bool {
