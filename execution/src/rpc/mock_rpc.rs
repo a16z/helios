@@ -1,7 +1,7 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use async_trait::async_trait;
-use primitives::common::{types::BlockTag, utils::hex_str_to_bytes};
+use common::{types::BlockTag, utils::hex_str_to_bytes};
 use ethers::types::{
     transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
     Transaction, TransactionReceipt, H256, U256,

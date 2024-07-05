@@ -1,4 +1,4 @@
-pub use primitives::execution::{constants, errors, types};
+pub use common::execution::{constants, errors, types};
 
 pub mod evm;
 pub mod rpc;

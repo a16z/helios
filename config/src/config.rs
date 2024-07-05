@@ -5,9 +5,9 @@ use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use primitives::consensus::calculate_fork_version;
-use primitives::config::types::{ChainConfig, Forks};
-use primitives::config::utils::{bytes_deserialize, bytes_opt_deserialize};
+use common::consensus::calculate_fork_version;
+use common::config::types::{ChainConfig, Forks};
+use common::config::utils::{bytes_deserialize, bytes_opt_deserialize};
 use serde::Deserialize;
 use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;

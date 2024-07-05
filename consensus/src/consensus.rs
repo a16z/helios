@@ -17,22 +17,22 @@ use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::watch;
 
+use common::types::Block;
 use config::CheckpointFallback;
 use config::Config;
 use config::Network;
-use primitives::common::types::Block;
 
 use super::rpc::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
-use primitives::consensus::errors::ConsensusError;
-use primitives::types::LightClientStore;
+use common::consensus::errors::ConsensusError;
+use common::consensus::types::LightClientStore;
 
-use primitives::consensus::utils::calc_sync_period;
-use primitives::consensus::{get_bits, is_current_committee_proof_valid, verify_generic_update};
-use primitives::types::{
+use common::consensus::types::{
     Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, OptimisticUpdate, Update,
 };
+use common::consensus::utils::calc_sync_period;
+use common::consensus::{get_bits, is_current_committee_proof_valid, verify_generic_update};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -633,8 +633,8 @@ mod tests {
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         Inner,
     };
-    use primitives::consensus::errors::ConsensusError;
-    use primitives::types::{BLSPubKey, Header, SignatureBytes};
+    use common::consensus::errors::ConsensusError;
+    use common::consensus::types::{BLSPubKey, Header, SignatureBytes};
 
     use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};

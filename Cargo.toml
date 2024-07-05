@@ -12,7 +12,7 @@ members = [
     "config",
     "consensus",
     "execution",
-    "primitives",
+    "common",
     "helios-ts",
 ]
 
@@ -67,7 +67,7 @@ retri = "0.1.0"
 config = { path = "./config" }
 consensus = { path = "./consensus" }
 execution = { path = "./execution" }
-primitives = { path = "./primitives" }
+common = { path = "./common" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

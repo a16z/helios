@@ -6,12 +6,12 @@ use std::str::FromStr;
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
-use primitives::common::utils::hex_str_to_bytes;
+use common::utils::hex_str_to_bytes;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
 use crate::base::BaseConfig;
-use primitives::config::types::{ChainConfig, Fork, Forks};
+use common::config::types::{ChainConfig, Fork, Forks};
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,

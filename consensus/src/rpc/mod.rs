@@ -4,7 +4,7 @@ pub mod nimbus_rpc;
 use async_trait::async_trait;
 use eyre::Result;
 
-use primitives::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use common::consensus::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -17,4 +17,3 @@ pub trait ConsensusRpc: Send + Sync {
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock>;
     async fn chain_id(&self) -> Result<u64>;
 }
-
