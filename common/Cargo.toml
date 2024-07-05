@@ -1,0 +1,29 @@
+[package]
+version = "0.1.0"
+name = "common"
+edition = "2021"
+
+
+[features]
+default = ["milagro_bls"]
+milagro_bls = ["dep:milagro_bls"]
+bls12_381 = ["dep:bls12_381"]
+
+[dependencies]
+eyre.workspace = true
+ssz-rs.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+superstruct.workspace = true
+thiserror.workspace = true
+
+ethers-core.workspace = true
+zduny-wasm-timer.workspace = true
+bytes.workspace = true
+
+milagro_bls = { workspace = true, optional = true }
+bls12_381 = { workspace = true, optional = true }
+
+[target.'cfg(target_vendor = "succinct")'.dependencies]
+bls12_381 = { workspace = true }
