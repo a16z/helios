@@ -59,22 +59,34 @@ pub mod config {
 }
 
 pub mod types {
+    pub use common::config::types::*;
+    pub use common::consensus::types::*;
+    pub use common::crypto::types::*;
+    pub use common::execution::types::*;
     pub use common::types::{Block, BlockTag, Transactions};
     pub use execution::types::{Account, CallOpts};
 }
 
+pub mod client {
+    pub use consensus::database::*;
+}
+
 pub mod prelude {
+    pub use crate::client::*;
+    pub use crate::common::*;
     pub use crate::config::*;
     pub use crate::errors::*;
     pub use crate::types::*;
 }
 
 pub mod errors {
+    pub use common::consensus::errors::*;
     pub use common::errors::*;
     pub use execution::errors::*;
 }
 
 pub mod constants {
+    pub use common::crypto::consts::*;
     pub use common::execution::constants::*;
 }
 
