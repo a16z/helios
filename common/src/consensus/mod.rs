@@ -84,7 +84,7 @@ pub fn verify_generic_update(
     update: &GenericUpdate,
     now: SystemTime,
     genesis_time: u64,
-    store: LightClientStore,
+    store: &LightClientStore,
     genesis_root: Vec<u8>,
     forks: &Forks,
 ) -> Result<()> {
@@ -175,7 +175,7 @@ pub fn verify_update(
     update: &Update,
     now: SystemTime,
     genesis_time: u64,
-    store: LightClientStore,
+    store: &LightClientStore,
     genesis_root: Vec<u8>,
     forks: &Forks,
 ) -> Result<()> {
