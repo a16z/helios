@@ -415,7 +415,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             now,
             self.config.chain.genesis_time,
-            self.store.clone(),
+            &self.store,
             self.config.chain.genesis_root.clone(),
             &self.config.forks,
         )
@@ -429,7 +429,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             now,
             self.config.chain.genesis_time,
-            self.store.clone(),
+            &self.store,
             self.config.chain.genesis_root.clone(),
             &self.config.forks,
         )
@@ -443,7 +443,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             now,
             self.config.chain.genesis_time,
-            self.store.clone(),
+            &self.store,
             self.config.chain.genesis_root.clone(),
             &self.config.forks,
         )
