@@ -1,26 +1,30 @@
 use std::collections::HashMap;
 
-use common::errors::BlockNotFoundError;
-use ethers::abi::AbiEncode;
-use ethers::prelude::Address;
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256, U256};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, Encodable, RlpStream};
+use common::{
+    errors::BlockNotFoundError,
+    types::{Block, BlockTag, Transactions},
+    utils::hex_str_to_bytes,
+};
+use ethers::{
+    abi::AbiEncode,
+    prelude::Address,
+    types::{Filter, Log, Transaction, TransactionReceipt, H256, U256},
+    utils::{
+        keccak256,
+        rlp::{encode, Encodable, RlpStream},
+    },
+};
 use eyre::Result;
-
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
-use common::types::{Block, BlockTag, Transactions};
-use common::utils::hex_str_to_bytes;
-
-use crate::errors::ExecutionError;
-use crate::state::State;
-
-use super::proof::{encode_account, verify_proof};
-use super::rpc::ExecutionRpc;
-use super::types::Account;
+use super::{
+    proof::{encode_account, verify_proof},
+    rpc::ExecutionRpc,
+    types::Account,
+};
+use crate::{errors::ExecutionError, state::State};
 
 // We currently limit the max number of logs to fetch,
 // to avoid blocking the client for too long.

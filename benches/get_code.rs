@@ -1,7 +1,8 @@
+use std::str::FromStr;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use ethers::prelude::*;
 use helios::types::BlockTag;
-use std::str::FromStr;
 
 mod harness;
 

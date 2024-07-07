@@ -1,10 +1,11 @@
 use eyre::Result;
 use ssz_rs::prelude::*;
-
 use superstruct::superstruct;
 
-use self::primitives::{ByteList, ByteVector, U64};
-use self::utils::{header_deserialize, superstruct_ssz, u256_deserialize};
+use self::{
+    primitives::{ByteList, ByteVector, U64},
+    utils::{header_deserialize, superstruct_ssz, u256_deserialize},
+};
 
 pub mod primitives;
 mod utils;

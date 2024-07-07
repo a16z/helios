@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use common::types::{Block, Transactions};
 use ethers::{
     types::{Address, Transaction, H256},
     utils::rlp::{Decodable, Rlp},
@@ -8,7 +9,6 @@ use serde::de::Error;
 use ssz_rs::prelude::*;
 
 use super::{ExecutionPayload, Header};
-use common::types::{Block, Transactions};
 
 pub fn u256_deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
 where

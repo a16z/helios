@@ -150,7 +150,8 @@ impl CheckpointFallback {
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
     ) -> eyre::Result<H256> {
-        // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
+        // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for
+        // each.
         let tasks: Vec<_> = services
             .iter()
             .map(|service| async move {
@@ -232,7 +233,10 @@ impl CheckpointFallback {
     /// use config::CheckpointFallback;
     ///
     /// let url = CheckpointFallback::construct_url("https://sync-mainnet.beaconcha.in");
-    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
+    /// assert_eq!(
+    ///     "https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots",
+    ///     url
+    /// );
     /// ```
     pub fn construct_url(endpoint: &str) -> String {
         format!("{endpoint}/checkpointz/v1/beacon/slots")
@@ -242,7 +246,8 @@ impl CheckpointFallback {
     ///
     /// ### Warning
     ///
-    /// These services are not healthchecked **nor** trustworthy and may act with malice by returning invalid checkpoints.
+    /// These services are not healthchecked **nor** trustworthy and may act with malice by
+    /// returning invalid checkpoints.
     pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
         self.services[network]
             .iter()

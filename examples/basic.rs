@@ -4,8 +4,10 @@ use ethers::{types::Address, utils};
 use eyre::Result;
 use helios::{config::networks::Network, prelude::*};
 use tracing::info;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    FmtSubscriber,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {

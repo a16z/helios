@@ -17,7 +17,8 @@ criterion_group! {
 
 /// Benchmark full client sync.
 pub fn bench_full_sync(c: &mut Criterion) {
-    // Externally, let's fetch the latest checkpoint from our fallback service so as not to benchmark the checkpoint fetch.
+    // Externally, let's fetch the latest checkpoint from our fallback service so as not to
+    // benchmark the checkpoint fetch.
     let checkpoint = harness::await_future(harness::fetch_mainnet_checkpoint()).unwrap();
     let checkpoint = hex::encode(checkpoint);
 
@@ -36,7 +37,8 @@ pub fn bench_full_sync(c: &mut Criterion) {
 /// Benchmark full client sync.
 /// Address: 0x00000000219ab540356cbb839cbe05303d7705fa (beacon chain deposit address)
 pub fn bench_full_sync_with_call(c: &mut Criterion) {
-    // Externally, let's fetch the latest checkpoint from our fallback service so as not to benchmark the checkpoint fetch.
+    // Externally, let's fetch the latest checkpoint from our fallback service so as not to
+    // benchmark the checkpoint fetch.
     let checkpoint = harness::await_future(harness::fetch_mainnet_checkpoint()).unwrap();
     let checkpoint = hex::encode(checkpoint);
 

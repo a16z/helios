@@ -1,21 +1,20 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use common::types::BlockTag;
-use ethers::prelude::{Address, Http};
-use ethers::providers::{FilterKind, HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient};
-use ethers::types::transaction::eip2718::TypedTransaction;
-use ethers::types::transaction::eip2930::AccessList;
-use ethers::types::{
-    BlockId, BlockNumber, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, FeeHistory,
-    Filter, Log, Transaction, TransactionReceipt, H256, U256,
+use common::{errors::RpcError, types::BlockTag};
+use ethers::{
+    prelude::{Address, Http},
+    providers::{FilterKind, HttpRateLimitRetryPolicy, Middleware, Provider, RetryClient},
+    types::{
+        transaction::{eip2718::TypedTransaction, eip2930::AccessList},
+        BlockId, BlockNumber, Bytes, EIP1186ProofResponse, Eip1559TransactionRequest, FeeHistory,
+        Filter, Log, Transaction, TransactionReceipt, H256, U256,
+    },
 };
 use eyre::Result;
 
-use crate::types::CallOpts;
-use common::errors::RpcError;
-
 use super::ExecutionRpc;
+use crate::types::CallOpts;
 
 pub struct HttpRpc {
     url: String,

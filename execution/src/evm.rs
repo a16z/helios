@@ -13,11 +13,10 @@ use revm::{
 };
 use tracing::trace;
 
+use super::ExecutionClient;
 use crate::{
     constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, types::CallOpts,
 };
-
-use super::ExecutionClient;
 
 pub struct Evm<R: ExecutionRpc> {
     evm: EVM<ProofDB<R>>,
@@ -384,9 +383,8 @@ mod tests {
     use revm::primitives::KECCAK_EMPTY;
     use tokio::sync::{mpsc::channel, watch};
 
-    use crate::{rpc::mock_rpc::MockRpc, state::State};
-
     use super::*;
+    use crate::{rpc::mock_rpc::MockRpc, state::State};
 
     fn get_client() -> ExecutionClient<MockRpc> {
         let (_, block_recv) = channel(256);

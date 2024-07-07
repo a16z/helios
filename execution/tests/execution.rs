@@ -1,14 +1,12 @@
 use std::str::FromStr;
 
 use common::types::{Block, BlockTag, Transactions};
-use ethers::types::{Address, Filter, Transaction, H256, U256};
-
-use ethers::utils::rlp::{Decodable, Rlp};
-use execution::rpc::mock_rpc::MockRpc;
-use execution::state::State;
-use execution::ExecutionClient;
-use tokio::sync::mpsc::channel;
-use tokio::sync::watch;
+use ethers::{
+    types::{Address, Filter, Transaction, H256, U256},
+    utils::rlp::{Decodable, Rlp},
+};
+use execution::{rpc::mock_rpc::MockRpc, state::State, ExecutionClient};
+use tokio::sync::{mpsc::channel, watch};
 
 fn create_state() -> State {
     let (_, block_recv) = channel(256);

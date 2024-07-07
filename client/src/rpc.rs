@@ -1,26 +1,29 @@
-use consensus::database::Database;
-use ethers::{
-    abi::AbiEncode,
-    types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
+use std::{
+    fmt::Display,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
 };
-use eyre::Result;
-use std::net::{IpAddr, Ipv4Addr};
-use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
-use tracing::info;
-
-use jsonrpsee::{
-    core::{async_trait, server::Methods, Error},
-    proc_macros::rpc,
-    server::{ServerBuilder, ServerHandle},
-};
-
-use crate::{errors::NodeError, node::Node};
 
 use common::{
     types::{Block, BlockTag},
     utils::{hex_str_to_bytes, u64_to_hex_string},
 };
+use consensus::database::Database;
+use ethers::{
+    abi::AbiEncode,
+    types::{Address, Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256, U256},
+};
 use execution::types::CallOpts;
+use eyre::Result;
+use jsonrpsee::{
+    core::{async_trait, server::Methods, Error},
+    proc_macros::rpc,
+    server::{ServerBuilder, ServerHandle},
+};
+use tracing::info;
+
+use crate::{errors::NodeError, node::Node};
 
 pub struct Rpc<DB: Database> {
     node: Arc<Node<DB>>,

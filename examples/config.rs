@@ -1,7 +1,6 @@
 use config::CliConfig;
 use dirs::home_dir;
 use eyre::Result;
-
 use helios::prelude::*;
 
 #[tokio::main]

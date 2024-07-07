@@ -1,10 +1,15 @@
-use serde::Serialize;
-use std::default::Default;
-use std::net::{IpAddr, Ipv4Addr};
-use std::path::PathBuf;
+use std::{
+    default::Default,
+    net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
+};
 
-use crate::types::{ChainConfig, Forks};
-use crate::utils::bytes_serialize;
+use serde::Serialize;
+
+use crate::{
+    types::{ChainConfig, Forks},
+    utils::bytes_serialize,
+};
 
 /// The base configuration for a network.
 #[derive(Serialize)]

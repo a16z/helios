@@ -1,6 +1,10 @@
-use ethers::types::{Bytes, EIP1186ProofResponse};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::{decode_list, RlpStream};
+use ethers::{
+    types::{Bytes, EIP1186ProofResponse},
+    utils::{
+        keccak256,
+        rlp::{decode_list, RlpStream},
+    },
+};
 
 pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> bool {
     let mut expected_hash = root.to_vec();

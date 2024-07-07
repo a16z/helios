@@ -1,5 +1,5 @@
-use std::net::IpAddr;
 use std::{
+    net::IpAddr,
     path::PathBuf,
     process::exit,
     str::FromStr,
@@ -7,17 +7,18 @@ use std::{
 };
 
 use clap::Parser;
+use client::{Client, ClientBuilder};
 use common::utils::hex_str_to_bytes;
+use config::{CliConfig, Config};
+use consensus::database::FileDB;
 use dirs::home_dir;
 use eyre::Result;
 use futures::executor::block_on;
 use tracing::{error, info};
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
-
-use client::{Client, ClientBuilder};
-use config::{CliConfig, Config};
-use consensus::database::FileDB;
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    FmtSubscriber,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -9,13 +9,17 @@
 //!
 //! > helios is a fully trustless, efficient, and portable Ethereum light client written in Rust.
 //!
-//! Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
+//! Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for
+//! its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile
+//! devices.
 //!
-//! The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
+//! The entire size of Helios's binary is 13Mb and should be easy to compile into WebAssembly. This
+//! makes it a perfect target to embed directly inside wallets and dapps.
 //!
 //! ## Quickstart: `prelude`
 //!
-//! The prelude imports all the necessary data types and traits from helios. Use this to quickly bootstrap a new project.
+//! The prelude imports all the necessary data types and traits from helios. Use this to quickly
+//! bootstrap a new project.
 //!
 //! ```no_run
 //! # #[allow(unused)]
@@ -32,15 +36,18 @@
 //!
 //! The `client` module exports three main types: `Client`, `ClientBuilder`, and `FileDB`.
 //!
-//! `ClientBuilder` is a builder for the `Client` type. It allows you to configure the client using the fluent builder pattern.
+//! `ClientBuilder` is a builder for the `Client` type. It allows you to configure the client using
+//! the fluent builder pattern.
 //!
 //! `Client` serves Ethereum RPC endpoints locally that call a node on the backend.
 //!
-//! Finally, the `FileDB` type is a simple local database. It is used by the `Client` to store checkpoint data.
+//! Finally, the `FileDB` type is a simple local database. It is used by the `Client` to store
+//! checkpoint data.
 //!
 //! ### `config`
 //!
-//! The `config` module provides the configuration types for all of helios. It is used by the `ClientBuilder` to configure the `Client`.
+//! The `config` module provides the configuration types for all of helios. It is used by the
+//! `ClientBuilder` to configure the `Client`.
 //!
 //! ### `types`
 //!
@@ -71,8 +78,5 @@ pub mod errors {
 }
 
 pub mod prelude {
-    pub use crate::client::*;
-    pub use crate::config::*;
-    pub use crate::errors::*;
-    pub use crate::types::*;
+    pub use crate::{client::*, config::*, errors::*, types::*};
 }

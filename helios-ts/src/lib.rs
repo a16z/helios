@@ -4,14 +4,12 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use common::types::BlockTag;
+use config::{networks, Config};
 use consensus::database::{ConfigDB, Database};
 use ethers::types::{Address, Filter, H256};
 use execution::types::CallOpts;
 use eyre::Result;
-
 use wasm_bindgen::prelude::*;
-
-use config::{networks, Config};
 
 use crate::storage::LocalStorageDB;
 

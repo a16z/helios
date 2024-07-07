@@ -1,0 +1,36 @@
+# Each configuration option is either stable or unstable.
+# Stable options can always be used, while unstable options are only available on a
+# nightly toolchain and must be opted into.
+unstable_features = true
+
+# Reorder import and extern crate statements alphabetically in groups (a group is separated by a newline).
+reorder_imports = true
+
+# Break comments to fit on the line.
+wrap_comments = true
+comment_width = 120
+
+# Replace strings of _ wildcards by a single `..` in tuple patterns.
+condense_wildcard_suffixes = true
+
+# Error if Rustfmt cannot get all lines within `max_width`, except for comments and string literals.
+error_on_line_overflow = false
+
+# Format code snippet included in doc comments.
+format_code_in_doc_comments = true
+
+# Convert /* */ comments to // comments where possible.
+normalize_comments = true
+
+# Convert #![doc] and #[doc] attributes to //! and /// doc comments.
+normalize_doc_attributes = true
+
+# Merge imports from the same crate into a single use statement.
+# Conversely, imports from different crates are split into separate statements.
+imports_granularity = "Crate"
+
+# Discard existing import groups, and create three groups for:
+# std, core and alloc,
+# external crates,
+# self, super and crate imports.
+group_imports = "StdExternalCrate"

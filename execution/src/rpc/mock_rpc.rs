@@ -8,9 +8,8 @@ use ethers::types::{
 };
 use eyre::{eyre, Result};
 
-use crate::types::CallOpts;
-
 use super::ExecutionRpc;
+use crate::types::CallOpts;
 
 #[derive(Clone)]
 pub struct MockRpc {

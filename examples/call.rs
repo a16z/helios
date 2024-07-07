@@ -1,16 +1,18 @@
 #![allow(deprecated)]
 
+use std::path::PathBuf;
+
 use dotenv::dotenv;
 use ethers::prelude::*;
-use std::path::PathBuf;
-use tracing::info;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
-
 use helios::{
     client::{Client, ClientBuilder, FileDB},
     config::networks::Network,
     types::{BlockTag, CallOpts},
+};
+use tracing::info;
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    FmtSubscriber,
 };
 
 #[tokio::main]

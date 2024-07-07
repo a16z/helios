@@ -1,34 +1,23 @@
-use std::cmp;
-use std::marker::PhantomData;
-use std::process;
-use std::sync::Arc;
+use std::{cmp, marker::PhantomData, process, sync::Arc};
 
 use chrono::Duration;
-use eyre::eyre;
-use eyre::Result;
+use common::types::Block;
+use config::{CheckpointFallback, Config, Network};
+use eyre::{eyre, Result};
 use futures::future::join_all;
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    watch,
+};
 use tracing::{debug, error, info, warn};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use tokio::sync::mpsc::channel;
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::watch;
-
-use common::types::Block;
-use config::CheckpointFallback;
-use config::Config;
-use config::Network;
-
-use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-use crate::database::Database;
-use crate::errors::ConsensusError;
-
-use super::rpc::ConsensusRpc;
-use super::types::*;
-use super::utils::*;
+use super::{rpc::ConsensusRpc, types::*, utils::*};
+use crate::{
+    constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
+};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -672,11 +661,7 @@ impl<R: ConsensusRpc> Inner<R> {
             Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
         })();
 
-        if let Ok(is_valid) = res {
-            is_valid
-        } else {
-            false
-        }
+        res.unwrap_or_default()
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
@@ -789,18 +774,17 @@ fn is_current_committee_proof_valid(
 mod tests {
     use std::sync::Arc;
 
+    use config::{networks, Config};
+    use tokio::sync::{mpsc::channel, watch};
+
     use crate::{
         consensus::calc_sync_period,
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
-        types::Header,
-        types::{BLSPubKey, SignatureBytes},
+        types::{BLSPubKey, Header, SignatureBytes},
         Inner,
     };
-
-    use config::{networks, Config};
-    use tokio::sync::{mpsc::channel, watch};
 
     async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
         let base_config = networks::mainnet();

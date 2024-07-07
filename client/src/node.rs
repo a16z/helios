@@ -1,23 +1,15 @@
 use std::sync::Arc;
 
-use ethers::prelude::{Address, U256};
-use ethers::types::{
-    Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
-};
-use eyre::{eyre, Result};
-use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
-
 use common::types::{Block, BlockTag};
 use config::Config;
-use execution::state::State;
-
-use consensus::database::Database;
-use consensus::rpc::nimbus_rpc::NimbusRpc;
-use consensus::ConsensusClient;
-use execution::evm::Evm;
-use execution::rpc::http_rpc::HttpRpc;
-use execution::types::CallOpts;
-use execution::ExecutionClient;
+use consensus::{database::Database, rpc::nimbus_rpc::NimbusRpc, ConsensusClient};
+use ethers::{
+    prelude::{Address, U256},
+    types::{Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256},
+};
+use execution::{evm::Evm, rpc::http_rpc::HttpRpc, state::State, types::CallOpts, ExecutionClient};
+use eyre::{eyre, Result};
+use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use crate::errors::NodeError;
 

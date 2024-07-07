@@ -1,2 +1,4 @@
 [alias]
 test-all = "test --workspace"
+fmt-all = "fmt --all"
+clippy-all = "clippy --all-targets --all-features -- -D warnings"

@@ -3,7 +3,6 @@
 use std::str::FromStr;
 
 use ::client::Client;
-
 use ethers::{
     abi::Address,
     types::{H256, U256},
@@ -13,8 +12,9 @@ use helios::{client, config::networks, types::BlockTag};
 /// Fetches the latest mainnet checkpoint from the fallback service.
 ///
 /// Uses the [CheckpointFallback](config::CheckpointFallback).
-/// The `build` method will fetch a list of [CheckpointFallbackService](config::CheckpointFallbackService)s from a community-mainained list by ethPandaOps.
-/// This list is NOT guaranteed to be secure, but is provided in good faith.
+/// The `build` method will fetch a list of
+/// [CheckpointFallbackService](config::CheckpointFallbackService)s from a community-mainained list
+/// by ethPandaOps. This list is NOT guaranteed to be secure, but is provided in good faith.
 /// The raw list can be found here: https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml
 pub async fn fetch_mainnet_checkpoint() -> eyre::Result<H256> {
     let cf = config::CheckpointFallback::new().build().await.unwrap();
