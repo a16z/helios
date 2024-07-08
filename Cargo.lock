@@ -935,6 +935,7 @@ dependencies = [
  "ssz_rs",
  "superstruct",
  "thiserror",
+ "tracing",
  "zduny-wasm-timer",
 ]
 
