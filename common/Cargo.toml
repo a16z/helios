@@ -17,7 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true
-
+tracing.workspace = true
 ethers-core.workspace = true
 zduny-wasm-timer.workspace = true
 bytes.workspace = true

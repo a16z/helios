@@ -32,7 +32,9 @@ use common::consensus::types::{
     Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, OptimisticUpdate, Update,
 };
 use common::consensus::utils::calc_sync_period;
-use common::consensus::{get_bits, is_current_committee_proof_valid, verify_generic_update, apply_generic_update};
+use common::consensus::{
+    apply_generic_update, get_bits, is_current_committee_proof_valid, verify_generic_update,
+};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -421,6 +423,11 @@ impl<R: ConsensusRpc> Inner<R> {
         )
     }
 
+    pub fn apply_update(&mut self, update: &Update) {
+        let update = GenericUpdate::from(update);
+        apply_generic_update(&mut self.store, &update);
+    }
+
     fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
         let update = GenericUpdate::from(update);
         let now = SystemTime::now();
@@ -439,7 +446,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let update = GenericUpdate::from(update);
         let now = SystemTime::now();
 
-        verify_generic_update(ƒ
+        verify_generic_update(
             &update,
             now,
             self.config.chain.genesis_time,
@@ -447,12 +454,6 @@ impl<R: ConsensusRpc> Inner<R> {
             self.config.chain.genesis_root.clone(),
             &self.config.forks,
         )
-    }
-
-
-    fn apply_update(&mut self, update: &Update) {
-        let update = GenericUpdate::from(update);
-        apply_generic_update(&mut self.store, &update);
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
@@ -499,14 +500,6 @@ impl<R: ConsensusRpc> Inner<R> {
             age.num_minutes() % 60,
             age.num_seconds() % 60,
         );
-    }
-
-    fn has_finality_update(&self, update: &GenericUpdate) -> bool {
-        update.finalized_header.is_some() && update.finality_branch.is_some()
-    }
-
-    fn has_sync_update(&self, update: &GenericUpdate) -> bool {
-        update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
     }
 
     fn age(&self, slot: u64) -> Duration {

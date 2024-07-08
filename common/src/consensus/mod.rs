@@ -1,6 +1,7 @@
 use self::errors::ConsensusError;
 use self::types::{
-    Bytes32, GenericUpdate, Header, LightClientStore, SignatureBytes, SyncCommittee, Update,
+    Bytes32, FinalityUpdate, GenericUpdate, Header, LightClientStore, SignatureBytes,
+    SyncCommittee, Update,
 };
 use self::utils::{
     calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid, is_proof_valid,
@@ -13,6 +14,7 @@ pub mod types;
 pub mod utils;
 use ssz_rs::prelude::*;
 use std::cmp;
+use tracing::{debug, error, info, warn};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 pub fn get_participating_keys(
@@ -86,6 +88,14 @@ pub fn safety_threshold(store: &LightClientStore) -> u64 {
     ) / 2
 }
 
+pub fn has_sync_update(update: &GenericUpdate) -> bool {
+    update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
+}
+
+pub fn has_finality_update(update: &GenericUpdate) -> bool {
+    update.finalized_header.is_some() && update.finality_branch.is_some()
+}
+
 // implements state changes from apply_light_client_update and process_light_client_update in
 // the specification
 pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) {
@@ -113,8 +123,8 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
     let update_finalized_period = calc_sync_period(update_finalized_slot);
 
     let update_has_finalized_next_committee = store.next_sync_committee.is_none()
-        && self.has_sync_update(update)
-        && self.has_finality_update(update)
+        && has_sync_update(update)
+        && has_finality_update(update)
         && update_finalized_period == update_attested_period;
 
     let should_apply_update = {
@@ -149,7 +159,9 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
             if store.finalized_header.slot.as_u64() % 32 == 0 {
                 let checkpoint_res = store.finalized_header.hash_tree_root();
                 if let Ok(checkpoint) = checkpoint_res {
-                    self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
+                    // TOOD: Figure out log_update and self.last_checkpoint for zkVM
+                    println!("DEBUG: Should have updated last_checkpoint ");
+                    // self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
                 }
             }
 
@@ -264,6 +276,29 @@ pub fn verify_update(
     let update = GenericUpdate::from(update);
 
     verify_generic_update(&update, now, genesis_time, store, genesis_root, forks)
+}
+
+pub fn verify_finality_update(
+    update: &FinalityUpdate,
+    now: SystemTime,
+    genesis_time: u64,
+    store: &LightClientStore,
+    genesis_root: Vec<u8>,
+    forks: &Forks,
+) -> Result<()> {
+    let update = GenericUpdate::from(update);
+
+    verify_generic_update(&update, now, genesis_time, store, genesis_root, forks)
+}
+
+pub fn apply_update(store: &mut LightClientStore, update: &Update) {
+    let update = GenericUpdate::from(update);
+    apply_generic_update(store, &update);
+}
+
+pub fn apply_finality_update(store: &mut LightClientStore, update: &FinalityUpdate) {
+    let update = GenericUpdate::from(update);
+    apply_generic_update(store, &update);
 }
 
 pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
