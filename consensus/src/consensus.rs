@@ -32,7 +32,7 @@ use common::consensus::types::{
     Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, OptimisticUpdate, Update,
 };
 use common::consensus::utils::calc_sync_period;
-use common::consensus::{get_bits, is_current_committee_proof_valid, verify_generic_update};
+use common::consensus::{get_bits, is_current_committee_proof_valid, verify_generic_update, apply_generic_update};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -439,7 +439,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let update = GenericUpdate::from(update);
         let now = SystemTime::now();
 
-        verify_generic_update(
+        verify_generic_update(ƒ
             &update,
             now,
             self.config.chain.genesis_time,
@@ -449,89 +449,15 @@ impl<R: ConsensusRpc> Inner<R> {
         )
     }
 
-    // implements state changes from apply_light_client_update and process_light_client_update in
-    // the specification
-    fn apply_generic_update(&mut self, update: &GenericUpdate) {
-        let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
-
-        self.store.current_max_active_participants =
-            u64::max(self.store.current_max_active_participants, committee_bits);
-
-        let should_update_optimistic = committee_bits > self.safety_threshold()
-            && update.attested_header.slot > self.store.optimistic_header.slot;
-
-        if should_update_optimistic {
-            self.store.optimistic_header = update.attested_header.clone();
-            self.log_optimistic_update(update);
-        }
-
-        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
-
-        let update_finalized_slot = update
-            .finalized_header
-            .as_ref()
-            .map(|h| h.slot.as_u64())
-            .unwrap_or(0);
-
-        let update_finalized_period = calc_sync_period(update_finalized_slot);
-
-        let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
-            && self.has_sync_update(update)
-            && self.has_finality_update(update)
-            && update_finalized_period == update_attested_period;
-
-        let should_apply_update = {
-            let has_majority = committee_bits * 3 >= 512 * 2;
-            if !has_majority {
-                tracing::warn!("skipping block with low vote count");
-            }
-
-            let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
-            let good_update = update_is_newer || update_has_finalized_next_committee;
-
-            has_majority && good_update
-        };
-
-        if should_apply_update {
-            let store_period = calc_sync_period(self.store.finalized_header.slot.into());
-
-            if self.store.next_sync_committee.is_none() {
-                self.store.next_sync_committee = update.next_sync_committee.clone();
-            } else if update_finalized_period == store_period + 1 {
-                info!(target: "helios::consensus", "sync committee updated");
-                self.store.current_sync_committee = self.store.next_sync_committee.clone().unwrap();
-                self.store.next_sync_committee = update.next_sync_committee.clone();
-                self.store.previous_max_active_participants =
-                    self.store.current_max_active_participants;
-                self.store.current_max_active_participants = 0;
-            }
-
-            if update_finalized_slot > self.store.finalized_header.slot.as_u64() {
-                self.store.finalized_header = update.finalized_header.clone().unwrap();
-                self.log_finality_update(update);
-
-                if self.store.finalized_header.slot.as_u64() % 32 == 0 {
-                    let checkpoint_res = self.store.finalized_header.hash_tree_root();
-                    if let Ok(checkpoint) = checkpoint_res {
-                        self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
-                    }
-                }
-
-                if self.store.finalized_header.slot > self.store.optimistic_header.slot {
-                    self.store.optimistic_header = self.store.finalized_header.clone();
-                }
-            }
-        }
-    }
 
     fn apply_update(&mut self, update: &Update) {
         let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        apply_generic_update(&mut self.store, &update);
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
         let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        apply_generic_update(&mut self.store, &update);
     }
 
     fn log_finality_update(&self, update: &GenericUpdate) {
@@ -554,7 +480,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
         let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        apply_generic_update(&mut self.store, &update);
     }
 
     fn log_optimistic_update(&self, update: &GenericUpdate) {
@@ -581,13 +507,6 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn has_sync_update(&self, update: &GenericUpdate) -> bool {
         update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
-    }
-
-    fn safety_threshold(&self) -> u64 {
-        cmp::max(
-            self.store.current_max_active_participants,
-            self.store.previous_max_active_participants,
-        ) / 2
     }
 
     fn age(&self, slot: u64) -> Duration {
