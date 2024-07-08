@@ -12,6 +12,7 @@ pub mod errors;
 pub mod types;
 pub mod utils;
 use ssz_rs::prelude::*;
+use std::cmp;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 pub fn get_participating_keys(
@@ -76,6 +77,87 @@ pub fn is_current_committee_proof_valid(
         5,
         22,
     )
+}
+
+pub fn safety_threshold(store: &LightClientStore) -> u64 {
+    cmp::max(
+        store.current_max_active_participants,
+        store.previous_max_active_participants,
+    ) / 2
+}
+
+// implements state changes from apply_light_client_update and process_light_client_update in
+// the specification
+pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) {
+    let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
+
+    store.current_max_active_participants =
+        u64::max(store.current_max_active_participants, committee_bits);
+
+    let should_update_optimistic = committee_bits > safety_threshold(&store)
+        && update.attested_header.slot > store.optimistic_header.slot;
+
+    if should_update_optimistic {
+        store.optimistic_header = update.attested_header.clone();
+        // self.log_optimistic_update(update);
+    }
+
+    let update_attested_period = calc_sync_period(update.attested_header.slot.into());
+
+    let update_finalized_slot = update
+        .finalized_header
+        .as_ref()
+        .map(|h| h.slot.as_u64())
+        .unwrap_or(0);
+
+    let update_finalized_period = calc_sync_period(update_finalized_slot);
+
+    let update_has_finalized_next_committee = store.next_sync_committee.is_none()
+        && self.has_sync_update(update)
+        && self.has_finality_update(update)
+        && update_finalized_period == update_attested_period;
+
+    let should_apply_update = {
+        let has_majority = committee_bits * 3 >= 512 * 2;
+        if !has_majority {
+            tracing::warn!("skipping block with low vote count");
+        }
+
+        let update_is_newer = update_finalized_slot > store.finalized_header.slot.as_u64();
+        let good_update = update_is_newer || update_has_finalized_next_committee;
+
+        has_majority && good_update
+    };
+
+    if should_apply_update {
+        let store_period = calc_sync_period(store.finalized_header.slot.into());
+
+        if store.next_sync_committee.is_none() {
+            store.next_sync_committee = update.next_sync_committee.clone();
+        } else if update_finalized_period == store_period + 1 {
+            info!(target: "helios::consensus", "sync committee updated");
+            store.current_sync_committee = store.next_sync_committee.clone().unwrap();
+            store.next_sync_committee = update.next_sync_committee.clone();
+            store.previous_max_active_participants = store.current_max_active_participants;
+            store.current_max_active_participants = 0;
+        }
+
+        if update_finalized_slot > store.finalized_header.slot.as_u64() {
+            store.finalized_header = update.finalized_header.clone().unwrap();
+            // log_finality_update(update);
+
+            if store.finalized_header.slot.as_u64() % 32 == 0 {
+                let checkpoint_res = store.finalized_header.hash_tree_root();
+                if let Ok(checkpoint) = checkpoint_res {
+                    self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
+                }
+            }
+
+            if store.finalized_header.slot > store.optimistic_header.slot {
+                store.optimistic_header = store.finalized_header.clone();
+            }
+        }
+    }
 }
 
 // implements checks from validate_light_client_update and process_light_client_update in the
