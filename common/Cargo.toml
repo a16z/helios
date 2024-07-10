@@ -5,7 +5,7 @@ edition = "2021"
 
 
 [features]
-default = ["milagro_bls"]
+default = ["bls12_381"]
 milagro_bls = ["dep:milagro_bls"]
 bls12_381 = ["dep:bls12_381"]
 
