@@ -155,7 +155,7 @@ Ethereum Execution API provider JSON RPC endpoints used must support the `eth_ge
 For example, the following cURL request should return a response `{"jsonrpc":"2.0","id":1,"result":{...}}` to demonstrate that the All That Node public JSON RPC endpoints on the Ethereum Goerli network and Mainnet support the `eth_getProof` endpoint.
 
 ```sh
-curl https://ethereum-sepolia.g.allthatnode.com \
+curl https://ethereum-goerli-rpc.allthatnode.com \
 -X POST \
 -H "Content-Type: application/json" \
 -d '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",["0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"],"latest"],"id":1}'
