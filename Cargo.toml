@@ -24,7 +24,7 @@ default-members = ["cli"]
 
 [workspace.dependencies]
 # consensus
-ssz-rs = {package="ssz_rs", git = "https://github.com/ralexstokes/ssz-rs.git", branch="main"}
+ssz-rs = {package="ssz_rs",version="0.9.0"}
 milagro_bls = { package =  "snowbridge-milagro-bls", git = "https://github.com/succinctlabs/milagro_bls" }
 ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
@@ -33,7 +33,7 @@ revm = { git = "https://github.com/bluealloy/revm", rev = "23cbac479f616eba5ab11
     "serde",
 ] }
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
-bls12_381 = { path = "../bls12_381", features=["experimental"] }
+bls12_381 = { git= "https://github.com/succinctlabs/bls12_381", features=["experimental"] }
 
 # async/futures
 async-trait = "0.1.57"
