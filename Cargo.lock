@@ -431,7 +431,7 @@ dependencies = [
 [[package]]
 name = "bls12_381"
 version = "0.8.0"
-source = "git+https://github.com/succinctlabs/bls12_381#83de92758ca192449c6d2701db38830b9450d83b"
+source = "git+https://github.com/succinctlabs/bls12_381#b7d743272fd80e8619d407145d0255b31b676a2b"
 dependencies = [
  "digest 0.9.0",
  "ff",
@@ -439,7 +439,7 @@ dependencies = [
  "pairing",
  "rand_core 0.6.4",
  "sha2 0.9.9",
- "sp1-precompiles",
+ "sp1-lib",
  "subtle",
 ]
 
@@ -1332,7 +1332,6 @@ dependencies = [
  "rand_core 0.6.4",
  "sec1",
  "subtle",
- "tap",
  "zeroize",
 ]
 
@@ -4887,7 +4886,7 @@ dependencies = [
 [[package]]
 name = "snowbridge-milagro-bls"
 version = "1.5.2"
-source = "git+https://github.com/succinctlabs/milagro_bls#fd6f8e704218b466c6c4d0abed76b75ec9b9d99e"
+source = "git+https://github.com/succinctlabs/milagro_bls#8a063edf2259c0a8c98a4a7f6f84b0ac10b0f9d4"
 dependencies = [
  "hex",
  "lazy_static",
@@ -4895,7 +4894,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "snowbridge-amcl",
- "sp1-precompiles",
+ "sp1-lib",
  "zeroize",
 ]
 
@@ -4940,18 +4939,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp1-precompiles"
-version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.8-testnet#14eb569d41d24721ffbd407d6060e202482d659c"
+name = "sp1-lib"
+version = "0.0.2-test"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=chris/v1.0.9-testnet#504d24f00ff3ac2e0c7e6da2d1e62a7cb5bf6520"
 dependencies = [
  "anyhow",
  "bincode",
  "cfg-if",
- "getrandom 0.2.15",
  "hex",
- "k256",
- "num",
- "rand 0.8.5",
  "serde",
  "snowbridge-amcl",
 ]
