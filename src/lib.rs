@@ -61,7 +61,6 @@ pub mod config {
 pub mod types {
     pub use common::config::types::*;
     pub use common::consensus::types::*;
-    pub use common::execution::types::*;
     pub use common::types::{Block, BlockTag, Transactions};
     pub use execution::types::{Account, CallOpts};
 }
@@ -84,9 +83,6 @@ pub mod errors {
     pub use execution::errors::*;
 }
 
-pub mod constants {
-    pub use common::execution::constants::*;
-}
 
 pub mod common {
     pub use common::*;

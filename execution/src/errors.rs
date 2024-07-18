@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethers_core::{
+use ethers::{
     abi::AbiDecode,
     types::{Address, H256, U256},
 };
