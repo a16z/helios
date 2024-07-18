@@ -1,17 +1,20 @@
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
+use crate::types::ChainConfig;
+use crate::utils::bytes_opt_deserialize;
 use crate::Network;
+use common::config::types::Forks;
+use common::consensus::calculate_fork_version;
+use common::utils::bytes_deserialize;
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use common::consensus::calculate_fork_version;
-use common::config::types::{ChainConfig, Forks};
-use common::config::utils::{bytes_deserialize, bytes_opt_deserialize};
 use serde::Deserialize;
 use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::{path::PathBuf, process::exit};
+
 #[derive(Deserialize, Debug, Default)]
 pub struct Config {
     pub consensus_rpc: String,
