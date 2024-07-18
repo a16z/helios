@@ -1,6 +1,6 @@
 use crate::consensus::types::{Bytes32, Header, SignatureBytes};
-use crate::crypto::bls::{AggregateSignature, PublicKey};
 use eyre::Result;
+use milagro_bls::{AggregateSignature, PublicKey};
 use ssz_rs::prelude::*;
 
 pub fn calc_sync_period(slot: u64) -> u64 {

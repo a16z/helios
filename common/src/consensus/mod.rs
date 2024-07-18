@@ -7,8 +7,8 @@ use self::utils::{
     calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid, is_proof_valid,
 };
 use crate::config::types::Forks;
-use crate::crypto::bls::PublicKey;
 use eyre::Result;
+use milagro_bls::PublicKey;
 pub mod errors;
 pub mod types;
 pub mod utils;
