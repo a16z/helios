@@ -462,15 +462,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1419,7 +1410,6 @@ dependencies = [
  "rand_core 0.6.4",
  "sec1",
  "subtle",
- "tap",
  "zeroize",
 ]
 
@@ -1894,7 +1884,6 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
- "bitvec 1.0.1",
  "rand_core 0.6.4",
  "subtle",
 ]
@@ -5017,7 +5006,7 @@ dependencies = [
 [[package]]
 name = "snowbridge-milagro-bls"
 version = "1.5.2"
-source = "git+https://github.com/succinctlabs/milagro_bls#fd6f8e704218b466c6c4d0abed76b75ec9b9d99e"
+source = "git+https://github.com/Snowfork/milagro_bls?rev=6a95c9e33c6a41d9137761e593d53742ebb964de#6a95c9e33c6a41d9137761e593d53742ebb964de"
 dependencies = [
  "hex",
  "lazy_static",
@@ -5025,7 +5014,6 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "snowbridge-amcl",
- "sp1-precompiles",
  "zeroize",
 ]
 
@@ -5067,23 +5055,6 @@ dependencies = [
  "phf",
  "thiserror",
  "unicode-xid",
-]
-
-[[package]]
-name = "sp1-precompiles"
-version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.8-testnet#14eb569d41d24721ffbd407d6060e202482d659c"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "getrandom 0.2.15",
- "hex",
- "k256",
- "num",
- "rand 0.8.5",
- "serde",
- "snowbridge-amcl",
 ]
 
 [[package]]
