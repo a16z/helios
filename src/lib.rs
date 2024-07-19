@@ -81,7 +81,6 @@ pub mod prelude {
 }
 
 pub mod errors {
-    pub use common::errors::*;
     pub use consensus_core::errors::*;
     pub use execution::errors::*;
 }
