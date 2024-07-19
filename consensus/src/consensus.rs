@@ -410,14 +410,13 @@ impl<R: ConsensusRpc> Inner<R> {
 
     pub fn verify_update(&self, update: &Update) -> Result<()> {
         let update = GenericUpdate::from(update);
-        let now = SystemTime::now();
+        let expected_current_slot = self.expected_current_slot();
 
         verify_generic_update(
             &update,
-            now,
-            self.config.chain.genesis_time,
+            expected_current_slot,
             &self.store,
-            self.config.chain.genesis_root.clone(),
+            self.config.chain.genesis_root.clone().try_into().unwrap(),
             &self.config.forks,
         )
     }
@@ -429,28 +428,26 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
         let update = GenericUpdate::from(update);
-        let now = SystemTime::now();
+        let expected_current_slot = self.expected_current_slot();
 
         verify_generic_update(
             &update,
-            now,
-            self.config.chain.genesis_time,
+            expected_current_slot,
             &self.store,
-            self.config.chain.genesis_root.clone(),
+            self.config.chain.genesis_root.clone().try_into().unwrap(),
             &self.config.forks,
         )
     }
 
     fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
         let update = GenericUpdate::from(update);
-        let now = SystemTime::now();
+        let expected_current_slot = self.expected_current_slot();
 
         verify_generic_update(
             &update,
-            now,
-            self.config.chain.genesis_time,
+            expected_current_slot,
             &self.store,
-            self.config.chain.genesis_root.clone(),
+            self.config.chain.genesis_root.clone().try_into().unwrap(),
             &self.config.forks,
         )
     }
