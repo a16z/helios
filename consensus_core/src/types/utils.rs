@@ -8,7 +8,7 @@ use serde::de::Error;
 use ssz_rs::prelude::*;
 
 use super::{ExecutionPayload, Header};
-use crate::types::{Block, Transactions};
+use common::types::{Block, Transactions};
 
 pub fn u256_deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
 where

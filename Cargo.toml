@@ -14,6 +14,7 @@ members = [
     "execution",
     "common",
     "helios-ts",
+    "consensus_core",
 ]
 
 default-members = ["cli"]
@@ -67,6 +68,7 @@ config = { path = "./config" }
 consensus = { path = "./consensus" }
 execution = { path = "./execution" }
 common = { path = "./common" }
+consensus_core = { path = "./consensus_core" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

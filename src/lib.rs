@@ -60,14 +60,16 @@ pub mod config {
 
 pub mod types {
     pub use common::config::types::*;
-    pub use common::consensus::types::*;
     pub use common::types::{Block, BlockTag, Transactions};
+    pub use consensus_core::types::*;
     pub use execution::types::{Account, CallOpts};
 }
 
 pub mod client {
     pub use consensus::database::*;
 }
+
+pub use consensus_core;
 
 pub mod prelude {
     pub use crate::client::*;
@@ -78,11 +80,10 @@ pub mod prelude {
 }
 
 pub mod errors {
-    pub use common::consensus::errors::*;
     pub use common::errors::*;
+    pub use consensus_core::errors::*;
     pub use execution::errors::*;
 }
-
 
 pub mod common {
     pub use common::*;

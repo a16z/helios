@@ -5,7 +5,6 @@ use superstruct::superstruct;
 
 pub use self::primitives::{ByteList, ByteVector, U64};
 use self::utils::{header_deserialize, superstruct_ssz, u256_deserialize};
-pub use crate::types::BlockTag;
 mod primitives;
 mod utils;
 use serde;

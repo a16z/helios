@@ -7,9 +7,9 @@ use serde::de::DeserializeOwned;
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-use common::consensus::types::U64;
-use common::consensus::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
-use common::errors::RpcError;
+use consensus_core::types::U64;
+use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use consensus_core::errors::RpcError;
 
 #[derive(Debug)]
 pub struct NimbusRpc {

@@ -25,14 +25,14 @@ use config::Network;
 use super::rpc::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
-use common::consensus::errors::ConsensusError;
-use common::consensus::types::LightClientStore;
+use consensus_core::errors::ConsensusError;
+use consensus_core::types::LightClientStore;
 
-use common::consensus::types::{
+use consensus_core::types::{
     Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, OptimisticUpdate, Update,
 };
-use common::consensus::utils::calc_sync_period;
-use common::consensus::{
+use consensus_core::utils::calc_sync_period;
+use consensus_core::{
     apply_generic_update, get_bits, is_current_committee_proof_valid, verify_generic_update,
 };
 
@@ -545,8 +545,8 @@ mod tests {
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         Inner,
     };
-    use common::consensus::errors::ConsensusError;
-    use common::consensus::types::{BLSPubKey, Header, SignatureBytes};
+    use consensus_core::errors::ConsensusError;
+    use consensus_core::types::{BLSPubKey, Header, SignatureBytes};
 
     use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};
