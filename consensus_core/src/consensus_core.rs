@@ -1,7 +1,6 @@
 use crate::errors::ConsensusError;
 use crate::types::{
-    Bytes32, FinalityUpdate, GenericUpdate, Header, LightClientStore, SignatureBytes,
-    SyncCommittee, Update,
+    Bytes32, FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, SignatureBytes, SyncCommittee, Update
 };
 use crate::utils::{
     calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root,
@@ -97,6 +96,7 @@ pub fn has_finality_update(update: &GenericUpdate) -> bool {
 // implements state changes from apply_light_client_update and process_light_client_update in
 // the specification
 pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) {
+    // println!("Time: {:?}", SystemTime::now());
     let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
     store.current_max_active_participants =
@@ -107,7 +107,6 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
 
     if should_update_optimistic {
         store.optimistic_header = update.attested_header.clone();
-        // self.log_optimistic_update(update);
     }
 
     let update_attested_period = calc_sync_period(update.attested_header.slot.into());
@@ -152,12 +151,11 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
 
         if update_finalized_slot > store.finalized_header.slot.as_u64() {
             store.finalized_header = update.finalized_header.clone().unwrap();
-            // log_finality_update(update);
 
             if store.finalized_header.slot.as_u64() % 32 == 0 {
                 let checkpoint_res = store.finalized_header.hash_tree_root();
                 if let Ok(checkpoint) = checkpoint_res {
-                    // TOOD: Figure out log_update and self.last_checkpoint for zkVM
+                    // TOOD: figure out self.last_checkpoint for zkVM
                     println!("DEBUG: Should have updated last_checkpoint ");
                     // self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
                 }
@@ -293,6 +291,11 @@ pub fn apply_update(store: &mut LightClientStore, update: &Update) {
 }
 
 pub fn apply_finality_update(store: &mut LightClientStore, update: &FinalityUpdate) {
+    let update = GenericUpdate::from(update);
+    apply_generic_update(store, &update);
+}
+
+pub fn apply_optimistic_update(store: &mut LightClientStore, update: &OptimisticUpdate) {
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update);
 }

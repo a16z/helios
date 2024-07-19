@@ -4,6 +4,9 @@ use std::process;
 use std::sync::Arc;
 
 use chrono::Duration;
+use consensus_core::apply_finality_update;
+use consensus_core::apply_optimistic_update;
+use consensus_core::apply_update;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
@@ -423,8 +426,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub fn apply_update(&mut self, update: &Update) {
-        let update = GenericUpdate::from(update);
-        apply_generic_update(&mut self.store, &update);
+        apply_update(&mut self.store, &update);
     }
 
     fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
@@ -454,11 +456,11 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        let update = GenericUpdate::from(update);
-        apply_generic_update(&mut self.store, &update);
+        apply_finality_update(&mut self.store, &update);
+        self.log_finality_update(&update);
     }
 
-    fn log_finality_update(&self, update: &GenericUpdate) {
+    fn log_finality_update(&self, update: &FinalityUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -477,11 +479,11 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let update = GenericUpdate::from(update);
-        apply_generic_update(&mut self.store, &update);
+        apply_optimistic_update(&mut self.store, &update);
+        self.log_optimistic_update(&update);
     }
 
-    fn log_optimistic_update(&self, update: &GenericUpdate) {
+    fn log_optimistic_update(&self, update: &OptimisticUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
