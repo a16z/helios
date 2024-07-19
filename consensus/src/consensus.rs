@@ -1,4 +1,3 @@
-use std::cmp;
 use std::marker::PhantomData;
 use std::process;
 use std::sync::Arc;
@@ -36,8 +35,7 @@ use consensus_core::types::{
 };
 use consensus_core::utils::calc_sync_period;
 use consensus_core::{
-    apply_generic_update, expected_current_slot, get_bits, is_current_committee_proof_valid,
-    verify_generic_update,
+    expected_current_slot, get_bits, is_current_committee_proof_valid, verify_generic_update,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
