@@ -173,10 +173,10 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
 // specification
 pub fn verify_generic_update(
     update: &GenericUpdate,
-    now: SystemTime,
-    genesis_time: u64,
+    now: SystemTime, // maybe change to expected_current_slot?
+    genesis_time: u64, // delete if changed from expected_current_slot
     store: &LightClientStore,
-    genesis_root: Vec<u8>,
+    genesis_root: Vec<u8>, // used in verify_sync_committee_signture -> bla bla bla -> compute_fork_data_root, which only uses the genesis root and fork version
     forks: &Forks,
 ) -> Result<()> {
     let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
@@ -185,7 +185,7 @@ pub fn verify_generic_update(
     }
 
     let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-    let valid_time = expected_current_slot(now, genesis_time) >= update.signature_slot
+    let valid_time: bool = expected_current_slot(now, genesis_time) >= update.signature_slot
         && update.signature_slot > update.attested_header.slot.as_u64()
         && update.attested_header.slot >= update_finalized_slot;
 
@@ -246,7 +246,7 @@ pub fn verify_generic_update(
 
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-    let is_valid_sig = verify_sync_committee_signture(
+    let is_valid_sig = verify_sync_committee_signture( // genesis_root, forks, and slot can all be used here to calculate the fork data root to save parametewrs
         &pks,
         &update.attested_header,
         &update.sync_aggregate.sync_committee_signature,
