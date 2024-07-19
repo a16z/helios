@@ -148,6 +148,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 
     pub fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
+
         expected_current_slot(now, self.genesis_time)
     }
 }
@@ -505,12 +506,10 @@ impl<R: ConsensusRpc> Inner<R> {
         chrono::Duration::from_std(delay).unwrap()
     }
 
-    fn expected_current_slot(&self) -> u64 {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let genesis_time = self.config.chain.genesis_time;
-        let since_genesis = now - std::time::Duration::from_secs(genesis_time);
+    pub fn expected_current_slot(&self) -> u64 {
+        let now = SystemTime::now();
 
-        since_genesis.as_secs() / 12
+        expected_current_slot(now, self.config.chain.genesis_time)
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
