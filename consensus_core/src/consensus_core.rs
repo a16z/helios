@@ -1,15 +1,14 @@
 use crate::errors::ConsensusError;
-use crate::utils::{
-    calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid, is_proof_valid,
-};
-use common::config::types::Forks;
 use crate::types::{
     Bytes32, FinalityUpdate, GenericUpdate, Header, LightClientStore, SignatureBytes,
     SyncCommittee, Update,
 };
+use crate::utils::{
+    calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid, is_proof_valid,
+};
+use common::config::types::Forks;
 use eyre::Result;
 use milagro_bls::PublicKey;
-
 use ssz_rs::prelude::*;
 use std::cmp;
 use tracing::{debug, error, info, warn};

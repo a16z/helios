@@ -25,6 +25,7 @@ pub struct LightClientStore {
     pub previous_max_active_participants: u64,
     pub current_max_active_participants: u64,
 }
+
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct BeaconBlock {
     pub slot: U64,
