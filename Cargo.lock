@@ -326,6 +326,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.66.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -417,6 +426,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "bls12_381"
+version = "0.8.0"
+source = "git+https://github.com/succinctlabs/bls12_381#4379b0226454fed0e1fa2be176d2fdc0423a02a0"
+dependencies = [
+ "digest 0.9.0",
+ "eyre",
+ "ff",
+ "group",
+ "pairing",
+ "rand_core 0.6.4",
+ "sha2 0.9.9",
+ "sp1-lib",
+ "subtle",
 ]
 
 [[package]]
@@ -807,13 +832,13 @@ checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "bls12_381",
  "bytes",
  "ethers-core",
  "eyre",
  "hex",
  "serde",
  "serde_json",
- "snowbridge-milagro-bls",
  "ssz_rs",
  "superstruct",
  "thiserror",
@@ -848,6 +873,7 @@ name = "consensus"
 version = "0.5.5"
 dependencies = [
  "async-trait",
+ "bls12_381",
  "bytes",
  "chrono",
  "common",
@@ -863,7 +889,6 @@ dependencies = [
  "retri",
  "serde",
  "serde_json",
- "snowbridge-milagro-bls",
  "ssz_rs",
  "superstruct",
  "thiserror",
@@ -877,6 +902,7 @@ dependencies = [
 name = "consensus_core"
 version = "0.1.0"
 dependencies = [
+ "bls12_381",
  "bytes",
  "common",
  "ethers-core",
@@ -884,7 +910,6 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "snowbridge-milagro-bls",
  "ssz_rs",
  "superstruct",
  "thiserror",
@@ -1791,6 +1816,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
+ "bitvec 1.0.1",
  "rand_core 0.6.4",
  "subtle",
 ]
@@ -3453,6 +3479,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
+name = "pairing"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81fec4625e73cf41ef4bb6846cafa6d44736525f442ba45e407c4a000a13996f"
+dependencies = [
+ "group",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "1.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4516,7 +4551,6 @@ version = "2.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eca070c12893629e2cc820a9761bedf6ce1dcddc9852984d1dc734b8bd9bd024"
 dependencies = [
- "bitvec 1.0.1",
  "cfg-if",
  "derive_more",
  "parity-scale-codec 3.6.12",
@@ -4758,8 +4792,7 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-sha2-v0.9.9#db82a4848f8d033eab544255e1efa036cc06f054"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if",
@@ -4771,8 +4804,7 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-sha2-v0.10.8#1f224388fdede7cef649bce0d63876d1a9e3f515"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -4873,20 +4905,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-milagro-bls"
-version = "1.5.2"
-source = "git+https://github.com/Snowfork/milagro_bls?rev=6a95c9e33c6a41d9137761e593d53742ebb964de#6a95c9e33c6a41d9137761e593d53742ebb964de"
-dependencies = [
- "hex",
- "lazy_static",
- "parity-scale-codec 3.6.12",
- "rand 0.8.5",
- "scale-info",
- "snowbridge-amcl",
- "zeroize",
-]
-
-[[package]]
 name = "socket2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4924,6 +4942,19 @@ dependencies = [
  "phf",
  "thiserror",
  "unicode-xid",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "0.0.2-test"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=chris/v1.0.9-testnet#504d24f00ff3ac2e0c7e6da2d1e62a7cb5bf6520"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
 ]
 
 [[package]]
@@ -5245,9 +5276,9 @@ dependencies = [
 [[package]]
 name = "tiny-keccak"
 version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
+source = "git+https://github.com/sp1-patches/tiny-keccak?branch=patch-v2.0.2#bf0b28f63510a90c7b6c21ac6ff461c93ecd2331"
 dependencies = [
+ "cfg-if",
  "crunchy",
 ]
 
