@@ -1,4 +1,4 @@
-use crate::consensus::types::{Bytes32, Header, SignatureBytes};
+use crate::types::{Bytes32, Header, SignatureBytes};
 use eyre::Result;
 use milagro_bls::{AggregateSignature, PublicKey};
 use ssz_rs::prelude::*;

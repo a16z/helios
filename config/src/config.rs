@@ -4,7 +4,7 @@ use crate::types::ChainConfig;
 use crate::utils::bytes_opt_deserialize;
 use crate::Network;
 use common::config::types::Forks;
-use common::consensus::calculate_fork_version;
+use consensus_core::calculate_fork_version;
 use common::utils::bytes_deserialize;
 use figment::{
     providers::{Format, Serialized, Toml},

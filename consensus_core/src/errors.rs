@@ -1,7 +1,7 @@
 use ethers_core::types::H256;
 use thiserror::Error;
 
-use crate::types::BlockTag;
+use common::types::BlockTag;
 
 #[derive(Debug, Error)]
 pub enum ConsensusError {

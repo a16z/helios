@@ -2,7 +2,7 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use super::ConsensusRpc;
 use async_trait::async_trait;
-use common::consensus::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use eyre::Result;
 
 pub struct MockRpc {

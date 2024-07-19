@@ -918,6 +918,7 @@ name = "config"
 version = "0.5.5"
 dependencies = [
  "common",
+ "consensus_core",
  "dirs",
  "ethers-core",
  "eyre",
@@ -943,6 +944,7 @@ dependencies = [
  "chrono",
  "common",
  "config",
+ "consensus_core",
  "ethers-core",
  "eyre",
  "futures",
@@ -960,6 +962,25 @@ dependencies = [
  "tokio",
  "tracing",
  "wasm-bindgen-futures",
+ "zduny-wasm-timer",
+]
+
+[[package]]
+name = "consensus_core"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "common",
+ "ethers-core",
+ "eyre",
+ "hex",
+ "serde",
+ "serde_json",
+ "snowbridge-milagro-bls",
+ "ssz_rs",
+ "superstruct",
+ "thiserror",
+ "tracing",
  "zduny-wasm-timer",
 ]
 
@@ -2404,6 +2425,7 @@ dependencies = [
  "common",
  "config",
  "consensus",
+ "consensus_core",
  "criterion",
  "dirs",
  "dotenv",
