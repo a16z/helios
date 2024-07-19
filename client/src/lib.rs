@@ -1,6 +1,6 @@
-pub mod client;
-pub use self::{Client, ClientBuilder};
+mod client;
 pub use crate::client::*;
+
 pub mod errors;
 
 #[cfg(not(target_arch = "wasm32"))]
