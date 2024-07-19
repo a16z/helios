@@ -4,7 +4,8 @@ use crate::types::{
     SyncCommittee, Update,
 };
 use crate::utils::{
-    calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid, is_proof_valid,
+    calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root,
+    is_aggregate_valid, is_proof_valid,
 };
 use common::config::types::Forks;
 use eyre::Result;
@@ -173,10 +174,9 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
 // specification
 pub fn verify_generic_update(
     update: &GenericUpdate,
-    now: SystemTime, // maybe change to expected_current_slot?
-    genesis_time: u64, // delete if changed from expected_current_slot
+    expected_current_slot: u64,
     store: &LightClientStore,
-    genesis_root: Vec<u8>, // used in verify_sync_committee_signture -> bla bla bla -> compute_fork_data_root, which only uses the genesis root and fork version
+    genesis_root: Bytes32,
     forks: &Forks,
 ) -> Result<()> {
     let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
@@ -185,7 +185,7 @@ pub fn verify_generic_update(
     }
 
     let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-    let valid_time: bool = expected_current_slot(now, genesis_time) >= update.signature_slot
+    let valid_time: bool = expected_current_slot >= update.signature_slot
         && update.signature_slot > update.attested_header.slot.as_u64()
         && update.attested_header.slot >= update_finalized_slot;
 
@@ -246,13 +246,14 @@ pub fn verify_generic_update(
 
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-    let is_valid_sig = verify_sync_committee_signture( // genesis_root, forks, and slot can all be used here to calculate the fork data root to save parametewrs
+    let fork_version = Vector::try_from(calculate_fork_version(forks, update.signature_slot))
+        .map_err(|(_, err)| err)?;
+    let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
+    let is_valid_sig = verify_sync_committee_signture(
         &pks,
         &update.attested_header,
         &update.sync_aggregate.sync_committee_signature,
-        update.signature_slot,
-        genesis_root,
-        forks,
+        fork_data_root,
     );
 
     if !is_valid_sig {
@@ -264,28 +265,26 @@ pub fn verify_generic_update(
 
 pub fn verify_update(
     update: &Update,
-    now: SystemTime,
-    genesis_time: u64,
+    expected_current_slot: u64,
     store: &LightClientStore,
-    genesis_root: Vec<u8>,
+    genesis_root: Bytes32,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
 
-    verify_generic_update(&update, now, genesis_time, store, genesis_root, forks)
+    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
 }
 
 pub fn verify_finality_update(
     update: &FinalityUpdate,
-    now: SystemTime,
-    genesis_time: u64,
+    expected_current_slot: u64,
     store: &LightClientStore,
-    genesis_root: Vec<u8>,
+    genesis_root: Bytes32,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
 
-    verify_generic_update(&update, now, genesis_time, store, genesis_root, forks)
+    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
 }
 
 pub fn apply_update(store: &mut LightClientStore, update: &Update) {
@@ -309,15 +308,12 @@ pub fn verify_sync_committee_signture(
     pks: &[PublicKey],
     attested_header: &Header,
     signature: &SignatureBytes,
-    signature_slot: u64,
-    genesis_root: Vec<u8>,
-    forks: &Forks,
+    fork_data_root: Node,
 ) -> bool {
     let res: Result<bool> = (move || {
         let pks: Vec<&PublicKey> = pks.iter().collect();
         let header_root = Bytes32::try_from(attested_header.clone().hash_tree_root()?.as_ref())?;
-        let signing_root =
-            compute_committee_sign_root(header_root, signature_slot, genesis_root, forks)?;
+        let signing_root = compute_committee_sign_root(header_root, fork_data_root)?;
 
         Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
     })();
@@ -329,18 +325,9 @@ pub fn verify_sync_committee_signture(
     }
 }
 
-pub fn compute_committee_sign_root(
-    header: Bytes32,
-    slot: u64,
-    genesis_root: Vec<u8>,
-    forks: &Forks,
-) -> Result<Node> {
-    let genesis_root = genesis_root.to_vec().try_into().unwrap();
-
+pub fn compute_committee_sign_root(header: Bytes32, fork_data_root: Node) -> Result<Node> {
     let domain_type = &hex::decode("07000000")?[..];
-    let fork_version =
-        Vector::try_from(calculate_fork_version(forks, slot)).map_err(|(_, err)| err)?;
-    let domain = compute_domain(domain_type, fork_version, genesis_root)?;
+    let domain = compute_domain(domain_type, fork_data_root)?;
     compute_signing_root(header, domain)
 }
 
