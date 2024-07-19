@@ -17,6 +17,7 @@ retri.workspace = true
 figment = { version = "0.10.7", features = ["toml", "env"] }
 serde_yaml = "0.9.14"
 strum = { version = "0.26.2", features = ["derive"] }
+
 common = { path = "../common" }
 consensus_core = { path = "../consensus_core" }
 

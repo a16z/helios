@@ -1,18 +1,18 @@
 [package]
-version = "0.1.0"
 name = "common"
+version = "0.5.5"
 edition = "2021"
 
 [dependencies]
 eyre.workspace = true
-ssz-rs.workspace = true
-hex.workspace = true
 serde.workspace = true
+hex.workspace = true
+ssz-rs.workspace = true
+ethers-core.workspace = true
 serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-ethers-core.workspace = true
 zduny-wasm-timer.workspace = true
 bytes.workspace = true
 milagro_bls.workspace = true

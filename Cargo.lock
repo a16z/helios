@@ -897,7 +897,7 @@ checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 
 [[package]]
 name = "common"
-version = "0.1.0"
+version = "0.5.5"
 dependencies = [
  "bytes",
  "ethers-core",
@@ -950,6 +950,7 @@ dependencies = [
  "futures",
  "getrandom 0.2.15",
  "hex",
+ "openssl",
  "parking_lot",
  "reqwest 0.12.5",
  "retri",
