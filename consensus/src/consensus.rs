@@ -33,7 +33,8 @@ use consensus_core::types::{
 };
 use consensus_core::utils::calc_sync_period;
 use consensus_core::{
-    apply_generic_update, get_bits, is_current_committee_proof_valid, verify_generic_update,
+    apply_generic_update, expected_current_slot, get_bits, is_current_committee_proof_valid,
+    verify_generic_update,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
@@ -146,10 +147,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     }
 
     pub fn expected_current_slot(&self) -> u64 {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let since_genesis = now - std::time::Duration::from_secs(self.genesis_time);
-
-        since_genesis.as_secs() / 12
+        let now = SystemTime::now();
+        expected_current_slot(now, self.genesis_time)
     }
 }
 
