@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
         .with_env_filter(env_filter)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("subsriber set failed");
+    tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 
     let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>";
     info!("Using untrusted RPC URL [REDACTED]");
