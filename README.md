@@ -162,7 +162,7 @@ curl https://ethereum-goerli-rpc.allthatnode.com \
 ```
 
 ```sh
-curl https://ethereum-mainnet-rpc.allthatnode.com \
+curl https://ethereum-mainnet.g.allthatnode.com \
 -X POST \
 -H "Content-Type: application/json" \
 -d '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",["0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"],"latest"],"id":1}'
@@ -196,7 +196,7 @@ This latest checkpoint may be provided as an [Additional CLI Option](#additional
 helios \
     --network mainnet \
     --consensus-rpc https://www.lightclientdata.org \
-    --execution-rpc https://ethereum-mainnet-rpc.allthatnode.com \
+    --execution-rpc https://ethereum-mainnet.g.allthatnode.com \
     --checkpoint 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2
 ```
 
