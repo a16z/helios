@@ -31,8 +31,7 @@ milagro_bls = { package = "bls12_381", git = "https://github.com/succinctlabs/bl
 # execution
 ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
-revm = { git = "https://github.com/bluealloy/revm", rev = "50726f3e1b2f7b4d50f6755ed30a1ae3108583bf", default-features = false, features = [
-    "std",
+revm = { git = "https://github.com/bluealloy/revm", rev = "23cbac479f616eba5ab11ddfe6d5814b9c492202", default-features = false, features = [    "std",
     "serde",
 ] }
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
