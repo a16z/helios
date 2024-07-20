@@ -12,7 +12,7 @@ use eyre::Result;
 use milagro_bls::PublicKey;
 use ssz_rs::prelude::*;
 use std::cmp;
-use tracing::{debug, error, info, warn};
+use tracing::info;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 pub fn get_participating_keys(
@@ -294,12 +294,18 @@ pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<Vec
     apply_generic_update(store, &update)
 }
 
-pub fn apply_finality_update(store: &mut LightClientStore, update: &FinalityUpdate) -> Option<Vec<u8>> {
+pub fn apply_finality_update(
+    store: &mut LightClientStore,
+    update: &FinalityUpdate,
+) -> Option<Vec<u8>> {
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update)
 }
 
-pub fn apply_optimistic_update(store: &mut LightClientStore, update: &OptimisticUpdate) -> Option<Vec<u8>> {
+pub fn apply_optimistic_update(
+    store: &mut LightClientStore,
+    update: &OptimisticUpdate,
+) -> Option<Vec<u8>> {
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update)
 }

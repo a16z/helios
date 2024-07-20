@@ -5,7 +5,7 @@ use superstruct::superstruct;
 
 pub use self::primitives::{ByteList, ByteVector, U64};
 use self::utils::{header_deserialize, superstruct_ssz, u256_deserialize};
-mod primitives;
+pub mod primitives;
 mod utils;
 use serde;
 
