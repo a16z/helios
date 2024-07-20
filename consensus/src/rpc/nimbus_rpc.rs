@@ -9,7 +9,7 @@ use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use consensus_core::types::U64;
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
-use consensus_core::errors::RpcError;
+use common::errors::RpcError;
 
 #[derive(Debug)]
 pub struct NimbusRpc {

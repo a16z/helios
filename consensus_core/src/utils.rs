@@ -1,7 +1,8 @@
-use crate::types::{Bytes32, Header, SignatureBytes};
 use eyre::Result;
 use milagro_bls::{AggregateSignature, PublicKey};
 use ssz_rs::prelude::*;
+
+use crate::types::{Bytes32, Header, SignatureBytes};
 
 pub fn calc_sync_period(slot: u64) -> u64 {
     let epoch = slot / 32; // 32 slots per epoch
