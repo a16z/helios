@@ -70,6 +70,11 @@ pub mod types {
     pub use execution::types::{Account, CallOpts};
 }
 
+pub mod errors {
+    pub use consensus_core::errors::*;
+    pub use execution::errors::*;
+}
+
 pub use consensus_core;
 
 pub mod prelude {
@@ -77,9 +82,4 @@ pub mod prelude {
     pub use crate::config::*;
     pub use crate::errors::*;
     pub use crate::types::*;
-}
-
-pub mod errors {
-    pub use consensus_core::errors::*;
-    pub use execution::errors::*;
 }
