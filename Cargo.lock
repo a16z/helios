@@ -851,7 +851,7 @@ name = "config"
 version = "0.5.5"
 dependencies = [
  "common",
- "consensus_core",
+ "consensus-core",
  "dirs",
  "ethers-core",
  "eyre",
@@ -878,7 +878,7 @@ dependencies = [
  "chrono",
  "common",
  "config",
- "consensus_core",
+ "consensus-core",
  "ethers-core",
  "eyre",
  "futures",
@@ -900,7 +900,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "consensus_core"
+name = "consensus-core"
 version = "0.1.0"
 dependencies = [
  "bls12_381",
@@ -2339,7 +2339,7 @@ dependencies = [
  "common",
  "config",
  "consensus",
- "consensus_core",
+ "consensus-core",
  "criterion",
  "dirs",
  "dotenv",
