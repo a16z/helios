@@ -50,10 +50,10 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
 pub struct Inner<R: ConsensusRpc> {
     pub rpc: R,
     pub store: LightClientStore,
-    pub last_checkpoint: Option<Vec<u8>>,
-    pub block_send: Sender<Block>,
-    pub finalized_block_send: watch::Sender<Option<Block>>,
-    pub checkpoint_send: watch::Sender<Option<Vec<u8>>>,
+    last_checkpoint: Option<Vec<u8>>,
+    block_send: Sender<Block>,
+    finalized_block_send: watch::Sender<Option<Block>>,
+    checkpoint_send: watch::Sender<Option<Vec<u8>>>,
     pub config: Arc<Config>,
 }
 
