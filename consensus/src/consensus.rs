@@ -49,7 +49,7 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
 #[derive(Debug)]
 pub struct Inner<R: ConsensusRpc> {
     pub rpc: R,
-    store: LightClientStore,
+    pub store: LightClientStore,
     last_checkpoint: Option<Vec<u8>>,
     block_send: Sender<Block>,
     finalized_block_send: watch::Sender<Option<Block>>,
