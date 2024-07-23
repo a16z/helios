@@ -3,9 +3,6 @@ use std::process;
 use std::sync::Arc;
 
 use chrono::Duration;
-use consensus_core::apply_finality_update;
-use consensus_core::apply_optimistic_update;
-use consensus_core::apply_update;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
@@ -27,15 +24,17 @@ use config::Network;
 use super::rpc::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
-use consensus_core::errors::ConsensusError;
-use consensus_core::types::LightClientStore;
 
-use consensus_core::types::{
-    Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, OptimisticUpdate, Update,
-};
-use consensus_core::utils::calc_sync_period;
 use consensus_core::{
-    expected_current_slot, get_bits, is_current_committee_proof_valid, verify_generic_update,
+    apply_finality_update, apply_optimistic_update, apply_update,
+    errors::ConsensusError,
+    expected_current_slot, get_bits, is_current_committee_proof_valid,
+    types::{
+        Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore,
+        OptimisticUpdate, Update,
+    },
+    utils::calc_sync_period,
+    verify_generic_update,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
