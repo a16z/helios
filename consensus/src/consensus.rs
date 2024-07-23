@@ -146,7 +146,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         Ok(())
     }
 
-    pub fn expected_current_slot(&self) -> u64 {
+    fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
 
         expected_current_slot(now, self.genesis_time)
