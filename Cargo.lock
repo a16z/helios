@@ -672,6 +672,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "clang-sys"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -686,6 +687,11 @@ dependencies = [
 name = "clap"
 version = "4.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+=======
+name = "clap"
+version = "4.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+>>>>>>> 485b03c (bump cargo lock)
 checksum = "8f6b81fb3c84f5563d509c59b5a48d935f689e993afa90fe39047f05adef9142"
 dependencies = [
  "clap_builder",
@@ -1218,7 +1224,11 @@ dependencies = [
  "convert_case",
  "proc-macro2",
  "quote",
+<<<<<<< HEAD
  "rustc_version",
+=======
+ "rustc_version 0.4.0",
+>>>>>>> 485b03c (bump cargo lock)
  "syn 2.0.72",
 ]
 
