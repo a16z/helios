@@ -106,7 +106,7 @@ pub fn apply_generic_update(
     store.current_max_active_participants =
         u64::max(store.current_max_active_participants, committee_bits);
 
-    let should_update_optimistic = committee_bits > safety_threshold(&store)
+    let should_update_optimistic = committee_bits > safety_threshold(store)
         && update.attested_header.slot > store.optimistic_header.slot;
 
     if should_update_optimistic {
@@ -144,11 +144,11 @@ pub fn apply_generic_update(
         let store_period = calc_sync_period(store.finalized_header.slot.into());
 
         if store.next_sync_committee.is_none() {
-            store.next_sync_committee = update.next_sync_committee.clone();
+            store.next_sync_committee.clone_from(&update.next_sync_committee);
         } else if update_finalized_period == store_period + 1 {
             info!(target: "helios::consensus", "sync committee updated");
             store.current_sync_committee = store.next_sync_committee.clone().unwrap();
-            store.next_sync_committee = update.next_sync_committee.clone();
+            store.next_sync_committee.clone_from(&update.next_sync_committee);
             store.previous_max_active_participants = store.current_max_active_participants;
             store.current_max_active_participants = 0;
         }

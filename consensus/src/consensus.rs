@@ -423,7 +423,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub fn apply_update(&mut self, update: &Update) {
-        let new_checkpoint = apply_update(&mut self.store, &update);
+        let new_checkpoint = apply_update(&mut self.store, update);
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
@@ -456,11 +456,11 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        let new_checkpoint = apply_finality_update(&mut self.store, &update);
+        let new_checkpoint = apply_finality_update(&mut self.store, update);
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
-        self.log_finality_update(&update);
+        self.log_finality_update(update);
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate) {
@@ -482,11 +482,11 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let new_checkpoint = apply_optimistic_update(&mut self.store, &update);
+        let new_checkpoint = apply_optimistic_update(&mut self.store, update);
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
-        self.log_optimistic_update(&update);
+        self.log_optimistic_update(update);
     }
 
     fn log_optimistic_update(&self, update: &OptimisticUpdate) {
