@@ -11,6 +11,7 @@ pub fn calc_sync_period(slot: u64) -> u64 {
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
     let sig_res = AggregateSignature::from_bytes(sig_bytes);
+
     match sig_res {
         Ok(sig) => sig.fast_aggregate_verify(msg, pks),
         Err(_) => false,
@@ -60,19 +61,14 @@ pub fn compute_signing_root(object_root: Bytes32, domain: Bytes32) -> Result<Nod
     Ok(data.hash_tree_root()?)
 }
 
-pub fn compute_domain(
-    domain_type: &[u8],
-    fork_version: Vector<u8, 4>,
-    genesis_root: Bytes32,
-) -> Result<Bytes32> {
-    let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
+pub fn compute_domain(domain_type: &[u8], fork_data_root: Node) -> Result<Bytes32> {
     let start = domain_type;
     let end = &fork_data_root.as_ref()[..28];
     let d = [start, end].concat();
     Ok(d.to_vec().try_into().unwrap())
 }
 
-fn compute_fork_data_root(
+pub fn compute_fork_data_root(
     current_version: Vector<u8, 4>,
     genesis_validator_root: Bytes32,
 ) -> Result<Node> {

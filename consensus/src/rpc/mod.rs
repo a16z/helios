@@ -4,7 +4,7 @@ pub mod nimbus_rpc;
 use async_trait::async_trait;
 use eyre::Result;
 
-use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]

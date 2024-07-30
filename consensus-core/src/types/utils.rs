@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ethers::{
+use ethers_core::{
     types::{Address, Transaction, H256},
     utils::rlp::{Decodable, Rlp},
 };
@@ -15,7 +15,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let val: String = serde::Deserialize::deserialize(deserializer)?;
-    let x = ethers::types::U256::from_dec_str(&val).map_err(D::Error::custom)?;
+    let x = ethers_core::types::U256::from_dec_str(&val).map_err(D::Error::custom)?;
     let mut x_bytes = [0; 32];
     x.to_little_endian(&mut x_bytes);
     Ok(U256::from_bytes_le(x_bytes))
@@ -114,7 +114,7 @@ impl From<ExecutionPayload> for Block {
                 if let (Some(max_fee), Some(max_priority_fee)) =
                     (tx.max_fee_per_gas, tx.max_priority_fee_per_gas)
                 {
-                    let base_fee = ethers::types::U256::from_little_endian(
+                    let base_fee = ethers_core::types::U256::from_little_endian(
                         &value.base_fee_per_gas().to_bytes_le(),
                     );
 
@@ -132,10 +132,10 @@ impl From<ExecutionPayload> for Block {
 
         Block {
             number: value.block_number().as_u64().into(),
-            base_fee_per_gas: ethers::types::U256::from_little_endian(
+            base_fee_per_gas: ethers_core::types::U256::from_little_endian(
                 &value.base_fee_per_gas().to_bytes_le(),
             ),
-            difficulty: ethers::types::U256::from(0),
+            difficulty: ethers_core::types::U256::from(0),
             extra_data: value.extra_data().to_vec().into(),
             gas_limit: value.gas_limit().as_u64().into(),
             gas_used: value.gas_used().as_u64().into(),

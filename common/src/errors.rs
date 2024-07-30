@@ -1,4 +1,4 @@
-use ethers::types::H256;
+use ethers_core::types::H256;
 use thiserror::Error;
 
 use crate::types::BlockTag;

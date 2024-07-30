@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethers::types::H256;
+use ethers_core::types::H256;
 use eyre::Result;
 use retri::{retry, BackoffSettings};
 use serde::{

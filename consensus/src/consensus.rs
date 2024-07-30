@@ -1,4 +1,3 @@
-use std::cmp;
 use std::marker::PhantomData;
 use std::process;
 use std::sync::Arc;
@@ -7,7 +6,7 @@ use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
-use milagro_bls::PublicKey;
+
 use ssz_rs::prelude::*;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info, warn};
@@ -22,13 +21,21 @@ use config::CheckpointFallback;
 use config::Config;
 use config::Network;
 
+use super::rpc::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
-use crate::errors::ConsensusError;
 
-use super::rpc::ConsensusRpc;
-use super::types::*;
-use super::utils::*;
+use consensus_core::{
+    apply_finality_update, apply_optimistic_update, apply_update,
+    errors::ConsensusError,
+    expected_current_slot, get_bits, is_current_committee_proof_valid,
+    types::{
+        Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore,
+        OptimisticUpdate, Update,
+    },
+    utils::calc_sync_period,
+    verify_generic_update,
+};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -41,23 +48,13 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
 
 #[derive(Debug)]
 pub struct Inner<R: ConsensusRpc> {
-    rpc: R,
-    store: LightClientStore,
+    pub rpc: R,
+    pub store: LightClientStore,
     last_checkpoint: Option<Vec<u8>>,
     block_send: Sender<Block>,
     finalized_block_send: watch::Sender<Option<Block>>,
     checkpoint_send: watch::Sender<Option<Vec<u8>>>,
     pub config: Arc<Config>,
-}
-
-#[derive(Debug, Default)]
-struct LightClientStore {
-    finalized_header: Header,
-    current_sync_committee: SyncCommittee,
-    next_sync_committee: Option<SyncCommittee>,
-    optimistic_header: Header,
-    previous_max_active_participants: u64,
-    current_max_active_participants: u64,
 }
 
 impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
@@ -150,10 +147,9 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     }
 
     pub fn expected_current_slot(&self) -> u64 {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let since_genesis = now - std::time::Duration::from_secs(self.genesis_time);
+        let now = SystemTime::now();
 
-        since_genesis.as_secs() / 12
+        expected_current_slot(now, self.genesis_time)
     }
 }
 
@@ -366,7 +362,7 @@ impl<R: ConsensusRpc> Inner<R> {
         Duration::try_seconds(next_update as i64).unwrap()
     }
 
-    async fn bootstrap(&mut self, checkpoint: &[u8]) -> Result<()> {
+    pub async fn bootstrap(&mut self, checkpoint: &[u8]) -> Result<()> {
         let mut bootstrap = self
             .rpc
             .get_bootstrap(checkpoint)
@@ -413,194 +409,61 @@ impl<R: ConsensusRpc> Inner<R> {
         Ok(())
     }
 
-    // implements checks from validate_light_client_update and process_light_client_update in the
-    // specification
-    fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
-        let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
-        if bits == 0 {
-            return Err(ConsensusError::InsufficientParticipation.into());
-        }
+    pub fn verify_update(&self, update: &Update) -> Result<()> {
+        let update = GenericUpdate::from(update);
+        let expected_current_slot = self.expected_current_slot();
 
-        let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-        let valid_time = self.expected_current_slot() >= update.signature_slot
-            && update.signature_slot > update.attested_header.slot.as_u64()
-            && update.attested_header.slot >= update_finalized_slot;
-
-        if !valid_time {
-            return Err(ConsensusError::InvalidTimestamp.into());
-        }
-
-        let store_period = calc_sync_period(self.store.finalized_header.slot.into());
-        let update_sig_period = calc_sync_period(update.signature_slot);
-        let valid_period = if self.store.next_sync_committee.is_some() {
-            update_sig_period == store_period || update_sig_period == store_period + 1
-        } else {
-            update_sig_period == store_period
-        };
-
-        if !valid_period {
-            return Err(ConsensusError::InvalidPeriod.into());
-        }
-
-        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
-        let update_has_next_committee = self.store.next_sync_committee.is_none()
-            && update.next_sync_committee.is_some()
-            && update_attested_period == store_period;
-
-        if update.attested_header.slot <= self.store.finalized_header.slot
-            && !update_has_next_committee
-        {
-            return Err(ConsensusError::NotRelevant.into());
-        }
-
-        if update.finalized_header.is_some() && update.finality_branch.is_some() {
-            let is_valid = is_finality_proof_valid(
-                &update.attested_header,
-                &mut update.finalized_header.clone().unwrap(),
-                &update.finality_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidFinalityProof.into());
-            }
-        }
-
-        if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
-            let is_valid = is_next_committee_proof_valid(
-                &update.attested_header,
-                &mut update.next_sync_committee.clone().unwrap(),
-                &update.next_sync_committee_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
-            }
-        }
-
-        let sync_committee = if update_sig_period == store_period {
-            &self.store.current_sync_committee
-        } else {
-            self.store.next_sync_committee.as_ref().unwrap()
-        };
-
-        let pks =
-            get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-
-        let is_valid_sig = self.verify_sync_committee_signture(
-            &pks,
-            &update.attested_header,
-            &update.sync_aggregate.sync_committee_signature,
-            update.signature_slot,
-        );
-
-        if !is_valid_sig {
-            return Err(ConsensusError::InvalidSignature.into());
-        }
-
-        Ok(())
+        verify_generic_update(
+            &update,
+            expected_current_slot,
+            &self.store,
+            self.config.chain.genesis_root.clone().try_into().unwrap(),
+            &self.config.forks,
+        )
     }
 
-    fn verify_update(&self, update: &Update) -> Result<()> {
-        let update = GenericUpdate::from(update);
-        self.verify_generic_update(&update)
+    pub fn apply_update(&mut self, update: &Update) {
+        let new_checkpoint = apply_update(&mut self.store, update);
+        if new_checkpoint.is_some() {
+            self.last_checkpoint = new_checkpoint;
+        }
     }
 
     fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
         let update = GenericUpdate::from(update);
-        self.verify_generic_update(&update)
+        let expected_current_slot = self.expected_current_slot();
+
+        verify_generic_update(
+            &update,
+            expected_current_slot,
+            &self.store,
+            self.config.chain.genesis_root.clone().try_into().unwrap(),
+            &self.config.forks,
+        )
     }
 
     fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
         let update = GenericUpdate::from(update);
-        self.verify_generic_update(&update)
-    }
+        let expected_current_slot = self.expected_current_slot();
 
-    // implements state changes from apply_light_client_update and process_light_client_update in
-    // the specification
-    fn apply_generic_update(&mut self, update: &GenericUpdate) {
-        let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
-
-        self.store.current_max_active_participants =
-            u64::max(self.store.current_max_active_participants, committee_bits);
-
-        let should_update_optimistic = committee_bits > self.safety_threshold()
-            && update.attested_header.slot > self.store.optimistic_header.slot;
-
-        if should_update_optimistic {
-            self.store.optimistic_header = update.attested_header.clone();
-            self.log_optimistic_update(update);
-        }
-
-        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
-
-        let update_finalized_slot = update
-            .finalized_header
-            .as_ref()
-            .map(|h| h.slot.as_u64())
-            .unwrap_or(0);
-
-        let update_finalized_period = calc_sync_period(update_finalized_slot);
-
-        let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
-            && self.has_sync_update(update)
-            && self.has_finality_update(update)
-            && update_finalized_period == update_attested_period;
-
-        let should_apply_update = {
-            let has_majority = committee_bits * 3 >= 512 * 2;
-            if !has_majority {
-                tracing::warn!("skipping block with low vote count");
-            }
-
-            let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
-            let good_update = update_is_newer || update_has_finalized_next_committee;
-
-            has_majority && good_update
-        };
-
-        if should_apply_update {
-            let store_period = calc_sync_period(self.store.finalized_header.slot.into());
-
-            if self.store.next_sync_committee.is_none() {
-                self.store.next_sync_committee = update.next_sync_committee.clone();
-            } else if update_finalized_period == store_period + 1 {
-                info!(target: "helios::consensus", "sync committee updated");
-                self.store.current_sync_committee = self.store.next_sync_committee.clone().unwrap();
-                self.store.next_sync_committee = update.next_sync_committee.clone();
-                self.store.previous_max_active_participants =
-                    self.store.current_max_active_participants;
-                self.store.current_max_active_participants = 0;
-            }
-
-            if update_finalized_slot > self.store.finalized_header.slot.as_u64() {
-                self.store.finalized_header = update.finalized_header.clone().unwrap();
-                self.log_finality_update(update);
-
-                if self.store.finalized_header.slot.as_u64() % 32 == 0 {
-                    let checkpoint_res = self.store.finalized_header.hash_tree_root();
-                    if let Ok(checkpoint) = checkpoint_res {
-                        self.last_checkpoint = Some(checkpoint.as_ref().to_vec());
-                    }
-                }
-
-                if self.store.finalized_header.slot > self.store.optimistic_header.slot {
-                    self.store.optimistic_header = self.store.finalized_header.clone();
-                }
-            }
-        }
-    }
-
-    fn apply_update(&mut self, update: &Update) {
-        let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        verify_generic_update(
+            &update,
+            expected_current_slot,
+            &self.store,
+            self.config.chain.genesis_root.clone().try_into().unwrap(),
+            &self.config.forks,
+        )
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        let new_checkpoint = apply_finality_update(&mut self.store, update);
+        if new_checkpoint.is_some() {
+            self.last_checkpoint = new_checkpoint;
+        }
+        self.log_finality_update(update);
     }
 
-    fn log_finality_update(&self, update: &GenericUpdate) {
+    fn log_finality_update(&self, update: &FinalityUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -619,11 +482,14 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let update = GenericUpdate::from(update);
-        self.apply_generic_update(&update);
+        let new_checkpoint = apply_optimistic_update(&mut self.store, update);
+        if new_checkpoint.is_some() {
+            self.last_checkpoint = new_checkpoint;
+        }
+        self.log_optimistic_update(update);
     }
 
-    fn log_optimistic_update(&self, update: &GenericUpdate) {
+    fn log_optimistic_update(&self, update: &OptimisticUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -641,54 +507,6 @@ impl<R: ConsensusRpc> Inner<R> {
         );
     }
 
-    fn has_finality_update(&self, update: &GenericUpdate) -> bool {
-        update.finalized_header.is_some() && update.finality_branch.is_some()
-    }
-
-    fn has_sync_update(&self, update: &GenericUpdate) -> bool {
-        update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
-    }
-
-    fn safety_threshold(&self) -> u64 {
-        cmp::max(
-            self.store.current_max_active_participants,
-            self.store.previous_max_active_participants,
-        ) / 2
-    }
-
-    fn verify_sync_committee_signture(
-        &self,
-        pks: &[PublicKey],
-        attested_header: &Header,
-        signature: &SignatureBytes,
-        signature_slot: u64,
-    ) -> bool {
-        let res: Result<bool> = (move || {
-            let pks: Vec<&PublicKey> = pks.iter().collect();
-            let header_root =
-                Bytes32::try_from(attested_header.clone().hash_tree_root()?.as_ref())?;
-            let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
-
-            Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
-        })();
-
-        if let Ok(is_valid) = res {
-            is_valid
-        } else {
-            false
-        }
-    }
-
-    fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node> {
-        let genesis_root = self.config.chain.genesis_root.to_vec().try_into().unwrap();
-
-        let domain_type = &hex::decode("07000000")?[..];
-        let fork_version =
-            Vector::try_from(self.config.fork_version(slot)).map_err(|(_, err)| err)?;
-        let domain = compute_domain(domain_type, fork_version, genesis_root)?;
-        compute_signing_root(header, domain)
-    }
-
     fn age(&self, slot: u64) -> Duration {
         let expected_time = self.slot_timestamp(slot);
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
@@ -696,12 +514,10 @@ impl<R: ConsensusRpc> Inner<R> {
         chrono::Duration::from_std(delay).unwrap()
     }
 
-    fn expected_current_slot(&self) -> u64 {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let genesis_time = self.config.chain.genesis_time;
-        let since_genesis = now - std::time::Duration::from_secs(genesis_time);
+    pub fn expected_current_slot(&self) -> u64 {
+        let now = SystemTime::now();
 
-        since_genesis.as_secs() / 12
+        expected_current_slot(now, self.config.chain.genesis_time)
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
@@ -722,69 +538,6 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 }
 
-fn get_participating_keys(
-    committee: &SyncCommittee,
-    bitfield: &Bitvector<512>,
-) -> Result<Vec<PublicKey>> {
-    let mut pks: Vec<PublicKey> = Vec::new();
-    bitfield.iter().enumerate().for_each(|(i, bit)| {
-        if bit == true {
-            let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes_unchecked(pk).unwrap();
-            pks.push(pk);
-        }
-    });
-
-    Ok(pks)
-}
-
-fn get_bits(bitfield: &Bitvector<512>) -> u64 {
-    let mut count = 0;
-    bitfield.iter().for_each(|bit| {
-        if bit == true {
-            count += 1;
-        }
-    });
-
-    count
-}
-
-fn is_finality_proof_valid(
-    attested_header: &Header,
-    finality_header: &mut Header,
-    finality_branch: &[Bytes32],
-) -> bool {
-    is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
-}
-
-fn is_next_committee_proof_valid(
-    attested_header: &Header,
-    next_committee: &mut SyncCommittee,
-    next_committee_branch: &[Bytes32],
-) -> bool {
-    is_proof_valid(
-        attested_header,
-        next_committee,
-        next_committee_branch,
-        5,
-        23,
-    )
-}
-
-fn is_current_committee_proof_valid(
-    attested_header: &Header,
-    current_committee: &mut SyncCommittee,
-    current_committee_branch: &[Bytes32],
-) -> bool {
-    is_proof_valid(
-        attested_header,
-        current_committee,
-        current_committee_branch,
-        5,
-        22,
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -792,12 +545,11 @@ mod tests {
     use crate::{
         consensus::calc_sync_period,
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
-        errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
-        types::Header,
-        types::{BLSPubKey, SignatureBytes},
         Inner,
     };
+    use consensus_core::errors::ConsensusError;
+    use consensus_core::types::{BLSPubKey, Header, SignatureBytes};
 
     use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};

@@ -3,11 +3,11 @@ use ssz_rs::prelude::*;
 
 use superstruct::superstruct;
 
-use self::primitives::{ByteList, ByteVector, U64};
+pub use self::primitives::{ByteList, ByteVector, U64};
 use self::utils::{header_deserialize, superstruct_ssz, u256_deserialize};
-
 pub mod primitives;
 mod utils;
+use serde;
 
 pub type Address = ByteVector<20>;
 pub type Bytes32 = ByteVector<32>;
@@ -15,6 +15,16 @@ pub type LogsBloom = ByteVector<256>;
 pub type BLSPubKey = ByteVector<48>;
 pub type SignatureBytes = ByteVector<96>;
 pub type Transaction = ByteList<1073741824>;
+
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LightClientStore {
+    pub finalized_header: Header,
+    pub current_sync_committee: SyncCommittee,
+    pub next_sync_committee: Option<SyncCommittee>,
+    pub optimistic_header: Header,
+    pub previous_max_active_participants: u64,
+    pub current_max_active_participants: u64,
+}
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
 pub struct BeaconBlock {
@@ -218,7 +228,7 @@ pub struct Bootstrap {
     pub current_sync_committee_branch: Vec<Bytes32>,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Update {
     #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
@@ -231,7 +241,7 @@ pub struct Update {
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct FinalityUpdate {
     #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
@@ -250,7 +260,7 @@ pub struct OptimisticUpdate {
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize, serde::Serialize)]
 pub struct Header {
     pub slot: U64,
     pub proposer_index: U64,
@@ -259,13 +269,13 @@ pub struct Header {
     pub body_root: Bytes32,
 }
 
-#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize, serde::Serialize)]
 pub struct SyncCommittee {
     pub pubkeys: Vector<BLSPubKey, 512>,
     pub aggregate_pubkey: BLSPubKey,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize, serde::Serialize)]
 pub struct SyncAggregate {
     pub sync_committee_bits: Bitvector<512>,
     pub sync_committee_signature: SignatureBytes,

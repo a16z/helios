@@ -24,7 +24,7 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
                 }
             } else {
                 let nibble = get_nibble(path, path_offset);
-                expected_hash = node_list[nibble as usize].clone();
+                expected_hash.clone_from(&node_list[nibble as usize]);
 
                 path_offset += 1;
             }
@@ -55,7 +55,7 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
                     return false;
                 }
                 path_offset += prefix_length;
-                expected_hash = node_list[1].clone();
+                expected_hash.clone_from(&node_list[1]);
             }
         } else {
             return false;

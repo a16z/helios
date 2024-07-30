@@ -55,20 +55,28 @@ pub mod client {
     pub use consensus::database::*;
 }
 
+pub mod consensus {
+    pub use consensus::*;
+}
+
 pub mod config {
     pub use config::{checkpoints, networks, Config};
 }
 
 pub mod types {
+    pub use common::config::types::*;
     pub use common::types::{Block, BlockTag, Transactions};
+    pub use consensus_core::types::*;
     pub use execution::types::{Account, CallOpts};
 }
 
 pub mod errors {
     pub use common::errors::*;
-    pub use consensus::errors::*;
+    pub use consensus_core::errors::*;
     pub use execution::errors::*;
 }
+
+pub use consensus_core;
 
 pub mod prelude {
     pub use crate::client::*;

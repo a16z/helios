@@ -7,7 +7,7 @@ edition = "2021"
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
-ethers.workspace = true
+ethers-core.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 reqwest.workspace = true
@@ -19,6 +19,7 @@ serde_yaml = "0.9.14"
 strum = { version = "0.26.2", features = ["derive"] }
 
 common = { path = "../common" }
+consensus-core = { path = "../consensus-core" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio.workspace = true
