@@ -1,9 +1,5 @@
-use std::str::FromStr;
-
-use ethers_core::{
-    types::{Address, Transaction, H256},
-    utils::rlp::{Decodable, Rlp},
-};
+use alloy::primitives::{Address, B256, U64, U256 as AU256};
+use hex::FromHex;
 use serde::de::Error;
 use ssz_rs::prelude::*;
 
@@ -15,9 +11,8 @@ where
     D: serde::Deserializer<'de>,
 {
     let val: String = serde::Deserialize::deserialize(deserializer)?;
-    let x = ethers_core::types::U256::from_dec_str(&val).map_err(D::Error::custom)?;
-    let mut x_bytes = [0; 32];
-    x.to_little_endian(&mut x_bytes);
+    let x = AU256::from_str_radix(&val, 16).map_err(D::Error::custom)?;
+    let x_bytes = x.to_le_bytes();
     Ok(U256::from_bytes_le(x_bytes))
 }
 
@@ -90,69 +85,70 @@ macro_rules! superstruct_ssz {
     };
 }
 
-/// this has to go after macro definition
+// this has to go after macro definition
 pub(crate) use superstruct_ssz;
 
 impl From<ExecutionPayload> for Block {
     fn from(value: ExecutionPayload) -> Block {
         let empty_nonce = "0x0000000000000000".to_string();
-        let empty_uncle_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+        let empty_uncle_hash = "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
-        let txs = value
-            .transactions()
-            .iter()
-            .enumerate()
-            .map(|(i, tx)| {
-                let rlp = Rlp::new(tx.as_slice());
-                let mut tx = Transaction::decode(&rlp)?;
+        // let txs = value
+        //     .transactions()
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, tx)| {
+        //         let rlp = Rlp::new(tx.as_slice());
+        //         let mut tx = Transaction::decode(&rlp)?;
 
-                tx.block_number = Some(value.block_number().as_u64().into());
-                tx.block_hash = Some(H256::from_slice(value.block_hash()));
-                tx.from = tx.recover_from().unwrap();
-                tx.transaction_index = Some(i.into());
+        //         tx.block_number = Some(value.block_number().as_u64().into());
+        //         tx.block_hash = Some(H256::from_slice(value.block_hash()));
+        //         tx.from = tx.recover_from().unwrap();
+        //         tx.transaction_index = Some(i.into());
 
-                if let (Some(max_fee), Some(max_priority_fee)) =
-                    (tx.max_fee_per_gas, tx.max_priority_fee_per_gas)
-                {
-                    let base_fee = ethers_core::types::U256::from_little_endian(
-                        &value.base_fee_per_gas().to_bytes_le(),
-                    );
+        //         if let (Some(max_fee), Some(max_priority_fee)) =
+        //             (tx.max_fee_per_gas, tx.max_priority_fee_per_gas)
+        //         {
+        //             let base_fee = ethers_core::types::U256::from_little_endian(
+        //                 &value.base_fee_per_gas().to_bytes_le(),
+        //             );
 
-                    tx.gas_price = if max_fee >= max_priority_fee + base_fee {
-                        Some(base_fee + max_priority_fee)
-                    } else {
-                        Some(max_fee)
-                    };
-                }
+        //             tx.gas_price = if max_fee >= max_priority_fee + base_fee {
+        //                 Some(base_fee + max_priority_fee)
+        //             } else {
+        //                 Some(max_fee)
+        //             };
+        //         }
 
-                Ok::<_, eyre::Report>(tx)
-            })
-            .filter_map(|tx| tx.ok())
-            .collect::<Vec<Transaction>>();
+        //         Ok::<_, eyre::Report>(tx)
+        //     })
+        //     .filter_map(|tx| tx.ok())
+        //     .collect::<Vec<Transaction>>();
+
+        // TODO: FIXME
+        let txs = Vec::new();
 
         Block {
-            number: value.block_number().as_u64().into(),
-            base_fee_per_gas: ethers_core::types::U256::from_little_endian(
-                &value.base_fee_per_gas().to_bytes_le(),
-            ),
-            difficulty: ethers_core::types::U256::from(0),
+            number: U64::from(value.block_number().as_u64()),
+            base_fee_per_gas: AU256::from_le_slice(&value.base_fee_per_gas().to_bytes_le()),
+            difficulty: AU256::ZERO,
             extra_data: value.extra_data().to_vec().into(),
-            gas_limit: value.gas_limit().as_u64().into(),
-            gas_used: value.gas_used().as_u64().into(),
-            hash: H256::from_slice(value.block_hash()),
+            gas_limit: U64::from(value.gas_limit().as_u64()),
+            gas_used: U64::from(value.gas_used().as_u64()),
+            hash: B256::from_slice(value.block_hash()),
             logs_bloom: value.logs_bloom().to_vec().into(),
             miner: Address::from_slice(value.fee_recipient()),
-            parent_hash: H256::from_slice(value.parent_hash()),
-            receipts_root: H256::from_slice(value.receipts_root()),
-            state_root: H256::from_slice(value.state_root()),
-            timestamp: value.timestamp().as_u64().into(),
-            total_difficulty: 0.into(),
+            parent_hash: B256::from_slice(value.parent_hash()),
+            receipts_root: B256::from_slice(value.receipts_root()),
+            state_root: B256::from_slice(value.state_root()),
+            timestamp: U64::from(value.timestamp().as_u64()),
+            total_difficulty: U64::ZERO,
             transactions: Transactions::Full(txs),
-            mix_hash: H256::from_slice(value.prev_randao()),
+            mix_hash: B256::from_slice(value.prev_randao()),
             nonce: empty_nonce,
-            sha3_uncles: H256::from_str(empty_uncle_hash).unwrap(),
-            size: 0.into(),
-            transactions_root: H256::default(),
+            sha3_uncles: B256::from_hex(empty_uncle_hash).unwrap(),
+            size: U64::ZERO,
+            transactions_root: B256::default(),
             uncles: vec![],
         }
     }

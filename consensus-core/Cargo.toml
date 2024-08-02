@@ -4,6 +4,7 @@ name = "consensus-core"
 edition = "2021"
 
 [dependencies]
+alloy.workspace = true
 eyre.workspace = true
 ssz-rs.workspace = true
 hex.workspace = true
@@ -12,7 +13,6 @@ serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-ethers-core.workspace = true
 zduny-wasm-timer.workspace = true
 bytes.workspace = true
 milagro_bls.workspace = true
