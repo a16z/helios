@@ -29,6 +29,7 @@ ssz-rs = { package = "ssz_rs", version = "0.9.0" }
 milagro_bls = { package = "snowbridge-milagro-bls", git = "https://github.com/Snowfork/milagro_bls", rev = "6a95c9e33c6a41d9137761e593d53742ebb964de" }
 
 # execution
+alloy = { version = "0.2.1", features = ["full"] }
 ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
 revm = { version = "12.1.0", default-features = false, features = ["std", "serde"] }

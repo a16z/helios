@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-use ethers_core::types::{Address, Bytes, Transaction, H256, U256, U64};
+use alloy::primitives::{Address, Bytes, B256, U256, U64};
+use alloy::rpc::types::Transaction;
 use serde::{de::Error, ser::SerializeSeq, Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -12,26 +13,26 @@ pub struct Block {
     pub extra_data: Bytes,
     pub gas_limit: U64,
     pub gas_used: U64,
-    pub hash: H256,
+    pub hash: B256,
     pub logs_bloom: Bytes,
     pub miner: Address,
-    pub mix_hash: H256,
+    pub mix_hash: B256,
     pub nonce: String,
-    pub parent_hash: H256,
-    pub receipts_root: H256,
-    pub sha3_uncles: H256,
+    pub parent_hash: B256,
+    pub receipts_root: B256,
+    pub sha3_uncles: B256,
     pub size: U64,
-    pub state_root: H256,
+    pub state_root: B256,
     pub timestamp: U64,
     pub total_difficulty: U64,
     pub transactions: Transactions,
-    pub transactions_root: H256,
-    pub uncles: Vec<H256>,
+    pub transactions_root: B256,
+    pub uncles: Vec<B256>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub enum Transactions {
-    Hashes(Vec<H256>),
+    Hashes(Vec<B256>),
     Full(Vec<Transaction>),
 }
 
@@ -42,7 +43,7 @@ impl Default for Transactions {
 }
 
 impl Transactions {
-    pub fn hashes(&self) -> Vec<H256> {
+    pub fn hashes(&self) -> Vec<B256> {
         match self {
             Self::Hashes(hashes) => hashes.clone(),
             Self::Full(txs) => txs.iter().map(|tx| tx.hash).collect(),
