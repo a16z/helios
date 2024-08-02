@@ -1,6 +1,5 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap, str::FromStr, sync::Arc};
 
-use common::types::BlockTag;
 use ethers::types::transaction::eip2930::AccessListItem;
 use eyre::{Report, Result};
 use futures::future::join_all;
@@ -9,29 +8,29 @@ use revm::{
         AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult, ResultAndState, TransactTo,
         B256, U256,
     },
-    Database, EVM,
+    Database, Evm as Revm,
 };
 use tracing::trace;
 
 use crate::{
     constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, types::CallOpts,
+    ExecutionClient,
 };
-
-use super::ExecutionClient;
+use common::types::BlockTag;
 
 pub struct Evm<R: ExecutionRpc> {
-    evm: EVM<ProofDB<R>>,
+    execution: Arc<ExecutionClient<R>>,
     chain_id: u64,
     tag: BlockTag,
 }
 
 impl<R: ExecutionRpc> Evm<R> {
     pub fn new(execution: Arc<ExecutionClient<R>>, chain_id: u64, tag: BlockTag) -> Self {
-        let mut evm: EVM<ProofDB<R>> = EVM::new();
-        let db = ProofDB::new(tag, execution);
-        evm.database(db);
-
-        Evm { evm, chain_id, tag }
+        Evm {
+            execution,
+            chain_id,
+            tag,
+        }
     }
 
     pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>, EvmError> {
@@ -57,26 +56,25 @@ impl<R: ExecutionRpc> Evm<R> {
     }
 
     async fn call_inner(&mut self, opts: &CallOpts) -> Result<ResultAndState, EvmError> {
-        let env = self.get_env(opts, self.tag).await;
-        _ = self
-            .evm
-            .db
-            .as_mut()
-            .unwrap()
-            .state
-            .prefetch_state(opts)
-            .await;
+        let mut db = ProofDB::new(self.tag, self.execution.clone());
+        _ = db.state.prefetch_state(opts).await;
+
+        let env = Box::new(self.get_env(opts, self.tag).await);
+        let evm = Revm::builder().with_db(db).with_env(env).build();
+        let mut ctx = evm.into_context_with_handler_cfg();
 
         let tx_res = loop {
-            self.evm.env = env.clone();
-            let res = self.evm.transact();
-            let mut db = self.evm.db.take().unwrap();
-
-            if res.is_err() && db.state.needs_update() {
+            let db = ctx.context.evm.db.borrow_mut();
+            if db.state.needs_update() {
                 db.state.update_state().await.unwrap();
-                self.evm = EVM::<ProofDB<R>>::new();
-                self.evm.database(db);
-            } else {
+            }
+
+            let mut evm = Revm::builder().with_context_with_handler_cfg(ctx).build();
+            let res = evm.transact();
+
+            ctx = evm.into_context_with_handler_cfg();
+
+            if res.is_ok() {
                 break res;
             }
         };
@@ -103,15 +101,7 @@ impl<R: ExecutionRpc> Evm<R> {
             .map(|gas_price| convert_u256(&gas_price))
             .unwrap_or_default();
 
-        let block = self
-            .evm
-            .db
-            .as_ref()
-            .unwrap()
-            .execution
-            .get_block(tag, false)
-            .await
-            .unwrap();
+        let block = self.execution.get_block(tag, false).await.unwrap();
 
         env.block.number = U256::from(block.number.as_u64());
         env.block.coinbase = convert_address(&block.miner);
@@ -124,14 +114,13 @@ impl<R: ExecutionRpc> Evm<R> {
 }
 
 struct ProofDB<R: ExecutionRpc> {
-    execution: Arc<ExecutionClient<R>>,
     state: EvmState<R>,
 }
 
 impl<R: ExecutionRpc> ProofDB<R> {
     pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<R>>) -> Self {
         let state = EvmState::new(execution.clone(), tag);
-        ProofDB { execution, state }
+        ProofDB { state }
     }
 }
 
@@ -346,11 +335,8 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         Ok(Some(self.state.get_basic(address)?))
     }
 
-    fn block_hash(&mut self, number: U256) -> Result<B256, Report> {
+    fn block_hash(&mut self, number: u64) -> Result<B256, Report> {
         trace!(target: "helios::evm", "fetch block hash for block={:?}", number);
-        let number = number
-            .try_into()
-            .map_err(|_| eyre::eyre!("invalid block number"))?;
         self.state.get_block_hash(number)
     }
 
