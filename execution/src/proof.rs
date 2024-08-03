@@ -1,6 +1,7 @@
-use ethers::types::{Bytes, EIP1186ProofResponse};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::{decode_list, RlpStream};
+use alloy::consensus::Account;
+use alloy::primitives::{b256, keccak256, Bytes, U256};
+use alloy::rlp::{encode, Decodable};
+use alloy::rpc::types::EIP1186AccountProofResponse;
 
 pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> bool {
     let mut expected_hash = root.to_vec();
@@ -11,7 +12,8 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
             return false;
         }
 
-        let node_list: Vec<Vec<u8>> = decode_list(node);
+        let mut node = &node[..];
+        let node_list: Vec<Vec<u8>> = Vec::decode(&mut node).unwrap();
 
         if node_list.len() == 17 {
             if i == proof.len() - 1 {
@@ -96,15 +98,14 @@ fn get_rest_path(p: &[u8], s: usize) -> String {
 }
 
 fn is_empty_value(value: &[u8]) -> bool {
-    let mut stream = RlpStream::new();
-    stream.begin_list(4);
-    stream.append_empty_data();
-    stream.append_empty_data();
-    let empty_storage_hash = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
-    stream.append(&hex::decode(empty_storage_hash).unwrap());
-    let empty_code_hash = "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
-    stream.append(&hex::decode(empty_code_hash).unwrap());
-    let empty_account = stream.out();
+    let empty_account = Account {
+        nonce: 0,
+        balance: U256::ZERO,
+        storage_root: b256!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
+        code_hash: b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
+    };
+
+    let empty_account = encode(empty_account);
 
     let is_empty_slot = value.len() == 1 && value[0] == 0x80;
     let is_empty_account = value == empty_account;
@@ -158,14 +159,15 @@ fn get_nibble(path: &[u8], offset: usize) -> u8 {
     }
 }
 
-pub fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
-    let mut stream = RlpStream::new_list(4);
-    stream.append(&proof.nonce);
-    stream.append(&proof.balance);
-    stream.append(&proof.storage_hash);
-    stream.append(&proof.code_hash);
-    let encoded = stream.out();
-    encoded.to_vec()
+pub fn encode_account(proof: &EIP1186AccountProofResponse) -> Vec<u8> {
+    let account = Account {
+        nonce: proof.nonce,
+        balance: proof.balance,
+        storage_root: proof.storage_hash,
+        code_hash: proof.code_hash,
+    };
+
+    encode(account)
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, B256, U64, U256 as AU256};
+use alloy::primitives::{Address, B256, U256 as AU256, U64};
 use hex::FromHex;
 use serde::de::Error;
 use ssz_rs::prelude::*;

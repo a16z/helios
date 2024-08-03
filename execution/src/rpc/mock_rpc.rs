@@ -1,16 +1,16 @@
 use std::{fs::read_to_string, path::PathBuf};
 
-use async_trait::async_trait;
-use common::{types::BlockTag, utils::hex_str_to_bytes};
-use ethers::types::{
-    transaction::eip2930::AccessList, Address, EIP1186ProofResponse, FeeHistory, Filter, Log,
-    Transaction, TransactionReceipt, H256, U256,
+use alloy::primitives::{Address, B256, U256};
+use alloy::rpc::types::{
+    AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction,
+    TransactionReceipt,
 };
+use async_trait::async_trait;
 use eyre::{eyre, Result};
 
-use crate::types::CallOpts;
-
 use super::ExecutionRpc;
+use crate::types::CallOpts;
+use common::{types::BlockTag, utils::hex_str_to_bytes};
 
 #[derive(Clone)]
 pub struct MockRpc {
@@ -28,9 +28,9 @@ impl ExecutionRpc for MockRpc {
     async fn get_proof(
         &self,
         _address: &Address,
-        _slots: &[H256],
+        _slots: &[B256],
         _block: u64,
-    ) -> Result<EIP1186ProofResponse> {
+    ) -> Result<EIP1186AccountProofResponse> {
         let proof = read_to_string(self.path.join("proof.json"))?;
         Ok(serde_json::from_str(&proof)?)
     }
@@ -44,16 +44,16 @@ impl ExecutionRpc for MockRpc {
         hex_str_to_bytes(&code[0..code.len() - 1])
     }
 
-    async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<H256> {
+    async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<B256> {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_transaction_receipt(&self, _tx_hash: &H256) -> Result<Option<TransactionReceipt>> {
+    async fn get_transaction_receipt(&self, _tx_hash: &B256) -> Result<Option<TransactionReceipt>> {
         let receipt = read_to_string(self.path.join("receipt.json"))?;
         Ok(serde_json::from_str(&receipt)?)
     }
 
-    async fn get_transaction(&self, _tx_hash: &H256) -> Result<Option<Transaction>> {
+    async fn get_transaction(&self, _tx_hash: &B256) -> Result<Option<Transaction>> {
         let tx = read_to_string(self.path.join("transaction.json"))?;
         Ok(serde_json::from_str(&tx)?)
     }
