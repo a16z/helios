@@ -1,12 +1,11 @@
-use std::{borrow::BorrowMut, collections::HashMap, str::FromStr, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
-use ethers::types::transaction::eip2930::AccessListItem;
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
     primitives::{
-        AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult, ResultAndState, TransactTo,
-        B256, U256,
+        address, AccessListItem, AccountInfo, Address, Bytecode, Env, ExecutionResult,
+        ResultAndState, TransactTo, B256, U256,
     },
     Database, Evm as Revm,
 };
@@ -84,29 +83,22 @@ impl<R: ExecutionRpc> Evm<R> {
 
     async fn get_env(&self, opts: &CallOpts, tag: BlockTag) -> Env {
         let mut env = Env::default();
-        let to = convert_address(&opts.to.unwrap_or_default());
-        let from = convert_address(&opts.from.unwrap_or_default());
+        let to = &opts.to.unwrap_or_default();
+        let from = &opts.from.unwrap_or_default();
 
-        env.tx.transact_to = TransactTo::Call(to);
-        env.tx.caller = from;
-        env.tx.value = opts
-            .value
-            .map(|value| convert_u256(&value))
-            .unwrap_or_default();
-
-        env.tx.data = Bytes::from(opts.data.clone().unwrap_or_default().to_vec());
-        env.tx.gas_limit = opts.gas.map(|v| v.as_u64()).unwrap_or(u64::MAX);
-        env.tx.gas_price = opts
-            .gas_price
-            .map(|gas_price| convert_u256(&gas_price))
-            .unwrap_or_default();
+        env.tx.transact_to = TransactTo::Call(*to);
+        env.tx.caller = *from;
+        env.tx.value = opts.value.unwrap_or_default();
+        env.tx.data = opts.data.clone().unwrap_or_default();
+        env.tx.gas_limit = opts.gas.map(|v| v.to()).unwrap_or(u64::MAX);
+        env.tx.gas_price = opts.gas_price.unwrap_or_default();
 
         let block = self.execution.get_block(tag, false).await.unwrap();
 
-        env.block.number = U256::from(block.number.as_u64());
-        env.block.coinbase = convert_address(&block.miner);
-        env.block.timestamp = U256::from(block.timestamp.as_u64());
-        env.block.difficulty = convert_u256(&block.difficulty);
+        env.block.number = block.number.to();
+        env.block.coinbase = block.miner;
+        env.block.timestamp = block.timestamp.to();
+        env.block.difficulty = block.difficulty;
         env.cfg.chain_id = self.chain_id;
 
         env
@@ -155,35 +147,30 @@ impl<R: ExecutionRpc> EvmState<R> {
         if let Some(access) = &self.access.take() {
             match access {
                 StateAccess::Basic(address) => {
-                    let address_ethers = ethers::types::Address::from_slice(address.as_slice());
                     let account = self
                         .execution
-                        .get_account(&address_ethers, None, self.block)
+                        .get_account(address, None, self.block)
                         .await?;
 
-                    let bytecode = Bytecode::new_raw(account.code.into());
-                    let code_hash = B256::from_slice(account.code_hash.as_bytes());
-                    let balance = convert_u256(&account.balance);
-
-                    let account = AccountInfo::new(balance, account.nonce, code_hash, bytecode);
-                    self.basic.insert(*address, account);
+                    self.basic.insert(
+                        *address,
+                        AccountInfo::new(
+                            account.balance,
+                            account.nonce,
+                            account.code_hash,
+                            Bytecode::new_raw(account.code.into()),
+                        ),
+                    );
                 }
                 StateAccess::Storage(address, slot) => {
-                    let address_ethers = ethers::types::Address::from_slice(address.as_slice());
-                    let slot_ethers = ethers::types::H256::from_slice(&slot.to_be_bytes::<32>());
-                    let slots = [slot_ethers];
+                    let slot_bytes = B256::from(*slot);
                     let account = self
                         .execution
-                        .get_account(&address_ethers, Some(&slots), self.block)
+                        .get_account(address, Some(&[slot_bytes]), self.block)
                         .await?;
 
                     let storage = self.storage.entry(*address).or_default();
-                    let value = *account.slots.get(&slot_ethers).unwrap();
-
-                    let mut value_slice = [0u8; 32];
-                    value.to_big_endian(value_slice.as_mut_slice());
-                    let value = U256::from_be_slice(&value_slice);
-
+                    let value = *account.slots.get(&slot_bytes).unwrap();
                     storage.insert(*slot, value);
                 }
                 StateAccess::BlockHash(number) => {
@@ -192,8 +179,7 @@ impl<R: ExecutionRpc> EvmState<R> {
                         .get_block(BlockTag::Number(*number), false)
                         .await?;
 
-                    let hash = B256::from_slice(block.hash.as_bytes());
-                    self.block_hash.insert(*number, hash);
+                    self.block_hash.insert(*number, block.hash);
                 }
             }
         }
@@ -294,23 +280,21 @@ impl<R: ExecutionRpc> EvmState<R> {
         }
 
         for (address, account) in account_map {
-            let bytecode = Bytecode::new_raw(account.code.into());
-            let code_hash = B256::from_slice(account.code_hash.as_bytes());
-            let balance = convert_u256(&account.balance);
-
-            let info = AccountInfo::new(balance, account.nonce, code_hash, bytecode);
-
-            let address = convert_address(&address);
-            self.basic.insert(address, info);
+            self.basic.insert(
+                address,
+                AccountInfo::new(
+                    account.balance,
+                    account.nonce,
+                    account.code_hash,
+                    Bytecode::new_raw(account.code.into()),
+                ),
+            );
 
             for (slot, value) in account.slots {
-                let slot = B256::from_slice(slot.as_bytes());
-                let value = convert_u256(&value);
-
                 self.storage
                     .entry(address)
                     .or_default()
-                    .insert(B256::from(slot).into(), value);
+                    .insert(slot.into(), value);
             }
         }
 
@@ -351,18 +335,7 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
 }
 
 fn is_precompile(address: &Address) -> bool {
-    address.le(&Address::from_str("0x0000000000000000000000000000000000000009").unwrap())
-        && address.gt(&Address::ZERO)
-}
-
-fn convert_u256(value: &ethers::types::U256) -> U256 {
-    let mut value_slice = [0u8; 32];
-    value.to_big_endian(value_slice.as_mut_slice());
-    U256::from_be_slice(&value_slice)
-}
-
-fn convert_address(value: &ethers::types::Address) -> Address {
-    Address::from_slice(value.as_bytes())
+    address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
 }
 
 #[cfg(test)]
@@ -390,12 +363,12 @@ mod tests {
         // Construct the proof database with the given client
         let mut proof_db = ProofDB::new(tag, Arc::new(execution));
 
-        let address = Address::from_str("0x388C818CA8B9251b393131C08a736A67ccB19297").unwrap();
+        let address = address!("388C818CA8B9251b393131C08a736A67ccB19297");
         let info = AccountInfo::new(
             U256::from(500),
             10,
             KECCAK_EMPTY,
-            Bytecode::new_raw(Bytes::default()),
+            Bytecode::new_raw(revm::primitives::Bytes::default()),
         );
         proof_db.state.basic.insert(address, info.clone());
 

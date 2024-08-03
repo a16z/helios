@@ -1,30 +1,24 @@
 use std::collections::HashMap;
 
-use common::errors::BlockNotFoundError;
-use ethers::abi::AbiEncode;
-use ethers::prelude::Address;
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256, U256};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, Encodable, RlpStream};
+use alloy::consensus::{Receipt, ReceiptWithBloom, TxReceipt};
+use alloy::primitives::{keccak256, Address, B256, U256};
+use alloy::rlp::encode;
+use alloy::rpc::types::{Filter, Log, Transaction, TransactionReceipt};
 use eyre::Result;
-
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
+use common::errors::BlockNotFoundError;
 use common::types::{Block, BlockTag, Transactions};
-use common::utils::hex_str_to_bytes;
 
+use crate::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use crate::errors::ExecutionError;
 use crate::state::State;
 
 use super::proof::{encode_account, verify_proof};
 use super::rpc::ExecutionRpc;
 use super::types::Account;
-
-// We currently limit the max number of logs to fetch,
-// to avoid blocking the client for too long.
-const MAX_SUPPORTED_LOGS_NUMBER: usize = 5;
 
 #[derive(Clone)]
 pub struct ExecutionClient<R: ExecutionRpc> {
@@ -49,7 +43,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     pub async fn get_account(
         &self,
         address: &Address,
-        slots: Option<&[H256]>,
+        slots: Option<&[B256]>,
         tag: BlockTag,
     ) -> Result<Account> {
         let slots = slots.unwrap_or(&[]);
@@ -61,15 +55,15 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         let proof = self
             .rpc
-            .get_proof(address, slots, block.number.as_u64())
+            .get_proof(address, slots, block.number.to())
             .await?;
 
-        let account_path = keccak256(address.as_bytes()).to_vec();
+        let account_path = keccak256(address).to_vec();
         let account_encoded = encode_account(&proof);
 
         let is_valid = verify_proof(
             &proof.account_proof,
-            block.state_root.as_bytes(),
+            block.state_root.as_slice(),
             &account_path,
             &account_encoded,
         );
@@ -81,40 +75,34 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let mut slot_map = HashMap::new();
 
         for storage_proof in proof.storage_proof {
-            let key = hex_str_to_bytes(&storage_proof.key.encode_hex())?;
-            let value = encode(&storage_proof.value).to_vec();
-
+            let key = storage_proof.key.0;
             let key_hash = keccak256(key);
+            let value = encode(&storage_proof.value).to_vec();
 
             let is_valid = verify_proof(
                 &storage_proof.proof,
-                proof.storage_hash.as_bytes(),
-                &key_hash,
+                proof.storage_hash.as_slice(),
+                key_hash.as_slice(),
                 &value,
             );
 
             if !is_valid {
-                return Err(
-                    ExecutionError::InvalidStorageProof(*address, storage_proof.key).into(),
-                );
+                return Err(ExecutionError::InvalidStorageProof(*address, key).into());
             }
 
-            slot_map.insert(storage_proof.key, storage_proof.value);
+            slot_map.insert(key, storage_proof.value);
         }
 
-        let code = if proof.code_hash == H256::from_slice(KECCAK_EMPTY.as_slice()) {
+        let code = if proof.code_hash == KECCAK_EMPTY {
             Vec::new()
         } else {
-            let code = self.rpc.get_code(address, block.number.as_u64()).await?;
-            let code_hash = keccak256(&code).into();
+            let code = self.rpc.get_code(address, block.number.to()).await?;
+            let code_hash = keccak256(&code);
 
             if proof.code_hash != code_hash {
-                return Err(ExecutionError::CodeHashMismatch(
-                    *address,
-                    code_hash.to_string(),
-                    proof.code_hash.to_string(),
-                )
-                .into());
+                return Err(
+                    ExecutionError::CodeHashMismatch(*address, code_hash, proof.code_hash).into(),
+                );
             }
 
             code
@@ -122,7 +110,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         Ok(Account {
             balance: proof.balance,
-            nonce: proof.nonce.as_u64(),
+            nonce: proof.nonce,
             code,
             code_hash: proof.code_hash,
             storage_hash: proof.storage_hash,
@@ -130,7 +118,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         })
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
+    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
@@ -140,6 +128,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             .get_block(tag)
             .await
             .ok_or(BlockNotFoundError::new(tag))?;
+
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());
         }
@@ -147,12 +136,13 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(block)
     }
 
-    pub async fn get_block_by_hash(&self, hash: H256, full_tx: bool) -> Result<Block> {
+    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Block> {
         let mut block = self
             .state
             .get_block_by_hash(hash)
             .await
             .ok_or(eyre::eyre!("block not found"))?;
+
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());
         }
@@ -162,7 +152,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
     pub async fn get_transaction_by_block_hash_and_index(
         &self,
-        block_hash: H256,
+        block_hash: B256,
         index: u64,
     ) -> Option<Transaction> {
         self.state
@@ -172,7 +162,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &H256,
+        tx_hash: &B256,
     ) -> Result<Option<TransactionReceipt>> {
         let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
         if receipt.is_none() {
@@ -180,7 +170,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
 
         let receipt = receipt.unwrap();
-        let block_number = receipt.block_number.unwrap().as_u64();
+        let block_number = receipt.block_number.unwrap();
 
         let block = self.state.get_block(BlockTag::Number(block_number)).await;
         let block = if let Some(block) = block {
@@ -201,16 +191,16 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(encode_receipt).collect();
 
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
-        let expected_receipt_root = H256::from_slice(&expected_receipt_root.to_fixed_bytes());
+        let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
         if expected_receipt_root != block.receipts_root || !receipts.contains(&receipt) {
-            return Err(ExecutionError::ReceiptRootMismatch(tx_hash.to_string()).into());
+            return Err(ExecutionError::ReceiptRootMismatch(*tx_hash).into());
         }
 
         Ok(Some(receipt))
     }
 
-    pub async fn get_transaction(&self, hash: H256) -> Option<Transaction> {
+    pub async fn get_transaction(&self, hash: B256) -> Option<Transaction> {
         self.state.get_transaction(hash).await
     }
 
@@ -289,26 +279,28 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             let tx_hash = log
                 .transaction_hash
                 .ok_or(eyre::eyre!("tx hash not found in log"))?;
+
             // Get its proven receipt
             let receipt = self
                 .get_transaction_receipt(&tx_hash)
                 .await?
-                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash.to_string()))?;
+                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
 
             // Check if the receipt contains the desired log
             // Encoding logs for comparison
             let receipt_logs_encoded = receipt
-                .logs
+                .inner
+                .logs()
                 .iter()
-                .map(|log| log.rlp_bytes())
+                .map(|log| encode(&log.inner))
                 .collect::<Vec<_>>();
 
-            let log_encoded = log.rlp_bytes();
+            let log_encoded = encode(&log.inner);
 
             if !receipt_logs_encoded.contains(&log_encoded) {
                 return Err(ExecutionError::MissingLog(
-                    tx_hash.to_string(),
-                    log.log_index.unwrap(),
+                    tx_hash,
+                    U256::from(log.log_index.unwrap()),
                 )
                 .into());
             }
@@ -318,18 +310,19 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 }
 
 fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
-    let mut stream = RlpStream::new();
-    stream.begin_list(4);
-    stream.append(&receipt.status.unwrap());
-    stream.append(&receipt.cumulative_gas_used);
-    stream.append(&receipt.logs_bloom);
-    stream.append_list(&receipt.logs);
+    let receipt = receipt.inner.as_receipt_with_bloom().unwrap();
+    let mut consensus_receipt = Receipt::default();
+    consensus_receipt.cumulative_gas_used = receipt.cumulative_gas_used();
+    consensus_receipt.status = *receipt.status_or_post_state();
 
-    let legacy_receipt_encoded = stream.out();
-    let tx_type = receipt.transaction_type.unwrap().as_u64();
+    let logs = receipt
+        .logs()
+        .into_iter()
+        .map(|l| l.inner.clone())
+        .collect::<Vec<_>>();
 
-    match tx_type {
-        0 => legacy_receipt_encoded.to_vec(),
-        _ => [&tx_type.to_be_bytes()[7..8], &legacy_receipt_encoded].concat(),
-    }
+    consensus_receipt.logs = logs;
+
+    let rwb = ReceiptWithBloom::new(consensus_receipt, receipt.bloom());
+    alloy::rlp::encode(rwb)
 }

@@ -1,7 +1,8 @@
-use common::errors::BlockNotFoundError;
-use execution::errors::EvmError;
 use eyre::Report;
 use thiserror::Error;
+
+use common::errors::BlockNotFoundError;
+use execution::errors::EvmError;
 
 /// Errors that can occur during Node calls
 #[derive(Debug, Error)]

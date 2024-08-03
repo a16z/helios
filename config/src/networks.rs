@@ -3,16 +3,17 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use common::utils::hex_str_to_bytes;
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
+use common::config::types::{Fork, Forks};
+use common::utils::hex_str_to_bytes;
+
 use crate::base::BaseConfig;
 use crate::types::ChainConfig;
-use common::config::types::{Fork, Forks};
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,

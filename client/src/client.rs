@@ -3,17 +3,17 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use config::networks::Network;
-use consensus::database::Database;
-use ethers::prelude::{Address, U256};
-use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
+use alloy::primitives::{Address, B256, U256};
+use alloy::rpc::types::{Filter, Log, SyncStatus, Transaction, TransactionReceipt};
 use eyre::{eyre, Result};
-
-use common::types::{Block, BlockTag};
-use config::Config;
-use execution::types::CallOpts;
 use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
+
+use common::types::{Block, BlockTag};
+use config::networks::Network;
+use config::Config;
+use consensus::database::Database;
+use execution::types::CallOpts;
 
 use crate::node::Node;
 
@@ -283,7 +283,7 @@ impl<DB: Database> Client<DB> {
         self.node.get_nonce(address, block).await
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &H256) -> Result<u64> {
+    pub async fn get_block_transaction_count_by_hash(&self, hash: &B256) -> Result<u64> {
         self.node.get_block_transaction_count_by_hash(hash).await
     }
 
@@ -298,24 +298,24 @@ impl<DB: Database> Client<DB> {
     pub async fn get_storage_at(
         &self,
         address: &Address,
-        slot: H256,
+        slot: B256,
         block: BlockTag,
     ) -> Result<U256> {
         self.node.get_storage_at(address, slot, block).await
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<H256> {
+    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
         self.node.send_raw_transaction(bytes).await
     }
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &H256,
+        tx_hash: &B256,
     ) -> Result<Option<TransactionReceipt>> {
         self.node.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: &H256) -> Option<Transaction> {
+    pub async fn get_transaction_by_hash(&self, tx_hash: &B256) -> Option<Transaction> {
         self.node.get_transaction_by_hash(tx_hash).await
     }
 
@@ -363,13 +363,13 @@ impl<DB: Database> Client<DB> {
         self.node.get_block_by_number(block, full_tx).await
     }
 
-    pub async fn get_block_by_hash(&self, hash: &H256, full_tx: bool) -> Result<Option<Block>> {
+    pub async fn get_block_by_hash(&self, hash: &B256, full_tx: bool) -> Result<Option<Block>> {
         self.node.get_block_by_hash(hash, full_tx).await
     }
 
     pub async fn get_transaction_by_block_hash_and_index(
         &self,
-        block_hash: &H256,
+        block_hash: &B256,
         index: u64,
     ) -> Option<Transaction> {
         self.node
@@ -381,7 +381,7 @@ impl<DB: Database> Client<DB> {
         self.node.chain_id()
     }
 
-    pub async fn syncing(&self) -> Result<SyncingStatus> {
+    pub async fn syncing(&self) -> Result<SyncStatus> {
         self.node.syncing().await
     }
 
@@ -391,7 +391,7 @@ impl<DB: Database> Client<DB> {
 
     pub async fn wait_synced(&self) {
         loop {
-            if let Ok(SyncingStatus::IsFalse) = self.syncing().await {
+            if let Ok(SyncStatus::None) = self.syncing().await {
                 break;
             }
 

@@ -1,8 +1,5 @@
-use bytes::Bytes;
-use ethers::{
-    abi::AbiDecode,
-    types::{Address, H256, U256},
-};
+use alloy::primitives::{Address, Bytes, B256, U256};
+use alloy::sol_types::decode_revert_reason;
 use eyre::Report;
 use thiserror::Error;
 
@@ -11,17 +8,17 @@ pub enum ExecutionError {
     #[error("invalid account proof for address: {0}")]
     InvalidAccountProof(Address),
     #[error("invalid storage proof for address: {0}, slot: {1}")]
-    InvalidStorageProof(Address, H256),
+    InvalidStorageProof(Address, B256),
     #[error("code hash mismatch for address: {0}, found: {1}, expected: {2}")]
-    CodeHashMismatch(Address, String, String),
+    CodeHashMismatch(Address, B256, B256),
     #[error("receipt root mismatch for tx: {0}")]
-    ReceiptRootMismatch(String),
+    ReceiptRootMismatch(B256),
     #[error("missing transaction for tx: {0}")]
-    MissingTransaction(String),
+    MissingTransaction(B256),
     #[error("could not prove receipt for tx: {0}")]
-    NoReceiptForTransaction(String),
+    NoReceiptForTransaction(B256),
     #[error("missing log for transaction: {0}, index: {1}")]
-    MissingLog(String, U256),
+    MissingLog(B256, U256),
     #[error("too many logs to prove: {0}, current limit is: {1}")]
     TooManyLogsToProve(usize, usize),
     #[error("execution rpc is for the incorrect network")]
@@ -53,12 +50,6 @@ pub enum EvmError {
 
 impl EvmError {
     pub fn decode_revert_reason(data: impl AsRef<[u8]>) -> Option<String> {
-        let data = data.as_ref();
-
-        // skip function selector
-        if data.len() < 4 {
-            return None;
-        }
-        String::decode(&data[4..]).ok()
+        decode_revert_reason(data.as_ref())
     }
 }

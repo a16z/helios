@@ -1,16 +1,16 @@
 use std::{collections::HashMap, fmt};
 
-use ethers::types::{Address, Bytes, H256, U256};
+use alloy::primitives::{Address, Bytes, B256, U256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone)]
 pub struct Account {
     pub balance: U256,
     pub nonce: u64,
-    pub code_hash: H256,
+    pub code_hash: B256,
     pub code: Vec<u8>,
-    pub storage_hash: H256,
-    pub slots: HashMap<H256, U256>,
+    pub storage_hash: B256,
+    pub slots: HashMap<B256, U256>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]

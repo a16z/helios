@@ -3,12 +3,14 @@ use std::{
     sync::Arc,
 };
 
-use common::types::{Block, BlockTag, Transactions};
-use ethers::types::{Address, Transaction, H256, U256};
+use alloy::primitives::{Address, B256, U256};
+use alloy::rpc::types::Transaction;
 use tokio::{
     select,
     sync::{mpsc::Receiver, watch, RwLock},
 };
+
+use common::types::{Block, BlockTag, Transactions};
 
 #[derive(Clone)]
 pub struct State {
@@ -72,7 +74,7 @@ impl State {
         }
     }
 
-    pub async fn get_block_by_hash(&self, hash: H256) -> Option<Block> {
+    pub async fn get_block_by_hash(&self, hash: B256) -> Option<Block> {
         let inner = self.inner.read().await;
         inner
             .hashes
@@ -83,7 +85,7 @@ impl State {
 
     // transaction fetch
 
-    pub async fn get_transaction(&self, hash: H256) -> Option<Transaction> {
+    pub async fn get_transaction(&self, hash: B256) -> Option<Transaction> {
         let inner = self.inner.read().await;
         inner
             .txs
@@ -102,7 +104,7 @@ impl State {
 
     pub async fn get_transaction_by_block_and_index(
         &self,
-        block_hash: H256,
+        block_hash: B256,
         index: u64,
     ) -> Option<Transaction> {
         let inner = self.inner.read().await;
@@ -119,11 +121,11 @@ impl State {
 
     // block field fetch
 
-    pub async fn get_state_root(&self, tag: BlockTag) -> Option<H256> {
+    pub async fn get_state_root(&self, tag: BlockTag) -> Option<B256> {
         self.get_block(tag).await.map(|block| block.state_root)
     }
 
-    pub async fn get_receipts_root(&self, tag: BlockTag) -> Option<H256> {
+    pub async fn get_receipts_root(&self, tag: BlockTag) -> Option<B256> {
         self.get_block(tag).await.map(|block| block.receipts_root)
     }
 
@@ -154,8 +156,8 @@ impl State {
 struct Inner {
     blocks: BTreeMap<u64, Block>,
     finalized_block: Option<Block>,
-    hashes: HashMap<H256, u64>,
-    txs: HashMap<H256, TransactionLocation>,
+    hashes: HashMap<B256, u64>,
+    txs: HashMap<B256, TransactionLocation>,
     history_length: u64,
 }
 
@@ -168,7 +170,7 @@ impl Inner {
     }
 
     pub fn push_block(&mut self, block: Block) {
-        self.hashes.insert(block.hash, block.number.as_u64());
+        self.hashes.insert(block.hash, block.number.to());
         block
             .transactions
             .hashes()
@@ -176,13 +178,13 @@ impl Inner {
             .enumerate()
             .for_each(|(i, tx)| {
                 let location = TransactionLocation {
-                    block: block.number.as_u64(),
+                    block: block.number.to(),
                     index: i,
                 };
                 self.txs.insert(*tx, location);
             });
 
-        self.blocks.insert(block.number.as_u64(), block);
+        self.blocks.insert(block.number.to(), block);
 
         while self.blocks.len() as u64 > self.history_length {
             if let Some((number, _)) = self.blocks.first_key_value() {
@@ -194,9 +196,9 @@ impl Inner {
     pub fn push_finalized_block(&mut self, block: Block) {
         self.finalized_block = Some(block.clone());
 
-        if let Some(old_block) = self.blocks.get(&block.number.as_u64()) {
+        if let Some(old_block) = self.blocks.get(&block.number.to()) {
             if old_block.hash != block.hash {
-                self.remove_block(old_block.number.as_u64());
+                self.remove_block(old_block.number.to());
                 self.push_block(block)
             }
         } else {

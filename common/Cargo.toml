@@ -4,11 +4,11 @@ version = "0.5.5"
 edition = "2021"
 
 [dependencies]
+alloy.workspace = true
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
 ssz-rs.workspace = true
-ethers-core.workspace = true
 serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true
