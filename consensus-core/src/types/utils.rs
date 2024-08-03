@@ -10,7 +10,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let val: String = serde::Deserialize::deserialize(deserializer)?;
-    let x = AU256::from_str_radix(&val, 16).map_err(D::Error::custom)?;
+    let x = AU256::from_str_radix(&val, 10).map_err(D::Error::custom)?;
     let x_bytes = x.to_le_bytes();
     Ok(U256::from_bytes_le(x_bytes))
 }
