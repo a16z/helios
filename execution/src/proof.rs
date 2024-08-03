@@ -13,7 +13,7 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
         }
 
         let mut node = &node[..];
-        let node_list: Vec<Vec<u8>> = Vec::decode(&mut node).unwrap();
+        let node_list: Vec<Bytes> = Vec::decode(&mut node).unwrap();
 
         if node_list.len() == 17 {
             if i == proof.len() - 1 {
@@ -26,7 +26,7 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
                 }
             } else {
                 let nibble = get_nibble(path, path_offset);
-                expected_hash.clone_from(&node_list[nibble as usize]);
+                expected_hash.clone_from(&node_list[nibble as usize].to_vec());
 
                 path_offset += 1;
             }
@@ -40,7 +40,7 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
                 }
 
                 // inclusion proof
-                if node_list[1] == value {
+                if &node_list[1] == value {
                     return paths_match(
                         &node_list[0],
                         skip_length(&node_list[0]),
@@ -57,7 +57,7 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
                     return false;
                 }
                 path_offset += prefix_length;
-                expected_hash.clone_from(&node_list[1]);
+                expected_hash.clone_from(&node_list[1].to_vec());
             }
         } else {
             return false;
