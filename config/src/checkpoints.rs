@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethers_core::types::H256;
+use alloy::primitives::B256;
 use eyre::Result;
 use retri::{retry, BackoffSettings};
 use serde::{
@@ -27,8 +27,8 @@ pub struct RawSlotResponseData {
 pub struct Slot {
     #[serde(deserialize_with = "deserialize_slot")]
     pub slot: u64,
-    pub block_root: Option<H256>,
-    pub state_root: Option<H256>,
+    pub block_root: Option<B256>,
+    pub state_root: Option<B256>,
     pub epoch: u64,
     pub time: StartEndTime,
 }
@@ -134,7 +134,7 @@ impl CheckpointFallback {
     pub async fn fetch_latest_checkpoint(
         &self,
         network: &crate::networks::Network,
-    ) -> eyre::Result<H256> {
+    ) -> eyre::Result<B256> {
         let services = &self.get_healthy_fallback_services(network);
         Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
@@ -149,7 +149,7 @@ impl CheckpointFallback {
     /// Fetch the latest checkpoint from a list of checkpoint fallback services.
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
-    ) -> eyre::Result<H256> {
+    ) -> eyre::Result<B256> {
         // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
         let tasks: Vec<_> = services
             .iter()
@@ -202,7 +202,7 @@ impl CheckpointFallback {
             .iter()
             .filter_map(|x| x.block_root)
             .collect::<Vec<_>>();
-        let mut m: HashMap<H256, usize> = HashMap::new();
+        let mut m: HashMap<B256, usize> = HashMap::new();
         for c in checkpoints {
             *m.entry(c).or_default() += 1;
         }
@@ -214,7 +214,7 @@ impl CheckpointFallback {
 
     /// Associated function to fetch the latest checkpoint from a specific checkpoint sync fallback
     /// service api url.
-    pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<H256> {
+    pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<B256> {
         // Fetch the url
         let constructed_url = Self::construct_url(url);
         let res = get(&constructed_url).await?;

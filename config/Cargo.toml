@@ -4,10 +4,10 @@ version = "0.5.5"
 edition = "2021"
 
 [dependencies]
+alloy.workspace = true
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
-ethers-core.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 reqwest.workspace = true

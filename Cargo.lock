@@ -1460,10 +1460,10 @@ dependencies = [
 name = "config"
 version = "0.5.5"
 dependencies = [
+ "alloy",
  "common",
  "consensus-core",
  "dirs",
- "ethers-core",
  "eyre",
  "figment",
  "futures",
