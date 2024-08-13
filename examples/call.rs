@@ -1,8 +1,9 @@
 #![allow(deprecated)]
 
-use dotenv::dotenv;
-use ethers::prelude::*;
 use std::path::PathBuf;
+
+use alloy::primitives::{Address, Bytes};
+use dotenv::dotenv;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;

@@ -9,9 +9,9 @@ use eyre::Result;
 use wasm_bindgen::prelude::*;
 
 use common::types::BlockTag;
+use config::{networks, Config};
 use consensus::database::{ConfigDB, Database};
 use execution::types::CallOpts;
-use config::{networks, Config};
 
 use crate::storage::LocalStorageDB;
 

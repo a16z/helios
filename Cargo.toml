@@ -30,8 +30,6 @@ milagro_bls = { package = "snowbridge-milagro-bls", git = "https://github.com/Sn
 
 # execution
 alloy = { version = "0.2.1", features = ["full", "rlp"] }
-ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
-ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
 revm = { version = "12.1.0", default-features = false, features = ["std", "serde"] }
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
 
@@ -80,7 +78,7 @@ serde = { version = "1.0.154", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 dirs = "5.0.1"
-ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "3bf1a9e0d698e9fdfc91d0353878901af5a5c5ef" }
+alloy = { version = "0.2.1", features = ["full", "rlp"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing = "0.1.37"
 tracing-test = "0.2.4"

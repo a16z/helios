@@ -1,11 +1,12 @@
 use std::{path::PathBuf, str::FromStr};
 
-use ethers::{types::Address, utils};
+use alloy::primitives::{utils::format_ether, Address};
 use eyre::Result;
-use helios::{config::networks::Network, prelude::*};
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
+
+use helios::{config::networks::Network, prelude::*};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -48,10 +49,7 @@ async fn main() -> Result<()> {
     let balance = client.get_balance(&addr, block).await?;
 
     info!("synced up to block: {}", head_block_num);
-    info!(
-        "balance of deposit contract: {}",
-        utils::format_ether(balance)
-    );
+    info!("balance of deposit contract: {}", format_ether(balance));
 
     Ok(())
 }
