@@ -3022,12 +3022,12 @@ dependencies = [
 name = "helios-ts"
 version = "0.1.0"
 dependencies = [
+ "alloy",
  "client",
  "common",
  "config",
  "consensus",
  "console_error_panic_hook",
- "ethers",
  "execution",
  "eyre",
  "hex",

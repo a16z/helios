@@ -3,14 +3,14 @@ extern crate web_sys;
 
 use std::str::FromStr;
 
-use common::types::BlockTag;
-use consensus::database::{ConfigDB, Database};
-use ethers::types::{Address, Filter, H256};
-use execution::types::CallOpts;
+use alloy::primitives::{Address, B256};
+use alloy::rpc::types::Filter;
 use eyre::Result;
-
 use wasm_bindgen::prelude::*;
 
+use common::types::BlockTag;
+use consensus::database::{ConfigDB, Database};
+use execution::types::CallOpts;
 use config::{networks, Config};
 
 use crate::storage::LocalStorageDB;
@@ -126,7 +126,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn get_block_number(&self) -> u32 {
-        self.inner.get_block_number().await.unwrap().as_u32()
+        self.inner.get_block_number().await.unwrap().to()
     }
 
     #[wasm_bindgen]
@@ -142,7 +142,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn get_transaction_by_hash(&self, hash: String) -> JsValue {
-        let hash = H256::from_str(&hash).unwrap();
+        let hash = B256::from_str(&hash).unwrap();
         let tx = self.inner.get_transaction_by_hash(&hash).await.unwrap();
         serde_wasm_bindgen::to_value(&tx).unwrap()
     }
@@ -156,7 +156,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn get_block_transaction_count_by_hash(&self, hash: JsValue) -> u32 {
-        let hash: H256 = serde_wasm_bindgen::from_value(hash).unwrap();
+        let hash: B256 = serde_wasm_bindgen::from_value(hash).unwrap();
         self.inner
             .get_block_transaction_count_by_hash(&hash)
             .await
@@ -227,7 +227,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn get_transaction_receipt(&self, tx: JsValue) -> JsValue {
-        let tx: H256 = serde_wasm_bindgen::from_value(tx).unwrap();
+        let tx: B256 = serde_wasm_bindgen::from_value(tx).unwrap();
         let receipt = self.inner.get_transaction_receipt(&tx).await.unwrap();
         serde_wasm_bindgen::to_value(&receipt).unwrap()
     }

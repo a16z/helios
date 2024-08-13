@@ -1,10 +1,11 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
-use config::Config;
-use consensus::database::Database;
 use eyre::Result;
 use wasm_bindgen::prelude::*;
+
+use config::Config;
+use consensus::database::Database;
 
 #[derive(Clone)]
 pub struct LocalStorageDB;
