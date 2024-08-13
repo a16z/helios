@@ -77,7 +77,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         for storage_proof in proof.storage_proof {
             let key = storage_proof.key.0;
             let key_hash = keccak256(key);
-            let value = encode(&storage_proof.value).to_vec();
+            let value = encode(storage_proof.value);
 
             let is_valid = verify_proof(
                 &storage_proof.proof,
@@ -312,17 +312,17 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
     let tx_type = receipt.transaction_type();
     let receipt = receipt.inner.as_receipt_with_bloom().unwrap();
-    let mut consensus_receipt = Receipt::default();
-    consensus_receipt.cumulative_gas_used = receipt.cumulative_gas_used();
-    consensus_receipt.status = *receipt.status_or_post_state();
-
     let logs = receipt
         .logs()
-        .into_iter()
+        .iter()
         .map(|l| l.inner.clone())
         .collect::<Vec<_>>();
 
-    consensus_receipt.logs = logs;
+    let consensus_receipt = Receipt {
+        cumulative_gas_used: receipt.cumulative_gas_used(),
+        status: *receipt.status_or_post_state(),
+        logs,
+    };
 
     let rwb = ReceiptWithBloom::new(consensus_receipt, receipt.bloom());
     let encoded = alloy::rlp::encode(rwb);

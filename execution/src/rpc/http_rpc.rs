@@ -68,14 +68,16 @@ impl ExecutionRpc for HttpRpc {
             BlockTag::Number(num) => BlockId::number(num),
         };
 
-        let mut tx = TransactionRequest::default();
-        tx.to = Some(opts.to.unwrap_or_default().into());
-        tx.from = opts.from;
-        tx.value = opts.value;
-        tx.gas = Some(opts.gas.unwrap_or(U256::from(100_000_000)).to());
-        tx.max_fee_per_gas = Some(0);
-        tx.max_priority_fee_per_gas = Some(0);
-        tx.input = opts.data.as_ref().map(|data| data.to_owned()).into();
+        let tx = TransactionRequest {
+            to: Some(opts.to.unwrap_or_default().into()),
+            from: opts.from,
+            value: opts.value,
+            gas: Some(opts.gas.unwrap_or(U256::from(100_000_000)).to()),
+            max_fee_per_gas: Some(0),
+            max_priority_fee_per_gas: Some(0),
+            input: opts.data.as_ref().map(|data| data.to_owned()).into(),
+            ..Default::default()
+        };
 
         let list = self
             .provider
