@@ -1,10 +1,12 @@
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
+use alloy::rpc::client::ClientBuilder;
 use alloy::rpc::types::{
     BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction, TransactionReceipt,
     TransactionRequest,
 };
 use alloy::transports::http::Http;
+use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
 use eyre::Result;
 use reqwest::Client;
@@ -18,7 +20,7 @@ use super::ExecutionRpc;
 
 pub struct HttpRpc {
     url: String,
-    provider: RootProvider<Http<Client>>,
+    provider: RootProvider<RetryBackoffService<Http<Client>>>,
 }
 
 impl Clone for HttpRpc {
@@ -31,8 +33,11 @@ impl Clone for HttpRpc {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ExecutionRpc for HttpRpc {
     fn new(rpc: &str) -> Result<Self> {
-        // TODO: implement retry and rate limits
-        let provider = ProviderBuilder::new().on_http(rpc.parse().unwrap());
+        let client = ClientBuilder::default()
+            .layer(RetryBackoffLayer::new(100, 50, 300))
+            .http(rpc.parse().unwrap());
+
+        let provider = ProviderBuilder::new().on_client(client);
 
         Ok(HttpRpc {
             url: rpc.to_string(),
