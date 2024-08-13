@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alloy::consensus::{Receipt, ReceiptWithBloom, TxReceipt};
+use alloy::consensus::{Receipt, ReceiptWithBloom, TxReceipt, TxType};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
 use alloy::rpc::types::{Filter, Log, Transaction, TransactionReceipt};
@@ -310,6 +310,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 }
 
 fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
+    let tx_type = receipt.transaction_type();
     let receipt = receipt.inner.as_receipt_with_bloom().unwrap();
     let mut consensus_receipt = Receipt::default();
     consensus_receipt.cumulative_gas_used = receipt.cumulative_gas_used();
@@ -324,5 +325,10 @@ fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
     consensus_receipt.logs = logs;
 
     let rwb = ReceiptWithBloom::new(consensus_receipt, receipt.bloom());
-    alloy::rlp::encode(rwb)
+    let encoded = alloy::rlp::encode(rwb);
+
+    match tx_type {
+        TxType::Legacy => encoded,
+        _ => [vec![tx_type as u8], encoded].concat(),
+    }
 }
