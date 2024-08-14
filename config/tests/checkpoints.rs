@@ -1,5 +1,5 @@
+use alloy::primitives::B256;
 use config::networks;
-use ethers_core::types::H256;
 
 #[tokio::test]
 async fn test_checkpoint_fallback() {
@@ -45,17 +45,17 @@ async fn test_fetch_latest_checkpoints() {
         .fetch_latest_checkpoint(&networks::Network::SEPOLIA)
         .await
         .unwrap();
-    assert!(checkpoint != H256::zero());
+    assert!(checkpoint != B256::ZERO);
     let checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::HOLESKY)
         .await
         .unwrap();
-    assert!(checkpoint != H256::zero());
+    assert!(checkpoint != B256::ZERO);
     let checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::MAINNET)
         .await
         .unwrap();
-    assert!(checkpoint != H256::zero());
+    assert!(checkpoint != B256::ZERO);
 }
 
 #[tokio::test]

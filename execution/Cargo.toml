@@ -8,8 +8,8 @@ edition = "2021"
 ssz-rs.workspace = true
 
 # execution
+alloy.workspace = true
 revm.workspace = true
-ethers.workspace = true
 triehash-ethereum.workspace = true
 
 # async/futures

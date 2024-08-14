@@ -1,4 +1,4 @@
-use ethers_core::types::Address;
+use alloy::{hex::ToHexExt, primitives::Address};
 use eyre::Result;
 
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
@@ -7,7 +7,7 @@ pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
 }
 
 pub fn address_to_hex_string(address: &Address) -> String {
-    format!("0x{}", hex::encode(address.as_bytes()))
+    format!("0x{}", address.encode_hex())
 }
 
 pub fn u64_to_hex_string(val: u64) -> String {
