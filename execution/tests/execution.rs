@@ -1,4 +1,4 @@
-use alloy::primitives::{U256, U64, b256, address};
+use alloy::primitives::{address, b256, U256, U64};
 use common::types::{Block, BlockTag};
 
 use execution::rpc::mock_rpc::MockRpc;

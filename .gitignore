@@ -5,4 +5,6 @@ target
 helios-ts/node_modules
 helios-ts/dist
 helios-ts/helios-*.tgz
+helios-ts/pkg
+
 .vscode
