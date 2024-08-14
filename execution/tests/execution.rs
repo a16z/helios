@@ -1,10 +1,9 @@
-use alloy::primitives::{U256, U64};
+use alloy::primitives::{U256, U64, b256, address};
 use common::types::{Block, BlockTag};
 
 use execution::rpc::mock_rpc::MockRpc;
 use execution::state::State;
 use execution::ExecutionClient;
-use revm::primitives::{address, b256};
 use tokio::sync::mpsc::channel;
 use tokio::sync::watch;
 
