@@ -82,10 +82,10 @@ dotenv = "0.15.0"
 serde = { version = "1.0.154", features = ["derive"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+alloy = { version = "0.2.1", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 dirs = "5.0.1"
-alloy = "0.2.1"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing = "0.1.37"
 tracing-test = "0.2.4"
@@ -93,6 +93,8 @@ criterion = { version = "0.5.1", features = ["async_tokio", "plotters"] }
 plotters = "0.3.4"
 tempfile = "3.4.0"
 hex = "0.4.3"
+pretty_assertions = "1.4.0"
+rand = "0.8.5"
 
 ######################################
 # Profiles

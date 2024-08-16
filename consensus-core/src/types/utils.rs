@@ -94,6 +94,7 @@ impl From<ExecutionPayload> for Block {
     fn from(value: ExecutionPayload) -> Block {
         let empty_nonce = "0x0000000000000000".to_string();
         let empty_uncle_hash = "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+        let base_fee_per_gas = AU256::from_le_slice(&value.base_fee_per_gas().to_bytes_le());
 
         let txs = value
             .transactions()
@@ -152,6 +153,12 @@ impl From<ExecutionPayload> for Block {
                         tx.access_list = Some(tx_inner.access_list.clone());
                         tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
                         tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
+
+                        tx.gas_price = Some(gas_price(
+                            tx_inner.max_fee_per_gas,
+                            tx_inner.max_priority_fee_per_gas,
+                            base_fee_per_gas.to(),
+                        ));
                     }
                     TxEnvelope::Eip4844(inner) => {
                         tx.from = inner.recover_signer().unwrap();
@@ -167,7 +174,14 @@ impl From<ExecutionPayload> for Block {
                         tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
                         tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
                         tx.max_fee_per_blob_gas = Some(tx_inner.max_fee_per_blob_gas);
+                        tx.gas_price = Some(tx_inner.max_fee_per_gas);
                         tx.blob_versioned_hashes = Some(tx_inner.blob_versioned_hashes.clone());
+
+                        tx.gas_price = Some(gas_price(
+                            tx_inner.max_fee_per_gas,
+                            tx_inner.max_priority_fee_per_gas,
+                            base_fee_per_gas.to(),
+                        ));
                     }
                     _ => todo!(),
                 }
@@ -178,7 +192,7 @@ impl From<ExecutionPayload> for Block {
 
         Block {
             number: U64::from(value.block_number().as_u64()),
-            base_fee_per_gas: AU256::from_le_slice(&value.base_fee_per_gas().to_bytes_le()),
+            base_fee_per_gas,
             difficulty: AU256::ZERO,
             extra_data: value.extra_data().to_vec().into(),
             gas_limit: U64::from(value.gas_limit().as_u64()),
@@ -200,4 +214,8 @@ impl From<ExecutionPayload> for Block {
             uncles: vec![],
         }
     }
+}
+
+fn gas_price(max_fee: u128, max_prio_fee: u128, base_fee: u128) -> u128 {
+    u128::min(max_fee, max_prio_fee + base_fee)
 }
