@@ -1,6 +1,7 @@
 use std::env;
 
 use alloy::eips::BlockNumberOrTag;
+use alloy::primitives::address;
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder as AlloyClientBuilder;
 use alloy::transports::http::{Client as ReqwestClient, Http};
@@ -63,13 +64,13 @@ async fn get_transaction_by_hash() {
         .unwrap()
         .unwrap();
 
-    let alloy_tx = provider
+    let tx = provider
         .get_transaction_by_hash(tx_hash)
         .await
         .unwrap()
         .unwrap();
 
-    assert_eq!(helios_tx, alloy_tx);
+    assert_eq!(helios_tx, tx);
 }
 
 // #[tokio::test]
@@ -82,13 +83,13 @@ async fn get_transaction_by_hash() {
 //         .unwrap()
 //         .unwrap();
 // 
-//     let alloy_block = provider
+//     let block = provider
 //         .get_block_by_number(helios_block.header.number.unwrap().into(), false)
 //         .await
 //         .unwrap()
 //         .unwrap();
 // 
-//     assert_eq!(helios_block, alloy_block);
+//     assert_eq!(helios_block, block);
 // }
 
 #[tokio::test]
@@ -108,11 +109,23 @@ async fn get_transaction_receipt() {
         .unwrap()
         .unwrap();
 
-    let alloy_receipt = provider
+    let receipt = provider
         .get_transaction_receipt(tx_hash)
         .await
         .unwrap()
         .unwrap();
 
-    assert_eq!(helios_receipt, alloy_receipt);
+    assert_eq!(helios_receipt, receipt);
+}
+
+#[tokio::test]
+async fn get_balance() {
+    let (_handle, helios_provider, provider) = setup().await;
+    let num = helios_provider.get_block_number().await.unwrap();
+    
+    let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
+    let helios_balance = helios_provider.get_balance(address).block_id(num.into()).await.unwrap();
+    let balance = provider.get_balance(address).block_id(num.into()).await.unwrap();
+
+    assert_eq!(helios_balance, balance);
 }
