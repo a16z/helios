@@ -4,6 +4,7 @@ use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::address;
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder as AlloyClientBuilder;
+use alloy::sol;
 use alloy::transports::http::{Client as ReqwestClient, Http};
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use pretty_assertions::assert_eq;
@@ -76,19 +77,19 @@ async fn get_transaction_by_hash() {
 // #[tokio::test]
 // async fn get_block_by_number() {
 //     let (_handle, helios_provider, provider) = setup().await;
-// 
+//
 //     let helios_block = helios_provider
 //         .get_block_by_number(BlockNumberOrTag::Latest, false)
 //         .await
 //         .unwrap()
 //         .unwrap();
-// 
+//
 //     let block = provider
 //         .get_block_by_number(helios_block.header.number.unwrap().into(), false)
 //         .await
 //         .unwrap()
 //         .unwrap();
-// 
+//
 //     assert_eq!(helios_block, block);
 // }
 
@@ -122,10 +123,55 @@ async fn get_transaction_receipt() {
 async fn get_balance() {
     let (_handle, helios_provider, provider) = setup().await;
     let num = helios_provider.get_block_number().await.unwrap();
-    
+
     let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
-    let helios_balance = helios_provider.get_balance(address).block_id(num.into()).await.unwrap();
-    let balance = provider.get_balance(address).block_id(num.into()).await.unwrap();
+    let helios_balance = helios_provider
+        .get_balance(address)
+        .block_id(num.into())
+        .await
+        .unwrap();
+
+    let balance = provider
+        .get_balance(address)
+        .block_id(num.into())
+        .await
+        .unwrap();
+
+    assert_eq!(helios_balance, balance);
+}
+
+#[tokio::test]
+async fn call() {
+    let (_handle, helios_provider, provider) = setup().await;
+    let num = helios_provider.get_block_number().await.unwrap();
+    let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
+    let user = address!("99C9fc46f92E8a1c0deC1b1747d010903E884bE1");
+
+    sol! {
+        #[sol(rpc)]
+        interface ERC20 {
+            function balanceOf(address who) external returns (uint256);
+        }
+    }
+
+    let helios_token = ERC20::new(usdc, helios_provider);
+    let token = ERC20::new(usdc, provider);
+
+    let helios_balance = helios_token
+        .balanceOf(user)
+        .block(num.into())
+        .call()
+        .await
+        .unwrap()
+        ._0;
+
+    let balance = token
+        .balanceOf(user)
+        .block(num.into())
+        .call()
+        .await
+        .unwrap()
+        ._0;
 
     assert_eq!(helios_balance, balance);
 }
