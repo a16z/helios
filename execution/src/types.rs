@@ -21,6 +21,7 @@ pub struct CallOpts {
     pub gas: Option<U256>,
     pub gas_price: Option<U256>,
     pub value: Option<U256>,
+    #[serde(alias = "input")]
     pub data: Option<Bytes>,
 }
 
