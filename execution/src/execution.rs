@@ -55,7 +55,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         let proof = self
             .rpc
-            .get_proof(&address, slots, block.number.to())
+            .get_proof(address, slots, block.number.to())
             .await?;
 
         let account_path = keccak256(address).to_vec();
@@ -96,7 +96,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let code = if proof.code_hash == KECCAK_EMPTY {
             Vec::new()
         } else {
-            let code = self.rpc.get_code(&address, block.number.to()).await?;
+            let code = self.rpc.get_code(address, block.number.to()).await?;
             let code_hash = keccak256(&code);
 
             if proof.code_hash != code_hash {
@@ -164,7 +164,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceipt>> {
-        let receipt = self.rpc.get_transaction_receipt(&tx_hash).await?;
+        let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
         if receipt.is_none() {
             return Ok(None);
         }
@@ -182,7 +182,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let tx_hashes = block.transactions.hashes();
 
         let receipts_fut = tx_hashes.iter().map(|hash| async move {
-            let receipt = self.rpc.get_transaction_receipt(hash).await;
+            let receipt = self.rpc.get_transaction_receipt(*hash).await;
             receipt?.ok_or(eyre::eyre!("not reachable"))
         });
 
@@ -232,7 +232,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     }
 
     pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_filter_changes(&filter_id).await?;
+        let logs = self.rpc.get_filter_changes(filter_id).await?;
         if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
             return Err(
                 ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
@@ -243,7 +243,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     }
 
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
-        self.rpc.uninstall_filter(&filter_id).await
+        self.rpc.uninstall_filter(filter_id).await
     }
 
     pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
