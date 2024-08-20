@@ -12,7 +12,6 @@ use eyre::Result;
 use reqwest::Client;
 use revm::primitives::AccessList;
 
-use crate::types::CallOpts;
 use common::errors::RpcError;
 use common::types::BlockTag;
 
@@ -61,22 +60,15 @@ impl ExecutionRpc for HttpRpc {
         Ok(proof_response)
     }
 
-    async fn create_access_list(&self, opts: &CallOpts, block: BlockTag) -> Result<AccessList> {
+    async fn create_access_list(
+        &self,
+        tx: &TransactionRequest,
+        block: BlockTag,
+    ) -> Result<AccessList> {
         let block = match block {
             BlockTag::Latest => BlockId::latest(),
             BlockTag::Finalized => BlockId::finalized(),
             BlockTag::Number(num) => BlockId::number(num),
-        };
-
-        let tx = TransactionRequest {
-            to: Some(opts.to.unwrap_or_default().into()),
-            from: opts.from,
-            value: opts.value,
-            gas: Some(opts.gas.unwrap_or(U256::from(100_000_000)).to()),
-            max_fee_per_gas: Some(0),
-            max_priority_fee_per_gas: Some(0),
-            input: opts.data.as_ref().map(|data| data.to_owned()).into(),
-            ..Default::default()
         };
 
         let list = self

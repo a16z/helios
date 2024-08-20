@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{Filter, Log, SyncInfo, SyncStatus, Transaction, TransactionReceipt};
+use alloy::rpc::types::{
+    Filter, Log, SyncInfo, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
+};
 use eyre::{eyre, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
@@ -13,7 +15,6 @@ use consensus::ConsensusClient;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::state::State;
-use execution::types::CallOpts;
 use execution::ExecutionClient;
 
 use crate::errors::NodeError;
@@ -50,20 +51,23 @@ impl<DB: Database> Node<DB> {
         })
     }
 
-    pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>, NodeError> {
+    pub async fn call(
+        &self,
+        tx: &TransactionRequest,
+        block: BlockTag,
+    ) -> Result<Vec<u8>, NodeError> {
         self.check_blocktag_age(&block).await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
-
-        evm.call(opts).await.map_err(NodeError::ExecutionEvmError)
+        evm.call(tx).await.map_err(NodeError::ExecutionEvmError)
     }
 
-    pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64, NodeError> {
+    pub async fn estimate_gas(&self, tx: &TransactionRequest) -> Result<u64, NodeError> {
         self.check_head_age().await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
 
-        evm.estimate_gas(opts)
+        evm.estimate_gas(tx)
             .await
             .map_err(NodeError::ExecutionEvmError)
     }

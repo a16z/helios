@@ -212,6 +212,8 @@ impl From<ExecutionPayload> for Block {
             size: U64::ZERO,
             transactions_root: B256::default(),
             uncles: vec![],
+            blob_gas_used: value.blob_gas_used().map(|v| U64::from(v.as_u64())).ok(),
+            excess_blob_gas: value.excess_blob_gas().map(|v| U64::from(v.as_u64())).ok(),
         }
     }
 }

@@ -1,19 +1,19 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
+use alloy::{network::TransactionBuilder, rpc::types::TransactionRequest};
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
     primitives::{
-        address, AccessListItem, AccountInfo, Address, Bytecode, Env, ExecutionResult,
-        ResultAndState, TransactTo, B256, U256,
+        address, AccessListItem, AccountInfo, Address, BlobExcessGasAndPrice, Bytecode, Env,
+        ExecutionResult, ResultAndState, B256, U256,
     },
     Database, Evm as Revm,
 };
 use tracing::trace;
 
 use crate::{
-    constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, types::CallOpts,
-    ExecutionClient,
+    constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, ExecutionClient,
 };
 use common::types::BlockTag;
 
@@ -32,8 +32,8 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    pub async fn call(&mut self, opts: &CallOpts) -> Result<Vec<u8>, EvmError> {
-        let tx = self.call_inner(opts).await?;
+    pub async fn call(&mut self, tx: &TransactionRequest) -> Result<Vec<u8>, EvmError> {
+        let tx = self.call_inner(tx).await?;
 
         match tx.result {
             ExecutionResult::Success { output, .. } => Ok(output.into_data().to_vec()),
@@ -44,8 +44,8 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    pub async fn estimate_gas(&mut self, opts: &CallOpts) -> Result<u64, EvmError> {
-        let tx = self.call_inner(opts).await?;
+    pub async fn estimate_gas(&mut self, tx: &TransactionRequest) -> Result<u64, EvmError> {
+        let tx = self.call_inner(tx).await?;
 
         match tx.result {
             ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -54,11 +54,11 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    async fn call_inner(&mut self, opts: &CallOpts) -> Result<ResultAndState, EvmError> {
+    async fn call_inner(&mut self, tx: &TransactionRequest) -> Result<ResultAndState, EvmError> {
         let mut db = ProofDB::new(self.tag, self.execution.clone());
-        _ = db.state.prefetch_state(opts).await;
+        _ = db.state.prefetch_state(tx).await;
 
-        let env = Box::new(self.get_env(opts, self.tag).await);
+        let env = Box::new(self.get_env(tx, self.tag).await);
         let evm = Revm::builder().with_db(db).with_env(env).build();
         let mut ctx = evm.into_context_with_handler_cfg();
 
@@ -70,10 +70,12 @@ impl<R: ExecutionRpc> Evm<R> {
 
             let mut evm = Revm::builder().with_context_with_handler_cfg(ctx).build();
             let res = evm.transact();
-
             ctx = evm.into_context_with_handler_cfg();
 
-            if res.is_ok() {
+            let db = ctx.context.evm.db.borrow_mut();
+            let needs_update = db.state.needs_update();
+
+            if res.is_ok() || !needs_update {
                 break res;
             }
         };
@@ -81,25 +83,43 @@ impl<R: ExecutionRpc> Evm<R> {
         tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
     }
 
-    async fn get_env(&self, opts: &CallOpts, tag: BlockTag) -> Env {
+    async fn get_env(&self, tx: &TransactionRequest, tag: BlockTag) -> Env {
         let mut env = Env::default();
-        let to = &opts.to.unwrap_or_default();
-        let from = &opts.from.unwrap_or_default();
 
-        env.tx.transact_to = TransactTo::Call(*to);
-        env.tx.caller = *from;
-        env.tx.value = opts.value.unwrap_or_default();
-        env.tx.data = opts.data.clone().unwrap_or_default();
-        env.tx.gas_limit = opts.gas.map(|v| v.to()).unwrap_or(u64::MAX);
-        env.tx.gas_price = opts.gas_price.unwrap_or_default();
+        env.tx.caller = tx.from.unwrap_or_default();
+        env.tx.gas_limit = tx.gas_limit().map(|v| v as u64).unwrap_or(u64::MAX);
+        env.tx.gas_price = tx.gas_price().map(U256::from).unwrap_or_default();
+        env.tx.transact_to = tx.to.unwrap_or_default();
+        env.tx.value = tx.value.unwrap_or_default();
+        env.tx.data = tx.input().unwrap_or_default().clone();
+        env.tx.nonce = tx.nonce();
+        env.tx.chain_id = tx.chain_id();
+        env.tx.access_list = tx.access_list().map(|v| v.to_vec()).unwrap_or_default();
+        env.tx.gas_priority_fee = tx.max_priority_fee_per_gas().map(U256::from);
+        env.tx.max_fee_per_blob_gas = tx.max_fee_per_gas().map(U256::from);
+        env.tx.blob_hashes = tx
+            .blob_versioned_hashes
+            .as_ref()
+            .map(|v| v.to_vec())
+            .unwrap_or_default();
 
         let block = self.execution.get_block(tag, false).await.unwrap();
 
         env.block.number = block.number.to();
         env.block.coinbase = block.miner;
         env.block.timestamp = block.timestamp.to();
+        env.block.gas_limit = block.gas_limit.to();
+        env.block.basefee = block.base_fee_per_gas;
         env.block.difficulty = block.difficulty;
+        env.block.prevrandao = Some(block.mix_hash);
+        env.block.blob_excess_gas_and_price = block
+            .excess_blob_gas
+            .map(|v| BlobExcessGasAndPrice::new(v.to()));
+
         env.cfg.chain_id = self.chain_id;
+        env.cfg.disable_block_gas_limit = true;
+        env.cfg.disable_eip3607 = true;
+        env.cfg.disable_base_fee = true;
 
         env
     }
@@ -219,22 +239,22 @@ impl<R: ExecutionRpc> EvmState<R> {
         }
     }
 
-    pub async fn prefetch_state(&mut self, opts: &CallOpts) -> Result<()> {
+    pub async fn prefetch_state(&mut self, tx: &TransactionRequest) -> Result<()> {
         let mut list = self
             .execution
             .rpc
-            .create_access_list(opts, self.block)
+            .create_access_list(tx, self.block)
             .await
             .map_err(EvmError::RpcError)?
             .0;
 
         let from_access_entry = AccessListItem {
-            address: opts.from.unwrap_or_default(),
+            address: tx.from.unwrap_or_default(),
             storage_keys: Vec::default(),
         };
 
         let to_access_entry = AccessListItem {
-            address: opts.to.unwrap_or_default(),
+            address: tx.to().unwrap_or_default(),
             storage_keys: Vec::default(),
         };
 

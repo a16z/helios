@@ -28,6 +28,8 @@ pub struct Block {
     pub transactions: Transactions,
     pub transactions_root: B256,
     pub uncles: Vec<B256>,
+    pub blob_gas_used: Option<U64>,
+    pub excess_blob_gas: Option<U64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
