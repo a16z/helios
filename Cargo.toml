@@ -37,6 +37,7 @@ alloy = { version = "0.2.1", features = [
     "provider-http",
     "sol-types",
     "network",
+    "ssz",
 ]}
 revm = { version = "12.1.0", default-features = false, features = [
     "std",

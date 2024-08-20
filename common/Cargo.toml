@@ -4,7 +4,7 @@ version = "0.5.5"
 edition = "2021"
 
 [dependencies]
-alloy.workspace = true
+alloy = { version = "0.2.1", features = ["rpc-types"] }
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true

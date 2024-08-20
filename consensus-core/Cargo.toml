@@ -4,7 +4,7 @@ name = "consensus-core"
 edition = "2021"
 
 [dependencies]
-alloy.workspace = true
+alloy = { version = "0.2.1", features = ["consensus", "rpc-types", "ssz", "rlp", "k256"] }
 eyre.workspace = true
 ssz-rs.workspace = true
 hex.workspace = true
