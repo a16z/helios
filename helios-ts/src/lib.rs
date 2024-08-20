@@ -4,14 +4,13 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use alloy::primitives::{Address, B256};
-use alloy::rpc::types::Filter;
+use alloy::rpc::types::{Filter, TransactionRequest};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
 
 use common::types::BlockTag;
 use config::{networks, Config};
 use consensus::database::{ConfigDB, Database};
-use execution::types::CallOpts;
 
 use crate::storage::LocalStorageDB;
 
@@ -194,7 +193,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> String {
-        let opts: CallOpts = serde_wasm_bindgen::from_value(opts).unwrap();
+        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts).unwrap();
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
         let res = self.inner.call(&opts, block).await.unwrap();
         format!("0x{}", hex::encode(res))
@@ -202,7 +201,7 @@ impl Client {
 
     #[wasm_bindgen]
     pub async fn estimate_gas(&self, opts: JsValue) -> u32 {
-        let opts: CallOpts = serde_wasm_bindgen::from_value(opts).unwrap();
+        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts).unwrap();
         self.inner.estimate_gas(&opts).await.unwrap() as u32
     }
 
