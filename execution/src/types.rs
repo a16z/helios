@@ -1,7 +1,6 @@
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
-use alloy::primitives::{Address, Bytes, B256, U256};
-use serde::{Deserialize, Serialize};
+use alloy::primitives::{B256, U256};
 
 #[derive(Default, Debug, Clone)]
 pub struct Account {
@@ -11,27 +10,4 @@ pub struct Account {
     pub code: Vec<u8>,
     pub storage_hash: B256,
     pub slots: HashMap<B256, U256>,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CallOpts {
-    pub from: Option<Address>,
-    pub to: Option<Address>,
-    pub gas: Option<U256>,
-    pub gas_price: Option<U256>,
-    pub value: Option<U256>,
-    #[serde(alias = "input")]
-    pub data: Option<Bytes>,
-}
-
-impl fmt::Debug for CallOpts {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CallOpts")
-            .field("from", &self.from)
-            .field("to", &self.to)
-            .field("value", &self.value)
-            .field("data", &hex::encode(self.data.clone().unwrap_or_default()))
-            .finish()
-    }
 }

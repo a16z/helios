@@ -3,13 +3,12 @@ use std::{fs::read_to_string, path::PathBuf};
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
     AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction,
-    TransactionReceipt,
+    TransactionReceipt, TransactionRequest,
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
 use super::ExecutionRpc;
-use crate::types::CallOpts;
 use common::{types::BlockTag, utils::hex_str_to_bytes};
 
 #[derive(Clone)]
@@ -35,7 +34,11 @@ impl ExecutionRpc for MockRpc {
         Ok(serde_json::from_str(&proof)?)
     }
 
-    async fn create_access_list(&self, _opts: &CallOpts, _block: BlockTag) -> Result<AccessList> {
+    async fn create_access_list(
+        &self,
+        _opts: &TransactionRequest,
+        _block: BlockTag,
+    ) -> Result<AccessList> {
         Err(eyre!("not implemented"))
     }
 

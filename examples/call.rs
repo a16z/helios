@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use alloy::primitives::{Address, Bytes};
+use alloy::rpc::types::TransactionRequest;
 use dotenv::dotenv;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -11,7 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 use helios::{
     client::{Client, ClientBuilder, FileDB},
     config::networks::Network,
-    types::{BlockTag, CallOpts},
+    types::BlockTag,
 };
 
 #[tokio::main]
@@ -53,16 +54,21 @@ async fn main() -> eyre::Result<()> {
     client.wait_synced().await;
 
     // Call on helios client
-    let call_opts = CallOpts {
+    let tx = TransactionRequest {
         from: None,
-        to: Some("0x6B175474E89094C44Da98b954EedeAC495271d0F".parse::<Address>()?),
+        to: Some(
+            "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+                .parse::<Address>()?
+                .into(),
+        ),
         gas: None,
         gas_price: None,
         value: None,
-        data: Some("0x18160ddd".parse::<Bytes>()?),
+        input: "0x18160ddd".parse::<Bytes>()?.into(),
+        ..Default::default()
     };
 
-    let result = client.call(&call_opts, BlockTag::Latest).await?;
+    let result = client.call(&tx, BlockTag::Latest).await?;
     info!("[HELIOS] DAI total supply: {:?}", result);
 
     Ok(())

@@ -2,7 +2,9 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc};
 
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{Filter, Log, SyncStatus, Transaction, TransactionReceipt};
+use alloy::rpc::types::{
+    Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
+};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods, Error},
@@ -16,7 +18,6 @@ use common::{
     utils::{hex_str_to_bytes, u64_to_hex_string},
 };
 use consensus::database::Database;
-use execution::types::CallOpts;
 
 use crate::{errors::NodeError, node::Node};
 
@@ -68,9 +69,9 @@ trait EthRpc {
     #[method(name = "getCode")]
     async fn get_code(&self, address: &str, block: BlockTag) -> Result<String, Error>;
     #[method(name = "call")]
-    async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error>;
+    async fn call(&self, tx: TransactionRequest, block: BlockTag) -> Result<String, Error>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error>;
+    async fn estimate_gas(&self, tx: TransactionRequest) -> Result<String, Error>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<String, Error>;
     #[method(name = "gasPrice")]
@@ -177,20 +178,20 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         Ok(format!("0x{:}", hex::encode(code)))
     }
 
-    async fn call(&self, opts: CallOpts, block: BlockTag) -> Result<String, Error> {
+    async fn call(&self, tx: TransactionRequest, block: BlockTag) -> Result<String, Error> {
         let res = self
             .node
-            .call(&opts, block)
+            .call(&tx, block)
             .await
             .map_err(NodeError::to_json_rpsee_error)?;
 
         Ok(format!("0x{}", hex::encode(res)))
     }
 
-    async fn estimate_gas(&self, opts: CallOpts) -> Result<String, Error> {
+    async fn estimate_gas(&self, tx: TransactionRequest) -> Result<String, Error> {
         let gas = self
             .node
-            .estimate_gas(&opts)
+            .estimate_gas(&tx)
             .await
             .map_err(NodeError::to_json_rpsee_error)?;
 

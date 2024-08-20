@@ -4,7 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{Filter, Log, SyncStatus, Transaction, TransactionReceipt};
+use alloy::rpc::types::{
+    Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
+};
 use eyre::{eyre, Result};
 use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
@@ -13,7 +15,6 @@ use common::types::{Block, BlockTag};
 use config::networks::Network;
 use config::Config;
 use consensus::database::Database;
-use execution::types::CallOpts;
 
 use crate::node::Node;
 
@@ -267,12 +268,12 @@ impl<DB: Database> Client<DB> {
         }
     }
 
-    pub async fn call(&self, opts: &CallOpts, block: BlockTag) -> Result<Vec<u8>> {
-        self.node.call(opts, block).await.map_err(|err| err.into())
+    pub async fn call(&self, tx: &TransactionRequest, block: BlockTag) -> Result<Vec<u8>> {
+        self.node.call(tx, block).await.map_err(|err| err.into())
     }
 
-    pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
-        self.node.estimate_gas(opts).await.map_err(|err| err.into())
+    pub async fn estimate_gas(&self, tx: &TransactionRequest) -> Result<u64> {
+        self.node.estimate_gas(tx).await.map_err(|err| err.into())
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
