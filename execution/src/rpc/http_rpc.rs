@@ -73,7 +73,7 @@ impl ExecutionRpc for HttpRpc {
 
         let list = self
             .provider
-            .create_access_list(&tx)
+            .create_access_list(tx)
             .block_id(block)
             .await
             .map_err(|e| RpcError::new("create_access_list", e))?;
