@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use alloy::primitives::{Address, B256, U256};
+use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
 };
@@ -268,7 +268,7 @@ impl<DB: Database> Client<DB> {
         }
     }
 
-    pub async fn call(&self, tx: &TransactionRequest, block: BlockTag) -> Result<Vec<u8>> {
+    pub async fn call(&self, tx: &TransactionRequest, block: BlockTag) -> Result<Bytes> {
         self.node.call(tx, block).await.map_err(|err| err.into())
     }
 
@@ -276,15 +276,15 @@ impl<DB: Database> Client<DB> {
         self.node.estimate_gas(tx).await.map_err(|err| err.into())
     }
 
-    pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
+    pub async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256> {
         self.node.get_balance(address, block).await
     }
 
-    pub async fn get_nonce(&self, address: &Address, block: BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: Address, block: BlockTag) -> Result<u64> {
         self.node.get_nonce(address, block).await
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &B256) -> Result<u64> {
+    pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<u64> {
         self.node.get_block_transaction_count_by_hash(hash).await
     }
 
@@ -292,13 +292,13 @@ impl<DB: Database> Client<DB> {
         self.node.get_block_transaction_count_by_number(block).await
     }
 
-    pub async fn get_code(&self, address: &Address, block: BlockTag) -> Result<Vec<u8>> {
+    pub async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes> {
         self.node.get_code(address, block).await
     }
 
     pub async fn get_storage_at(
         &self,
-        address: &Address,
+        address: Address,
         slot: B256,
         block: BlockTag,
     ) -> Result<U256> {
@@ -311,12 +311,12 @@ impl<DB: Database> Client<DB> {
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &B256,
+        tx_hash: B256,
     ) -> Result<Option<TransactionReceipt>> {
         self.node.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: &B256) -> Option<Transaction> {
+    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<Transaction> {
         self.node.get_transaction_by_hash(tx_hash).await
     }
 
@@ -324,11 +324,11 @@ impl<DB: Database> Client<DB> {
         self.node.get_logs(filter).await
     }
 
-    pub async fn get_filter_changes(&self, filter_id: &U256) -> Result<bool> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<bool> {
         self.node.uninstall_filter(filter_id).await
     }
 
-    pub async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool> {
+    pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         self.node.uninstall_filter(filter_id).await
     }
 
@@ -364,13 +364,13 @@ impl<DB: Database> Client<DB> {
         self.node.get_block_by_number(block, full_tx).await
     }
 
-    pub async fn get_block_by_hash(&self, hash: &B256, full_tx: bool) -> Result<Option<Block>> {
+    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>> {
         self.node.get_block_by_hash(hash, full_tx).await
     }
 
     pub async fn get_transaction_by_block_hash_and_index(
         &self,
-        block_hash: &B256,
+        block_hash: B256,
         index: u64,
     ) -> Option<Transaction> {
         self.node

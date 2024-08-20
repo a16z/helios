@@ -46,13 +46,13 @@ impl ExecutionRpc for HttpRpc {
 
     async fn get_proof(
         &self,
-        address: &Address,
+        address: Address,
         slots: &[B256],
         block: u64,
     ) -> Result<EIP1186AccountProofResponse> {
         let proof_response = self
             .provider
-            .get_proof(*address, slots.to_vec())
+            .get_proof(address, slots.to_vec())
             .block_id(block.into())
             .await
             .map_err(|e| RpcError::new("get_proof", e))?;
@@ -81,10 +81,10 @@ impl ExecutionRpc for HttpRpc {
         Ok(list.access_list)
     }
 
-    async fn get_code(&self, address: &Address, block: u64) -> Result<Vec<u8>> {
+    async fn get_code(&self, address: Address, block: u64) -> Result<Vec<u8>> {
         let code = self
             .provider
-            .get_code_at(*address)
+            .get_code_at(address)
             .block_id(block.into())
             .await
             .map_err(|e| RpcError::new("get_code", e))?;
@@ -102,20 +102,20 @@ impl ExecutionRpc for HttpRpc {
         Ok(*tx.tx_hash())
     }
 
-    async fn get_transaction_receipt(&self, tx_hash: &B256) -> Result<Option<TransactionReceipt>> {
+    async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<TransactionReceipt>> {
         let receipt = self
             .provider
-            .get_transaction_receipt(*tx_hash)
+            .get_transaction_receipt(tx_hash)
             .await
             .map_err(|e| RpcError::new("get_transaction_receipt", e))?;
 
         Ok(receipt)
     }
 
-    async fn get_transaction(&self, tx_hash: &B256) -> Result<Option<Transaction>> {
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<Transaction>> {
         Ok(self
             .provider
-            .get_transaction_by_hash(*tx_hash)
+            .get_transaction_by_hash(tx_hash)
             .await
             .map_err(|e| RpcError::new("get_transaction", e))?)
     }
@@ -128,15 +128,15 @@ impl ExecutionRpc for HttpRpc {
             .map_err(|e| RpcError::new("get_logs", e))?)
     }
 
-    async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
         Ok(self
             .provider
-            .get_filter_changes(*filter_id)
+            .get_filter_changes(filter_id)
             .await
             .map_err(|e| RpcError::new("get_filter_changes", e))?)
     }
 
-    async fn uninstall_filter(&self, _filter_id: &U256) -> Result<bool> {
+    async fn uninstall_filter(&self, _filter_id: U256) -> Result<bool> {
         // TODO: support uninstalling
         Ok(true)
     }

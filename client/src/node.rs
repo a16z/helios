@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use alloy::primitives::{Address, B256, U256};
+use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     Filter, Log, SyncInfo, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
 };
@@ -51,11 +51,7 @@ impl<DB: Database> Node<DB> {
         })
     }
 
-    pub async fn call(
-        &self,
-        tx: &TransactionRequest,
-        block: BlockTag,
-    ) -> Result<Vec<u8>, NodeError> {
+    pub async fn call(&self, tx: &TransactionRequest, block: BlockTag) -> Result<Bytes, NodeError> {
         self.check_blocktag_age(&block).await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
@@ -72,22 +68,22 @@ impl<DB: Database> Node<DB> {
             .map_err(NodeError::ExecutionEvmError)
     }
 
-    pub async fn get_balance(&self, address: &Address, tag: BlockTag) -> Result<U256> {
+    pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&self, address: &Address, tag: BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: Address, tag: BlockTag) -> Result<u64> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
         Ok(account.nonce)
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: &B256) -> Result<u64> {
-        let block = self.execution.get_block_by_hash(*hash, false).await?;
+    pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<u64> {
+        let block = self.execution.get_block_by_hash(hash, false).await?;
         let transaction_count = block.transactions.hashes().len();
 
         Ok(transaction_count as u64)
@@ -100,16 +96,16 @@ impl<DB: Database> Node<DB> {
         Ok(transaction_count as u64)
     }
 
-    pub async fn get_code(&self, address: &Address, tag: BlockTag) -> Result<Vec<u8>> {
+    pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
-        Ok(account.code)
+        Ok(account.code.into())
     }
 
     pub async fn get_storage_at(
         &self,
-        address: &Address,
+        address: Address,
         slot: B256,
         tag: BlockTag,
     ) -> Result<U256> {
@@ -133,22 +129,22 @@ impl<DB: Database> Node<DB> {
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &B256,
+        tx_hash: B256,
     ) -> Result<Option<TransactionReceipt>> {
         self.execution.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: &B256) -> Option<Transaction> {
-        self.execution.get_transaction(*tx_hash).await
+    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<Transaction> {
+        self.execution.get_transaction(tx_hash).await
     }
 
     pub async fn get_transaction_by_block_hash_and_index(
         &self,
-        hash: &B256,
+        hash: B256,
         index: u64,
     ) -> Option<Transaction> {
         self.execution
-            .get_transaction_by_block_hash_and_index(*hash, index)
+            .get_transaction_by_block_hash_and_index(hash, index)
             .await
     }
 
@@ -156,11 +152,11 @@ impl<DB: Database> Node<DB> {
         self.execution.get_logs(filter).await
     }
 
-    pub async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
         self.execution.get_filter_changes(filter_id).await
     }
 
-    pub async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool> {
+    pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         self.execution.uninstall_filter(filter_id).await
     }
 
@@ -208,8 +204,8 @@ impl<DB: Database> Node<DB> {
         }
     }
 
-    pub async fn get_block_by_hash(&self, hash: &B256, full_tx: bool) -> Result<Option<Block>> {
-        let block = self.execution.get_block_by_hash(*hash, full_tx).await;
+    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>> {
+        let block = self.execution.get_block_by_hash(hash, full_tx).await;
 
         match block {
             Ok(block) => Ok(Some(block)),

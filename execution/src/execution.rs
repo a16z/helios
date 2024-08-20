@@ -42,7 +42,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
     pub async fn get_account(
         &self,
-        address: &Address,
+        address: Address,
         slots: Option<&[B256]>,
         tag: BlockTag,
     ) -> Result<Account> {
@@ -69,7 +69,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         );
 
         if !is_valid {
-            return Err(ExecutionError::InvalidAccountProof(*address).into());
+            return Err(ExecutionError::InvalidAccountProof(address).into());
         }
 
         let mut slot_map = HashMap::new();
@@ -87,7 +87,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             );
 
             if !is_valid {
-                return Err(ExecutionError::InvalidStorageProof(*address, key).into());
+                return Err(ExecutionError::InvalidStorageProof(address, key).into());
             }
 
             slot_map.insert(key, storage_proof.value);
@@ -101,7 +101,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
             if proof.code_hash != code_hash {
                 return Err(
-                    ExecutionError::CodeHashMismatch(*address, code_hash, proof.code_hash).into(),
+                    ExecutionError::CodeHashMismatch(address, code_hash, proof.code_hash).into(),
                 );
             }
 
@@ -162,7 +162,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
     pub async fn get_transaction_receipt(
         &self,
-        tx_hash: &B256,
+        tx_hash: B256,
     ) -> Result<Option<TransactionReceipt>> {
         let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
         if receipt.is_none() {
@@ -182,7 +182,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let tx_hashes = block.transactions.hashes();
 
         let receipts_fut = tx_hashes.iter().map(|hash| async move {
-            let receipt = self.rpc.get_transaction_receipt(hash).await;
+            let receipt = self.rpc.get_transaction_receipt(*hash).await;
             receipt?.ok_or(eyre::eyre!("not reachable"))
         });
 
@@ -194,7 +194,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
         if expected_receipt_root != block.receipts_root || !receipts.contains(&receipt) {
-            return Err(ExecutionError::ReceiptRootMismatch(*tx_hash).into());
+            return Err(ExecutionError::ReceiptRootMismatch(tx_hash).into());
         }
 
         Ok(Some(receipt))
@@ -231,7 +231,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(logs)
     }
 
-    pub async fn get_filter_changes(&self, filter_id: &U256) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
         let logs = self.rpc.get_filter_changes(filter_id).await?;
         if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
             return Err(
@@ -242,7 +242,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(logs)
     }
 
-    pub async fn uninstall_filter(&self, filter_id: &U256) -> Result<bool> {
+    pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         self.rpc.uninstall_filter(filter_id).await
     }
 
@@ -282,7 +282,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
             // Get its proven receipt
             let receipt = self
-                .get_transaction_receipt(&tx_hash)
+                .get_transaction_receipt(tx_hash)
                 .await?
                 .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
 

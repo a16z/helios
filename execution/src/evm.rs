@@ -5,7 +5,7 @@ use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
     primitives::{
-        address, AccessListItem, AccountInfo, Address, BlobExcessGasAndPrice, Bytecode, Env,
+        address, AccessListItem, AccountInfo, Address, BlobExcessGasAndPrice, Bytecode, Bytes, Env,
         ExecutionResult, ResultAndState, B256, U256,
     },
     Database, Evm as Revm,
@@ -32,11 +32,11 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    pub async fn call(&mut self, tx: &TransactionRequest) -> Result<Vec<u8>, EvmError> {
+    pub async fn call(&mut self, tx: &TransactionRequest) -> Result<Bytes, EvmError> {
         let tx = self.call_inner(tx).await?;
 
         match tx.result {
-            ExecutionResult::Success { output, .. } => Ok(output.into_data().to_vec()),
+            ExecutionResult::Success { output, .. } => Ok(output.into_data()),
             ExecutionResult::Revert { output, .. } => {
                 Err(EvmError::Revert(Some(output.to_vec().into())))
             }
@@ -169,7 +169,7 @@ impl<R: ExecutionRpc> EvmState<R> {
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(address, None, self.block)
+                        .get_account(*address, None, self.block)
                         .await?;
 
                     self.basic.insert(
@@ -186,7 +186,7 @@ impl<R: ExecutionRpc> EvmState<R> {
                     let slot_bytes = B256::from(*slot);
                     let account = self
                         .execution
-                        .get_account(address, Some(&[slot_bytes]), self.block)
+                        .get_account(*address, Some(&[slot_bytes]), self.block)
                         .await?;
 
                     let storage = self.storage.entry(*address).or_default();
@@ -282,7 +282,7 @@ impl<R: ExecutionRpc> EvmState<R> {
         for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
             let account_chunk_futs = chunk.iter().map(|account| {
                 let account_fut = self.execution.get_account(
-                    &account.address,
+                    account.address,
                     Some(account.storage_keys.as_slice()),
                     self.block,
                 );

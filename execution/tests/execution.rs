@@ -31,7 +31,7 @@ async fn test_get_account() {
     let execution = create_client(state);
 
     let account = execution
-        .get_account(&address, None, BlockTag::Latest)
+        .get_account(address, None, BlockTag::Latest)
         .await
         .unwrap();
 
@@ -50,9 +50,7 @@ async fn test_get_account_bad_proof() {
     state.push_block(block).await;
 
     let execution = create_client(state);
-    let account_res = execution
-        .get_account(&address, None, BlockTag::Latest)
-        .await;
+    let account_res = execution.get_account(address, None, BlockTag::Latest).await;
 
     assert!(account_res.is_err());
 }
@@ -176,7 +174,7 @@ async fn test_get_receipt_not_included() {
     let state = create_state();
     let execution = create_client(state);
     let tx_hash = b256!("2dac1b27ab58b493f902dda8b63979a112398d747f1761c0891777c0983e591f");
-    let receipt_opt = execution.get_transaction_receipt(&tx_hash).await.unwrap();
+    let receipt_opt = execution.get_transaction_receipt(tx_hash).await.unwrap();
 
     assert!(receipt_opt.is_none());
 }

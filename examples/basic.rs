@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     let head_block_num = client.get_block_number().await?;
     let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
     let block = BlockTag::Latest;
-    let balance = client.get_balance(&addr, block).await?;
+    let balance = client.get_balance(addr, block).await?;
 
     info!("synced up to block: {}", head_block_num);
     info!("balance of deposit contract: {}", format_ether(balance));

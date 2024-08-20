@@ -26,7 +26,7 @@ impl ExecutionRpc for MockRpc {
 
     async fn get_proof(
         &self,
-        _address: &Address,
+        _address: Address,
         _slots: &[B256],
         _block: u64,
     ) -> Result<EIP1186AccountProofResponse> {
@@ -42,7 +42,7 @@ impl ExecutionRpc for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_code(&self, _address: &Address, _block: u64) -> Result<Vec<u8>> {
+    async fn get_code(&self, _address: Address, _block: u64) -> Result<Vec<u8>> {
         let code = read_to_string(self.path.join("code.json"))?;
         hex_str_to_bytes(&code[0..code.len() - 1])
     }
@@ -51,12 +51,12 @@ impl ExecutionRpc for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_transaction_receipt(&self, _tx_hash: &B256) -> Result<Option<TransactionReceipt>> {
+    async fn get_transaction_receipt(&self, _tx_hash: B256) -> Result<Option<TransactionReceipt>> {
         let receipt = read_to_string(self.path.join("receipt.json"))?;
         Ok(serde_json::from_str(&receipt)?)
     }
 
-    async fn get_transaction(&self, _tx_hash: &B256) -> Result<Option<Transaction>> {
+    async fn get_transaction(&self, _tx_hash: B256) -> Result<Option<Transaction>> {
         let tx = read_to_string(self.path.join("transaction.json"))?;
         Ok(serde_json::from_str(&tx)?)
     }
@@ -66,12 +66,12 @@ impl ExecutionRpc for MockRpc {
         Ok(serde_json::from_str(&logs)?)
     }
 
-    async fn get_filter_changes(&self, _filter_id: &U256) -> Result<Vec<Log>> {
+    async fn get_filter_changes(&self, _filter_id: U256) -> Result<Vec<Log>> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
     }
 
-    async fn uninstall_filter(&self, _filter_id: &U256) -> Result<bool> {
+    async fn uninstall_filter(&self, _filter_id: U256) -> Result<bool> {
         Err(eyre!("not implemented"))
     }
 
