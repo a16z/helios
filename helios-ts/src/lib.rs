@@ -133,7 +133,7 @@ impl Client {
         let addr: Address = serde_wasm_bindgen::from_value(addr).unwrap();
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
         self.inner
-            .get_balance(&addr, block)
+            .get_balance(addr, block)
             .await
             .unwrap()
             .to_string()
@@ -142,7 +142,7 @@ impl Client {
     #[wasm_bindgen]
     pub async fn get_transaction_by_hash(&self, hash: String) -> JsValue {
         let hash = B256::from_str(&hash).unwrap();
-        let tx = self.inner.get_transaction_by_hash(&hash).await.unwrap();
+        let tx = self.inner.get_transaction_by_hash(hash).await.unwrap();
         serde_wasm_bindgen::to_value(&tx).unwrap()
     }
 
@@ -150,14 +150,14 @@ impl Client {
     pub async fn get_transaction_count(&self, addr: JsValue, block: JsValue) -> u32 {
         let addr: Address = serde_wasm_bindgen::from_value(addr).unwrap();
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
-        self.inner.get_nonce(&addr, block).await.unwrap() as u32
+        self.inner.get_nonce(addr, block).await.unwrap() as u32
     }
 
     #[wasm_bindgen]
     pub async fn get_block_transaction_count_by_hash(&self, hash: JsValue) -> u32 {
         let hash: B256 = serde_wasm_bindgen::from_value(hash).unwrap();
         self.inner
-            .get_block_transaction_count_by_hash(&hash)
+            .get_block_transaction_count_by_hash(hash)
             .await
             .unwrap() as u32
     }
@@ -187,7 +187,7 @@ impl Client {
     pub async fn get_code(&self, addr: JsValue, block: JsValue) -> String {
         let addr: Address = serde_wasm_bindgen::from_value(addr).unwrap();
         let block: BlockTag = serde_wasm_bindgen::from_value(block).unwrap();
-        let code = self.inner.get_code(&addr, block).await.unwrap();
+        let code = self.inner.get_code(addr, block).await.unwrap();
         format!("0x{}", hex::encode(code))
     }
 
@@ -227,7 +227,7 @@ impl Client {
     #[wasm_bindgen]
     pub async fn get_transaction_receipt(&self, tx: JsValue) -> JsValue {
         let tx: B256 = serde_wasm_bindgen::from_value(tx).unwrap();
-        let receipt = self.inner.get_transaction_receipt(&tx).await.unwrap();
+        let receipt = self.inner.get_transaction_receipt(tx).await.unwrap();
         serde_wasm_bindgen::to_value(&receipt).unwrap()
     }
 
