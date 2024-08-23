@@ -15,7 +15,7 @@ pub fn calc_sync_period(slot: u64) -> u64 {
 }
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
-    let sig_res = AggregateSignature::from_bytes(sig_bytes);
+    let sig_res = AggregateSignature::from_bytes(&sig_bytes.inner);
 
     match sig_res {
         Ok(sig) => sig.fast_aggregate_verify(msg, pks),

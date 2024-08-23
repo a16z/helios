@@ -29,7 +29,7 @@ pub fn get_participating_keys(
     bitfield.iter().enumerate().for_each(|(i, bit)| {
         if bit == true {
             let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes_unchecked(pk).unwrap();
+            let pk = PublicKey::from_bytes_unchecked(&pk.inner).unwrap();
             pks.push(pk);
         }
     });

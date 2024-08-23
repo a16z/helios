@@ -1,23 +1,23 @@
 use eyre::Result;
 use ssz_derive::Encode;
-use ssz_types::{BitList, BitVector, FixedVector, VariableList};
+use ssz_types::{BitList, BitVector, FixedVector, VariableList, serde_utils::quoted_u64_var_list};
 use superstruct::superstruct;
-use alloy::primitives::{Address, B256, U256, Bytes};
+use alloy::primitives::{Address, B256, U256};
 use serde::{Serialize, Deserialize};
-use serde_with::{serde_as, DisplayFromStr, FromInto};
 
 use tree_hash_derive::TreeHash;
-use tree_hash::TreeHash;
-use utils::header_deserialize;
+
+use self::primitives::{ByteList, ByteVector};
 
 pub mod primitives;
 mod utils;
+mod serde_utils;
 
-pub type LogsBloom = FixedVector<u8, typenum::U256>;
-pub type BLSPubKey = FixedVector<u8, typenum::U48>;
-pub type KZGCommitment = FixedVector<u8, typenum::U48>;
-pub type SignatureBytes = FixedVector<u8, typenum::U96>;
-pub type Transaction = VariableList<u8, typenum::U1073741824>;
+pub type LogsBloom = ByteVector<typenum::U256>;
+pub type BLSPubKey = ByteVector<typenum::U48>;
+pub type KZGCommitment = ByteVector<typenum::U48>;
+pub type SignatureBytes = ByteVector<typenum::U96>;
+pub type Transaction = ByteList<typenum::U1073741824>;
 
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct LightClientStore {
@@ -29,12 +29,11 @@ pub struct LightClientStore {
     pub current_max_active_participants: u64,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct BeaconBlock {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub slot: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub proposer_index: u64,
     pub parent_root: B256,
     pub state_root: B256,
@@ -81,10 +80,9 @@ pub struct SignedBlsToExecutionChange {
     signature: SignatureBytes,
 }
 
-#[serde_as]
 #[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct BlsToExecutionChange {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     validator_index: u64,
     from_bls_pubkey: BLSPubKey,
     to_execution_address: Address,
@@ -96,7 +94,6 @@ pub struct BlsToExecutionChange {
     variant_attributes(
         derive(Deserialize, Debug, Default, Encode, TreeHash, Clone),
         serde(deny_unknown_fields),
-        serde_as
     )
 )]
 #[derive(Debug, Clone, Deserialize, Encode, TreeHash)]
@@ -110,26 +107,26 @@ pub struct ExecutionPayload {
     pub receipts_root: B256,
     pub logs_bloom: LogsBloom,
     pub prev_randao: B256,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub block_number: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub gas_limit: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub gas_used: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub timestamp: u64,
-    pub extra_data: VariableList<u8, typenum::U32>,
-    #[serde_as(as = "DisplayFromStr")]
+    pub extra_data: ByteList<typenum::U32>,
+    #[serde(with = "serde_utils::u256")]
     pub base_fee_per_gas: U256,
     pub block_hash: B256,
     pub transactions: VariableList<Transaction, typenum::U1048576>,
     #[superstruct(only(Capella, Deneb))]
     withdrawals: VariableList<Withdrawal, typenum::U16>,
     #[superstruct(only(Deneb))]
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     blob_gas_used: u64,
     #[superstruct(only(Deneb))]
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     excess_blob_gas: u64,
 }
 
@@ -139,15 +136,14 @@ impl Default for ExecutionPayload {
     }
 }
 
-#[serde_as]
 #[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct Withdrawal {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     index: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     validator_index: u64,
     address: Address,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     amount: u64,
 }
 
@@ -163,12 +159,11 @@ struct SignedBeaconBlockHeader {
     signature: SignatureBytes,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct BeaconBlockHeader {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     slot: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     proposer_index: u64,
     parent_root: B256,
     state_root: B256,
@@ -181,10 +176,9 @@ pub struct AttesterSlashing {
     attestation_2: IndexedAttestation,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct IndexedAttestation {
-    // #[serde_as(as = "FromInto<Vec<u64>>")]
+    #[serde(with = "quoted_u64_var_list")]
     attesting_indices: VariableList<u64, typenum::U2048>,
     data: AttestationData,
     signature: SignatureBytes,
@@ -197,22 +191,20 @@ pub struct Attestation {
     signature: SignatureBytes,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct AttestationData {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     slot: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     index: u64,
     beacon_block_root: B256,
     source: Checkpoint,
     target: Checkpoint,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct Checkpoint {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     epoch: u64,
     root: B256,
 }
@@ -223,12 +215,11 @@ pub struct SignedVoluntaryExit {
     signature: SignatureBytes,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct VoluntaryExit {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     epoch: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     validator_index: u64,
 }
 
@@ -238,12 +229,11 @@ pub struct Deposit {
     data: DepositData,
 }
 
-#[serde_as]
 #[derive(Deserialize, Default, Debug, Encode, TreeHash, Clone)]
 struct DepositData {
     pubkey: BLSPubKey,
     withdrawal_credentials: B256,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     amount: u64,
     signature: SignatureBytes,
 }
@@ -251,74 +241,69 @@ struct DepositData {
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct Eth1Data {
     deposit_root: B256,
+    #[serde(with = "serde_utils::u64")]
     deposit_count: u64,
     block_hash: B256,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Bootstrap {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub header: Header,
     pub current_sync_committee: SyncCommittee,
     pub current_sync_committee_branch: Vec<B256>,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug, Clone)]
 pub struct Update {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub attested_header: Header,
     pub next_sync_committee: SyncCommittee,
     pub next_sync_committee_branch: Vec<B256>,
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub finalized_header: Header,
     pub finality_branch: Vec<B256>,
     pub sync_aggregate: SyncAggregate,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
 }
 
 
-#[serde_as]
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct FinalityUpdate {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub attested_header: Header,
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub finalized_header: Header,
     pub finality_branch: Vec<B256>,
     pub sync_aggregate: SyncAggregate,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct OptimisticUpdate {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
 }
 
-#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
 pub struct Header {
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub slot: u64,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(with = "serde_utils::u64")]
     pub proposer_index: u64,
     pub parent_root: B256,
     pub state_root: B256,
     pub body_root: B256,
 }
 
-#[serde_as]
 #[derive(Debug, Clone, Default, Encode, TreeHash, Deserialize)]
 pub struct SyncCommittee {
     pub pubkeys: FixedVector<BLSPubKey, typenum::U512>,
-    #[serde_as(as = "serde_with::hex::Hex")]
     pub aggregate_pubkey: BLSPubKey,
 }
 
