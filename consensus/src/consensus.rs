@@ -8,8 +8,8 @@ use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
 use tracing::{debug, error, info, warn};
-use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 use tree_hash::TreeHash;
+use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
@@ -30,8 +30,7 @@ use consensus_core::{
     errors::ConsensusError,
     expected_current_slot, get_bits, is_current_committee_proof_valid,
     types::{
-        ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore,
-        OptimisticUpdate, Update,
+        ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore, OptimisticUpdate, Update,
     },
     utils::calc_sync_period,
     verify_generic_update,
@@ -201,7 +200,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
-        let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
+        let slot = slot.unwrap_or(self.store.optimistic_header.slot);
         let block = self.rpc.get_block(slot).await?;
         let block_hash = block.tree_hash_root();
 
@@ -217,11 +216,7 @@ impl<R: ConsensusRpc> Inner<R> {
         };
 
         if verified_block_hash != block_hash {
-            Err(ConsensusError::InvalidHeaderHash(
-                block_hash,
-                verified_block_hash,
-            )
-            .into())
+            Err(ConsensusError::InvalidHeaderHash(block_hash, verified_block_hash).into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -261,7 +256,7 @@ impl<R: ConsensusRpc> Inner<R> {
                 );
                 break;
             }
-            prev_parent_hash = payload.parent_hash().clone();
+            prev_parent_hash = *payload.parent_hash();
             payloads.push(payload);
         }
         Ok(payloads)
@@ -273,7 +268,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         self.bootstrap(checkpoint).await?;
 
-        let current_period = calc_sync_period(self.store.finalized_header.slot.into());
+        let current_period = calc_sync_period(self.store.finalized_header.slot);
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -312,7 +307,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         if self.store.next_sync_committee.is_none() {
             debug!(target: "helios::consensus", "checking for sync committee update");
-            let current_period = calc_sync_period(self.store.finalized_header.slot.into());
+            let current_period = calc_sync_period(self.store.finalized_header.slot);
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
@@ -368,7 +363,7 @@ impl<R: ConsensusRpc> Inner<R> {
             .await
             .map_err(|err| eyre!("could not fetch bootstrap: {}", err))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
+        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
 
         if !is_valid {
             if self.config.strict_checkpoint_age {

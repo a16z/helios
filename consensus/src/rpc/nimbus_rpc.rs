@@ -87,7 +87,7 @@ impl ConsensusRpc for NimbusRpc {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
         let res: SpecResponse = get(&req).await.map_err(|e| RpcError::new("spec", e))?;
 
-        Ok(res.data.chain_id.into())
+        Ok(res.data.chain_id)
     }
 }
 

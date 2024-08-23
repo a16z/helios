@@ -4,16 +4,16 @@ use alloy::primitives::B256;
 use eyre::Result;
 use milagro_bls::PublicKey;
 use ssz_types::{BitVector, FixedVector};
-use tree_hash::TreeHash;
 use tracing::info;
+use tree_hash::TreeHash;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use common::config::types::Forks;
 
 use crate::errors::ConsensusError;
 use crate::types::{
-    FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate,
-    SignatureBytes, SyncCommittee, Update,
+    FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, SignatureBytes,
+    SyncCommittee, Update,
 };
 use crate::utils::{
     calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root,
@@ -27,7 +27,7 @@ pub fn get_participating_keys(
     let mut pks: Vec<PublicKey> = Vec::new();
 
     bitfield.iter().enumerate().for_each(|(i, bit)| {
-        if bit == true {
+        if bit {
             let pk = &committee.pubkeys[i];
             let pk = PublicKey::from_bytes_unchecked(&pk.inner).unwrap();
             pks.push(pk);
@@ -111,7 +111,7 @@ pub fn apply_generic_update(
         store.optimistic_header = update.attested_header.clone();
     }
 
-    let update_attested_period = calc_sync_period(update.attested_header.slot.into());
+    let update_attested_period = calc_sync_period(update.attested_header.slot);
 
     let update_finalized_slot = update
         .finalized_header
@@ -139,7 +139,7 @@ pub fn apply_generic_update(
     };
 
     if should_apply_update {
-        let store_period = calc_sync_period(store.finalized_header.slot.into());
+        let store_period = calc_sync_period(store.finalized_header.slot);
 
         if store.next_sync_committee.is_none() {
             store
@@ -195,7 +195,7 @@ pub fn verify_generic_update(
         return Err(ConsensusError::InvalidTimestamp.into());
     }
 
-    let store_period = calc_sync_period(store.finalized_header.slot.into());
+    let store_period = calc_sync_period(store.finalized_header.slot);
     let update_sig_period = calc_sync_period(update.signature_slot);
     let valid_period = if store.next_sync_committee.is_some() {
         update_sig_period == store_period || update_sig_period == store_period + 1
@@ -207,7 +207,7 @@ pub fn verify_generic_update(
         return Err(ConsensusError::InvalidPeriod.into());
     }
 
-    let update_attested_period = calc_sync_period(update.attested_header.slot.into());
+    let update_attested_period = calc_sync_period(update.attested_header.slot);
     let update_has_next_committee = store.next_sync_committee.is_none()
         && update.next_sync_committee.is_some()
         && update_attested_period == store_period;
@@ -249,7 +249,7 @@ pub fn verify_generic_update(
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
     let fork_version = calculate_fork_version(forks, update.signature_slot);
-    let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
+    let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
     let is_valid_sig = verify_sync_committee_signture(
         &pks,
         &update.attested_header,
@@ -322,24 +322,15 @@ pub fn verify_sync_committee_signture(
     signature: &SignatureBytes,
     fork_data_root: B256,
 ) -> bool {
-    let res: Result<bool> = (move || {
-        let pks: Vec<&PublicKey> = pks.iter().collect();
-        let header_root = attested_header.clone().tree_hash_root();
-        let signing_root = compute_committee_sign_root(header_root, fork_data_root)?;
-
-        Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
-    })();
-
-    if let Ok(is_valid) = res {
-        is_valid
-    } else {
-        false
-    }
+    let pks: Vec<&PublicKey> = pks.iter().collect();
+    let header_root = attested_header.clone().tree_hash_root();
+    let signing_root = compute_committee_sign_root(header_root, fork_data_root);
+    is_aggregate_valid(signature, signing_root.as_ref(), &pks)
 }
 
-pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> Result<B256> {
-    let domain_type = &hex::decode("07000000")?[..];
-    let domain = compute_domain(domain_type, fork_data_root)?;
+pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
+    let domain_type = [7, 00, 00, 00];
+    let domain = compute_domain(&domain_type, fork_data_root);
     compute_signing_root(header, domain)
 }
 

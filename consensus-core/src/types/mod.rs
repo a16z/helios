@@ -1,16 +1,16 @@
-use eyre::Result;
-use ssz_derive::Encode;
-use ssz_types::{BitList, BitVector, FixedVector, VariableList, serde_utils::quoted_u64_var_list};
-use superstruct::superstruct;
 use alloy::primitives::{Address, B256, U256};
-use serde::{Serialize, Deserialize};
+use eyre::Result;
+use serde::{Deserialize, Serialize};
+use ssz_derive::Encode;
+use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVector, VariableList};
+use superstruct::superstruct;
 use tree_hash_derive::TreeHash;
 
 use self::primitives::{ByteList, ByteVector};
 
 pub mod primitives;
-mod utils;
 mod serde_utils;
+mod utils;
 
 pub type LogsBloom = ByteVector<typenum::U256>;
 pub type BLSPubKey = ByteVector<typenum::U48>;
@@ -86,7 +86,6 @@ pub struct BlsToExecutionChange {
     from_bls_pubkey: BLSPubKey,
     to_execution_address: Address,
 }
-
 
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
@@ -267,7 +266,6 @@ pub struct Update {
     pub signature_slot: u64,
 }
 
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct FinalityUpdate {
     #[serde(with = "serde_utils::header")]
@@ -327,7 +325,7 @@ impl From<&Update> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.into(),
+            signature_slot: update.signature_slot,
             next_sync_committee: Some(update.next_sync_committee.clone()),
             next_sync_committee_branch: Some(update.next_sync_committee_branch.clone()),
             finalized_header: Some(update.finalized_header.clone()),
@@ -341,7 +339,7 @@ impl From<&FinalityUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.into(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: Some(update.finalized_header.clone()),
@@ -355,7 +353,7 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.into(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: None,
@@ -363,4 +361,3 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         }
     }
 }
-

@@ -1,18 +1,18 @@
+use serde::{Deserialize, Serialize};
+use ssz_derive::{Decode, Encode};
 use ssz_types::{FixedVector, VariableList};
-use ssz_derive::{Encode, Decode};
 use tree_hash_derive::TreeHash;
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Default, Encode, Decode, TreeHash)]
 #[ssz(struct_behaviour = "transparent")]
 pub struct ByteVector<N: typenum::Unsigned> {
-    pub inner: FixedVector<u8, N>
+    pub inner: FixedVector<u8, N>,
 }
 
 #[derive(Debug, Clone, Default, Encode, Decode, TreeHash)]
 #[ssz(struct_behaviour = "transparent")]
 pub struct ByteList<N: typenum::Unsigned> {
-    pub inner: VariableList<u8, N>
+    pub inner: VariableList<u8, N>,
 }
 
 impl<'de, N: typenum::Unsigned> serde::Deserialize<'de> for ByteVector<N> {
@@ -23,7 +23,7 @@ impl<'de, N: typenum::Unsigned> serde::Deserialize<'de> for ByteVector<N> {
         let bytes: String = serde::Deserialize::deserialize(deserializer)?;
         let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
         Ok(Self {
-            inner: bytes.to_vec().try_into().unwrap(),
+            inner: bytes.into(),
         })
     }
 }
@@ -46,7 +46,7 @@ impl<'de, N: typenum::Unsigned> Deserialize<'de> for ByteList<N> {
         let bytes: String = Deserialize::deserialize(deserializer)?;
         let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
         Ok(Self {
-            inner: bytes.to_vec().try_into().unwrap(),
+            inner: bytes.into(),
         })
     }
 }
@@ -60,4 +60,3 @@ impl<N: typenum::Unsigned> serde::Serialize for ByteList<N> {
         serializer.serialize_str(&hex_string)
     }
 }
-

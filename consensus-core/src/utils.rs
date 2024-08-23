@@ -1,10 +1,9 @@
 use alloy::primitives::B256;
-use eyre::Result;
 use milagro_bls::{AggregateSignature, PublicKey};
-use ssz_types::FixedVector;
-use tree_hash_derive::TreeHash;
-use tree_hash::TreeHash;
 use sha2::{Digest, Sha256};
+use ssz_types::FixedVector;
+use tree_hash::TreeHash;
+use tree_hash_derive::TreeHash;
 
 use crate::types::{Header, SignatureBytes};
 
@@ -12,7 +11,7 @@ pub fn calc_sync_period(slot: u64) -> u64 {
     // 32 slots per epoch
     let epoch = slot / 32;
     // 256 epochs per sync committee
-    epoch / 256 
+    epoch / 256
 }
 
 pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
@@ -32,7 +31,7 @@ pub fn is_proof_valid<L: TreeHash>(
     index: usize,
 ) -> bool {
     if branch.len() != depth {
-        return false
+        return false;
     }
 
     let mut derived_root = leaf_object.tree_hash_root();
@@ -65,31 +64,30 @@ struct ForkData {
     genesis_validator_root: B256,
 }
 
-pub fn compute_signing_root(object_root: B256, domain: B256) -> Result<B256> {
+pub fn compute_signing_root(object_root: B256, domain: B256) -> B256 {
     let data = SigningData {
         object_root,
         domain,
     };
 
-    Ok(data.tree_hash_root())
+    data.tree_hash_root()
 }
 
-pub fn compute_domain(domain_type: &[u8], fork_data_root: B256) -> Result<B256> {
+pub fn compute_domain(domain_type: &[u8; 4], fork_data_root: B256) -> B256 {
     let start = domain_type;
     let end = &fork_data_root[..28];
     let d = [start, end].concat();
-    Ok(B256::from_slice(d.as_slice()))
+    B256::from_slice(d.as_slice())
 }
 
 pub fn compute_fork_data_root(
     current_version: FixedVector<u8, typenum::U4>,
     genesis_validator_root: B256,
-) -> Result<B256> {
+) -> B256 {
     let fork_data = ForkData {
         current_version,
         genesis_validator_root,
     };
 
-    Ok(fork_data.tree_hash_root())
+    fork_data.tree_hash_root()
 }
-
