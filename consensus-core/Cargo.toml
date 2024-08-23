@@ -13,14 +13,12 @@ tree_hash.workspace = true
 typenum.workspace = true
 sha2.workspace = true
 eyre.workspace = true
-hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
-bytes.workspace = true
 milagro_bls.workspace = true
 
 common = { path = "../common" }

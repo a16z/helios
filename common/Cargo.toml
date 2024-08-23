@@ -13,5 +13,4 @@ superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
-bytes.workspace = true
 milagro_bls.workspace = true

@@ -22,7 +22,6 @@ serde_json.workspace = true
 alloy.workspace = true
 eyre.workspace = true
 hex.workspace = true
-bytes.workspace = true
 tracing.workspace = true
 chrono.workspace = true
 thiserror.workspace = true

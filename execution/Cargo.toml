@@ -22,10 +22,9 @@ serde_json.workspace = true
 # misc
 eyre.workspace = true
 hex.workspace = true
-bytes.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
-hyper.workspace = true
+#hyper.workspace = true
 
 consensus = { path = "../consensus" }
 common = { path = "../common" }
