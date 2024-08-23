@@ -12,6 +12,7 @@ tree_hash_derive = "0.7.0"
 tree_hash = "0.7.0"
 typenum = "1.17.0"
 serde_with = { version = "3.9.0", features = ["hex"] }
+sha2 = "0.10.8"
 eyre.workspace = true
 hex.workspace = true
 serde.workspace = true

@@ -4,7 +4,6 @@ use ssz_types::{BitList, BitVector, FixedVector, VariableList, serde_utils::quot
 use superstruct::superstruct;
 use alloy::primitives::{Address, B256, U256};
 use serde::{Serialize, Deserialize};
-
 use tree_hash_derive::TreeHash;
 
 use self::primitives::{ByteList, ByteVector};
@@ -364,3 +363,4 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         }
     }
 }
+

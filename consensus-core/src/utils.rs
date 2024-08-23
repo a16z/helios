@@ -4,6 +4,7 @@ use milagro_bls::{AggregateSignature, PublicKey};
 use ssz_types::FixedVector;
 use tree_hash_derive::TreeHash;
 use tree_hash::TreeHash;
+use sha2::{Digest, Sha256};
 
 use crate::types::{Header, SignatureBytes};
 
@@ -23,28 +24,33 @@ pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&Public
     }
 }
 
-pub fn is_proof_valid<L>(
+pub fn is_proof_valid<L: TreeHash>(
     attested_header: &Header,
     leaf_object: &mut L,
     branch: &[B256],
     depth: usize,
     index: usize,
 ) -> bool {
-    true
-    // let res: Result<bool> = (move || {
-    //     let leaf_hash = leaf_object.hash_tree_root()?;
-    //     let state_root = bytes32_to_node(&attested_header.state_root)?;
-    //     let branch = branch_to_nodes(branch.to_vec())?;
+    if branch.len() != depth {
+        return false
+    }
 
-    //     let is_valid = is_valid_merkle_branch(&leaf_hash, branch.iter(), depth, index, &state_root);
-    //     Ok(is_valid)
-    // })();
+    let mut derived_root = leaf_object.tree_hash_root();
+    let mut hasher = Sha256::new();
 
-    // if let Ok(is_valid) = res {
-    //     is_valid
-    // } else {
-    //     false
-    // }
+    for (i, node) in branch.iter().enumerate() {
+        if (index / 2usize.pow(i as u32)) % 2 != 0 {
+            hasher.update(node);
+            hasher.update(derived_root);
+        } else {
+            hasher.update(derived_root);
+            hasher.update(node);
+        }
+
+        derived_root = B256::from_slice(&hasher.finalize_reset());
+    }
+
+    derived_root == attested_header.state_root
 }
 
 #[derive(Default, Debug, TreeHash)]
@@ -87,13 +93,3 @@ pub fn compute_fork_data_root(
     Ok(fork_data.tree_hash_root())
 }
 
-// pub fn branch_to_nodes(branch: Vec<B256>) -> Result<Vec<Node>> {
-//     branch
-//         .iter()
-//         .map(bytes32_to_node)
-//         .collect::<Result<Vec<Node>>>()
-// }
-// 
-// pub fn bytes32_to_node(bytes: &Bytes32) -> Result<Node> {
-//     Ok(Node::try_from(bytes.as_slice())?)
-// }
