@@ -8,7 +8,6 @@ use serde::de::DeserializeOwned;
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use common::errors::RpcError;
-use consensus_core::types::U64;
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
 #[derive(Debug)]
@@ -132,5 +131,5 @@ struct SpecResponse {
 #[derive(serde::Deserialize, Debug)]
 struct Spec {
     #[serde(rename = "DEPOSIT_NETWORK_ID")]
-    chain_id: U64,
+    chain_id: u64,
 }

@@ -78,7 +78,7 @@ impl Config {
     }
 
     pub fn fork_version(&self, slot: u64) -> Vec<u8> {
-        calculate_fork_version(&self.forks, slot)
+        calculate_fork_version(&self.forks, slot).to_vec()
     }
 
     pub fn to_base_config(&self) -> BaseConfig {

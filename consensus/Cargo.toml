@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 # consensus
-ssz-rs.workspace = true
 milagro_bls.workspace = true
+tree_hash = { path = "../../tree_hash/tree_hash" }
 
 # async/futures
 tokio.workspace = true
@@ -19,6 +19,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 #misc
+alloy.workspace = true
 eyre.workspace = true
 hex.workspace = true
 bytes.workspace = true
@@ -42,3 +43,7 @@ openssl.workspace = true
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }
+
+[patch.crates-io]
+tree_hash_derive = { path = "../../tree_hash/tree_hash_derive" }
+tree_hash = { path = "../../tree_hash/tree_hash" }

@@ -5,8 +5,14 @@ edition = "2021"
 
 [dependencies]
 alloy = { version = "0.2.1", features = ["consensus", "rpc-types", "ssz", "rlp", "k256"] }
+ssz_types = "0.7.0"
+ethereum_ssz_derive = "0.6.0"
+ethereum_ssz = "0.6.0"
+tree_hash_derive = { path = "../../tree_hash/tree_hash_derive" }
+tree_hash = { path = "../../tree_hash/tree_hash" }
+typenum = "1.17.0"
+serde_with = { version = "3.9.0", features = ["hex"] }
 eyre.workspace = true
-ssz-rs.workspace = true
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -18,3 +24,7 @@ bytes.workspace = true
 milagro_bls.workspace = true
 
 common = { path = "../common" }
+
+[patch.crates-io]
+tree_hash_derive = { path = "../../tree_hash/tree_hash_derive" }
+tree_hash = { path = "../../tree_hash/tree_hash" }

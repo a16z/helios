@@ -2,18 +2,18 @@ use std::marker::PhantomData;
 use std::process;
 use std::sync::Arc;
 
+use alloy::primitives::B256;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
-
-use ssz_rs::prelude::*;
-use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info, warn};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
+use tree_hash::TreeHash;
 
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
 use tokio::sync::watch;
 
 use common::types::Block;
@@ -30,7 +30,7 @@ use consensus_core::{
     errors::ConsensusError,
     expected_current_slot, get_bits, is_current_committee_proof_valid,
     types::{
-        Bytes32, ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore,
+        ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore,
         OptimisticUpdate, Update,
     },
     utils::calc_sync_period,
@@ -202,24 +202,24 @@ impl<R: ConsensusRpc> Inner<R> {
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
-        let mut block = self.rpc.get_block(slot).await?;
-        let block_hash = block.hash_tree_root()?;
+        let block = self.rpc.get_block(slot).await?;
+        let block_hash = block.tree_hash_root();
 
         let latest_slot = self.store.optimistic_header.slot;
         let finalized_slot = self.store.finalized_header.slot;
 
-        let verified_block_hash = if slot == latest_slot.as_u64() {
-            self.store.optimistic_header.clone().hash_tree_root()?
-        } else if slot == finalized_slot.as_u64() {
-            self.store.finalized_header.clone().hash_tree_root()?
+        let verified_block_hash = if slot == latest_slot {
+            self.store.optimistic_header.tree_hash_root()
+        } else if slot == finalized_slot {
+            self.store.finalized_header.tree_hash_root()
         } else {
             return Err(ConsensusError::PayloadNotFound(slot).into());
         };
 
         if verified_block_hash != block_hash {
             Err(ConsensusError::InvalidHeaderHash(
-                block_hash.to_string(),
-                verified_block_hash.to_string(),
+                block_hash,
+                verified_block_hash,
             )
             .into())
         } else {
@@ -236,14 +236,13 @@ impl<R: ConsensusRpc> Inner<R> {
             .rev()
             .map(|slot| self.rpc.get_block(slot));
 
-        let mut prev_parent_hash: Bytes32 = self
+        let mut prev_parent_hash: B256 = *self
             .rpc
             .get_block(end_slot)
             .await?
             .body
             .execution_payload()
-            .parent_hash()
-            .clone();
+            .parent_hash();
 
         let mut payloads: Vec<ExecutionPayload> = Vec::new();
         for result in join_all(payloads_fut).await {
@@ -255,8 +254,8 @@ impl<R: ConsensusRpc> Inner<R> {
                 warn!(
                     target: "helios::consensus",
                     error = %ConsensusError::InvalidHeaderHash(
-                        format!("{prev_parent_hash:02X?}"),
-                        format!("{:02X?}", payload.parent_hash()),
+                        prev_parent_hash,
+                        *payload.parent_hash(),
                     ),
                     "error while backfilling blocks"
                 );
@@ -331,9 +330,9 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let slot = self.store.optimistic_header.slot.as_u64();
+        let slot = self.store.optimistic_header.slot;
         let payload = self.get_execution_payload(&Some(slot)).await?;
-        let finalized_slot = self.store.finalized_header.slot.as_u64();
+        let finalized_slot = self.store.finalized_header.slot;
         let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
         self.block_send.send(payload.into()).await?;
@@ -367,7 +366,7 @@ impl<R: ConsensusRpc> Inner<R> {
             .rpc
             .get_bootstrap(checkpoint)
             .await
-            .map_err(|_| eyre!("could not fetch bootstrap"))?;
+            .map_err(|err| eyre!("could not fetch bootstrap: {}", err))?;
 
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
 
@@ -385,8 +384,8 @@ impl<R: ConsensusRpc> Inner<R> {
             &bootstrap.current_sync_committee_branch,
         );
 
-        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
-        let expected_hash = format!("0x{}", hex::encode(checkpoint));
+        let header_hash = bootstrap.header.tree_hash_root();
+        let expected_hash = B256::from_slice(checkpoint);
         let header_valid = header_hash == expected_hash;
 
         if !header_valid {
@@ -417,7 +416,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             expected_current_slot,
             &self.store,
-            self.config.chain.genesis_root.clone().try_into().unwrap(),
+            B256::from_slice(&self.config.chain.genesis_root),
             &self.config.forks,
         )
     }
@@ -437,7 +436,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             expected_current_slot,
             &self.store,
-            self.config.chain.genesis_root.clone().try_into().unwrap(),
+            B256::from_slice(&self.config.chain.genesis_root),
             &self.config.forks,
         )
     }
@@ -450,7 +449,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             expected_current_slot,
             &self.store,
-            self.config.chain.genesis_root.clone().try_into().unwrap(),
+            B256::from_slice(&self.config.chain.genesis_root),
             &self.config.forks,
         )
     }
@@ -467,12 +466,12 @@ impl<R: ConsensusRpc> Inner<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.finalized_header.slot.as_u64());
+        let age = self.age(self.store.finalized_header.slot);
 
         info!(
             target: "helios::consensus",
             "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.finalized_header.slot.as_u64(),
+            self.store.finalized_header.slot,
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -493,12 +492,12 @@ impl<R: ConsensusRpc> Inner<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.optimistic_header.slot.as_u64());
+        let age = self.age(self.store.optimistic_header.slot);
 
         info!(
             target: "helios::consensus",
             "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.optimistic_header.slot.as_u64(),
+            self.store.optimistic_header.slot,
             participation,
             age.num_days(),
             age.num_hours() % 24,

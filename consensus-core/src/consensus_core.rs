@@ -1,23 +1,28 @@
+use std::cmp;
+
+use alloy::primitives::B256;
+use eyre::Result;
+use milagro_bls::PublicKey;
+use ssz_types::{BitVector, FixedVector};
+use tree_hash::TreeHash;
+use tracing::info;
+use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
+
+use common::config::types::Forks;
+
 use crate::errors::ConsensusError;
 use crate::types::{
-    Bytes32, FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate,
+    FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate,
     SignatureBytes, SyncCommittee, Update,
 };
 use crate::utils::{
     calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root,
     is_aggregate_valid, is_proof_valid,
 };
-use common::config::types::Forks;
-use eyre::Result;
-use milagro_bls::PublicKey;
-use ssz_rs::prelude::*;
-use std::cmp;
-use tracing::info;
-use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 pub fn get_participating_keys(
     committee: &SyncCommittee,
-    bitfield: &Bitvector<512>,
+    bitfield: &BitVector<typenum::U512>,
 ) -> Result<Vec<PublicKey>> {
     let mut pks: Vec<PublicKey> = Vec::new();
 
@@ -32,21 +37,14 @@ pub fn get_participating_keys(
     Ok(pks)
 }
 
-pub fn get_bits(bitfield: &Bitvector<512>) -> u64 {
-    let mut count = 0;
-    bitfield.iter().for_each(|bit| {
-        if bit == true {
-            count += 1;
-        }
-    });
-
-    count
+pub fn get_bits(bitfield: &BitVector<typenum::U512>) -> u64 {
+    bitfield.iter().filter(|v| *v).count() as u64
 }
 
 pub fn is_finality_proof_valid(
     attested_header: &Header,
     finality_header: &mut Header,
-    finality_branch: &[Bytes32],
+    finality_branch: &[B256],
 ) -> bool {
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
@@ -54,7 +52,7 @@ pub fn is_finality_proof_valid(
 pub fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
-    next_committee_branch: &[Bytes32],
+    next_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
         attested_header,
@@ -68,7 +66,7 @@ pub fn is_next_committee_proof_valid(
 pub fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
-    current_committee_branch: &[Bytes32],
+    current_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
         attested_header,
@@ -118,7 +116,7 @@ pub fn apply_generic_update(
     let update_finalized_slot = update
         .finalized_header
         .as_ref()
-        .map(|h| h.slot.as_u64())
+        .map(|h| h.slot)
         .unwrap_or(0);
 
     let update_finalized_period = calc_sync_period(update_finalized_slot);
@@ -134,7 +132,7 @@ pub fn apply_generic_update(
             tracing::warn!("skipping block with low vote count");
         }
 
-        let update_is_newer = update_finalized_slot > store.finalized_header.slot.as_u64();
+        let update_is_newer = update_finalized_slot > store.finalized_header.slot;
         let good_update = update_is_newer || update_has_finalized_next_committee;
 
         has_majority && good_update
@@ -157,18 +155,16 @@ pub fn apply_generic_update(
             store.current_max_active_participants = 0;
         }
 
-        if update_finalized_slot > store.finalized_header.slot.as_u64() {
+        if update_finalized_slot > store.finalized_header.slot {
             store.finalized_header = update.finalized_header.clone().unwrap();
 
             if store.finalized_header.slot > store.optimistic_header.slot {
                 store.optimistic_header = store.finalized_header.clone();
             }
 
-            if store.finalized_header.slot.as_u64() % 32 == 0 {
-                let checkpoint_res = store.finalized_header.hash_tree_root();
-                if let Ok(checkpoint) = checkpoint_res {
-                    return Some(checkpoint.as_ref().to_vec());
-                }
+            if store.finalized_header.slot % 32 == 0 {
+                let checkpoint = store.finalized_header.tree_hash_root();
+                return Some(checkpoint.to_vec());
             }
         }
     }
@@ -182,7 +178,7 @@ pub fn verify_generic_update(
     update: &GenericUpdate,
     expected_current_slot: u64,
     store: &LightClientStore,
-    genesis_root: Bytes32,
+    genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
     let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
@@ -192,7 +188,7 @@ pub fn verify_generic_update(
 
     let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
     let valid_time: bool = expected_current_slot >= update.signature_slot
-        && update.signature_slot > update.attested_header.slot.as_u64()
+        && update.signature_slot > update.attested_header.slot
         && update.attested_header.slot >= update_finalized_slot;
 
     if !valid_time {
@@ -252,8 +248,7 @@ pub fn verify_generic_update(
 
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-    let fork_version = Vector::try_from(calculate_fork_version(forks, update.signature_slot))
-        .map_err(|(_, err)| err)?;
+    let fork_version = calculate_fork_version(forks, update.signature_slot);
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root)?;
     let is_valid_sig = verify_sync_committee_signture(
         &pks,
@@ -273,7 +268,7 @@ pub fn verify_update(
     update: &Update,
     expected_current_slot: u64,
     store: &LightClientStore,
-    genesis_root: Bytes32,
+    genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
@@ -285,7 +280,7 @@ pub fn verify_finality_update(
     update: &FinalityUpdate,
     expected_current_slot: u64,
     store: &LightClientStore,
-    genesis_root: Bytes32,
+    genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
@@ -325,11 +320,11 @@ pub fn verify_sync_committee_signture(
     pks: &[PublicKey],
     attested_header: &Header,
     signature: &SignatureBytes,
-    fork_data_root: Node,
+    fork_data_root: B256,
 ) -> bool {
     let res: Result<bool> = (move || {
         let pks: Vec<&PublicKey> = pks.iter().collect();
-        let header_root = Bytes32::try_from(attested_header.clone().hash_tree_root()?.as_ref())?;
+        let header_root = attested_header.clone().tree_hash_root();
         let signing_root = compute_committee_sign_root(header_root, fork_data_root)?;
 
         Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
@@ -342,16 +337,16 @@ pub fn verify_sync_committee_signture(
     }
 }
 
-pub fn compute_committee_sign_root(header: Bytes32, fork_data_root: Node) -> Result<Node> {
+pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> Result<B256> {
     let domain_type = &hex::decode("07000000")?[..];
     let domain = compute_domain(domain_type, fork_data_root)?;
     compute_signing_root(header, domain)
 }
 
-pub fn calculate_fork_version(forks: &Forks, slot: u64) -> Vec<u8> {
+pub fn calculate_fork_version(forks: &Forks, slot: u64) -> FixedVector<u8, typenum::U4> {
     let epoch = slot / 32;
 
-    if epoch >= forks.deneb.epoch {
+    let version = if epoch >= forks.deneb.epoch {
         forks.deneb.fork_version.clone()
     } else if epoch >= forks.capella.epoch {
         forks.capella.fork_version.clone()
@@ -361,5 +356,7 @@ pub fn calculate_fork_version(forks: &Forks, slot: u64) -> Vec<u8> {
         forks.altair.fork_version.clone()
     } else {
         forks.genesis.fork_version.clone()
-    }
+    };
+
+    version.into()
 }
