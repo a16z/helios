@@ -4,9 +4,6 @@ version = "0.5.5"
 edition = "2021"
 
 [dependencies]
-# consensus
-ssz-rs.workspace = true
-
 # execution
 alloy.workspace = true
 revm.workspace = true

@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 # consensus
 milagro_bls.workspace = true
-tree_hash = "0.7.0"
+tree_hash.workspace = true
 
 # async/futures
 tokio.workspace = true

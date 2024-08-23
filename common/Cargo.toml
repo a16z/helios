@@ -8,7 +8,6 @@ alloy = { version = "0.2.1", features = ["rpc-types"] }
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
-ssz-rs.workspace = true
 serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true

@@ -5,14 +5,13 @@ edition = "2021"
 
 [dependencies]
 alloy = { version = "0.2.1", features = ["consensus", "rpc-types", "ssz", "rlp", "k256"] }
-ssz_types = "0.7.0"
-ethereum_ssz_derive = "0.6.0"
-ethereum_ssz = "0.6.0"
-tree_hash_derive = "0.7.0"
-tree_hash = "0.7.0"
-typenum = "1.17.0"
-serde_with = { version = "3.9.0", features = ["hex"] }
-sha2 = "0.10.8"
+ssz_types.workspace = true
+ethereum_ssz_derive.workspace = true
+ethereum_ssz.workspace = true
+tree_hash_derive.workspace = true
+tree_hash.workspace = true
+typenum.workspace = true
+sha2.workspace = true
 eyre.workspace = true
 hex.workspace = true
 serde.workspace = true
