@@ -330,7 +330,7 @@ pub fn verify_sync_committee_signture(
 
 pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
     let domain_type = [7, 00, 00, 00];
-    let domain = compute_domain(&domain_type, fork_data_root);
+    let domain = compute_domain(domain_type, fork_data_root);
     compute_signing_root(header, domain)
 }
 

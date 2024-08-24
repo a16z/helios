@@ -73,8 +73,8 @@ pub fn compute_signing_root(object_root: B256, domain: B256) -> B256 {
     data.tree_hash_root()
 }
 
-pub fn compute_domain(domain_type: &[u8; 4], fork_data_root: B256) -> B256 {
-    let start = domain_type;
+pub fn compute_domain(domain_type: [u8; 4], fork_data_root: B256) -> B256 {
+    let start = &domain_type;
     let end = &fork_data_root[..28];
     let d = [start, end].concat();
     B256::from_slice(d.as_slice())
