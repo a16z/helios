@@ -4,9 +4,9 @@ use alloy::primitives::B256;
 use eyre::Result;
 use milagro_bls::PublicKey;
 use ssz_types::{BitVector, FixedVector};
-use tracing::info;
 use tree_hash::TreeHash;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
+use tracing::{info, warn};
 
 use common::config::types::Forks;
 
@@ -129,7 +129,7 @@ pub fn apply_generic_update(
     let should_apply_update = {
         let has_majority = committee_bits * 3 >= 512 * 2;
         if !has_majority {
-            tracing::warn!("skipping block with low vote count");
+            warn!("skipping block with low vote count");
         }
 
         let update_is_newer = update_finalized_slot > store.finalized_header.slot;
