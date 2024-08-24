@@ -14,7 +14,6 @@ typenum.workspace = true
 sha2.workspace = true
 eyre.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
