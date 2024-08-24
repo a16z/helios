@@ -4,9 +4,9 @@ use alloy::primitives::B256;
 use eyre::Result;
 use milagro_bls::PublicKey;
 use ssz_types::{BitVector, FixedVector};
+use tracing::{info, warn};
 use tree_hash::TreeHash;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
-use tracing::{info, warn};
 
 use common::config::types::Forks;
 
