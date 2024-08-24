@@ -95,10 +95,7 @@ pub fn has_finality_update(update: &GenericUpdate) -> bool {
 // implements state changes from apply_light_client_update and process_light_client_update in
 // the specification
 /// Returns the new checkpoint if one is created, otherwise None
-pub fn apply_generic_update(
-    store: &mut LightClientStore,
-    update: &GenericUpdate,
-) -> Option<Vec<u8>> {
+pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) -> Option<B256> {
     let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
     store.current_max_active_participants =
@@ -164,7 +161,7 @@ pub fn apply_generic_update(
 
             if store.finalized_header.slot % 32 == 0 {
                 let checkpoint = store.finalized_header.tree_hash_root();
-                return Some(checkpoint.to_vec());
+                return Some(checkpoint);
             }
         }
     }
@@ -288,7 +285,7 @@ pub fn verify_finality_update(
     verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<Vec<u8>> {
+pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<B256> {
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update)
 }
@@ -296,7 +293,7 @@ pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<Vec
 pub fn apply_finality_update(
     store: &mut LightClientStore,
     update: &FinalityUpdate,
-) -> Option<Vec<u8>> {
+) -> Option<B256> {
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update)
 }
@@ -304,7 +301,7 @@ pub fn apply_finality_update(
 pub fn apply_optimistic_update(
     store: &mut LightClientStore,
     update: &OptimisticUpdate,
-) -> Option<Vec<u8>> {
+) -> Option<B256> {
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update)
 }
@@ -338,16 +335,16 @@ pub fn calculate_fork_version(forks: &Forks, slot: u64) -> FixedVector<u8, typen
     let epoch = slot / 32;
 
     let version = if epoch >= forks.deneb.epoch {
-        forks.deneb.fork_version.clone()
+        forks.deneb.fork_version
     } else if epoch >= forks.capella.epoch {
-        forks.capella.fork_version.clone()
+        forks.capella.fork_version
     } else if epoch >= forks.bellatrix.epoch {
-        forks.bellatrix.fork_version.clone()
+        forks.bellatrix.fork_version
     } else if epoch >= forks.altair.epoch {
-        forks.altair.fork_version.clone()
+        forks.altair.fork_version
     } else {
-        forks.genesis.fork_version.clone()
+        forks.genesis.fork_version
     };
 
-    version.into()
+    FixedVector::from(version.as_slice().to_vec())
 }

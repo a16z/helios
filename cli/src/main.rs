@@ -6,8 +6,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alloy::primitives::B256;
 use clap::Parser;
-use common::utils::hex_str_to_bytes;
 use dirs::home_dir;
 use eyre::Result;
 use futures::executor::block_on;
@@ -103,7 +103,7 @@ struct Cli {
     #[clap(short = 'p', long, env)]
     rpc_port: Option<u16>,
     #[clap(short = 'w', long, env)]
-    checkpoint: Option<String>,
+    checkpoint: Option<B256>,
     #[clap(short, long, env)]
     execution_rpc: Option<String>,
     #[clap(short, long, env)]
@@ -120,13 +120,8 @@ struct Cli {
 
 impl Cli {
     fn as_cli_config(&self) -> CliConfig {
-        let checkpoint = self
-            .checkpoint
-            .as_ref()
-            .map(|c| hex_str_to_bytes(c).expect("invalid checkpoint"));
-
         CliConfig {
-            checkpoint,
+            checkpoint: self.checkpoint,
             execution_rpc: self.execution_rpc.clone(),
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self

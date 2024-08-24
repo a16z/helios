@@ -39,7 +39,7 @@ use consensus_core::{
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
     pub finalized_block_recv: Option<watch::Receiver<Option<Block>>>,
-    pub checkpoint_recv: watch::Receiver<Option<Vec<u8>>>,
+    pub checkpoint_recv: watch::Receiver<Option<B256>>,
     genesis_time: u64,
     db: DB,
     phantom: PhantomData<R>,
@@ -49,10 +49,10 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
 pub struct Inner<R: ConsensusRpc> {
     pub rpc: R,
     pub store: LightClientStore,
-    last_checkpoint: Option<Vec<u8>>,
+    last_checkpoint: Option<B256>,
     block_send: Sender<Block>,
     finalized_block_send: watch::Sender<Option<Block>>,
-    checkpoint_send: watch::Sender<Option<Vec<u8>>>,
+    checkpoint_send: watch::Sender<Option<B256>>,
     pub config: Arc<Config>,
 }
 
@@ -85,7 +85,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 config.clone(),
             );
 
-            let res = inner.sync(&initial_checkpoint).await;
+            let res = inner.sync(initial_checkpoint).await;
             if let Err(err) = res {
                 if config.load_external_fallback {
                     let res = sync_all_fallbacks(&mut inner, config.chain.chain_id).await;
@@ -139,7 +139,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     pub fn shutdown(&self) -> Result<()> {
         let checkpoint = self.checkpoint_recv.borrow();
         if let Some(checkpoint) = checkpoint.as_ref() {
-            self.db.save_checkpoint(checkpoint)?;
+            self.db.save_checkpoint(*checkpoint)?;
         }
 
         Ok(())
@@ -154,7 +154,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 
 async fn sync_fallback<R: ConsensusRpc>(inner: &mut Inner<R>, fallback: &str) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
-    inner.sync(checkpoint.as_slice()).await
+    inner.sync(checkpoint).await
 }
 
 async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64) -> Result<()> {
@@ -165,7 +165,7 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64
         .fetch_latest_checkpoint(&network)
         .await?;
 
-    inner.sync(checkpoint.as_slice()).await
+    inner.sync(checkpoint).await
 }
 
 impl<R: ConsensusRpc> Inner<R> {
@@ -173,7 +173,7 @@ impl<R: ConsensusRpc> Inner<R> {
         rpc: &str,
         block_send: Sender<Block>,
         finalized_block_send: watch::Sender<Option<Block>>,
-        checkpoint_send: watch::Sender<Option<Vec<u8>>>,
+        checkpoint_send: watch::Sender<Option<B256>>,
         config: Arc<Config>,
     ) -> Inner<R> {
         let rpc = R::new(rpc);
@@ -262,7 +262,7 @@ impl<R: ConsensusRpc> Inner<R> {
         Ok(payloads)
     }
 
-    pub async fn sync(&mut self, checkpoint: &[u8]) -> Result<()> {
+    pub async fn sync(&mut self, checkpoint: B256) -> Result<()> {
         self.store = LightClientStore::default();
         self.last_checkpoint = None;
 
@@ -356,7 +356,7 @@ impl<R: ConsensusRpc> Inner<R> {
         Duration::try_seconds(next_update as i64).unwrap()
     }
 
-    pub async fn bootstrap(&mut self, checkpoint: &[u8]) -> Result<()> {
+    pub async fn bootstrap(&mut self, checkpoint: B256) -> Result<()> {
         let mut bootstrap = self
             .rpc
             .get_bootstrap(checkpoint)
@@ -380,11 +380,10 @@ impl<R: ConsensusRpc> Inner<R> {
         );
 
         let header_hash = bootstrap.header.tree_hash_root();
-        let expected_hash = B256::from_slice(checkpoint);
-        let header_valid = header_hash == expected_hash;
+        let header_valid = header_hash == checkpoint;
 
         if !header_valid {
-            return Err(ConsensusError::InvalidHeaderHash(expected_hash, header_hash).into());
+            return Err(ConsensusError::InvalidHeaderHash(checkpoint, header_hash).into());
         }
 
         if !committee_valid {
@@ -411,7 +410,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             expected_current_slot,
             &self.store,
-            B256::from_slice(&self.config.chain.genesis_root),
+            self.config.chain.genesis_root,
             &self.config.forks,
         )
     }
@@ -431,7 +430,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             expected_current_slot,
             &self.store,
-            B256::from_slice(&self.config.chain.genesis_root),
+            self.config.chain.genesis_root,
             &self.config.forks,
         )
     }
@@ -444,7 +443,7 @@ impl<R: ConsensusRpc> Inner<R> {
             &update,
             expected_current_slot,
             &self.store,
-            B256::from_slice(&self.config.chain.genesis_root),
+            self.config.chain.genesis_root,
             &self.config.forks,
         )
     }
@@ -542,6 +541,7 @@ mod tests {
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         Inner,
     };
+    use alloy::primitives::b256;
     use consensus_core::errors::ConsensusError;
     use consensus_core::types::{BLSPubKey, Header, SignatureBytes};
 
@@ -559,9 +559,7 @@ mod tests {
             ..Default::default()
         };
 
-        let checkpoint =
-            hex::decode("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275")
-                .unwrap();
+        let checkpoint = b256!("5afc212a7924789b2bc86acad3ab3a6ffb1f6e97253ea50bee7f4f51422c9275");
 
         let (block_send, _) = channel(256);
         let (finalized_block_send, _) = watch::channel(None);
@@ -576,9 +574,9 @@ mod tests {
         );
 
         if sync {
-            client.sync(&checkpoint).await.unwrap()
+            client.sync(checkpoint).await.unwrap()
         } else {
-            client.bootstrap(&checkpoint).await.unwrap();
+            client.bootstrap(checkpoint).await.unwrap();
         }
 
         client

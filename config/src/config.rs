@@ -2,6 +2,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::{path::PathBuf, process::exit};
 
+use alloy::primitives::B256;
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
@@ -9,13 +10,11 @@ use figment::{
 use serde::Deserialize;
 
 use common::config::types::Forks;
-use common::utils::bytes_deserialize;
 use consensus_core::calculate_fork_version;
 
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
 use crate::types::ChainConfig;
-use crate::utils::bytes_opt_deserialize;
 use crate::Network;
 
 #[derive(Deserialize, Debug, Default)]
@@ -24,11 +23,8 @@ pub struct Config {
     pub execution_rpc: String,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
-    #[serde(deserialize_with = "bytes_deserialize")]
-    pub default_checkpoint: Vec<u8>,
-    #[serde(default)]
-    #[serde(deserialize_with = "bytes_opt_deserialize")]
-    pub checkpoint: Option<Vec<u8>>,
+    pub default_checkpoint: B256,
+    pub checkpoint: Option<B256>,
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,

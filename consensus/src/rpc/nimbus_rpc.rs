@@ -1,5 +1,6 @@
 use std::cmp;
 
+use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
 use retri::{retry, BackoffSettings};
@@ -34,7 +35,7 @@ impl ConsensusRpc for NimbusRpc {
         }
     }
 
-    async fn get_bootstrap(&self, block_root: &'_ [u8]) -> Result<Bootstrap> {
+    async fn get_bootstrap(&self, block_root: B256) -> Result<Bootstrap> {
         let root_hex = hex::encode(block_root);
         let req = format!(
             "{}/eth/v1/beacon/light_client/bootstrap/0x{}",

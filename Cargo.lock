@@ -1246,6 +1246,7 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 name = "cli"
 version = "0.5.5"
 dependencies = [
+ "alloy",
  "clap",
  "client",
  "common",

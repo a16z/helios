@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use alloy::primitives::B256;
 use config::Config;
 use eyre::Result;
 
@@ -13,15 +14,15 @@ pub trait Database: Clone + Sync + Send + 'static {
     where
         Self: Sized;
 
-    fn save_checkpoint(&self, checkpoint: &[u8]) -> Result<()>;
-    fn load_checkpoint(&self) -> Result<Vec<u8>>;
+    fn save_checkpoint(&self, checkpoint: B256) -> Result<()>;
+    fn load_checkpoint(&self) -> Result<B256>;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 pub struct FileDB {
     data_dir: PathBuf,
-    default_checkpoint: Vec<u8>,
+    default_checkpoint: B256,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -37,7 +38,7 @@ impl Database for FileDB {
         eyre::bail!("data dir not in config")
     }
 
-    fn save_checkpoint(&self, checkpoint: &[u8]) -> Result<()> {
+    fn save_checkpoint(&self, checkpoint: B256) -> Result<()> {
         fs::create_dir_all(&self.data_dir)?;
 
         let mut f = fs::OpenOptions::new()
@@ -46,12 +47,12 @@ impl Database for FileDB {
             .truncate(true)
             .open(self.data_dir.join("checkpoint"))?;
 
-        f.write_all(checkpoint)?;
+        f.write_all(checkpoint.as_slice())?;
 
         Ok(())
     }
 
-    fn load_checkpoint(&self) -> Result<Vec<u8>> {
+    fn load_checkpoint(&self) -> Result<B256> {
         let mut buf = Vec::new();
 
         let res = fs::OpenOptions::new()
@@ -60,7 +61,7 @@ impl Database for FileDB {
             .map(|mut f| f.read_to_end(&mut buf));
 
         if buf.len() == 32 && res.is_ok() {
-            Ok(buf)
+            Ok(B256::from_slice(&buf))
         } else {
             Ok(self.default_checkpoint.clone())
         }
@@ -69,7 +70,7 @@ impl Database for FileDB {
 
 #[derive(Clone)]
 pub struct ConfigDB {
-    checkpoint: Vec<u8>,
+    checkpoint: B256,
 }
 
 impl Database for ConfigDB {
@@ -82,11 +83,11 @@ impl Database for ConfigDB {
         })
     }
 
-    fn load_checkpoint(&self) -> Result<Vec<u8>> {
+    fn load_checkpoint(&self) -> Result<B256> {
         Ok(self.checkpoint.clone())
     }
 
-    fn save_checkpoint(&self, _checkpoint: &[u8]) -> Result<()> {
+    fn save_checkpoint(&self, _checkpoint: B256) -> Result<()> {
         Ok(())
     }
 }
