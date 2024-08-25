@@ -252,13 +252,13 @@ pub struct Bootstrap {
     pub current_sync_committee_branch: Vec<B256>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Update {
-    #[serde(with = "serde_utils::header")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub attested_header: Header,
     pub next_sync_committee: SyncCommittee,
     pub next_sync_committee_branch: Vec<B256>,
-    #[serde(with = "serde_utils::header")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub finalized_header: Header,
     pub finality_branch: Vec<B256>,
     pub sync_aggregate: SyncAggregate,
@@ -266,11 +266,11 @@ pub struct Update {
     pub signature_slot: u64,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FinalityUpdate {
-    #[serde(with = "serde_utils::header")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub attested_header: Header,
-    #[serde(with = "serde_utils::header")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub finalized_header: Header,
     pub finality_branch: Vec<B256>,
     pub sync_aggregate: SyncAggregate,
@@ -278,9 +278,9 @@ pub struct FinalityUpdate {
     pub signature_slot: u64,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OptimisticUpdate {
-    #[serde(with = "serde_utils::header")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
     #[serde(with = "serde_utils::u64")]
@@ -298,7 +298,7 @@ pub struct Header {
     pub body_root: B256,
 }
 
-#[derive(Debug, Clone, Default, Encode, TreeHash, Deserialize)]
+#[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize)]
 pub struct SyncCommittee {
     pub pubkeys: FixedVector<BLSPubKey, typenum::U512>,
     pub aggregate_pubkey: BLSPubKey,
