@@ -65,10 +65,9 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         let rpc = rpc.to_string();
         let genesis_time = config.chain.genesis_time;
         let db = DB::new(&config)?;
-        let initial_checkpoint = config.checkpoint.clone().unwrap_or_else(|| {
-            db.load_checkpoint()
-                .unwrap_or(config.default_checkpoint.clone())
-        });
+        let initial_checkpoint = config
+            .checkpoint
+            .unwrap_or_else(|| db.load_checkpoint().unwrap_or(config.default_checkpoint));
 
         #[cfg(not(target_arch = "wasm32"))]
         let run = tokio::spawn;
@@ -333,7 +332,7 @@ impl<R: ConsensusRpc> Inner<R> {
         self.block_send.send(payload.into()).await?;
         self.finalized_block_send
             .send(Some(finalized_payload.into()))?;
-        self.checkpoint_send.send(self.last_checkpoint.clone())?;
+        self.checkpoint_send.send(self.last_checkpoint)?;
 
         Ok(())
     }

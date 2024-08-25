@@ -135,15 +135,15 @@ impl ClientBuilder {
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
             Some(checkpoint)
         } else if let Some(config) = &self.config {
-            config.checkpoint.clone()
+            config.checkpoint
         } else {
             None
         };
 
         let default_checkpoint = if let Some(config) = &self.config {
-            config.default_checkpoint.clone()
+            config.default_checkpoint
         } else {
-            base_config.default_checkpoint.clone()
+            base_config.default_checkpoint
         };
 
         #[cfg(not(target_arch = "wasm32"))]

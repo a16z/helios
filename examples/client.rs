@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use alloy::primitives::b256;
 use eyre::Result;
 
 use helios::prelude::*;
@@ -19,8 +20,9 @@ async fn main() -> Result<()> {
     builder = builder.execution_rpc("https://eth-mainnet.g.alchemy.com/v2/XXXXX");
 
     // Set the checkpoint to the last known checkpoint
-    builder =
-        builder.checkpoint("85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68");
+    builder = builder.checkpoint(b256!(
+        "85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
+    ));
 
     // Set the rpc port
     builder = builder.rpc_port(8545);

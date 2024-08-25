@@ -82,7 +82,7 @@ impl Config {
             rpc_bind_ip: self.rpc_bind_ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             rpc_port: self.rpc_port.unwrap_or(8545),
             consensus_rpc: Some(self.consensus_rpc.clone()),
-            default_checkpoint: self.default_checkpoint.clone(),
+            default_checkpoint: self.default_checkpoint,
             chain: self.chain.clone(),
             forks: self.forks.clone(),
             max_checkpoint_age: self.max_checkpoint_age,

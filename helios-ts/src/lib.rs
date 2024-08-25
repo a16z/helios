@@ -3,6 +3,7 @@ extern crate web_sys;
 
 use std::str::FromStr;
 
+use alloy::hex::FromHex;
 use alloy::primitives::{Address, B256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use eyre::Result;
@@ -39,14 +40,14 @@ impl Database for DatabaseType {
         }
     }
 
-    fn load_checkpoint(&self) -> Result<Vec<u8>> {
+    fn load_checkpoint(&self) -> Result<B256> {
         match self {
             DatabaseType::Memory(db) => db.load_checkpoint(),
             DatabaseType::LocalStorage(db) => db.load_checkpoint(),
         }
     }
 
-    fn save_checkpoint(&self, checkpoint: &[u8]) -> Result<()> {
+    fn save_checkpoint(&self, checkpoint: B256) -> Result<()> {
         match self {
             DatabaseType::Memory(db) => db.save_checkpoint(checkpoint),
             DatabaseType::LocalStorage(db) => db.save_checkpoint(checkpoint),
@@ -84,7 +85,8 @@ impl Client {
             checkpoint
                 .as_ref()
                 .map(|c| c.strip_prefix("0x").unwrap_or(c.as_str()))
-                .map(|c| hex::decode(c).unwrap())
+                .map(|c| B256::from_hex(c).ok())
+                .flatten()
                 .unwrap_or(base.default_checkpoint),
         );
 

@@ -31,7 +31,7 @@ impl Database for FileDB {
         if let Some(data_dir) = &config.data_dir {
             return Ok(FileDB {
                 data_dir: data_dir.to_path_buf(),
-                default_checkpoint: config.default_checkpoint.clone(),
+                default_checkpoint: config.default_checkpoint,
             });
         }
 
@@ -63,7 +63,7 @@ impl Database for FileDB {
         if buf.len() == 32 && res.is_ok() {
             Ok(B256::from_slice(&buf))
         } else {
-            Ok(self.default_checkpoint.clone())
+            Ok(self.default_checkpoint)
         }
     }
 }
@@ -76,15 +76,12 @@ pub struct ConfigDB {
 impl Database for ConfigDB {
     fn new(config: &Config) -> Result<Self> {
         Ok(Self {
-            checkpoint: config
-                .checkpoint
-                .clone()
-                .unwrap_or(config.default_checkpoint.clone()),
+            checkpoint: config.checkpoint.unwrap_or(config.default_checkpoint),
         })
     }
 
     fn load_checkpoint(&self) -> Result<B256> {
-        Ok(self.checkpoint.clone())
+        Ok(self.checkpoint)
     }
 
     fn save_checkpoint(&self, _checkpoint: B256) -> Result<()> {
