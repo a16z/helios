@@ -29,7 +29,7 @@ pub struct ClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
-    checkpoint: Option<Vec<u8>>,
+    checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_bind_ip: Option<IpAddr>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -62,9 +62,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn checkpoint(mut self, checkpoint: &str) -> Self {
-        let checkpoint = hex::decode(checkpoint.strip_prefix("0x").unwrap_or(checkpoint))
-            .expect("cannot parse checkpoint");
+    pub fn checkpoint(mut self, checkpoint: B256) -> Self {
         self.checkpoint = Some(checkpoint);
         self
     }
@@ -137,15 +135,15 @@ impl ClientBuilder {
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
             Some(checkpoint)
         } else if let Some(config) = &self.config {
-            config.checkpoint.clone()
+            config.checkpoint
         } else {
             None
         };
 
         let default_checkpoint = if let Some(config) = &self.config {
-            config.default_checkpoint.clone()
+            config.default_checkpoint
         } else {
-            base_config.default_checkpoint.clone()
+            base_config.default_checkpoint
         };
 
         #[cfg(not(target_arch = "wasm32"))]

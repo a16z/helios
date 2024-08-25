@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 use std::{collections::HashMap, path::PathBuf};
 
+use alloy::primitives::B256;
 use figment::{providers::Serialized, value::Value};
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct CliConfig {
     pub execution_rpc: Option<String>,
     pub consensus_rpc: Option<String>,
-    pub checkpoint: Option<Vec<u8>>,
+    pub checkpoint: Option<B256>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub data_dir: Option<PathBuf>,

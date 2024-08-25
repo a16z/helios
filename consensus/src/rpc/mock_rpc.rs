@@ -1,9 +1,12 @@
 use std::{fs::read_to_string, path::PathBuf};
 
-use super::ConsensusRpc;
+use alloy::primitives::B256;
 use async_trait::async_trait;
-use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 use eyre::Result;
+
+use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+
+use super::ConsensusRpc;
 
 pub struct MockRpc {
     testdata: PathBuf,
@@ -18,7 +21,7 @@ impl ConsensusRpc for MockRpc {
         }
     }
 
-    async fn get_bootstrap(&self, _block_root: &'_ [u8]) -> Result<Bootstrap> {
+    async fn get_bootstrap(&self, _block_root: B256) -> Result<Bootstrap> {
         let res = read_to_string(self.testdata.join("bootstrap.json"))?;
         let bootstrap: BootstrapResponse = serde_json::from_str(&res)?;
         Ok(bootstrap.data)

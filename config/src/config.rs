@@ -2,6 +2,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::{path::PathBuf, process::exit};
 
+use alloy::primitives::B256;
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
@@ -9,13 +10,11 @@ use figment::{
 use serde::Deserialize;
 
 use common::config::types::Forks;
-use common::utils::bytes_deserialize;
 use consensus_core::calculate_fork_version;
 
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
 use crate::types::ChainConfig;
-use crate::utils::bytes_opt_deserialize;
 use crate::Network;
 
 #[derive(Deserialize, Debug, Default)]
@@ -24,11 +23,8 @@ pub struct Config {
     pub execution_rpc: String,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
-    #[serde(deserialize_with = "bytes_deserialize")]
-    pub default_checkpoint: Vec<u8>,
-    #[serde(default)]
-    #[serde(deserialize_with = "bytes_opt_deserialize")]
-    pub checkpoint: Option<Vec<u8>>,
+    pub default_checkpoint: B256,
+    pub checkpoint: Option<B256>,
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,
@@ -78,7 +74,7 @@ impl Config {
     }
 
     pub fn fork_version(&self, slot: u64) -> Vec<u8> {
-        calculate_fork_version(&self.forks, slot)
+        calculate_fork_version(&self.forks, slot).to_vec()
     }
 
     pub fn to_base_config(&self) -> BaseConfig {
@@ -86,7 +82,7 @@ impl Config {
             rpc_bind_ip: self.rpc_bind_ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             rpc_port: self.rpc_port.unwrap_or(8545),
             consensus_rpc: Some(self.consensus_rpc.clone()),
-            default_checkpoint: self.default_checkpoint.clone(),
+            default_checkpoint: self.default_checkpoint,
             chain: self.chain.clone(),
             forks: self.forks.clone(),
             max_checkpoint_age: self.max_checkpoint_age,

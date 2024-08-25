@@ -155,12 +155,12 @@ dependencies = [
  "alloy-serde",
  "c-kzg",
  "derive_more",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.5.4",
+ "ethereum_ssz_derive 0.5.4",
  "k256",
  "once_cell",
  "serde",
- "sha2 0.10.8",
+ "sha2",
 ]
 
 [[package]]
@@ -243,7 +243,7 @@ dependencies = [
  "cfg-if",
  "const-hex",
  "derive_more",
- "ethereum_ssz",
+ "ethereum_ssz 0.5.4",
  "hex-literal",
  "itoa",
  "k256",
@@ -379,8 +379,8 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives",
  "alloy-rpc-types-engine",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.5.4",
+ "ethereum_ssz_derive 0.5.4",
  "serde",
  "serde_with",
  "thiserror",
@@ -398,8 +398,8 @@ dependencies = [
  "alloy-rlp",
  "alloy-rpc-types-eth",
  "alloy-serde",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.5.4",
+ "ethereum_ssz_derive 0.5.4",
  "jsonwebtoken",
  "rand 0.8.5",
  "serde",
@@ -1246,6 +1246,7 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 name = "cli"
 version = "0.5.5"
 dependencies = [
+ "alloy",
  "clap",
  "client",
  "common",
@@ -1276,7 +1277,6 @@ dependencies = [
  "jsonrpsee",
  "parking_lot",
  "serde",
- "ssz_rs",
  "thiserror",
  "tokio",
  "tracing",
@@ -1301,13 +1301,11 @@ name = "common"
 version = "0.5.5"
 dependencies = [
  "alloy",
- "bytes",
  "eyre",
  "hex",
  "serde",
  "serde_json",
  "snowbridge-milagro-bls",
- "ssz_rs",
  "superstruct",
  "thiserror",
  "tracing",
@@ -1340,8 +1338,8 @@ dependencies = [
 name = "consensus"
 version = "0.5.5"
 dependencies = [
+ "alloy",
  "async-trait",
- "bytes",
  "chrono",
  "common",
  "config",
@@ -1357,11 +1355,11 @@ dependencies = [
  "serde",
  "serde_json",
  "snowbridge-milagro-bls",
- "ssz_rs",
  "superstruct",
  "thiserror",
  "tokio",
  "tracing",
+ "tree_hash",
  "wasm-bindgen-futures",
  "zduny-wasm-timer",
 ]
@@ -1371,17 +1369,20 @@ name = "consensus-core"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "bytes",
  "common",
+ "ethereum_ssz 0.6.0",
+ "ethereum_ssz_derive 0.6.0",
  "eyre",
- "hex",
  "serde",
- "serde_json",
+ "sha2",
  "snowbridge-milagro-bls",
- "ssz_rs",
+ "ssz_types",
  "superstruct",
  "thiserror",
  "tracing",
+ "tree_hash",
+ "tree_hash_derive",
+ "typenum",
  "zduny-wasm-timer",
 ]
 
@@ -1978,6 +1979,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum_hashing"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c853bd72c9e5787f8aafc3df2907c2ed03cff3150c3acd94e2e53a98ab70a8ab"
+dependencies = [
+ "cpufeatures",
+ "ring 0.17.8",
+ "sha2",
+]
+
+[[package]]
+name = "ethereum_serde_utils"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c228a90f44b159ccc0c16da6c56da42d0a521b0388cca87e89919d1af1889b2"
+dependencies = [
+ "alloy-primitives",
+ "hex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "ethereum_ssz"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1985,6 +2010,17 @@ checksum = "7d3627f83d8b87b432a5fad9934b4565260722a141a2c40f371f8080adec9425"
 dependencies = [
  "ethereum-types 0.14.1",
  "itertools 0.10.5",
+ "smallvec",
+]
+
+[[package]]
+name = "ethereum_ssz"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "654bbebe60af1f6554e0e1216b8e336bc1a5ec483b7774d904e25e6e65a655c6"
+dependencies = [
+ "alloy-primitives",
+ "itertools 0.13.0",
  "smallvec",
 ]
 
@@ -2001,6 +2037,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum_ssz_derive"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c21b5706b8763f5cbae4fbc407dacb8ce574ff619b98ff9d9c15adda2384681b"
+dependencies = [
+ "darling 0.20.10",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2012,19 +2060,16 @@ version = "0.5.5"
 dependencies = [
  "alloy",
  "async-trait",
- "bytes",
  "common",
  "consensus",
  "eyre",
  "futures",
  "hex",
- "hyper 1.4.1",
  "openssl",
  "reqwest",
  "revm",
  "serde",
  "serde_json",
- "ssz_rs",
  "thiserror",
  "tokio",
  "tracing",
@@ -3235,7 +3280,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "once_cell",
- "sha2 0.10.8",
+ "sha2",
 ]
 
 [[package]]
@@ -4323,7 +4368,7 @@ dependencies = [
  "revm-primitives",
  "ripemd",
  "secp256k1",
- "sha2 0.10.8",
+ "sha2",
  "substrate-bn",
 ]
 
@@ -4426,7 +4471,7 @@ dependencies = [
  "ark-ff 0.3.0",
  "ark-ff 0.4.2",
  "bytes",
- "ethereum_ssz",
+ "ethereum_ssz 0.5.4",
  "fastrlp",
  "num-bigint",
  "num-traits",
@@ -4837,11 +4882,11 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.7.0"
+version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee80b0e361bbf88fd2f6e242ccd19cfda072cb0faa6ae694ecee08199938569a"
+checksum = "69cecfa94848272156ea67b2b1a53f20fc7bc638c4a46d2f8abde08f05f4b857"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -4855,9 +4900,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.7.0"
+version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6561dc161a9224638a31d876ccdfefbc1df91d3f3a8342eddb35f055d48c7655"
+checksum = "a8fee4991ef4f274617a51ad4af30519438dacb2f56ac773b08a1922ff743350"
 dependencies = [
  "darling 0.20.10",
  "proc-macro2",
@@ -4900,19 +4945,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest 0.10.7",
-]
-
-[[package]]
-name = "sha2"
-version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
-dependencies = [
- "block-buffer 0.9.0",
- "cfg-if",
- "cpufeatures",
- "digest 0.9.0",
- "opaque-debug",
 ]
 
 [[package]]
@@ -5070,28 +5102,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "ssz_rs"
-version = "0.9.0"
+name = "ssz_types"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "057291e5631f280978fa9c8009390663ca4613359fc1318e36a8c24c392f6d1f"
+checksum = "e202ef3c07d9abc7b110a81206064e462758074242e8d176e3cb07415f01a3ad"
 dependencies = [
- "bitvec 1.0.1",
- "hex",
- "num-bigint",
+ "derivative",
+ "ethereum_serde_utils",
+ "ethereum_ssz 0.6.0",
+ "itertools 0.13.0",
  "serde",
- "sha2 0.9.9",
- "ssz_rs_derive",
-]
-
-[[package]]
-name = "ssz_rs_derive"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f07d54c4d01a1713eb363b55ba51595da15f6f1211435b71466460da022aa140"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
+ "serde_derive",
+ "smallvec",
+ "tree_hash",
+ "typenum",
 ]
 
 [[package]]
@@ -5624,6 +5648,29 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04659ddb06c87d233c566112c1c9c5b9e98256d9af50ec3bc9c8327f873a7568"
 dependencies = [
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "tree_hash"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f113108f55d589941862727b5a74f75276a54c157060983611d99f7f7fa6368"
+dependencies = [
+ "alloy-primitives",
+ "ethereum_hashing",
+ "smallvec",
+]
+
+[[package]]
+name = "tree_hash_derive"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b623b16740c2ff75b04a705e726f436abab04eecb60a27b39eea55ec5e81e543"
+dependencies = [
+ "darling 0.20.10",
+ "proc-macro2",
  "quote",
  "syn 2.0.72",
 ]

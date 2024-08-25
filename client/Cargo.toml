@@ -8,7 +8,6 @@ alloy.workspace = true
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
-ssz-rs.workspace = true
 futures.workspace = true
 tracing.workspace = true
 thiserror.workspace = true

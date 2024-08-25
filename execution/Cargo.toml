@@ -4,9 +4,6 @@ version = "0.5.5"
 edition = "2021"
 
 [dependencies]
-# consensus
-ssz-rs.workspace = true
-
 # execution
 alloy.workspace = true
 revm.workspace = true
@@ -25,10 +22,9 @@ serde_json.workspace = true
 # misc
 eyre.workspace = true
 hex.workspace = true
-bytes.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
-hyper.workspace = true
+#hyper.workspace = true
 
 consensus = { path = "../consensus" }
 common = { path = "../common" }

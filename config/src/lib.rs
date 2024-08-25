@@ -21,6 +21,3 @@ pub use networks::*;
 /// Generic Config Types
 pub mod types;
 pub use types::*;
-
-/// Generic Utilities
-pub mod utils;

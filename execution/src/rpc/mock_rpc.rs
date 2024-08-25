@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use eyre::{eyre, Result};
 
 use super::ExecutionRpc;
-use common::{types::BlockTag, utils::hex_str_to_bytes};
+use common::types::BlockTag;
 
 #[derive(Clone)]
 pub struct MockRpc {
@@ -44,7 +44,7 @@ impl ExecutionRpc for MockRpc {
 
     async fn get_code(&self, _address: Address, _block: u64) -> Result<Vec<u8>> {
         let code = read_to_string(self.path.join("code.json"))?;
-        hex_str_to_bytes(&code[0..code.len() - 1])
+        Ok(hex::decode(&code[2..code.len() - 1])?)
     }
 
     async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<B256> {

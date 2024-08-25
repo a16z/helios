@@ -1,22 +1,24 @@
+use alloy::primitives::{Address, B256, U256};
 use eyre::Result;
-use ssz_rs::prelude::*;
-
+use serde::{Deserialize, Serialize};
+use ssz_derive::Encode;
+use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVector, VariableList};
 use superstruct::superstruct;
+use tree_hash_derive::TreeHash;
 
-pub use self::primitives::{ByteList, ByteVector, U64};
-use self::utils::{header_deserialize, superstruct_ssz, u256_deserialize};
+use self::primitives::{ByteList, ByteVector};
+
 pub mod primitives;
+mod serde_utils;
 mod utils;
-use serde;
 
-pub type Address = ByteVector<20>;
-pub type Bytes32 = ByteVector<32>;
-pub type LogsBloom = ByteVector<256>;
-pub type BLSPubKey = ByteVector<48>;
-pub type SignatureBytes = ByteVector<96>;
-pub type Transaction = ByteList<1073741824>;
+pub type LogsBloom = ByteVector<typenum::U256>;
+pub type BLSPubKey = ByteVector<typenum::U48>;
+pub type KZGCommitment = ByteVector<typenum::U48>;
+pub type SignatureBytes = ByteVector<typenum::U96>;
+pub type Transaction = ByteList<typenum::U1073741824>;
 
-#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Deserialize)]
 pub struct LightClientStore {
     pub finalized_header: Header,
     pub current_sync_committee: SyncCommittee,
@@ -26,39 +28,43 @@ pub struct LightClientStore {
     pub current_max_active_participants: u64,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct BeaconBlock {
-    pub slot: U64,
-    pub proposer_index: U64,
-    pub parent_root: Bytes32,
-    pub state_root: Bytes32,
+    #[serde(with = "serde_utils::u64")]
+    pub slot: u64,
+    #[serde(with = "serde_utils::u64")]
+    pub proposer_index: u64,
+    pub parent_root: B256,
+    pub state_root: B256,
     pub body: BeaconBlockBody,
 }
 
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(serde::Deserialize, Clone, Debug, SimpleSerialize, Default),
+        derive(Deserialize, Clone, Debug, Encode, TreeHash, Default),
         serde(deny_unknown_fields)
     )
 )]
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(Encode, TreeHash, Deserialize, Debug, Clone)]
 #[serde(untagged)]
+#[ssz(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent")]
 pub struct BeaconBlockBody {
     randao_reveal: SignatureBytes,
     eth1_data: Eth1Data,
-    graffiti: Bytes32,
-    proposer_slashings: List<ProposerSlashing, 16>,
-    attester_slashings: List<AttesterSlashing, 2>,
-    attestations: List<Attestation, 128>,
-    deposits: List<Deposit, 16>,
-    voluntary_exits: List<SignedVoluntaryExit, 16>,
+    graffiti: B256,
+    proposer_slashings: VariableList<ProposerSlashing, typenum::U16>,
+    attester_slashings: VariableList<AttesterSlashing, typenum::U2>,
+    attestations: VariableList<Attestation, typenum::U128>,
+    deposits: VariableList<Deposit, typenum::U16>,
+    voluntary_exits: VariableList<SignedVoluntaryExit, typenum::U16>,
     sync_aggregate: SyncAggregate,
     pub execution_payload: ExecutionPayload,
     #[superstruct(only(Capella, Deneb))]
-    bls_to_execution_changes: List<SignedBlsToExecutionChange, 16>,
+    bls_to_execution_changes: VariableList<SignedBlsToExecutionChange, typenum::U16>,
     #[superstruct(only(Deneb))]
-    blob_kzg_commitments: List<ByteVector<48>, 4096>,
+    blob_kzg_commitments: VariableList<KZGCommitment, typenum::U4096>,
 }
 
 impl Default for BeaconBlockBody {
@@ -67,17 +73,16 @@ impl Default for BeaconBlockBody {
     }
 }
 
-superstruct_ssz!(BeaconBlockBody);
-
-#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct SignedBlsToExecutionChange {
     message: BlsToExecutionChange,
     signature: SignatureBytes,
 }
 
-#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct BlsToExecutionChange {
-    validator_index: U64,
+    #[serde(with = "serde_utils::u64")]
+    validator_index: u64,
     from_bls_pubkey: BLSPubKey,
     to_execution_address: Address,
 }
@@ -85,34 +90,42 @@ pub struct BlsToExecutionChange {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone),
-        serde(deny_unknown_fields)
+        derive(Deserialize, Debug, Default, Encode, TreeHash, Clone),
+        serde(deny_unknown_fields),
     )
 )]
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Encode, TreeHash)]
 #[serde(untagged)]
+#[ssz(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent")]
 pub struct ExecutionPayload {
-    pub parent_hash: Bytes32,
+    pub parent_hash: B256,
     pub fee_recipient: Address,
-    pub state_root: Bytes32,
-    pub receipts_root: Bytes32,
+    pub state_root: B256,
+    pub receipts_root: B256,
     pub logs_bloom: LogsBloom,
-    pub prev_randao: Bytes32,
-    pub block_number: U64,
-    pub gas_limit: U64,
-    pub gas_used: U64,
-    pub timestamp: U64,
-    pub extra_data: ByteList<32>,
-    #[serde(deserialize_with = "u256_deserialize")]
+    pub prev_randao: B256,
+    #[serde(with = "serde_utils::u64")]
+    pub block_number: u64,
+    #[serde(with = "serde_utils::u64")]
+    pub gas_limit: u64,
+    #[serde(with = "serde_utils::u64")]
+    pub gas_used: u64,
+    #[serde(with = "serde_utils::u64")]
+    pub timestamp: u64,
+    pub extra_data: ByteList<typenum::U32>,
+    #[serde(with = "serde_utils::u256")]
     pub base_fee_per_gas: U256,
-    pub block_hash: Bytes32,
-    pub transactions: List<Transaction, 1048576>,
+    pub block_hash: B256,
+    pub transactions: VariableList<Transaction, typenum::U1048576>,
     #[superstruct(only(Capella, Deneb))]
-    withdrawals: List<Withdrawal, 16>,
+    withdrawals: VariableList<Withdrawal, typenum::U16>,
     #[superstruct(only(Deneb))]
-    blob_gas_used: U64,
+    #[serde(with = "serde_utils::u64")]
+    blob_gas_used: u64,
     #[superstruct(only(Deneb))]
-    excess_blob_gas: U64,
+    #[serde(with = "serde_utils::u64")]
+    excess_blob_gas: u64,
 }
 
 impl Default for ExecutionPayload {
@@ -121,163 +134,179 @@ impl Default for ExecutionPayload {
     }
 }
 
-superstruct_ssz!(ExecutionPayload);
-
-#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct Withdrawal {
-    index: U64,
-    validator_index: U64,
+    #[serde(with = "serde_utils::u64")]
+    index: u64,
+    #[serde(with = "serde_utils::u64")]
+    validator_index: u64,
     address: Address,
-    amount: U64,
+    #[serde(with = "serde_utils::u64")]
+    amount: u64,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct ProposerSlashing {
     signed_header_1: SignedBeaconBlockHeader,
     signed_header_2: SignedBeaconBlockHeader,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct SignedBeaconBlockHeader {
     message: BeaconBlockHeader,
     signature: SignatureBytes,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct BeaconBlockHeader {
-    slot: U64,
-    proposer_index: U64,
-    parent_root: Bytes32,
-    state_root: Bytes32,
-    body_root: Bytes32,
+    #[serde(with = "serde_utils::u64")]
+    slot: u64,
+    #[serde(with = "serde_utils::u64")]
+    proposer_index: u64,
+    parent_root: B256,
+    state_root: B256,
+    body_root: B256,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct AttesterSlashing {
     attestation_1: IndexedAttestation,
     attestation_2: IndexedAttestation,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct IndexedAttestation {
-    attesting_indices: List<U64, 2048>,
+    #[serde(with = "quoted_u64_var_list")]
+    attesting_indices: VariableList<u64, typenum::U2048>,
     data: AttestationData,
     signature: SignatureBytes,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
 pub struct Attestation {
-    aggregation_bits: Bitlist<2048>,
+    aggregation_bits: BitList<typenum::U2048>,
     data: AttestationData,
     signature: SignatureBytes,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct AttestationData {
-    slot: U64,
-    index: U64,
-    beacon_block_root: Bytes32,
+    #[serde(with = "serde_utils::u64")]
+    slot: u64,
+    #[serde(with = "serde_utils::u64")]
+    index: u64,
+    beacon_block_root: B256,
     source: Checkpoint,
     target: Checkpoint,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct Checkpoint {
-    epoch: U64,
-    root: Bytes32,
+    #[serde(with = "serde_utils::u64")]
+    epoch: u64,
+    root: B256,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct SignedVoluntaryExit {
     message: VoluntaryExit,
     signature: SignatureBytes,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct VoluntaryExit {
-    epoch: U64,
-    validator_index: U64,
+    #[serde(with = "serde_utils::u64")]
+    epoch: u64,
+    #[serde(with = "serde_utils::u64")]
+    validator_index: u64,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct Deposit {
-    proof: Vector<Bytes32, 33>,
+    proof: FixedVector<B256, typenum::U33>,
     data: DepositData,
 }
 
-#[derive(serde::Deserialize, Default, Debug, SimpleSerialize, Clone)]
+#[derive(Deserialize, Default, Debug, Encode, TreeHash, Clone)]
 struct DepositData {
     pubkey: BLSPubKey,
-    withdrawal_credentials: Bytes32,
-    amount: U64,
+    withdrawal_credentials: B256,
+    #[serde(with = "serde_utils::u64")]
+    amount: u64,
     signature: SignatureBytes,
 }
 
-#[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
+#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct Eth1Data {
-    deposit_root: Bytes32,
-    deposit_count: U64,
-    block_hash: Bytes32,
+    deposit_root: B256,
+    #[serde(with = "serde_utils::u64")]
+    deposit_count: u64,
+    block_hash: B256,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Bootstrap {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(with = "serde_utils::header")]
     pub header: Header,
     pub current_sync_committee: SyncCommittee,
-    pub current_sync_committee_branch: Vec<Bytes32>,
+    pub current_sync_committee_branch: Vec<B256>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Update {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub attested_header: Header,
     pub next_sync_committee: SyncCommittee,
-    pub next_sync_committee_branch: Vec<Bytes32>,
-    #[serde(deserialize_with = "header_deserialize")]
+    pub next_sync_committee_branch: Vec<B256>,
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub finalized_header: Header,
-    pub finality_branch: Vec<Bytes32>,
+    pub finality_branch: Vec<B256>,
     pub sync_aggregate: SyncAggregate,
-    pub signature_slot: U64,
+    #[serde(with = "serde_utils::u64")]
+    pub signature_slot: u64,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FinalityUpdate {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub attested_header: Header,
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub finalized_header: Header,
-    pub finality_branch: Vec<Bytes32>,
+    pub finality_branch: Vec<B256>,
     pub sync_aggregate: SyncAggregate,
-    pub signature_slot: U64,
+    #[serde(with = "serde_utils::u64")]
+    pub signature_slot: u64,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OptimisticUpdate {
-    #[serde(deserialize_with = "header_deserialize")]
+    #[serde(deserialize_with = "serde_utils::header::deserialize")]
     pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
-    pub signature_slot: U64,
+    #[serde(with = "serde_utils::u64")]
+    pub signature_slot: u64,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize, serde::Serialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
 pub struct Header {
-    pub slot: U64,
-    pub proposer_index: U64,
-    pub parent_root: Bytes32,
-    pub state_root: Bytes32,
-    pub body_root: Bytes32,
+    #[serde(with = "serde_utils::u64")]
+    pub slot: u64,
+    #[serde(with = "serde_utils::u64")]
+    pub proposer_index: u64,
+    pub parent_root: B256,
+    pub state_root: B256,
+    pub body_root: B256,
 }
 
-#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize)]
 pub struct SyncCommittee {
-    pub pubkeys: Vector<BLSPubKey, 512>,
+    pub pubkeys: FixedVector<BLSPubKey, typenum::U512>,
     pub aggregate_pubkey: BLSPubKey,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize, serde::Serialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
 pub struct SyncAggregate {
-    pub sync_committee_bits: Bitvector<512>,
+    pub sync_committee_bits: BitVector<typenum::U512>,
     pub sync_committee_signature: SignatureBytes,
 }
 
@@ -286,9 +315,9 @@ pub struct GenericUpdate {
     pub sync_aggregate: SyncAggregate,
     pub signature_slot: u64,
     pub next_sync_committee: Option<SyncCommittee>,
-    pub next_sync_committee_branch: Option<Vec<Bytes32>>,
+    pub next_sync_committee_branch: Option<Vec<B256>>,
     pub finalized_header: Option<Header>,
-    pub finality_branch: Option<Vec<Bytes32>>,
+    pub finality_branch: Option<Vec<B256>>,
 }
 
 impl From<&Update> for GenericUpdate {
@@ -296,7 +325,7 @@ impl From<&Update> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.into(),
+            signature_slot: update.signature_slot,
             next_sync_committee: Some(update.next_sync_committee.clone()),
             next_sync_committee_branch: Some(update.next_sync_committee_branch.clone()),
             finalized_header: Some(update.finalized_header.clone()),
@@ -310,7 +339,7 @@ impl From<&FinalityUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.into(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: Some(update.finalized_header.clone()),
@@ -324,7 +353,7 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
-            signature_slot: update.signature_slot.into(),
+            signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
             finalized_header: None,

@@ -1,5 +1,6 @@
 use std::cmp;
 
+use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
 use retri::{retry, BackoffSettings};
@@ -8,7 +9,6 @@ use serde::de::DeserializeOwned;
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use common::errors::RpcError;
-use consensus_core::types::U64;
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl ConsensusRpc for NimbusRpc {
         }
     }
 
-    async fn get_bootstrap(&self, block_root: &'_ [u8]) -> Result<Bootstrap> {
+    async fn get_bootstrap(&self, block_root: B256) -> Result<Bootstrap> {
         let root_hex = hex::encode(block_root);
         let req = format!(
             "{}/eth/v1/beacon/light_client/bootstrap/0x{}",
@@ -88,7 +88,7 @@ impl ConsensusRpc for NimbusRpc {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
         let res: SpecResponse = get(&req).await.map_err(|e| RpcError::new("spec", e))?;
 
-        Ok(res.data.chain_id.into())
+        Ok(res.data.chain_id)
     }
 }
 
@@ -132,5 +132,5 @@ struct SpecResponse {
 #[derive(serde::Deserialize, Debug)]
 struct Spec {
     #[serde(rename = "DEPOSIT_NETWORK_ID")]
-    chain_id: U64,
+    chain_id: u64,
 }

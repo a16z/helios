@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 # consensus
-ssz-rs.workspace = true
 milagro_bls.workspace = true
+tree_hash.workspace = true
 
 # async/futures
 tokio.workspace = true
@@ -19,9 +19,9 @@ serde.workspace = true
 serde_json.workspace = true
 
 #misc
+alloy.workspace = true
 eyre.workspace = true
 hex.workspace = true
-bytes.workspace = true
 tracing.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
