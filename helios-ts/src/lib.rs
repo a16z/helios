@@ -85,8 +85,7 @@ impl Client {
             checkpoint
                 .as_ref()
                 .map(|c| c.strip_prefix("0x").unwrap_or(c.as_str()))
-                .map(|c| B256::from_hex(c).ok())
-                .flatten()
+                .and_then(|c| B256::from_hex(c).ok())
                 .unwrap_or(base.default_checkpoint),
         );
 
