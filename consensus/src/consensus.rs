@@ -356,7 +356,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn bootstrap(&mut self, checkpoint: B256) -> Result<()> {
-        let mut bootstrap = self
+        let bootstrap = self
             .rpc
             .get_bootstrap(checkpoint)
             .await
@@ -374,7 +374,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
-            &mut bootstrap.current_sync_committee,
+            &bootstrap.current_sync_committee,
             &bootstrap.current_sync_committee_branch,
         );
 

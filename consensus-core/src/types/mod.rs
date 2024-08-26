@@ -6,16 +6,18 @@ use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVecto
 use superstruct::superstruct;
 use tree_hash_derive::TreeHash;
 
-use self::primitives::{ByteList, ByteVector};
+use self::{
+    bls::{PublicKey, Signature},
+    bytes::{ByteList, ByteVector},
+};
 
-pub mod primitives;
+pub mod bls;
+pub mod bytes;
 mod serde_utils;
 mod utils;
 
 pub type LogsBloom = ByteVector<typenum::U256>;
-pub type BLSPubKey = ByteVector<typenum::U48>;
 pub type KZGCommitment = ByteVector<typenum::U48>;
-pub type SignatureBytes = ByteVector<typenum::U96>;
 pub type Transaction = ByteList<typenum::U1073741824>;
 
 #[derive(Debug, Default, Clone, Deserialize)]
@@ -51,7 +53,7 @@ pub struct BeaconBlock {
 #[ssz(enum_behaviour = "transparent")]
 #[tree_hash(enum_behaviour = "transparent")]
 pub struct BeaconBlockBody {
-    randao_reveal: SignatureBytes,
+    randao_reveal: Signature,
     eth1_data: Eth1Data,
     graffiti: B256,
     proposer_slashings: VariableList<ProposerSlashing, typenum::U16>,
@@ -76,14 +78,14 @@ impl Default for BeaconBlockBody {
 #[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct SignedBlsToExecutionChange {
     message: BlsToExecutionChange,
-    signature: SignatureBytes,
+    signature: Signature,
 }
 
 #[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct BlsToExecutionChange {
     #[serde(with = "serde_utils::u64")]
     validator_index: u64,
-    from_bls_pubkey: BLSPubKey,
+    from_bls_pubkey: PublicKey,
     to_execution_address: Address,
 }
 
@@ -154,7 +156,7 @@ pub struct ProposerSlashing {
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 struct SignedBeaconBlockHeader {
     message: BeaconBlockHeader,
-    signature: SignatureBytes,
+    signature: Signature,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -179,14 +181,14 @@ struct IndexedAttestation {
     #[serde(with = "quoted_u64_var_list")]
     attesting_indices: VariableList<u64, typenum::U2048>,
     data: AttestationData,
-    signature: SignatureBytes,
+    signature: Signature,
 }
 
 #[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
 pub struct Attestation {
     aggregation_bits: BitList<typenum::U2048>,
     data: AttestationData,
-    signature: SignatureBytes,
+    signature: Signature,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -210,7 +212,7 @@ struct Checkpoint {
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
 pub struct SignedVoluntaryExit {
     message: VoluntaryExit,
-    signature: SignatureBytes,
+    signature: Signature,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -229,11 +231,11 @@ pub struct Deposit {
 
 #[derive(Deserialize, Default, Debug, Encode, TreeHash, Clone)]
 struct DepositData {
-    pubkey: BLSPubKey,
+    pubkey: PublicKey,
     withdrawal_credentials: B256,
     #[serde(with = "serde_utils::u64")]
     amount: u64,
-    signature: SignatureBytes,
+    signature: Signature,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -300,14 +302,14 @@ pub struct Header {
 
 #[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize)]
 pub struct SyncCommittee {
-    pub pubkeys: FixedVector<BLSPubKey, typenum::U512>,
-    pub aggregate_pubkey: BLSPubKey,
+    pub pubkeys: FixedVector<PublicKey, typenum::U512>,
+    pub aggregate_pubkey: PublicKey,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
 pub struct SyncAggregate {
     pub sync_committee_bits: BitVector<typenum::U512>,
-    pub sync_committee_signature: SignatureBytes,
+    pub sync_committee_signature: Signature,
 }
 
 pub struct GenericUpdate {
