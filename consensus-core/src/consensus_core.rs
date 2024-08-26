@@ -226,8 +226,8 @@ pub fn verify_generic_update(
     if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
         let is_valid = is_next_committee_proof_valid(
             &update.attested_header,
-            &update.next_sync_committee.clone().unwrap(),
-            &update.next_sync_committee_branch.clone().unwrap(),
+            update.next_sync_committee.as_ref().unwrap(),
+            update.next_sync_committee_branch.as_ref().unwrap(),
         );
 
         if !is_valid {
