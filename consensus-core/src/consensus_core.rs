@@ -15,10 +15,11 @@ use crate::proof::{
 };
 use crate::types::bls::{PublicKey, Signature};
 use crate::types::{
-    Bootstrap, FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, Update
+    Bootstrap, FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
-    calculate_fork_version, compute_committee_sign_root, compute_fork_data_root, get_participating_keys
+    calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
+    get_participating_keys,
 };
 
 pub fn verify_bootstrap(bootstrap: &Bootstrap, checkpoint: B256) -> Result<()> {
@@ -106,7 +107,6 @@ pub fn apply_optimistic_update(
     let update = GenericUpdate::from(update);
     apply_generic_update(store, &update)
 }
-
 
 // implements state changes from apply_light_client_update and process_light_client_update in
 // the specification

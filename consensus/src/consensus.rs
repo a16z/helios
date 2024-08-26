@@ -34,9 +34,7 @@ use consensus_core::{
     apply_finality_update, apply_optimistic_update, apply_update, calc_sync_period,
     errors::ConsensusError,
     expected_current_slot, get_bits,
-    types::{
-        ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update,
-    },
+    types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
@@ -383,7 +381,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
     pub fn verify_update(&self, update: &Update) -> Result<()> {
         verify_update(
-            &update,
+            update,
             self.expected_current_slot(),
             &self.store,
             self.config.chain.genesis_root,
@@ -393,7 +391,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
         verify_finality_update(
-            &update,
+            update,
             self.expected_current_slot(),
             &self.store,
             self.config.chain.genesis_root,
@@ -403,7 +401,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
         verify_optimistic_update(
-            &update,
+            update,
             self.expected_current_slot(),
             &self.store,
             self.config.chain.genesis_root,
@@ -417,7 +415,6 @@ impl<R: ConsensusRpc> Inner<R> {
             self.last_checkpoint = new_checkpoint;
         }
     }
-
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
         let new_checkpoint = apply_finality_update(&mut self.store, update);

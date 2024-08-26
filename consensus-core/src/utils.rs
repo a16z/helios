@@ -7,7 +7,6 @@ use tree_hash_derive::TreeHash;
 
 use crate::types::{bls::PublicKey, SyncCommittee};
 
-
 pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
     let domain_type = [7, 00, 00, 00];
     let domain = compute_domain(domain_type, fork_data_root);
