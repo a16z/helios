@@ -4,6 +4,11 @@ use std::sync::Arc;
 
 use alloy::primitives::B256;
 use chrono::Duration;
+use consensus_core::apply_bootstrap;
+use consensus_core::verify_bootstrap;
+use consensus_core::verify_finality_update;
+use consensus_core::verify_optimistic_update;
+use consensus_core::verify_update;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
@@ -26,14 +31,12 @@ use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
 
 use consensus_core::{
-    apply_finality_update, apply_optimistic_update, apply_update,
+    apply_finality_update, apply_optimistic_update, apply_update, calc_sync_period,
     errors::ConsensusError,
-    expected_current_slot, get_bits, is_current_committee_proof_valid,
+    expected_current_slot, get_bits,
     types::{
-        ExecutionPayload, FinalityUpdate, GenericUpdate, LightClientStore, OptimisticUpdate, Update,
+        ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update,
     },
-    utils::calc_sync_period,
-    verify_generic_update,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
@@ -372,42 +375,36 @@ impl<R: ConsensusRpc> Inner<R> {
             }
         }
 
-        let committee_valid = is_current_committee_proof_valid(
-            &bootstrap.header,
-            &bootstrap.current_sync_committee,
-            &bootstrap.current_sync_committee_branch,
-        );
-
-        let header_hash = bootstrap.header.tree_hash_root();
-        let header_valid = header_hash == checkpoint;
-
-        if !header_valid {
-            return Err(ConsensusError::InvalidHeaderHash(checkpoint, header_hash).into());
-        }
-
-        if !committee_valid {
-            return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
-        }
-
-        self.store = LightClientStore {
-            finalized_header: bootstrap.header.clone(),
-            current_sync_committee: bootstrap.current_sync_committee,
-            next_sync_committee: None,
-            optimistic_header: bootstrap.header.clone(),
-            previous_max_active_participants: 0,
-            current_max_active_participants: 0,
-        };
+        verify_bootstrap(&bootstrap, checkpoint)?;
+        apply_bootstrap(&mut self.store, &bootstrap);
 
         Ok(())
     }
 
     pub fn verify_update(&self, update: &Update) -> Result<()> {
-        let update = GenericUpdate::from(update);
-        let expected_current_slot = self.expected_current_slot();
-
-        verify_generic_update(
+        verify_update(
             &update,
-            expected_current_slot,
+            self.expected_current_slot(),
+            &self.store,
+            self.config.chain.genesis_root,
+            &self.config.forks,
+        )
+    }
+
+    fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
+        verify_finality_update(
+            &update,
+            self.expected_current_slot(),
+            &self.store,
+            self.config.chain.genesis_root,
+            &self.config.forks,
+        )
+    }
+
+    fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
+        verify_optimistic_update(
+            &update,
+            self.expected_current_slot(),
             &self.store,
             self.config.chain.genesis_root,
             &self.config.forks,
@@ -421,31 +418,6 @@ impl<R: ConsensusRpc> Inner<R> {
         }
     }
 
-    fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
-        let update = GenericUpdate::from(update);
-        let expected_current_slot = self.expected_current_slot();
-
-        verify_generic_update(
-            &update,
-            expected_current_slot,
-            &self.store,
-            self.config.chain.genesis_root,
-            &self.config.forks,
-        )
-    }
-
-    fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
-        let update = GenericUpdate::from(update);
-        let expected_current_slot = self.expected_current_slot();
-
-        verify_generic_update(
-            &update,
-            expected_current_slot,
-            &self.store,
-            self.config.chain.genesis_root,
-            &self.config.forks,
-        )
-    }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
         let new_checkpoint = apply_finality_update(&mut self.store, update);
@@ -453,6 +425,14 @@ impl<R: ConsensusRpc> Inner<R> {
             self.last_checkpoint = new_checkpoint;
         }
         self.log_finality_update(update);
+    }
+
+    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
+        let new_checkpoint = apply_optimistic_update(&mut self.store, update);
+        if new_checkpoint.is_some() {
+            self.last_checkpoint = new_checkpoint;
+        }
+        self.log_optimistic_update(update);
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate) {
@@ -471,14 +451,6 @@ impl<R: ConsensusRpc> Inner<R> {
             age.num_minutes() % 60,
             age.num_seconds() % 60,
         );
-    }
-
-    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let new_checkpoint = apply_optimistic_update(&mut self.store, update);
-        if new_checkpoint.is_some() {
-            self.last_checkpoint = new_checkpoint;
-        }
-        self.log_optimistic_update(update);
     }
 
     fn log_optimistic_update(&self, update: &OptimisticUpdate) {

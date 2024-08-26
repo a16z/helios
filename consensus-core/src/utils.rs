@@ -1,73 +1,35 @@
 use alloy::primitives::B256;
-use sha2::{Digest, Sha256};
-use ssz_types::FixedVector;
+use common::config::types::Forks;
+use eyre::Result;
+use ssz_types::{BitVector, FixedVector};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
-use crate::types::Header;
+use crate::types::{bls::PublicKey, SyncCommittee};
 
-pub fn calc_sync_period(slot: u64) -> u64 {
-    // 32 slots per epoch
+
+pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
+    let domain_type = [7, 00, 00, 00];
+    let domain = compute_domain(domain_type, fork_data_root);
+    compute_signing_root(header, domain)
+}
+
+pub fn calculate_fork_version(forks: &Forks, slot: u64) -> FixedVector<u8, typenum::U4> {
     let epoch = slot / 32;
-    // 256 epochs per sync committee
-    epoch / 256
-}
 
-pub fn is_proof_valid<L: TreeHash>(
-    attested_header: &Header,
-    leaf_object: &L,
-    branch: &[B256],
-    depth: usize,
-    index: usize,
-) -> bool {
-    if branch.len() != depth {
-        return false;
-    }
-
-    let mut derived_root = leaf_object.tree_hash_root();
-    let mut hasher = Sha256::new();
-
-    for (i, node) in branch.iter().enumerate() {
-        if (index / 2usize.pow(i as u32)) % 2 != 0 {
-            hasher.update(node);
-            hasher.update(derived_root);
-        } else {
-            hasher.update(derived_root);
-            hasher.update(node);
-        }
-
-        derived_root = B256::from_slice(&hasher.finalize_reset());
-    }
-
-    derived_root == attested_header.state_root
-}
-
-#[derive(Default, Debug, TreeHash)]
-struct SigningData {
-    object_root: B256,
-    domain: B256,
-}
-
-#[derive(Default, Debug, TreeHash)]
-struct ForkData {
-    current_version: FixedVector<u8, typenum::U4>,
-    genesis_validator_root: B256,
-}
-
-pub fn compute_signing_root(object_root: B256, domain: B256) -> B256 {
-    let data = SigningData {
-        object_root,
-        domain,
+    let version = if epoch >= forks.deneb.epoch {
+        forks.deneb.fork_version
+    } else if epoch >= forks.capella.epoch {
+        forks.capella.fork_version
+    } else if epoch >= forks.bellatrix.epoch {
+        forks.bellatrix.fork_version
+    } else if epoch >= forks.altair.epoch {
+        forks.altair.fork_version
+    } else {
+        forks.genesis.fork_version
     };
 
-    data.tree_hash_root()
-}
-
-pub fn compute_domain(domain_type: [u8; 4], fork_data_root: B256) -> B256 {
-    let start = &domain_type;
-    let end = &fork_data_root[..28];
-    let d = [start, end].concat();
-    B256::from_slice(d.as_slice())
+    FixedVector::from(version.as_slice().to_vec())
 }
 
 pub fn compute_fork_data_root(
@@ -80,4 +42,48 @@ pub fn compute_fork_data_root(
     };
 
     fork_data.tree_hash_root()
+}
+
+pub fn get_participating_keys(
+    committee: &SyncCommittee,
+    bitfield: &BitVector<typenum::U512>,
+) -> Result<Vec<PublicKey>> {
+    let mut pks: Vec<PublicKey> = Vec::new();
+
+    bitfield.iter().enumerate().for_each(|(i, bit)| {
+        if bit {
+            let pk = committee.pubkeys[i].clone();
+            pks.push(pk);
+        }
+    });
+
+    Ok(pks)
+}
+
+fn compute_signing_root(object_root: B256, domain: B256) -> B256 {
+    let data = SigningData {
+        object_root,
+        domain,
+    };
+
+    data.tree_hash_root()
+}
+
+fn compute_domain(domain_type: [u8; 4], fork_data_root: B256) -> B256 {
+    let start = &domain_type;
+    let end = &fork_data_root[..28];
+    let d = [start, end].concat();
+    B256::from_slice(d.as_slice())
+}
+
+#[derive(Default, Debug, TreeHash)]
+struct SigningData {
+    object_root: B256,
+    domain: B256,
+}
+
+#[derive(Default, Debug, TreeHash)]
+struct ForkData {
+    current_version: FixedVector<u8, typenum::U4>,
+    genesis_validator_root: B256,
 }
