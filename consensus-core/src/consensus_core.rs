@@ -214,8 +214,8 @@ pub fn verify_generic_update(
     if update.finalized_header.is_some() && update.finality_branch.is_some() {
         let is_valid = is_finality_proof_valid(
             &update.attested_header,
-            &update.finalized_header.clone().unwrap(),
-            &update.finality_branch.clone().unwrap(),
+            update.finalized_header.as_ref().unwrap(),
+            update.finality_branch.as_ref().unwrap(),
         );
 
         if !is_valid {
