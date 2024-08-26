@@ -356,7 +356,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn bootstrap(&mut self, checkpoint: B256) -> Result<()> {
-        let mut bootstrap = self
+        let bootstrap = self
             .rpc
             .get_bootstrap(checkpoint)
             .await
@@ -374,7 +374,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
-            &mut bootstrap.current_sync_committee,
+            &bootstrap.current_sync_committee,
             &bootstrap.current_sync_committee_branch,
         );
 
@@ -542,7 +542,10 @@ mod tests {
     };
     use alloy::primitives::b256;
     use consensus_core::errors::ConsensusError;
-    use consensus_core::types::{BLSPubKey, Header, SignatureBytes};
+    use consensus_core::types::{
+        bls::{PublicKey, Signature},
+        Header,
+    };
 
     use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};
@@ -606,7 +609,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.next_sync_committee.pubkeys[0] = BLSPubKey::default();
+        update.next_sync_committee.pubkeys[0] = PublicKey::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -646,7 +649,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.sync_aggregate.sync_committee_signature = SignatureBytes::default();
+        update.sync_aggregate.sync_committee_signature = Signature::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -683,7 +686,7 @@ mod tests {
         let client = get_client(false, true).await;
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = SignatureBytes::default();
+        update.sync_aggregate.sync_committee_signature = Signature::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
@@ -705,7 +708,7 @@ mod tests {
         let client = get_client(false, true).await;
 
         let mut update = client.rpc.get_optimistic_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = SignatureBytes::default();
+        update.sync_aggregate.sync_committee_signature = Signature::default();
 
         let err = client.verify_optimistic_update(&update).err().unwrap();
         assert_eq!(

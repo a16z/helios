@@ -1,11 +1,10 @@
 use alloy::primitives::B256;
-use milagro_bls::{AggregateSignature, PublicKey};
 use sha2::{Digest, Sha256};
 use ssz_types::FixedVector;
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
-use crate::types::{Header, SignatureBytes};
+use crate::types::Header;
 
 pub fn calc_sync_period(slot: u64) -> u64 {
     // 32 slots per epoch
@@ -14,18 +13,9 @@ pub fn calc_sync_period(slot: u64) -> u64 {
     epoch / 256
 }
 
-pub fn is_aggregate_valid(sig_bytes: &SignatureBytes, msg: &[u8], pks: &[&PublicKey]) -> bool {
-    let sig_res = AggregateSignature::from_bytes(&sig_bytes.inner);
-
-    match sig_res {
-        Ok(sig) => sig.fast_aggregate_verify(msg, pks),
-        Err(_) => false,
-    }
-}
-
 pub fn is_proof_valid<L: TreeHash>(
     attested_header: &Header,
-    leaf_object: &mut L,
+    leaf_object: &L,
     branch: &[B256],
     depth: usize,
     index: usize,

@@ -2,7 +2,6 @@ use std::cmp;
 
 use alloy::primitives::B256;
 use eyre::Result;
-use milagro_bls::PublicKey;
 use ssz_types::{BitVector, FixedVector};
 use tracing::{info, warn};
 use tree_hash::TreeHash;
@@ -11,13 +10,13 @@ use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 use common::config::types::Forks;
 
 use crate::errors::ConsensusError;
+use crate::types::bls::{PublicKey, Signature};
 use crate::types::{
-    FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, SignatureBytes,
-    SyncCommittee, Update,
+    FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, SyncCommittee,
+    Update,
 };
 use crate::utils::{
-    calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root,
-    is_aggregate_valid, is_proof_valid,
+    calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root, is_proof_valid,
 };
 
 pub fn get_participating_keys(
@@ -28,8 +27,7 @@ pub fn get_participating_keys(
 
     bitfield.iter().enumerate().for_each(|(i, bit)| {
         if bit {
-            let pk = &committee.pubkeys[i];
-            let pk = PublicKey::from_bytes_unchecked(&pk.inner).unwrap();
+            let pk = committee.pubkeys[i].clone();
             pks.push(pk);
         }
     });
@@ -43,7 +41,7 @@ pub fn get_bits(bitfield: &BitVector<typenum::U512>) -> u64 {
 
 pub fn is_finality_proof_valid(
     attested_header: &Header,
-    finality_header: &mut Header,
+    finality_header: &Header,
     finality_branch: &[B256],
 ) -> bool {
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
@@ -51,7 +49,7 @@ pub fn is_finality_proof_valid(
 
 pub fn is_next_committee_proof_valid(
     attested_header: &Header,
-    next_committee: &mut SyncCommittee,
+    next_committee: &SyncCommittee,
     next_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
@@ -65,7 +63,7 @@ pub fn is_next_committee_proof_valid(
 
 pub fn is_current_committee_proof_valid(
     attested_header: &Header,
-    current_committee: &mut SyncCommittee,
+    current_committee: &SyncCommittee,
     current_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
@@ -216,8 +214,8 @@ pub fn verify_generic_update(
     if update.finalized_header.is_some() && update.finality_branch.is_some() {
         let is_valid = is_finality_proof_valid(
             &update.attested_header,
-            &mut update.finalized_header.clone().unwrap(),
-            &update.finality_branch.clone().unwrap(),
+            update.finalized_header.as_ref().unwrap(),
+            update.finality_branch.as_ref().unwrap(),
         );
 
         if !is_valid {
@@ -228,8 +226,8 @@ pub fn verify_generic_update(
     if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
         let is_valid = is_next_committee_proof_valid(
             &update.attested_header,
-            &mut update.next_sync_committee.clone().unwrap(),
-            &update.next_sync_committee_branch.clone().unwrap(),
+            update.next_sync_committee.as_ref().unwrap(),
+            update.next_sync_committee_branch.as_ref().unwrap(),
         );
 
         if !is_valid {
@@ -316,13 +314,12 @@ pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
 pub fn verify_sync_committee_signture(
     pks: &[PublicKey],
     attested_header: &Header,
-    signature: &SignatureBytes,
+    signature: &Signature,
     fork_data_root: B256,
 ) -> bool {
-    let pks: Vec<&PublicKey> = pks.iter().collect();
-    let header_root = attested_header.clone().tree_hash_root();
+    let header_root = attested_header.tree_hash_root();
     let signing_root = compute_committee_sign_root(header_root, fork_data_root);
-    is_aggregate_valid(signature, signing_root.as_ref(), &pks)
+    signature.verify(signing_root.as_slice(), pks)
 }
 
 pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
