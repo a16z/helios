@@ -2,7 +2,7 @@ use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
     multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, Gt, Scalar,
 };
-use eyre::Result;
+use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
 use tree_hash_derive::TreeHash;
@@ -24,9 +24,15 @@ pub struct Signature {
 }
 
 impl PublicKey {
-    fn point(&self) -> G1Affine {
+    fn point(&self) -> Result<G1Affine> {
         let bytes = self.inner.inner.to_vec();
-        G1Affine::from_compressed(bytes.as_slice().try_into().unwrap()).unwrap()
+        let bytes = bytes.as_slice().try_into()?;
+        let point_opt = G1Affine::from_compressed(bytes);
+        if point_opt.is_some().into() {
+            Ok(point_opt.unwrap())
+        } else {
+            Err(eyre!("invalid point"))
+        }
     }
 }
 
@@ -37,7 +43,11 @@ impl Signature {
     /// PublicKeys must all be verified via Proof of Possession before running this function.
     /// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.3.4
     pub fn verify(&self, msg: &[u8], pks: &[PublicKey]) -> bool {
-        let sig_point = self.point();
+        let sig_point = if let Ok(point) = self.point() {
+            point
+        } else {
+            return false;
+        };
 
         // Subgroup check for signature
         if !subgroup_check_g2(&sig_point) {
@@ -45,11 +55,11 @@ impl Signature {
         }
 
         // Aggregate PublicKeys
-        let aggregate_public_key = aggregate(pks);
-        if aggregate_public_key.is_err() {
+        let aggregate_public_key = if let Ok(agg) = aggregate(pks) {
+            agg
+        } else {
             return false;
-        }
-        let aggregate_public_key = aggregate_public_key.unwrap();
+        };
 
         // Ensure AggregatePublicKey is not infinity
         if aggregate_public_key.is_identity().into() {
@@ -66,21 +76,27 @@ impl Signature {
         ate2_evaluation(&sig_point, &generator_g1_negative, &msg_hash, &key_point)
     }
 
-    fn point(&self) -> G2Affine {
+    fn point(&self) -> Result<G2Affine> {
         let bytes = self.inner.inner.to_vec();
-        G2Affine::from_compressed(bytes.as_slice().try_into().unwrap()).unwrap()
+        let bytes = bytes.as_slice().try_into()?;
+        let point_opt = G2Affine::from_compressed(bytes);
+        if point_opt.is_some().into() {
+            Ok(point_opt.unwrap())
+        } else {
+            Err(eyre!("invalid point"))
+        }
     }
 }
 
 /// Aggregates multiple keys into one aggragate key
 fn aggregate(pks: &[PublicKey]) -> Result<G1Affine> {
     if pks.is_empty() {
-        return Err(eyre::eyre!("no keys to aggregate"));
+        return Err(eyre!("no keys to aggregate"));
     }
 
     let mut agg_key = G1Projective::identity();
     for key in pks {
-        agg_key += G1Projective::from(key.point())
+        agg_key += G1Projective::from(key.point()?)
     }
 
     Ok(G1Affine::from(agg_key))
