@@ -4,11 +4,6 @@ use std::sync::Arc;
 
 use alloy::primitives::B256;
 use chrono::Duration;
-use consensus_core::apply_bootstrap;
-use consensus_core::verify_bootstrap;
-use consensus_core::verify_finality_update;
-use consensus_core::verify_optimistic_update;
-use consensus_core::verify_update;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
@@ -31,10 +26,12 @@ use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
 
 use consensus_core::{
-    apply_finality_update, apply_optimistic_update, apply_update, calc_sync_period,
+    apply_bootstrap, apply_finality_update, apply_optimistic_update, apply_update,
+    calc_sync_period,
     errors::ConsensusError,
     expected_current_slot, get_bits,
     types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
+    verify_bootstrap, verify_finality_update, verify_optimistic_update, verify_update,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
