@@ -1304,6 +1304,7 @@ dependencies = [
  "alloy",
  "eyre",
  "hex",
+ "revm",
  "serde",
  "serde_json",
  "superstruct",

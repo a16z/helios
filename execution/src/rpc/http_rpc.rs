@@ -1,10 +1,7 @@
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
-use alloy::rpc::types::{
-    BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction, TransactionReceipt,
-    TransactionRequest,
-};
+use alloy::rpc::types::{BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log};
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
@@ -13,16 +10,17 @@ use reqwest::Client;
 use revm::primitives::AccessList;
 
 use common::errors::RpcError;
+use common::network_spec::NetworkSpec;
 use common::types::BlockTag;
 
 use super::ExecutionRpc;
 
-pub struct HttpRpc {
+pub struct HttpRpc<N: NetworkSpec> {
     url: String,
-    provider: RootProvider<RetryBackoffService<Http<Client>>>,
+    provider: RootProvider<RetryBackoffService<Http<Client>>, N>,
 }
 
-impl Clone for HttpRpc {
+impl<N: NetworkSpec> Clone for HttpRpc<N> {
     fn clone(&self) -> Self {
         Self::new(&self.url).unwrap()
     }
@@ -30,13 +28,13 @@ impl Clone for HttpRpc {
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl ExecutionRpc for HttpRpc {
+impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     fn new(rpc: &str) -> Result<Self> {
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc.parse().unwrap());
 
-        let provider = ProviderBuilder::new().on_client(client);
+        let provider = ProviderBuilder::new().network::<N>().on_client(client);
 
         Ok(HttpRpc {
             url: rpc.to_string(),
@@ -62,7 +60,7 @@ impl ExecutionRpc for HttpRpc {
 
     async fn create_access_list(
         &self,
-        tx: &TransactionRequest,
+        tx: &N::TransactionRequest,
         block: BlockTag,
     ) -> Result<AccessList> {
         let block = match block {
@@ -102,7 +100,7 @@ impl ExecutionRpc for HttpRpc {
         Ok(*tx.tx_hash())
     }
 
-    async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<TransactionReceipt>> {
+    async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
         let receipt = self
             .provider
             .get_transaction_receipt(tx_hash)
@@ -112,7 +110,7 @@ impl ExecutionRpc for HttpRpc {
         Ok(receipt)
     }
 
-    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<Transaction>> {
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<N::TransactionResponse>> {
         Ok(self
             .provider
             .get_transaction_by_hash(tx_hash)

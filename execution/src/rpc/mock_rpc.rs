@@ -1,5 +1,6 @@
 use std::{fs::read_to_string, path::PathBuf};
 
+use alloy::network::Ethereum;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
     AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction,
@@ -18,7 +19,7 @@ pub struct MockRpc {
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl ExecutionRpc for MockRpc {
+impl ExecutionRpc<Ethereum> for MockRpc {
     fn new(rpc: &str) -> Result<Self> {
         let path = PathBuf::from(rpc);
         Ok(MockRpc { path })

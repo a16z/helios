@@ -81,9 +81,13 @@ trait EthRpc {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block>, Error>;
+    ) -> Result<Option<Block<Transaction>>, Error>;
     #[method(name = "getBlockByHash")]
-    async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>, Error>;
+    async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Option<Block<Transaction>>, Error>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256, Error>;
     #[method(name = "getTransactionReceipt")]
@@ -193,11 +197,15 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block>, Error> {
+    ) -> Result<Option<Block<Transaction>>, Error> {
         convert_err(self.node.get_block_by_number(block, full_tx).await)
     }
 
-    async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>, Error> {
+    async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Option<Block<Transaction>>, Error> {
         convert_err(self.node.get_block_by_hash(hash, full_tx).await)
     }
 

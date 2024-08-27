@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alloy::network::Ethereum;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     Filter, Log, SyncInfo, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
@@ -21,7 +22,7 @@ use crate::errors::NodeError;
 
 pub struct Node<DB: Database> {
     pub consensus: ConsensusClient<NimbusRpc, DB>,
-    pub execution: Arc<ExecutionClient<HttpRpc>>,
+    pub execution: Arc<ExecutionClient<Ethereum, HttpRpc<Ethereum>>>,
     pub config: Arc<Config>,
     pub history_size: usize,
 }
@@ -195,7 +196,11 @@ impl<DB: Database> Node<DB> {
         Ok(block.number.to())
     }
 
-    pub async fn get_block_by_number(&self, tag: BlockTag, full_tx: bool) -> Result<Option<Block>> {
+    pub async fn get_block_by_number(
+        &self,
+        tag: BlockTag,
+        full_tx: bool,
+    ) -> Result<Option<Block<Transaction>>> {
         self.check_blocktag_age(&tag).await?;
 
         match self.execution.get_block(tag, full_tx).await {
@@ -204,7 +209,11 @@ impl<DB: Database> Node<DB> {
         }
     }
 
-    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>> {
+    pub async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Option<Block<Transaction>>> {
         let block = self.execution.get_block_by_hash(hash, full_tx).await;
 
         match block {

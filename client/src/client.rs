@@ -358,11 +358,15 @@ impl<DB: Database> Client<DB> {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block>> {
+    ) -> Result<Option<Block<Transaction>>> {
         self.node.get_block_by_number(block, full_tx).await
     }
 
-    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>> {
+    pub async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Option<Block<Transaction>>> {
         self.node.get_block_by_hash(hash, full_tx).await
     }
 

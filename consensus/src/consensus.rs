@@ -38,8 +38,8 @@ use consensus_core::{
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
-    pub block_recv: Option<Receiver<Block>>,
-    pub finalized_block_recv: Option<watch::Receiver<Option<Block>>>,
+    pub block_recv: Option<Receiver<Block<Transaction>>>,
+    pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     genesis_time: u64,
     db: DB,
@@ -51,8 +51,8 @@ pub struct Inner<R: ConsensusRpc> {
     pub rpc: R,
     pub store: LightClientStore,
     last_checkpoint: Option<B256>,
-    block_send: Sender<Block>,
-    finalized_block_send: watch::Sender<Option<Block>>,
+    block_send: Sender<Block<Transaction>>,
+    finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
     checkpoint_send: watch::Sender<Option<B256>>,
     pub config: Arc<Config>,
 }
@@ -171,8 +171,8 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64
 impl<R: ConsensusRpc> Inner<R> {
     pub fn new(
         rpc: &str,
-        block_send: Sender<Block>,
-        finalized_block_send: watch::Sender<Option<Block>>,
+        block_send: Sender<Block<Transaction>>,
+        finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
         checkpoint_send: watch::Sender<Option<B256>>,
         config: Arc<Config>,
     ) -> Inner<R> {
@@ -499,7 +499,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 }
 
-fn payload_to_block(value: ExecutionPayload) -> Block {
+fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
     let empty_nonce = "0x0000000000000000".to_string();
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");

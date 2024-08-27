@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 
-use alloy::consensus::{Receipt, ReceiptWithBloom, TxReceipt, TxType};
+use alloy::network::ReceiptResponse;
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
-use alloy::rpc::types::{Filter, Log, Transaction, TransactionReceipt};
+use alloy::rpc::types::{Filter, Log};
 use eyre::Result;
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
 use common::errors::BlockNotFoundError;
+use common::network_spec::NetworkSpec;
 use common::types::{Block, BlockTag, Transactions};
 
 use crate::constants::MAX_SUPPORTED_LOGS_NUMBER;
@@ -21,15 +22,15 @@ use super::rpc::ExecutionRpc;
 use super::types::Account;
 
 #[derive(Clone)]
-pub struct ExecutionClient<R: ExecutionRpc> {
+pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     pub rpc: R,
-    state: State,
+    state: State<N>,
 }
 
-impl<R: ExecutionRpc> ExecutionClient<R> {
-    pub fn new(rpc: &str, state: State) -> Result<Self> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
+    pub fn new(rpc: &str, state: State<N>) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(rpc)?;
-        Ok(ExecutionClient { rpc, state })
+        Ok(ExecutionClient::<N, R> { rpc, state })
     }
 
     pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
@@ -122,7 +123,11 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
-    pub async fn get_block(&self, tag: BlockTag, full_tx: bool) -> Result<Block> {
+    pub async fn get_block(
+        &self,
+        tag: BlockTag,
+        full_tx: bool,
+    ) -> Result<Block<N::TransactionResponse>> {
         let mut block = self
             .state
             .get_block(tag)
@@ -136,7 +141,11 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         Ok(block)
     }
 
-    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Block> {
+    pub async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Block<N::TransactionResponse>> {
         let mut block = self
             .state
             .get_block_by_hash(hash)
@@ -154,7 +163,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         &self,
         block_hash: B256,
         index: u64,
-    ) -> Option<Transaction> {
+    ) -> Option<N::TransactionResponse> {
         self.state
             .get_transaction_by_block_and_index(block_hash, index)
             .await
@@ -163,14 +172,14 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<TransactionReceipt>> {
+    ) -> Result<Option<N::ReceiptResponse>> {
         let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
         if receipt.is_none() {
             return Ok(None);
         }
 
         let receipt = receipt.unwrap();
-        let block_number = receipt.block_number.unwrap();
+        let block_number = receipt.block_number().unwrap();
 
         let block = self.state.get_block(BlockTag::Number(block_number)).await;
         let block = if let Some(block) = block {
@@ -188,19 +197,20 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         let receipts = join_all(receipts_fut).await;
         let receipts = receipts.into_iter().collect::<Result<Vec<_>>>()?;
-        let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(encode_receipt).collect();
+        let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(N::encode_receipt).collect();
 
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
-        if expected_receipt_root != block.receipts_root || !receipts.contains(&receipt) {
+        if expected_receipt_root != block.receipts_root || !N::receipt_contains(&receipts, &receipt)
+        {
             return Err(ExecutionError::ReceiptRootMismatch(tx_hash).into());
         }
 
         Ok(Some(receipt))
     }
 
-    pub async fn get_transaction(&self, hash: B256) -> Option<Transaction> {
+    pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {
         self.state.get_transaction(hash).await
     }
 
@@ -288,9 +298,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
             // Check if the receipt contains the desired log
             // Encoding logs for comparison
-            let receipt_logs_encoded = receipt
-                .inner
-                .logs()
+            let receipt_logs_encoded = N::receipt_logs(&receipt)
                 .iter()
                 .map(|log| encode(&log.inner))
                 .collect::<Vec<_>>();
@@ -306,29 +314,5 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             }
         }
         Ok(())
-    }
-}
-
-fn encode_receipt(receipt: &TransactionReceipt) -> Vec<u8> {
-    let tx_type = receipt.transaction_type();
-    let receipt = receipt.inner.as_receipt_with_bloom().unwrap();
-    let logs = receipt
-        .logs()
-        .iter()
-        .map(|l| l.inner.clone())
-        .collect::<Vec<_>>();
-
-    let consensus_receipt = Receipt {
-        cumulative_gas_used: receipt.cumulative_gas_used(),
-        status: *receipt.status_or_post_state(),
-        logs,
-    };
-
-    let rwb = ReceiptWithBloom::new(consensus_receipt, receipt.bloom());
-    let encoded = alloy::rlp::encode(rwb);
-
-    match tx_type {
-        TxType::Legacy => encoded,
-        _ => [vec![tx_type as u8], encoded].concat(),
     }
 }

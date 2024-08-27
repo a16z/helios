@@ -1,12 +1,12 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
-use alloy::{network::TransactionBuilder, rpc::types::TransactionRequest};
+use alloy::network::TransactionBuilder;
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
     primitives::{
-        address, AccessListItem, AccountInfo, Address, BlobExcessGasAndPrice, Bytecode, Bytes, Env,
-        ExecutionResult, ResultAndState, B256, U256,
+        address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult,
+        ResultAndState, B256, U256,
     },
     Database, Evm as Revm,
 };
@@ -15,16 +15,16 @@ use tracing::trace;
 use crate::{
     constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, ExecutionClient,
 };
-use common::types::BlockTag;
+use common::{network_spec::NetworkSpec, types::BlockTag};
 
-pub struct Evm<R: ExecutionRpc> {
-    execution: Arc<ExecutionClient<R>>,
+pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
+    execution: Arc<ExecutionClient<N, R>>,
     chain_id: u64,
     tag: BlockTag,
 }
 
-impl<R: ExecutionRpc> Evm<R> {
-    pub fn new(execution: Arc<ExecutionClient<R>>, chain_id: u64, tag: BlockTag) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
+    pub fn new(execution: Arc<ExecutionClient<N, R>>, chain_id: u64, tag: BlockTag) -> Self {
         Evm {
             execution,
             chain_id,
@@ -32,7 +32,7 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    pub async fn call(&mut self, tx: &TransactionRequest) -> Result<Bytes, EvmError> {
+    pub async fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
         let tx = self.call_inner(tx).await?;
 
         match tx.result {
@@ -44,7 +44,7 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    pub async fn estimate_gas(&mut self, tx: &TransactionRequest) -> Result<u64, EvmError> {
+    pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
         let tx = self.call_inner(tx).await?;
 
         match tx.result {
@@ -54,7 +54,7 @@ impl<R: ExecutionRpc> Evm<R> {
         }
     }
 
-    async fn call_inner(&mut self, tx: &TransactionRequest) -> Result<ResultAndState, EvmError> {
+    async fn call_inner(&mut self, tx: &N::TransactionRequest) -> Result<ResultAndState, EvmError> {
         let mut db = ProofDB::new(self.tag, self.execution.clone());
         _ = db.state.prefetch_state(tx).await;
 
@@ -83,38 +83,12 @@ impl<R: ExecutionRpc> Evm<R> {
         tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
     }
 
-    async fn get_env(&self, tx: &TransactionRequest, tag: BlockTag) -> Env {
+    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
         let mut env = Env::default();
-
-        env.tx.caller = tx.from.unwrap_or_default();
-        env.tx.gas_limit = tx.gas_limit().map(|v| v as u64).unwrap_or(u64::MAX);
-        env.tx.gas_price = tx.gas_price().map(U256::from).unwrap_or_default();
-        env.tx.transact_to = tx.to.unwrap_or_default();
-        env.tx.value = tx.value.unwrap_or_default();
-        env.tx.data = tx.input().unwrap_or_default().clone();
-        env.tx.nonce = tx.nonce();
-        env.tx.chain_id = tx.chain_id();
-        env.tx.access_list = tx.access_list().map(|v| v.to_vec()).unwrap_or_default();
-        env.tx.gas_priority_fee = tx.max_priority_fee_per_gas().map(U256::from);
-        env.tx.max_fee_per_blob_gas = tx.max_fee_per_gas().map(U256::from);
-        env.tx.blob_hashes = tx
-            .blob_versioned_hashes
-            .as_ref()
-            .map(|v| v.to_vec())
-            .unwrap_or_default();
+        env.tx = N::tx_env(tx);
 
         let block = self.execution.get_block(tag, false).await.unwrap();
-
-        env.block.number = block.number.to();
-        env.block.coinbase = block.miner;
-        env.block.timestamp = block.timestamp.to();
-        env.block.gas_limit = block.gas_limit.to();
-        env.block.basefee = block.base_fee_per_gas;
-        env.block.difficulty = block.difficulty;
-        env.block.prevrandao = Some(block.mix_hash);
-        env.block.blob_excess_gas_and_price = block
-            .excess_blob_gas
-            .map(|v| BlobExcessGasAndPrice::new(v.to()));
+        env.block = N::block_env(&block);
 
         env.cfg.chain_id = self.chain_id;
         env.cfg.disable_block_gas_limit = true;
@@ -125,12 +99,12 @@ impl<R: ExecutionRpc> Evm<R> {
     }
 }
 
-struct ProofDB<R: ExecutionRpc> {
-    state: EvmState<R>,
+struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
+    state: EvmState<N, R>,
 }
 
-impl<R: ExecutionRpc> ProofDB<R> {
-    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<R>>) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ProofDB<N, R> {
+    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R>>) -> Self {
         let state = EvmState::new(execution.clone(), tag);
         ProofDB { state }
     }
@@ -142,17 +116,17 @@ enum StateAccess {
     Storage(Address, U256),
 }
 
-struct EvmState<R: ExecutionRpc> {
+struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>> {
     basic: HashMap<Address, AccountInfo>,
     block_hash: HashMap<u64, B256>,
     storage: HashMap<Address, HashMap<U256, U256>>,
     block: BlockTag,
     access: Option<StateAccess>,
-    execution: Arc<ExecutionClient<R>>,
+    execution: Arc<ExecutionClient<N, R>>,
 }
 
-impl<R: ExecutionRpc> EvmState<R> {
-    pub fn new(execution: Arc<ExecutionClient<R>>, block: BlockTag) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
+    pub fn new(execution: Arc<ExecutionClient<N, R>>, block: BlockTag) -> Self {
         Self {
             execution,
             block,
@@ -239,7 +213,7 @@ impl<R: ExecutionRpc> EvmState<R> {
         }
     }
 
-    pub async fn prefetch_state(&mut self, tx: &TransactionRequest) -> Result<()> {
+    pub async fn prefetch_state(&mut self, tx: &N::TransactionRequest) -> Result<()> {
         let mut list = self
             .execution
             .rpc
@@ -249,7 +223,7 @@ impl<R: ExecutionRpc> EvmState<R> {
             .0;
 
         let from_access_entry = AccessListItem {
-            address: tx.from.unwrap_or_default(),
+            address: tx.from().unwrap_or_default(),
             storage_keys: Vec::default(),
         };
 
@@ -322,7 +296,7 @@ impl<R: ExecutionRpc> EvmState<R> {
     }
 }
 
-impl<R: ExecutionRpc> Database for ProofDB<R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> Database for ProofDB<N, R> {
     type Error = Report;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Report> {
@@ -360,6 +334,7 @@ fn is_precompile(address: &Address) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use alloy::network::Ethereum;
     use revm::primitives::KECCAK_EMPTY;
     use tokio::sync::{mpsc::channel, watch};
 
@@ -367,7 +342,7 @@ mod tests {
 
     use super::*;
 
-    fn get_client() -> ExecutionClient<MockRpc> {
+    fn get_client() -> ExecutionClient<Ethereum, MockRpc> {
         let (_, block_recv) = channel(256);
         let (_, finalized_recv) = watch::channel(None);
         let state = State::new(block_recv, finalized_recv, 64);

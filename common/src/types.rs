@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
+use alloy::network::TransactionResponse;
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
-use alloy::rpc::types::Transaction;
 use serde::{de::Error, ser::SerializeSeq, Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct Block {
+pub struct Block<T: TransactionResponse + Serialize> {
     pub number: U64,
     pub base_fee_per_gas: U256,
     pub difficulty: U256,
@@ -25,7 +25,7 @@ pub struct Block {
     pub state_root: B256,
     pub timestamp: U64,
     pub total_difficulty: U64,
-    pub transactions: Transactions,
+    pub transactions: Transactions<T>,
     pub transactions_root: B256,
     pub uncles: Vec<B256>,
     pub blob_gas_used: Option<U64>,
@@ -33,27 +33,27 @@ pub struct Block {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub enum Transactions {
+pub enum Transactions<T: TransactionResponse> {
     Hashes(Vec<B256>),
-    Full(Vec<Transaction>),
+    Full(Vec<T>),
 }
 
-impl Default for Transactions {
+impl<T: TransactionResponse> Default for Transactions<T> {
     fn default() -> Self {
         Self::Full(Vec::new())
     }
 }
 
-impl Transactions {
+impl<T: TransactionResponse> Transactions<T> {
     pub fn hashes(&self) -> Vec<B256> {
         match self {
             Self::Hashes(hashes) => hashes.clone(),
-            Self::Full(txs) => txs.iter().map(|tx| tx.hash).collect(),
+            Self::Full(txs) => txs.iter().map(|tx| tx.tx_hash()).collect(),
         }
     }
 }
 
-impl Serialize for Transactions {
+impl<T: TransactionResponse + Serialize> Serialize for Transactions<T> {
     fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

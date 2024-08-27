@@ -4,23 +4,25 @@ use std::{
 };
 
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::Transaction;
 use tokio::{
     select,
     sync::{mpsc::Receiver, watch, RwLock},
 };
 
-use common::types::{Block, BlockTag, Transactions};
+use common::{
+    network_spec::NetworkSpec,
+    types::{Block, BlockTag, Transactions},
+};
 
 #[derive(Clone)]
-pub struct State {
-    inner: Arc<RwLock<Inner>>,
+pub struct State<N: NetworkSpec> {
+    inner: Arc<RwLock<Inner<N>>>,
 }
 
-impl State {
+impl<N: NetworkSpec> State<N> {
     pub fn new(
-        mut block_recv: Receiver<Block>,
-        mut finalized_block_recv: watch::Receiver<Option<Block>>,
+        mut block_recv: Receiver<Block<N::TransactionResponse>>,
+        mut finalized_block_recv: watch::Receiver<Option<Block<N::TransactionResponse>>>,
         history_length: u64,
     ) -> Self {
         let inner = Arc::new(RwLock::new(Inner::new(history_length)));
@@ -53,13 +55,13 @@ impl State {
         Self { inner }
     }
 
-    pub async fn push_block(&self, block: Block) {
+    pub async fn push_block(&self, block: Block<N::TransactionResponse>) {
         self.inner.write().await.push_block(block);
     }
 
     // full block fetch
 
-    pub async fn get_block(&self, tag: BlockTag) -> Option<Block> {
+    pub async fn get_block(&self, tag: BlockTag) -> Option<Block<N::TransactionResponse>> {
         match tag {
             BlockTag::Latest => self
                 .inner
@@ -74,7 +76,7 @@ impl State {
         }
     }
 
-    pub async fn get_block_by_hash(&self, hash: B256) -> Option<Block> {
+    pub async fn get_block_by_hash(&self, hash: B256) -> Option<Block<N::TransactionResponse>> {
         let inner = self.inner.read().await;
         inner
             .hashes
@@ -85,7 +87,7 @@ impl State {
 
     // transaction fetch
 
-    pub async fn get_transaction(&self, hash: B256) -> Option<Transaction> {
+    pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {
         let inner = self.inner.read().await;
         inner
             .txs
@@ -106,7 +108,7 @@ impl State {
         &self,
         block_hash: B256,
         index: u64,
-    ) -> Option<Transaction> {
+    ) -> Option<N::TransactionResponse> {
         let inner = self.inner.read().await;
         inner
             .hashes
@@ -153,23 +155,26 @@ impl State {
 }
 
 #[derive(Default)]
-struct Inner {
-    blocks: BTreeMap<u64, Block>,
-    finalized_block: Option<Block>,
+struct Inner<N: NetworkSpec> {
+    blocks: BTreeMap<u64, Block<N::TransactionResponse>>,
+    finalized_block: Option<Block<N::TransactionResponse>>,
     hashes: HashMap<B256, u64>,
     txs: HashMap<B256, TransactionLocation>,
     history_length: u64,
 }
 
-impl Inner {
+impl<N: NetworkSpec> Inner<N> {
     pub fn new(history_length: u64) -> Self {
         Self {
             history_length,
-            ..Default::default()
+            blocks: BTreeMap::default(),
+            finalized_block: None,
+            hashes: HashMap::default(),
+            txs: HashMap::default(),
         }
     }
 
-    pub fn push_block(&mut self, block: Block) {
+    pub fn push_block(&mut self, block: Block<N::TransactionResponse>) {
         self.hashes.insert(block.hash, block.number.to());
         block
             .transactions
@@ -193,7 +198,7 @@ impl Inner {
         }
     }
 
-    pub fn push_finalized_block(&mut self, block: Block) {
+    pub fn push_finalized_block(&mut self, block: Block<N::TransactionResponse>) {
         self.finalized_block = Some(block.clone());
 
         if let Some(old_block) = self.blocks.get(&block.number.to()) {

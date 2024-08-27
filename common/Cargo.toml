@@ -4,7 +4,7 @@ version = "0.6.0"
 edition = "2021"
 
 [dependencies]
-alloy = { version = "0.2.1", features = ["rpc-types"] }
+alloy = { version = "0.2.1", features = ["rpc-types", "serde"] }
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
@@ -13,3 +13,4 @@ superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
+revm.workspace = true
