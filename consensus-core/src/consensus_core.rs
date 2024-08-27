@@ -2,7 +2,7 @@ use std::cmp;
 
 use alloy::primitives::B256;
 use eyre::Result;
-use ssz_types::{BitVector, FixedVector};
+use ssz_types::BitVector;
 use tracing::{info, warn};
 use tree_hash::TreeHash;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
@@ -10,90 +10,108 @@ use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 use common::config::types::Forks;
 
 use crate::errors::ConsensusError;
+use crate::proof::{
+    is_current_committee_proof_valid, is_finality_proof_valid, is_next_committee_proof_valid,
+};
 use crate::types::bls::{PublicKey, Signature};
 use crate::types::{
-    FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, SyncCommittee,
-    Update,
+    Bootstrap, FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
-    calc_sync_period, compute_domain, compute_fork_data_root, compute_signing_root, is_proof_valid,
+    calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
+    get_participating_keys,
 };
 
-pub fn get_participating_keys(
-    committee: &SyncCommittee,
-    bitfield: &BitVector<typenum::U512>,
-) -> Result<Vec<PublicKey>> {
-    let mut pks: Vec<PublicKey> = Vec::new();
+pub fn verify_bootstrap(bootstrap: &Bootstrap, checkpoint: B256) -> Result<()> {
+    let committee_valid = is_current_committee_proof_valid(
+        &bootstrap.header,
+        &bootstrap.current_sync_committee,
+        &bootstrap.current_sync_committee_branch,
+    );
 
-    bitfield.iter().enumerate().for_each(|(i, bit)| {
-        if bit {
-            let pk = committee.pubkeys[i].clone();
-            pks.push(pk);
-        }
-    });
+    let header_hash = bootstrap.header.tree_hash_root();
+    let header_valid = header_hash == checkpoint;
 
-    Ok(pks)
+    if !header_valid {
+        return Err(ConsensusError::InvalidHeaderHash(checkpoint, header_hash).into());
+    }
+
+    if !committee_valid {
+        return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
+    }
+
+    Ok(())
 }
 
-pub fn get_bits(bitfield: &BitVector<typenum::U512>) -> u64 {
-    bitfield.iter().filter(|v| *v).count() as u64
+pub fn verify_update(
+    update: &Update,
+    expected_current_slot: u64,
+    store: &LightClientStore,
+    genesis_root: B256,
+    forks: &Forks,
+) -> Result<()> {
+    let update = GenericUpdate::from(update);
+    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn is_finality_proof_valid(
-    attested_header: &Header,
-    finality_header: &Header,
-    finality_branch: &[B256],
-) -> bool {
-    is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
+pub fn verify_finality_update(
+    update: &FinalityUpdate,
+    expected_current_slot: u64,
+    store: &LightClientStore,
+    genesis_root: B256,
+    forks: &Forks,
+) -> Result<()> {
+    let update = GenericUpdate::from(update);
+    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn is_next_committee_proof_valid(
-    attested_header: &Header,
-    next_committee: &SyncCommittee,
-    next_committee_branch: &[B256],
-) -> bool {
-    is_proof_valid(
-        attested_header,
-        next_committee,
-        next_committee_branch,
-        5,
-        23,
-    )
+pub fn verify_optimistic_update(
+    update: &OptimisticUpdate,
+    expected_current_slot: u64,
+    store: &LightClientStore,
+    genesis_root: B256,
+    forks: &Forks,
+) -> Result<()> {
+    let update = GenericUpdate::from(update);
+    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn is_current_committee_proof_valid(
-    attested_header: &Header,
-    current_committee: &SyncCommittee,
-    current_committee_branch: &[B256],
-) -> bool {
-    is_proof_valid(
-        attested_header,
-        current_committee,
-        current_committee_branch,
-        5,
-        22,
-    )
+pub fn apply_bootstrap(store: &mut LightClientStore, bootstrap: &Bootstrap) {
+    *store = LightClientStore {
+        finalized_header: bootstrap.header.clone(),
+        current_sync_committee: bootstrap.current_sync_committee.clone(),
+        next_sync_committee: None,
+        optimistic_header: bootstrap.header.clone(),
+        previous_max_active_participants: 0,
+        current_max_active_participants: 0,
+    };
 }
 
-pub fn safety_threshold(store: &LightClientStore) -> u64 {
-    cmp::max(
-        store.current_max_active_participants,
-        store.previous_max_active_participants,
-    ) / 2
+pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<B256> {
+    let update = GenericUpdate::from(update);
+    apply_generic_update(store, &update)
 }
 
-pub fn has_sync_update(update: &GenericUpdate) -> bool {
-    update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
+pub fn apply_finality_update(
+    store: &mut LightClientStore,
+    update: &FinalityUpdate,
+) -> Option<B256> {
+    let update = GenericUpdate::from(update);
+    apply_generic_update(store, &update)
 }
 
-pub fn has_finality_update(update: &GenericUpdate) -> bool {
-    update.finalized_header.is_some() && update.finality_branch.is_some()
+pub fn apply_optimistic_update(
+    store: &mut LightClientStore,
+    update: &OptimisticUpdate,
+) -> Option<B256> {
+    let update = GenericUpdate::from(update);
+    apply_generic_update(store, &update)
 }
 
 // implements state changes from apply_light_client_update and process_light_client_update in
 // the specification
 /// Returns the new checkpoint if one is created, otherwise None
-pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) -> Option<B256> {
+fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) -> Option<B256> {
     let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
     store.current_max_active_participants =
@@ -169,7 +187,7 @@ pub fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate
 
 // implements checks from validate_light_client_update and process_light_client_update in the
 // specification
-pub fn verify_generic_update(
+fn verify_generic_update(
     update: &GenericUpdate,
     expected_current_slot: u64,
     store: &LightClientStore,
@@ -259,51 +277,6 @@ pub fn verify_generic_update(
     Ok(())
 }
 
-pub fn verify_update(
-    update: &Update,
-    expected_current_slot: u64,
-    store: &LightClientStore,
-    genesis_root: B256,
-    forks: &Forks,
-) -> Result<()> {
-    let update = GenericUpdate::from(update);
-
-    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
-}
-
-pub fn verify_finality_update(
-    update: &FinalityUpdate,
-    expected_current_slot: u64,
-    store: &LightClientStore,
-    genesis_root: B256,
-    forks: &Forks,
-) -> Result<()> {
-    let update = GenericUpdate::from(update);
-
-    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
-}
-
-pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<B256> {
-    let update = GenericUpdate::from(update);
-    apply_generic_update(store, &update)
-}
-
-pub fn apply_finality_update(
-    store: &mut LightClientStore,
-    update: &FinalityUpdate,
-) -> Option<B256> {
-    let update = GenericUpdate::from(update);
-    apply_generic_update(store, &update)
-}
-
-pub fn apply_optimistic_update(
-    store: &mut LightClientStore,
-    update: &OptimisticUpdate,
-) -> Option<B256> {
-    let update = GenericUpdate::from(update);
-    apply_generic_update(store, &update)
-}
-
 pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
     let now = now.duration_since(UNIX_EPOCH).unwrap();
     let since_genesis = now - std::time::Duration::from_secs(genesis_time);
@@ -311,7 +284,26 @@ pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
     since_genesis.as_secs() / 12
 }
 
-pub fn verify_sync_committee_signture(
+pub fn calc_sync_period(slot: u64) -> u64 {
+    // 32 slots per epoch
+    let epoch = slot / 32;
+    // 256 epochs per sync committee
+    epoch / 256
+}
+
+pub fn get_bits(bitfield: &BitVector<typenum::U512>) -> u64 {
+    bitfield.iter().filter(|v| *v).count() as u64
+}
+
+fn has_sync_update(update: &GenericUpdate) -> bool {
+    update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
+}
+
+fn has_finality_update(update: &GenericUpdate) -> bool {
+    update.finalized_header.is_some() && update.finality_branch.is_some()
+}
+
+fn verify_sync_committee_signture(
     pks: &[PublicKey],
     attested_header: &Header,
     signature: &Signature,
@@ -322,26 +314,9 @@ pub fn verify_sync_committee_signture(
     signature.verify(signing_root.as_slice(), pks)
 }
 
-pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
-    let domain_type = [7, 00, 00, 00];
-    let domain = compute_domain(domain_type, fork_data_root);
-    compute_signing_root(header, domain)
-}
-
-pub fn calculate_fork_version(forks: &Forks, slot: u64) -> FixedVector<u8, typenum::U4> {
-    let epoch = slot / 32;
-
-    let version = if epoch >= forks.deneb.epoch {
-        forks.deneb.fork_version
-    } else if epoch >= forks.capella.epoch {
-        forks.capella.fork_version
-    } else if epoch >= forks.bellatrix.epoch {
-        forks.bellatrix.fork_version
-    } else if epoch >= forks.altair.epoch {
-        forks.altair.fork_version
-    } else {
-        forks.genesis.fork_version
-    };
-
-    FixedVector::from(version.as_slice().to_vec())
+fn safety_threshold(store: &LightClientStore) -> u64 {
+    cmp::max(
+        store.current_max_active_participants,
+        store.previous_max_active_participants,
+    ) / 2
 }

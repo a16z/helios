@@ -10,7 +10,6 @@ use figment::{
 use serde::Deserialize;
 
 use common::config::types::Forks;
-use consensus_core::calculate_fork_version;
 
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;
@@ -71,10 +70,6 @@ impl Config {
                 exit(1);
             }
         }
-    }
-
-    pub fn fork_version(&self, slot: u64) -> Vec<u8> {
-        calculate_fork_version(&self.forks, slot).to_vec()
     }
 
     pub fn to_base_config(&self) -> BaseConfig {
