@@ -109,6 +109,13 @@ pretty_assertions = "1.4.0"
 rand = "0.8.5"
 
 ######################################
+# Dependency Patches
+######################################
+
+[patch.crates-io]
+ethereum_hashing = { git = "https://github.com/ncitron/ethereum_hashing", rev = "7ee70944ed4fabe301551da8c447e4f4ae5e6c35" }
+
+######################################
 # Profiles
 ######################################
 
