@@ -1,8 +1,12 @@
 #![allow(dead_code)]
-use alloy::primitives::{Address, B256,U256};
-use std::{path::PathBuf, str::FromStr};
 use ::client::Client;
-use helios::{client::{self, FileDB}, config::networks, types::BlockTag};
+use alloy::primitives::{Address, B256, U256};
+use helios::{
+    client::{self, FileDB},
+    config::networks,
+    types::BlockTag,
+};
+use std::{path::PathBuf, str::FromStr};
 
 /// Fetches the latest mainnet checkpoint from the fallback service.
 ///
@@ -39,7 +43,9 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<Client<FileDB>> {
     Ok(client)
 }
 
-pub async fn construct_mainnet_client_with_checkpoint(checkpoint: B256) -> eyre::Result<Client<FileDB>> {
+pub async fn construct_mainnet_client_with_checkpoint(
+    checkpoint: B256,
+) -> eyre::Result<Client<FileDB>> {
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let mut client = client::ClientBuilder::new()
         .network(networks::Network::MAINNET)

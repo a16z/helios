@@ -17,7 +17,8 @@ criterion_main!(file_db);
 /// Benchmark saving/writing a checkpoint to the file db.
 pub fn save_checkpoint(c: &mut Criterion) {
     c.bench_function("save_checkpoint", |b| {
-        let checkpoint: alloy::primitives::FixedBytes<32>  = b256!("c7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce");
+        let checkpoint: alloy::primitives::FixedBytes<32> =
+            b256!("c7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce");
         b.iter(|| {
             let data_dir = Some(tempdir().unwrap().into_path());
             let config = Config {
@@ -40,7 +41,8 @@ pub fn load_checkpoint(c: &mut Criterion) {
             ..Default::default()
         };
         let db = FileDB::new(&config).unwrap();
-        let written_checkpoint = b256!("c7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce");
+        let written_checkpoint =
+            b256!("c7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce");
         db.save_checkpoint(written_checkpoint.clone()).unwrap();
 
         // Then read from the db
