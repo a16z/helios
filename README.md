@@ -91,10 +91,10 @@ A comprehensive breakdown of config options is available in the [config.md](./co
 Helios can be imported into any Rust project.
 
 ```rust
-use std::{str::FromStr, env};
+use std::{path::PathBuf, str::FromStr, env};
 
-use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag};
-use ethers::{types::Address, utils};
+use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag, prelude::*};
+use alloy::primitives::{utils, Address};
 use eyre::Result;
 
 #[tokio::main]
@@ -105,14 +105,17 @@ async fn main() -> Result<()> {
         .network(Network::MAINNET)
         .consensus_rpc("https://www.lightclientdata.org")
         .execution_rpc(&untrusted_rpc_url)
+        .load_external_fallback()
+        .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
 
     client.start().await?;
+    client.wait_synced().await;
 
     let head_block_num = client.get_block_number().await?;
     let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
     let block = BlockTag::Latest;
-    let balance = client.get_balance(&addr, block).await?;
+    let balance = client.get_balance(addr, block).await?;
 
     println!("synced up to block: {}", head_block_num);
     println!("balance of deposit contract: {}", utils::format_ether(balance));
