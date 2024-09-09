@@ -229,26 +229,31 @@ fn verify_generic_update(
         return Err(ConsensusError::NotRelevant.into());
     }
 
-    if update.finalized_header.is_some() && update.finality_branch.is_some() {
-        let is_valid = is_finality_proof_valid(
-            &update.attested_header,
-            update.finalized_header.as_ref().unwrap(),
-            update.finality_branch.as_ref().unwrap(),
-        );
+    if let Some(finalized_header) = &update.finalized_header {
+        if let Some(finality_branch) = &update.finality_branch {
+            let is_valid =
+                is_finality_proof_valid(&update.attested_header, finalized_header, finality_branch);
 
-        if !is_valid {
+            if !is_valid {
+                return Err(ConsensusError::InvalidFinalityProof.into());
+            }
+        } else {
             return Err(ConsensusError::InvalidFinalityProof.into());
         }
     }
 
-    if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
-        let is_valid = is_next_committee_proof_valid(
-            &update.attested_header,
-            update.next_sync_committee.as_ref().unwrap(),
-            update.next_sync_committee_branch.as_ref().unwrap(),
-        );
+    if let Some(next_sync_committee) = &update.next_sync_committee {
+        if let Some(next_sync_committee_branch) = &update.next_sync_committee_branch {
+            let is_valid = is_next_committee_proof_valid(
+                &update.attested_header,
+                next_sync_committee,
+                next_sync_committee_branch,
+            );
 
-        if !is_valid {
+            if !is_valid {
+                return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
+            }
+        } else {
             return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
         }
     }
