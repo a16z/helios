@@ -1,5 +1,5 @@
+use alloy::primitives::Address;
 use criterion::{criterion_group, criterion_main, Criterion};
-use ethers::prelude::*;
 use helios::types::BlockTag;
 use std::str::FromStr;
 
@@ -32,7 +32,7 @@ pub fn bench_mainnet_get_code(c: &mut Criterion) {
         // Execute the benchmark asynchronously.
         b.to_async(rt).iter(|| async {
             let inner = std::sync::Arc::clone(&client);
-            inner.get_code(&addr, block).await.unwrap()
+            inner.get_code(addr, block).await.unwrap()
         })
     });
 }
@@ -57,7 +57,7 @@ pub fn bench_goerli_get_code(c: &mut Criterion) {
         // Execute the benchmark asynchronously.
         b.to_async(rt).iter(|| async {
             let inner = std::sync::Arc::clone(&client);
-            inner.get_code(&addr, block).await.unwrap()
+            inner.get_code(addr, block).await.unwrap()
         })
     });
 }
