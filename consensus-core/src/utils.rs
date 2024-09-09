@@ -1,11 +1,10 @@
 use alloy::primitives::B256;
-use common::config::types::Forks;
 use eyre::Result;
 use ssz_types::{BitVector, FixedVector};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
-use crate::types::{bls::PublicKey, SyncCommittee};
+use crate::types::{bls::PublicKey, Forks, SyncCommittee};
 
 pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
     let domain_type = [7, 00, 00, 00];

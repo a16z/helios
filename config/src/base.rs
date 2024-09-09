@@ -6,7 +6,7 @@ use alloy::primitives::B256;
 use serde::Serialize;
 
 use crate::types::ChainConfig;
-use common::config::types::Forks;
+use consensus_core::types::Forks;
 
 /// The base configuration for a network.
 #[derive(Serialize)]

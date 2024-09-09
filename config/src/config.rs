@@ -9,7 +9,7 @@ use figment::{
 };
 use serde::Deserialize;
 
-use common::config::types::Forks;
+use consensus_core::types::Forks;
 
 use crate::base::BaseConfig;
 use crate::cli::CliConfig;

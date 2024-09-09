@@ -1369,7 +1369,6 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "bls12_381",
- "common",
  "ethereum_ssz 0.6.0",
  "ethereum_ssz_derive 0.6.0",
  "eyre",
@@ -1983,7 +1982,7 @@ version = "0.7.0"
 source = "git+https://github.com/ncitron/ethereum_hashing?rev=7ee70944ed4fabe301551da8c447e4f4ae5e6c35#7ee70944ed4fabe301551da8c447e4f4ae5e6c35"
 dependencies = [
  "cpufeatures",
- "sha2",
+ "sha2 0.10.8",
 ]
 
 [[package]]

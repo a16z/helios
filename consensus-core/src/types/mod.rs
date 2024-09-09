@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, B256, U256};
+use alloy::primitives::{Address, FixedBytes, B256, U256};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use ssz_derive::Encode;
@@ -14,7 +14,6 @@ use self::{
 pub mod bls;
 pub mod bytes;
 mod serde_utils;
-mod utils;
 
 pub type LogsBloom = ByteVector<typenum::U256>;
 pub type KZGCommitment = ByteVector<typenum::U48>;
@@ -310,6 +309,21 @@ pub struct SyncCommittee {
 pub struct SyncAggregate {
     pub sync_committee_bits: BitVector<typenum::U512>,
     pub sync_committee_signature: Signature,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Forks {
+    pub genesis: Fork,
+    pub altair: Fork,
+    pub bellatrix: Fork,
+    pub capella: Fork,
+    pub deneb: Fork,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Fork {
+    pub epoch: u64,
+    pub fork_version: FixedBytes<4>,
 }
 
 pub struct GenericUpdate {

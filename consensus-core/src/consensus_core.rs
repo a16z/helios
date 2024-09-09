@@ -7,15 +7,14 @@ use tracing::{info, warn};
 use tree_hash::TreeHash;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use common::config::types::Forks;
-
 use crate::errors::ConsensusError;
 use crate::proof::{
     is_current_committee_proof_valid, is_finality_proof_valid, is_next_committee_proof_valid,
 };
 use crate::types::bls::{PublicKey, Signature};
 use crate::types::{
-    Bootstrap, FinalityUpdate, GenericUpdate, Header, LightClientStore, OptimisticUpdate, Update,
+    Bootstrap, FinalityUpdate, Forks, GenericUpdate, Header, LightClientStore, OptimisticUpdate,
+    Update,
 };
 use crate::utils::{
     calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
