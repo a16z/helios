@@ -19,5 +19,3 @@ superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
-
-common = { path = "../common" }

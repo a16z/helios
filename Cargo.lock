@@ -1369,7 +1369,6 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "bls12_381",
- "common",
  "ethereum_ssz 0.6.0",
  "ethereum_ssz_derive 0.6.0",
  "eyre",

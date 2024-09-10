@@ -64,7 +64,6 @@ pub mod config {
 }
 
 pub mod types {
-    pub use common::config::types::*;
     pub use common::types::{Block, BlockTag, Transactions};
     pub use consensus_core::types::*;
     pub use execution::types::Account;

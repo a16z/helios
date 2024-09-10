@@ -10,7 +10,7 @@ use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
-use common::config::types::{Fork, Forks};
+use consensus_core::types::{Fork, Forks};
 
 use crate::base::BaseConfig;
 use crate::types::ChainConfig;
