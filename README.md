@@ -78,7 +78,7 @@ execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
 
 [holesky]
-consensus_rpc = "http://testing.holesky.beacon-api.nimbus.team/"
+consensus_rpc = "http://testing.holesky.beacon-api.nimbus.team"
 execution_rpc = "https://eth-holesky.g.alchemy.com/v2/XXXXX"
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
 ```
@@ -187,7 +187,7 @@ This latest checkpoint may be provided as an [Additional CLI Option](#additional
 ```bash
 helios \
     --network holesky \
-    --consensus-rpc http://testing.holesky.beacon-api.nimbus.team/ \
+    --consensus-rpc http://testing.holesky.beacon-api.nimbus.team \
     --execution-rpc https://ethereum-holesky.g.allthatnode.com \
     --checkpoint 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6
 ```
