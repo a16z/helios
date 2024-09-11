@@ -19,7 +19,7 @@ pub type LogsBloom = ByteVector<typenum::U256>;
 pub type KZGCommitment = ByteVector<typenum::U48>;
 pub type Transaction = ByteList<typenum::U1073741824>;
 
-#[derive(Debug, Default, Clone, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LightClientStore {
     pub finalized_header: Header,
     pub current_sync_committee: SyncCommittee,
