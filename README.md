@@ -42,7 +42,7 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal to the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
-`--network` or `-n` sets the network to sync to. Current valid options are `mainnet` and `goerli`, however users can add custom networks in their configuration files.
+`--network` or `-n` sets the network to sync to. Current valid options are `mainnet` and `holesky`, however users can add custom networks in their configuration files.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
@@ -77,9 +77,9 @@ consensus_rpc = "https://www.lightclientdata.org"
 execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
 
-[goerli]
-consensus_rpc = "http://testing.prater.beacon-api.nimbus.team"
-execution_rpc = "https://eth-goerli.g.alchemy.com/v2/XXXXX"
+[holesky]
+consensus_rpc = "http://testing.holesky.beacon-api.nimbus.team/"
+execution_rpc = "https://eth-holesky.g.alchemy.com/v2/XXXXX"
 checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
 ```
 
@@ -139,9 +139,9 @@ async fn main() -> Result<()> {
     // Construct the checkpoint fallback services
     let cf = checkpoints::CheckpointFallback::new().build().await.unwrap();
 
-    // Fetch the latest goerli checkpoint
-    let goerli_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::GOERLI).await.unwrap();
-    println!("Fetched latest goerli checkpoint: {}", goerli_checkpoint);
+    // Fetch the latest holesky checkpoint
+    let holesky_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::HOLESKY).await.unwrap();
+    println!("Fetched latest holesky checkpoint: {}", holesky_checkpoint);
 
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::MAINNET).await.unwrap();
@@ -155,10 +155,10 @@ async fn main() -> Result<()> {
 
 Ethereum Execution API provider JSON RPC endpoints used must support the `eth_getProof` endpoint. [Alchemy](https://www.alchemy.com) provides private endpoints that support the `eth_getProof` endpoint https://docs.alchemy.com/reference/eth-getproof but require you to obtain API keys. Alternatively, [All That Node](https://www.allthatnode.com/ethereum.dsrv) provides public JSON RPC endpoints that are rate limited and are not intended for dApp building. JSON RPC endpoints including associated API Keys if required should be added to your .env file.
 
-For example, the following cURL request should return a response `{"jsonrpc":"2.0","id":1,"result":{...}}` to demonstrate that the All That Node public JSON RPC endpoints on the Ethereum Goerli network and Mainnet support the `eth_getProof` endpoint.
+For example, the following cURL request should return a response `{"jsonrpc":"2.0","id":1,"result":{...}}` to demonstrate that the All That Node public JSON RPC endpoints on the Ethereum Holesky network and Mainnet support the `eth_getProof` endpoint.
 
 ```sh
-curl https://ethereum-goerli-rpc.allthatnode.com \
+curl https://ethereum-holesky.g.allthatnode.com \
 -X POST \
 -H "Content-Type: application/json" \
 -d '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",["0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"],"latest"],"id":1}'
@@ -173,23 +173,23 @@ curl https://ethereum-mainnet.g.allthatnode.com \
 
 ### Supported Checkpoints <a id="supported-checkpoints"></a>
 
-A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Goerli is shown at https://goerli.etherscan.io/blocks
+A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks
 
 Checkpoints may be obtained from the following links:
 * Ethereum Mainnet https://beaconcha.in
-* Goerli Testnet https://prater.beaconcha.in/
+* Holesky Testnet https://holesky.beaconcha.in
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
-For example, to obtain a recent checkpoint for Goerli Testnet go to https://prater.beaconcha.in/ and get the block hash of the first block in any finalised epoch. At the time of writing, the [first block hash in epoch 197110](https://prater.beaconcha.in/epoch/197110) is the [oldest slot 6307520](https://prater.beaconcha.in/slot/6307520) that has a Block Root of 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b and is the latest checkpoint value to use.
+For example, to obtain a recent checkpoint for Holesky Testnet go to https://holesky.beaconcha.in/ and get the block hash of the first block in any finalised epoch. At the time of writing, the [first block hash in epoch 78425](https://holesky.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://holesky.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
 
-This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Goerli Testnet:
+This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Holesky Testnet:
 ```bash
 helios \
-    --network goerli \
-    --consensus-rpc http://testing.prater.beacon-api.nimbus.team \
-    --execution-rpc https://ethereum-goerli-rpc.allthatnode.com \
-    --checkpoint 0x7beab8f82587b1e9f2079beddebde49c2ed5c0da4ce86ea22de6a6b2dc7aa86b
+    --network holesky \
+    --consensus-rpc http://testing.holesky.beacon-api.nimbus.team/ \
+    --execution-rpc https://ethereum-holesky.g.allthatnode.com \
+    --checkpoint 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6
 ```
 
 For example, to obtain a recent checkpoint for Ethereum Mainnet go to https://beaconcha.in and get the block hash of the first block in any finalised epoch. At the time of writing the [first block hash in epoch 222705](https://beaconcha.in/epoch/222705) is the [oldest slot 7126560](https://beaconcha.in/slot/7126560) that has a Block Root of 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2 and is the latest checkpoint value to use.
