@@ -40,7 +40,7 @@ pub enum NodeError {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl NodeError {
-    pub fn to_json_rpsee_error(self) -> jsonrpsee::core::Error {
+    pub fn to_json_rpsee_error(self) -> jsonrpsee::types::error::ErrorObjectOwned {
         match self {
             NodeError::ExecutionEvmError(evm_err) => match evm_err {
                 EvmError::Revert(data) => {
@@ -48,17 +48,15 @@ impl NodeError {
                     if let Some(reason) = data.as_ref().and_then(EvmError::decode_revert_reason) {
                         msg = format!("{msg}: {reason}")
                     }
-                    jsonrpsee::core::Error::Call(jsonrpsee::types::error::CallError::Custom(
-                        jsonrpsee::types::error::ErrorObject::owned(
-                            3,
-                            msg,
-                            data.map(|data| format!("0x{}", hex::encode(data))),
-                        ),
-                    ))
+                    jsonrpsee::types::error::ErrorObject::owned(
+                        3,
+                        msg,
+                        data.map(|data| format!("0x{}", hex::encode(data))),
+                    )
                 }
-                _ => jsonrpsee::core::Error::Custom(evm_err.to_string()),
+                _ => jsonrpsee::types::error::ErrorObject::owned(1, evm_err.to_string(), None::<()>),
             },
-            _ => jsonrpsee::core::Error::Custom(self.to_string()),
+            _ => jsonrpsee::types::error::ErrorObject::owned(1, self.to_string(), None::<()>),
         }
     }
 }
