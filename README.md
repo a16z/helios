@@ -42,7 +42,7 @@ Helios is still experimental software. While we hope you try it out, we do not s
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal to the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
-`--network` or `-n` sets the network to sync to. Current valid options are `mainnet` and `holesky`, however users can add custom networks in their configuration files.
+`--network` or `-n` sets the network to sync to. Current valid options are `mainnet`, `sepolia`, and `holesky` however users can add custom networks in their configuration files.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
@@ -80,7 +80,12 @@ checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68
 [holesky]
 consensus_rpc = "http://testing.holesky.beacon-api.nimbus.team"
 execution_rpc = "https://eth-holesky.g.alchemy.com/v2/XXXXX"
-checkpoint = "0xb5c375696913865d7c0e166d87bc7c772b6210dc9edf149f4c7ddc6da0dd4495"
+checkpoint = "0xf682ab29d44b17c0b2682783c782caed3b8fd831641921e64bda5fb24c141f01"
+
+[sepolia]
+consensus_rpc = "https://ethereum-sepolia-beacon-api.publicnode.com"
+execution_rpc = "https://eth-sepolia.g.alchemy.com/v2/XXXXX"
+checkpoint = "0x839ef44892477a9b72e774941f4ecb3cf6f0deac2f6715b40c5d4d5337a02dd0"
 ```
 
 A comprehensive breakdown of config options is available in the [config.md](./config.md) file.
@@ -138,6 +143,10 @@ use helios::config::{checkpoints, networks};
 async fn main() -> Result<()> {
     // Construct the checkpoint fallback services
     let cf = checkpoints::CheckpointFallback::new().build().await.unwrap();
+
+    // Fetch the latest sepolia checkpoint
+    let sepolia_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::SEPOLIA).await.unwrap();
+    println!("Fetched latest sepolia checkpoint: {}", sepolia_checkpoint);
 
     // Fetch the latest holesky checkpoint
     let holesky_checkpoint = cf.fetch_latest_checkpoint(&networks::Network::HOLESKY).await.unwrap();
