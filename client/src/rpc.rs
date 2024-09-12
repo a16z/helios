@@ -288,7 +288,7 @@ async fn start<DB: Database>(rpc: RpcInner<DB>) -> Result<(ServerHandle, SocketA
     methods.merge(eth_methods)?;
     methods.merge(net_methods)?;
 
-    let handle = server.start(methods)?;
+    let handle = server.start(methods);
 
     Ok((handle, addr))
 }
