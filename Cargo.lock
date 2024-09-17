@@ -1303,14 +1303,8 @@ version = "0.6.0"
 dependencies = [
  "alloy",
  "anyhow",
- "hex",
  "serde",
- "serde_json",
- "superstruct",
- "thiserror",
  "thiserror-no-std",
- "tracing",
- "zduny-wasm-timer",
 ]
 
 [[package]]
@@ -1319,7 +1313,6 @@ version = "0.6.0"
 dependencies = [
  "alloy",
  "anyhow",
- "common",
  "consensus-core",
  "dirs",
  "figment",
@@ -1330,9 +1323,7 @@ dependencies = [
  "serde",
  "serde_yaml",
  "strum",
- "thiserror",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1355,8 +1346,6 @@ dependencies = [
  "retri",
  "serde",
  "serde_json",
- "superstruct",
- "thiserror",
  "tokio",
  "tracing",
  "tree_hash",
@@ -2066,7 +2055,6 @@ dependencies = [
  "openssl",
  "reqwest",
  "revm",
- "serde",
  "serde_json",
  "thiserror",
  "tokio",
@@ -2627,11 +2615,8 @@ dependencies = [
  "config",
  "consensus",
  "console_error_panic_hook",
- "execution",
  "hex",
- "serde",
  "serde-wasm-bindgen",
- "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",

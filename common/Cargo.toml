@@ -7,10 +7,4 @@ edition = "2021"
 alloy = { version = "0.2.1", features = ["rpc-types"] }
 anyhow.workspace = true
 serde.workspace = true
-hex.workspace = true
-serde_json.workspace = true
-superstruct.workspace = true
-thiserror.workspace = true
 thiserror-no-std.workspace = true
-tracing.workspace = true
-zduny-wasm-timer.workspace = true
