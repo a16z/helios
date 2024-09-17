@@ -25,6 +25,8 @@ superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 # Building consensus-core for wasm requires getrandom with the js feature.
 # Source: https://github.com/alloy-rs/core?tab=readme-ov-file#wasm-support
 getrandom = { version = "0.2", features = ["js"] }
