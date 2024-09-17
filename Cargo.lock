@@ -1372,6 +1372,7 @@ dependencies = [
  "ethereum_ssz 0.6.0",
  "ethereum_ssz_derive 0.6.0",
  "eyre",
+ "getrandom 0.2.15",
  "serde",
  "sha2 0.9.9",
  "ssz_types",

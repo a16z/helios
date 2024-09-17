@@ -4,7 +4,13 @@ name = "consensus-core"
 edition = "2021"
 
 [dependencies]
-alloy = { version = "0.2.1", features = ["consensus", "rpc-types", "ssz", "rlp", "k256"] }
+alloy = { version = "0.2.1", features = [
+    "consensus",
+    "rpc-types",
+    "ssz",
+    "rlp",
+    "k256",
+] }
 bls12_381.workspace = true
 ssz_types.workspace = true
 ethereum_ssz_derive.workspace = true
@@ -19,3 +25,6 @@ superstruct.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
+# Building consensus-core for wasm requires getrandom with the js feature.
+# Source: https://github.com/alloy-rs/core?tab=readme-ov-file#wasm-support
+getrandom = { version = "0.2", features = ["js"] }
