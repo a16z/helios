@@ -4,7 +4,7 @@ name = "consensus-core"
 edition = "2021"
 
 [dependencies]
-alloy = { version = "0.2.1", features = ["consensus", "rpc-types", "ssz", "rlp", "k256"] }
+alloy-primitives = { version = "0.7.7", default-features = false }
 bls12_381.workspace = true
 ssz_types.workspace = true
 ethereum_ssz_derive.workspace = true
@@ -13,9 +13,10 @@ tree_hash_derive.workspace = true
 tree_hash.workspace = true
 typenum.workspace = true
 sha2.workspace = true
-eyre.workspace = true
+anyhow.workspace = true
 serde.workspace = true
 superstruct.workspace = true
-thiserror.workspace = true
+thiserror-no-std.workspace = true
 tracing.workspace = true
 zduny-wasm-timer.workspace = true
+getrandom = { version = "0.2", features = ["js"] }

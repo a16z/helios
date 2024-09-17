@@ -100,7 +100,7 @@ use std::{path::PathBuf, str::FromStr, env};
 
 use helios::{client::ClientBuilder, config::networks::Network, types::BlockTag, prelude::*};
 use alloy::primitives::{utils, Address};
-use eyre::Result;
+use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -136,7 +136,7 @@ Below we demonstrate fetching checkpoints from the community-maintained list of 
 > This is a community-maintained list and thus no security guarantees are provided. Attacks on your light client can occur if malicious checkpoints are set in the list. Please use the explicit `checkpoint` flag, environment variable, or config setting with an updated, and verified checkpoint.
 
 ```rust
-use eyre::Result;
+use anyhow::Result;
 use helios::config::{checkpoints, networks};
 
 #[tokio::main]

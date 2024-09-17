@@ -4,7 +4,7 @@ use alloy::consensus::{Receipt, ReceiptWithBloom, TxReceipt, TxType};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
 use alloy::rpc::types::{Filter, Log, Transaction, TransactionReceipt};
-use eyre::Result;
+use anyhow::Result;
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
@@ -51,7 +51,8 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             .state
             .get_block(tag)
             .await
-            .ok_or(BlockNotFoundError::new(tag))?;
+            .ok_or(BlockNotFoundError::new(tag))
+            .map_err(|e| anyhow::anyhow!(e))?;
 
         let proof = self
             .rpc
@@ -127,7 +128,8 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             .state
             .get_block(tag)
             .await
-            .ok_or(BlockNotFoundError::new(tag))?;
+            .ok_or(BlockNotFoundError::new(tag))
+            .map_err(|e| anyhow::anyhow!(e))?;
 
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());
@@ -141,7 +143,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             .state
             .get_block_by_hash(hash)
             .await
-            .ok_or(eyre::eyre!("block not found"))?;
+            .ok_or(anyhow::anyhow!("block not found"))?;
 
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());
@@ -183,7 +185,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
 
         let receipts_fut = tx_hashes.iter().map(|hash| async move {
             let receipt = self.rpc.get_transaction_receipt(*hash).await;
-            receipt?.ok_or(eyre::eyre!("not reachable"))
+            receipt?.ok_or(anyhow::anyhow!("not reachable"))
         });
 
         let receipts = join_all(receipts_fut).await;
@@ -278,7 +280,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
             // Get the hash of the tx that generated it
             let tx_hash = log
                 .transaction_hash
-                .ok_or(eyre::eyre!("tx hash not found in log"))?;
+                .ok_or(anyhow::anyhow!("tx hash not found in log"))?;
 
             // Get its proven receipt
             let receipt = self

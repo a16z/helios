@@ -1,7 +1,7 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
 use alloy::{network::TransactionBuilder, rpc::types::TransactionRequest};
-use eyre::{Report, Result};
+use anyhow::Result;
 use futures::future::join_all;
 use revm::{
     primitives::{
@@ -216,7 +216,7 @@ impl<R: ExecutionRpc> EvmState<R> {
             Ok(account.clone())
         } else {
             self.access = Some(StateAccess::Basic(address));
-            eyre::bail!("state missing");
+            anyhow::bail!("state missing");
         }
     }
 
@@ -226,7 +226,7 @@ impl<R: ExecutionRpc> EvmState<R> {
             Ok(*slot)
         } else {
             self.access = Some(StateAccess::Storage(address, slot));
-            eyre::bail!("state missing");
+            anyhow::bail!("state missing");
         }
     }
 
@@ -235,7 +235,7 @@ impl<R: ExecutionRpc> EvmState<R> {
             Ok(*hash)
         } else {
             self.access = Some(StateAccess::BlockHash(block));
-            eyre::bail!("state missing");
+            anyhow::bail!("state missing");
         }
     }
 
@@ -323,9 +323,9 @@ impl<R: ExecutionRpc> EvmState<R> {
 }
 
 impl<R: ExecutionRpc> Database for ProofDB<R> {
-    type Error = Report;
+    type Error = anyhow::Error;
 
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Report> {
+    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, anyhow::Error> {
         if is_precompile(&address) {
             return Ok(Some(AccountInfo::default()));
         }
@@ -339,18 +339,18 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         Ok(Some(self.state.get_basic(address)?))
     }
 
-    fn block_hash(&mut self, number: u64) -> Result<B256, Report> {
+    fn block_hash(&mut self, number: u64) -> Result<B256, anyhow::Error> {
         trace!(target: "helios::evm", "fetch block hash for block={:?}", number);
         self.state.get_block_hash(number)
     }
 
-    fn storage(&mut self, address: Address, slot: U256) -> Result<U256, Report> {
+    fn storage(&mut self, address: Address, slot: U256) -> Result<U256, anyhow::Error> {
         trace!(target: "helios::evm", "fetch evm state for address={:?}, slot={}", address, slot);
         self.state.get_storage(address, slot)
     }
 
-    fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Report> {
-        Err(eyre::eyre!("should never be called"))
+    fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, anyhow::Error> {
+        Err(anyhow::anyhow!("should never be called"))
     }
 }
 

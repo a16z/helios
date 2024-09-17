@@ -33,6 +33,8 @@ tree_hash = "0.7.0"
 sha2 = "0.9"
 bls12_381 = { version = "0.8.0", features = ["experimental"] }
 
+anyhow = { version = "1.0", default-features = false }
+
 # execution
 alloy = { version = "0.2.1", features = [
     "rpc-types",
@@ -43,14 +45,14 @@ alloy = { version = "0.2.1", features = [
     "sol-types",
     "network",
     "ssz",
-]}
+] }
 revm = { version = "12.1.0", default-features = false, features = [
     "std",
     "serde",
     "optional_block_gas_limit",
     "optional_eip3607",
     "optional_no_base_fee",
-]}
+] }
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
 
 # async/futures
@@ -60,16 +62,16 @@ tokio = { version = "1", features = ["rt", "sync", "macros"] }
 
 # io
 reqwest = { version = "0.12.4", features = ["json"] }
-serde = { version = "1.0.143", features = ["derive"] }
+serde = { version = "1.0.143", features = ["derive"], default-features = false }
 serde_json = "1.0.85"
 
 # misc
-eyre = "0.6.8"
 hex = "0.4.3"
 toml = "0.5.9"
 tracing = "0.1.37"
 chrono = "0.4.23"
-thiserror = "1.0.37"
+thiserror = { version = "1.0.37", default-features = false }
+thiserror-no-std = "2.0.2"
 superstruct = "0.7.0"
 openssl = { version = "0.10", features = ["vendored"] }
 zduny-wasm-timer = "0.2.8"
@@ -96,7 +98,6 @@ serde = { version = "1.0.154", features = ["derive"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 alloy = { version = "0.2.1", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
-eyre = "0.6.8"
 dirs = "5.0.1"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing = "0.1.37"

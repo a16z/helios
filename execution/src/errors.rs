@@ -1,6 +1,5 @@
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::sol_types::decode_revert_reason;
-use eyre::Report;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -45,7 +44,7 @@ pub enum EvmError {
     Generic(String),
 
     #[error("rpc error: {0:?}")]
-    RpcError(Report),
+    RpcError(anyhow::Error),
 }
 
 impl EvmError {

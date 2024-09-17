@@ -1,7 +1,7 @@
 use std::{path::PathBuf, str::FromStr};
 
 use alloy::primitives::{utils::format_ether, Address};
-use eyre::Result;
+use anyhow::Result;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;

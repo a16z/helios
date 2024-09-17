@@ -6,7 +6,7 @@ use std::str::FromStr;
 use alloy::hex::FromHex;
 use alloy::primitives::{Address, B256};
 use alloy::rpc::types::{Filter, TransactionRequest};
-use eyre::Result;
+use anyhow::Result;
 use wasm_bindgen::prelude::*;
 
 use common::types::BlockTag;

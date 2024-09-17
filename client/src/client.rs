@@ -7,7 +7,7 @@ use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
 };
-use eyre::{eyre, Result};
+use anyhow::{anyhow, Result};
 use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
 
@@ -112,7 +112,7 @@ impl ClientBuilder {
             let config = self
                 .config
                 .as_ref()
-                .ok_or(eyre!("missing network config"))?;
+                .ok_or(anyhow!("missing network config"))?;
             config.to_base_config()
         };
 

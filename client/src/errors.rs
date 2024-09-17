@@ -1,4 +1,4 @@
-use eyre::Report;
+use anyhow::Report;
 use thiserror::Error;
 
 use common::errors::BlockNotFoundError;

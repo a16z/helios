@@ -1,4 +1,4 @@
-use eyre::Result;
+use anyhow::Result;
 
 // From helios::config
 use config::{checkpoints, networks};

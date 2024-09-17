@@ -1,4 +1,4 @@
-use alloy::primitives::B256;
+use alloy_primitives::B256;
 use sha2::{Digest, Sha256};
 use tree_hash::TreeHash;
 

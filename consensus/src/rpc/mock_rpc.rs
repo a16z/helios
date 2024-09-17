@@ -2,7 +2,7 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use alloy::primitives::B256;
 use async_trait::async_trait;
-use eyre::Result;
+use anyhow::Result;
 
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
@@ -53,7 +53,7 @@ impl ConsensusRpc for MockRpc {
     }
 
     async fn chain_id(&self) -> Result<u64> {
-        eyre::bail!("not implemented")
+        anyhow::bail!("not implemented")
     }
 }
 

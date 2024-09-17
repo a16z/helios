@@ -5,7 +5,7 @@ use alloy::rpc::types::{
     AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction,
     TransactionReceipt, TransactionRequest,
 };
-use eyre::Result;
+use anyhow::Result;
 
 use common::types::BlockTag;
 

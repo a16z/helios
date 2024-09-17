@@ -1,5 +1,6 @@
-use alloy::primitives::{Address, FixedBytes, B256, U256};
-use eyre::Result;
+use alloc::vec::Vec;
+use alloy_primitives::{Address, FixedBytes, B256, U256};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use ssz_derive::Encode;
 use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVector, VariableList};

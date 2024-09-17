@@ -4,7 +4,7 @@ use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     Filter, Log, SyncInfo, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
 };
-use eyre::{eyre, Result};
+use anyhow::{anyhow, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use common::types::{Block, BlockTag};
@@ -119,7 +119,7 @@ impl<DB: Database> Node<DB> {
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),
-            None => Err(eyre!("slot not found")),
+            None => Err(anyhow!("slot not found")),
         }
     }
 

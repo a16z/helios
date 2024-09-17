@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use core::fmt::Display;
+
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::types::Transaction;
@@ -54,7 +57,7 @@ impl Transactions {
 }
 
 impl Serialize for Transactions {
-    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, s: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -87,7 +90,7 @@ pub enum BlockTag {
 }
 
 impl Display for BlockTag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let formatted = match self {
             Self::Latest => "latest".to_string(),
             Self::Finalized => "finalized".to_string(),

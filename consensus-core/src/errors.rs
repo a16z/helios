@@ -1,5 +1,12 @@
-use alloy::primitives::B256;
-use thiserror::Error;
+use alloc::string::ToString;
+use alloy_primitives::B256;
+use thiserror_no_std::Error;
+
+impl From<ConsensusError> for anyhow::Error {
+    fn from(error: ConsensusError) -> Self {
+        anyhow::Error::msg(error.to_string())
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ConsensusError {

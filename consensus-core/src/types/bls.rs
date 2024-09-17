@@ -1,22 +1,23 @@
+use alloc::vec::Vec;
+use anyhow::{anyhow, Context, Result};
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
     multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, Gt, Scalar,
 };
-use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
 use tree_hash_derive::TreeHash;
 
 use super::bytes::ByteVector;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, TreeHash)]
 #[ssz(struct_behaviour = "transparent")]
 #[serde(transparent)]
 pub struct PublicKey {
     inner: ByteVector<typenum::U48>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, TreeHash)]
 #[ssz(struct_behaviour = "transparent")]
 #[serde(transparent)]
 pub struct Signature {
@@ -26,12 +27,15 @@ pub struct Signature {
 impl PublicKey {
     fn point(&self) -> Result<G1Affine> {
         let bytes = self.inner.inner.to_vec();
-        let bytes = bytes.as_slice().try_into()?;
+        let bytes = bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("Invalid byte length"))?;
         let point_opt = G1Affine::from_compressed(bytes);
         if point_opt.is_some().into() {
             Ok(point_opt.unwrap())
         } else {
-            Err(eyre!("invalid point"))
+            Err(anyhow!("invalid point"))
         }
     }
 }
@@ -78,12 +82,16 @@ impl Signature {
 
     fn point(&self) -> Result<G2Affine> {
         let bytes = self.inner.inner.to_vec();
-        let bytes = bytes.as_slice().try_into()?;
+        let bytes = bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("Invalid byte length"))?;
+
         let point_opt = G2Affine::from_compressed(bytes);
         if point_opt.is_some().into() {
             Ok(point_opt.unwrap())
         } else {
-            Err(eyre!("invalid point"))
+            Err(anyhow!("invalid point"))
         }
     }
 }
@@ -91,7 +99,7 @@ impl Signature {
 /// Aggregates multiple keys into one aggragate key
 fn aggregate(pks: &[PublicKey]) -> Result<G1Affine> {
     if pks.is_empty() {
-        return Err(eyre!("no keys to aggregate"));
+        return Err(anyhow!("no keys to aggregate"));
     }
 
     let mut agg_key = G1Projective::identity();

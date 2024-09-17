@@ -6,9 +6,9 @@ use alloy::consensus::{Transaction as TxTrait, TxEnvelope};
 use alloy::primitives::{b256, B256, U256, U64};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{Parity, Signature, Transaction};
+use anyhow::anyhow;
+use anyhow::Result;
 use chrono::Duration;
-use eyre::eyre;
-use eyre::Result;
 use futures::future::join_all;
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
@@ -361,7 +361,7 @@ impl<R: ConsensusRpc> Inner<R> {
             .rpc
             .get_bootstrap(checkpoint)
             .await
-            .map_err(|err| eyre!("could not fetch bootstrap: {}", err))?;
+            .map_err(|err| anyhow!("could not fetch bootstrap: {}", err))?;
 
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
 

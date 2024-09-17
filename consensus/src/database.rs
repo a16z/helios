@@ -6,8 +6,8 @@ use std::{
 };
 
 use alloy::primitives::B256;
+use anyhow::Result;
 use config::Config;
-use eyre::Result;
 
 pub trait Database: Clone + Sync + Send + 'static {
     fn new(config: &Config) -> Result<Self>
@@ -35,7 +35,7 @@ impl Database for FileDB {
             });
         }
 
-        eyre::bail!("data dir not in config")
+        anyhow::bail!("data dir not in config")
     }
 
     fn save_checkpoint(&self, checkpoint: B256) -> Result<()> {

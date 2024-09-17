@@ -1248,6 +1248,7 @@ name = "cli"
 version = "0.6.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "clap",
  "client",
  "common",
@@ -1255,7 +1256,6 @@ dependencies = [
  "consensus",
  "ctrlc",
  "dirs",
- "eyre",
  "futures",
  "tokio",
  "tracing",
@@ -1267,11 +1267,11 @@ name = "client"
 version = "0.6.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "common",
  "config",
  "consensus",
  "execution",
- "eyre",
  "futures",
  "gloo-timers 0.3.0",
  "hex",
@@ -1302,12 +1302,13 @@ name = "common"
 version = "0.6.0"
 dependencies = [
  "alloy",
- "eyre",
+ "anyhow",
  "hex",
  "serde",
  "serde_json",
  "superstruct",
  "thiserror",
+ "thiserror-no-std",
  "tracing",
  "zduny-wasm-timer",
 ]
@@ -1317,10 +1318,10 @@ name = "config"
 version = "0.6.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "common",
  "consensus-core",
  "dirs",
- "eyre",
  "figment",
  "futures",
  "hex",
@@ -1339,12 +1340,12 @@ name = "consensus"
 version = "0.6.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "async-trait",
  "chrono",
  "common",
  "config",
  "consensus-core",
- "eyre",
  "futures",
  "getrandom 0.2.15",
  "hex",
@@ -1367,16 +1368,17 @@ dependencies = [
 name = "consensus-core"
 version = "0.6.0"
 dependencies = [
- "alloy",
+ "alloy-primitives",
+ "anyhow",
  "bls12_381",
  "ethereum_ssz 0.6.0",
  "ethereum_ssz_derive 0.6.0",
- "eyre",
+ "getrandom 0.2.15",
  "serde",
  "sha2 0.9.9",
  "ssz_types",
  "superstruct",
- "thiserror",
+ "thiserror-no-std",
  "tracing",
  "tree_hash",
  "tree_hash_derive",
@@ -2055,10 +2057,10 @@ name = "execution"
 version = "0.6.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "async-trait",
  "common",
  "consensus",
- "eyre",
  "futures",
  "hex",
  "openssl",
@@ -2071,16 +2073,6 @@ dependencies = [
  "tracing",
  "triehash-ethereum",
  "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "eyre"
-version = "0.6.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
-dependencies = [
- "indenter",
- "once_cell",
 ]
 
 [[package]]
@@ -2611,7 +2603,6 @@ dependencies = [
  "dirs",
  "dotenv",
  "execution",
- "eyre",
  "hex",
  "plotters",
  "pretty_assertions",
@@ -2629,13 +2620,13 @@ name = "helios-ts"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "client",
  "common",
  "config",
  "consensus",
  "console_error_panic_hook",
  "execution",
- "eyre",
  "hex",
  "serde",
  "serde-wasm-bindgen",
@@ -2983,12 +2974,6 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[package]]
-name = "indenter"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
 name = "indexmap"
@@ -5248,6 +5233,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.72",
+]
+
+[[package]]
+name = "thiserror-impl-no-std"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58e6318948b519ba6dc2b442a6d0b904ebfb8d411a3ad3e07843615a72249758"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "thiserror-no-std"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3ad459d94dd517257cc96add8a43190ee620011bb6e6cdc82dafd97dfafafea"
+dependencies = [
+ "thiserror-impl-no-std",
 ]
 
 [[package]]

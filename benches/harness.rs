@@ -14,7 +14,7 @@ use std::{path::PathBuf, str::FromStr};
 /// The `build` method will fetch a list of [CheckpointFallbackService](config::CheckpointFallbackService)s from a community-mainained list by ethPandaOps.
 /// This list is NOT guaranteed to be secure, but is provided in good faith.
 /// The raw list can be found here: https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml
-pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {
+pub async fn fetch_mainnet_checkpoint() -> anyhow::Result<B256> {
     let cf = config::CheckpointFallback::new().build().await.unwrap();
     cf.fetch_latest_checkpoint(&networks::Network::MAINNET)
         .await
@@ -26,11 +26,11 @@ pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {
 /// The client is parameterized with a [FileDB](client::FileDB).
 /// It will also use the environment variable `MAINNET_EXECUTION_RPC` to connect to a mainnet node.
 /// The client will use `https://www.lightclientdata.org` as the consensus RPC.
-pub fn construct_mainnet_client(rt: &tokio::runtime::Runtime) -> eyre::Result<Client<FileDB>> {
+pub fn construct_mainnet_client(rt: &tokio::runtime::Runtime) -> anyhow::Result<Client<FileDB>> {
     rt.block_on(inner_construct_mainnet_client())
 }
 
-pub async fn inner_construct_mainnet_client() -> eyre::Result<Client<FileDB>> {
+pub async fn inner_construct_mainnet_client() -> anyhow::Result<Client<FileDB>> {
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let mut client = client::ClientBuilder::new()
         .network(networks::Network::MAINNET)
@@ -45,7 +45,7 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<Client<FileDB>> {
 
 pub async fn construct_mainnet_client_with_checkpoint(
     checkpoint: B256,
-) -> eyre::Result<Client<FileDB>> {
+) -> anyhow::Result<Client<FileDB>> {
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let mut client = client::ClientBuilder::new()
         .network(networks::Network::MAINNET)
@@ -75,7 +75,7 @@ pub fn construct_runtime() -> tokio::runtime::Runtime {
 /// The client is parameterized with a [FileDB](client::FileDB).
 /// It will also use the environment variable `GOERLI_EXECUTION_RPC` to connect to a mainnet node.
 /// The client will use `http://testing.prater.beacon-api.nimbus.team` as the consensus RPC.
-pub fn construct_goerli_client(rt: &tokio::runtime::Runtime) -> eyre::Result<Client<FileDB>> {
+pub fn construct_goerli_client(rt: &tokio::runtime::Runtime) -> anyhow::Result<Client<FileDB>> {
     rt.block_on(async {
         let benchmark_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
         let mut client = client::ClientBuilder::new()
@@ -94,7 +94,7 @@ pub fn get_balance(
     rt: &tokio::runtime::Runtime,
     client: Client<FileDB>,
     address: &str,
-) -> eyre::Result<U256> {
+) -> anyhow::Result<U256> {
     rt.block_on(async {
         let block = BlockTag::Latest;
         let address = Address::from_str(address)?;

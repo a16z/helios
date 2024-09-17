@@ -1,7 +1,7 @@
-use std::cmp;
+use core::cmp;
 
-use alloy::primitives::B256;
-use eyre::Result;
+use alloy_primitives::B256;
+use anyhow::Result;
 use ssz_types::BitVector;
 use tracing::{info, warn};
 use tree_hash::TreeHash;
@@ -283,7 +283,7 @@ fn verify_generic_update(
 
 pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
     let now = now.duration_since(UNIX_EPOCH).unwrap();
-    let since_genesis = now - std::time::Duration::from_secs(genesis_time);
+    let since_genesis = now - core::time::Duration::from_secs(genesis_time);
 
     since_genesis.as_secs() / 12
 }

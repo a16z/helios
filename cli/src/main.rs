@@ -9,7 +9,7 @@ use std::{
 use alloy::primitives::B256;
 use clap::Parser;
 use dirs::home_dir;
-use eyre::Result;
+use anyhow::Result;
 use futures::executor::block_on;
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};

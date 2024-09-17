@@ -1,5 +1,6 @@
+use alloc::string::{String, ToString};
 use alloy::primitives::B256;
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 use crate::types::BlockTag;
 
@@ -40,5 +41,15 @@ impl<E: ToString> RpcError<E> {
             method: method.to_string(),
             error: err,
         }
+    }
+}
+
+impl<E: ToString> From<RpcError<E>> for anyhow::Error {
+    fn from(error: RpcError<E>) -> Self {
+        anyhow::anyhow!(
+            "RPC error in method '{}': {}",
+            error.method,
+            error.error.to_string()
+        )
     }
 }

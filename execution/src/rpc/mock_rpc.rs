@@ -5,8 +5,8 @@ use alloy::rpc::types::{
     AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log, Transaction,
     TransactionReceipt, TransactionRequest,
 };
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use eyre::{eyre, Result};
 
 use super::ExecutionRpc;
 use common::types::BlockTag;
@@ -39,7 +39,7 @@ impl ExecutionRpc for MockRpc {
         _opts: &TransactionRequest,
         _block: BlockTag,
     ) -> Result<AccessList> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn get_code(&self, _address: Address, _block: u64) -> Result<Vec<u8>> {
@@ -48,7 +48,7 @@ impl ExecutionRpc for MockRpc {
     }
 
     async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<B256> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn get_transaction_receipt(&self, _tx_hash: B256) -> Result<Option<TransactionReceipt>> {
@@ -72,23 +72,23 @@ impl ExecutionRpc for MockRpc {
     }
 
     async fn uninstall_filter(&self, _filter_id: U256) -> Result<bool> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn get_new_filter(&self, _filter: &Filter) -> Result<U256> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn get_new_block_filter(&self) -> Result<U256> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn chain_id(&self) -> Result<u64> {
-        Err(eyre!("not implemented"))
+        Err(anyhow!("not implemented"))
     }
 
     async fn get_fee_history(

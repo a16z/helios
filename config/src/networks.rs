@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use alloy::primitives::{b256, fixed_bytes};
+use anyhow::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
-use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
@@ -26,7 +26,7 @@ pub enum Network {
 }
 
 impl FromStr for Network {
-    type Err = eyre::Report;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
@@ -34,7 +34,7 @@ impl FromStr for Network {
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
             "holesky" => Ok(Self::HOLESKY),
-            _ => Err(eyre::eyre!("network not recognized")),
+            _ => Err(anyhow::anyhow!("network not recognized")),
         }
     }
 }
@@ -68,7 +68,7 @@ impl Network {
             5 => Ok(Network::GOERLI),
             11155111 => Ok(Network::SEPOLIA),
             17000 => Ok(Network::HOLESKY),
-            _ => Err(eyre::eyre!("chain id not known")),
+            _ => Err(anyhow::anyhow!("chain id not known")),
         }
     }
 }

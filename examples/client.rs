@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use alloy::primitives::b256;
-use eyre::Result;
+use anyhow::Result;
 
 use helios::prelude::*;
 

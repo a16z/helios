@@ -3,7 +3,7 @@ pub mod nimbus_rpc;
 
 use alloy::primitives::B256;
 use async_trait::async_trait;
-use eyre::Result;
+use anyhow::Result;
 
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 

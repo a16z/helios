@@ -5,7 +5,7 @@ use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::types::{
     Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
 };
-use eyre::Result;
+use anyhow::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods, Error},
     proc_macros::rpc,

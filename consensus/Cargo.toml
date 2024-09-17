@@ -19,7 +19,7 @@ serde_json.workspace = true
 
 #misc
 alloy.workspace = true
-eyre.workspace = true
+anyhow.workspace = true
 hex.workspace = true
 tracing.workspace = true
 chrono.workspace = true

@@ -1,5 +1,6 @@
-use alloy::primitives::B256;
-use eyre::Result;
+use alloc::vec::Vec;
+use alloy_primitives::B256;
+use anyhow::Result;
 use ssz_types::{BitVector, FixedVector};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;

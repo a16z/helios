@@ -1,8 +1,8 @@
 use std::cmp;
 
 use alloy::primitives::B256;
+use anyhow::Result;
 use async_trait::async_trait;
-use eyre::Result;
 use retri::{retry, BackoffSettings};
 use serde::de::DeserializeOwned;
 
@@ -18,7 +18,7 @@ pub struct NimbusRpc {
 
 async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
     let bytes = retry(
-        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?.bytes().await?) },
+        || async { Ok::<_, anyhow::Error>(reqwest::get(req).await?.bytes().await?) },
         BackoffSettings::default(),
     )
     .await?;

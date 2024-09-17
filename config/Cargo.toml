@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 alloy.workspace = true
-eyre.workspace = true
+anyhow.workspace = true
 serde.workspace = true
 hex.workspace = true
 thiserror.workspace = true

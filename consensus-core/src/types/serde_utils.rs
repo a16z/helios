@@ -1,4 +1,5 @@
 pub mod u64 {
+    use alloc::string::{String, ToString};
     use serde::{de::Error, Deserializer, Serializer};
 
     pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
@@ -18,7 +19,8 @@ pub mod u64 {
 }
 
 pub mod u256 {
-    use alloy::primitives::U256;
+    use alloc::string::String;
+    use alloy_primitives::U256;
     use serde::{de::Error, Deserializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>

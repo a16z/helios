@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
 use ssz_types::{
@@ -6,20 +7,20 @@ use ssz_types::{
 };
 use tree_hash_derive::TreeHash;
 
-#[derive(Debug, Clone, Default, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Encode, TreeHash)]
 #[ssz(struct_behaviour = "transparent")]
 pub struct ByteVector<N: typenum::Unsigned> {
     pub inner: FixedVector<u8, N>,
 }
 
-#[derive(Debug, Clone, Default, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Encode, TreeHash)]
 #[ssz(struct_behaviour = "transparent")]
 pub struct ByteList<N: typenum::Unsigned> {
     pub inner: VariableList<u8, N>,
 }
 
 impl<'de, N: typenum::Unsigned> serde::Deserialize<'de> for ByteVector<N> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -38,7 +39,7 @@ impl<N: typenum::Unsigned> Serialize for ByteVector<N> {
 }
 
 impl<'de, N: typenum::Unsigned> Deserialize<'de> for ByteList<N> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {

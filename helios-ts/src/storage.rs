@@ -2,7 +2,7 @@ extern crate console_error_panic_hook;
 extern crate web_sys;
 
 use alloy::{hex::FromHex, primitives::B256};
-use eyre::Result;
+use anyhow::Result;
 use wasm_bindgen::prelude::*;
 
 use config::Config;
@@ -19,7 +19,7 @@ impl Database for LocalStorageDB {
             return Ok(Self {});
         }
 
-        eyre::bail!("local_storage not available")
+        anyhow::bail!("local_storage not available")
     }
 
     fn load_checkpoint(&self) -> Result<B256> {
@@ -29,12 +29,12 @@ impl Database for LocalStorageDB {
             if let Ok(Some(checkpoint)) = checkpoint {
                 let checkpoint = checkpoint.strip_prefix("0x").unwrap_or(&checkpoint);
                 return B256::from_hex(checkpoint)
-                    .map_err(|_| eyre::eyre!("Failed to decode checkpoint"));
+                    .map_err(|_| anyhow::anyhow!("Failed to decode checkpoint"));
             }
-            eyre::bail!("checkpoint not found")
+            anyhow::bail!("checkpoint not found")
         }
 
-        eyre::bail!("local_storage not available")
+        anyhow::bail!("local_storage not available")
     }
 
     fn save_checkpoint(&self, checkpoint: B256) -> Result<()> {
@@ -46,6 +46,6 @@ impl Database for LocalStorageDB {
             return Ok(());
         }
 
-        eyre::bail!("local_storage not available")
+        anyhow::bail!("local_storage not available")
     }
 }
