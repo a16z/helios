@@ -2594,6 +2594,7 @@ name = "helios"
 version = "0.6.0"
 dependencies = [
  "alloy",
+ "anyhow",
  "client",
  "common",
  "config",

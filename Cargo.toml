@@ -96,6 +96,7 @@ dotenv = "0.15.0"
 serde = { version = "1.0.154", features = ["derive"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+anyhow = { version = "1.0", default-features = false }
 alloy = { version = "0.2.1", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
 dirs = "5.0.1"

@@ -5,7 +5,7 @@ use bls12_381::{
     multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, Gt, Scalar,
 };
 use serde::{Deserialize, Serialize};
-use ssz_derive::{Decode, Encode};
+use ssz_derive::Encode;
 use tree_hash_derive::TreeHash;
 
 use super::bytes::ByteVector;
