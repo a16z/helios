@@ -71,3 +71,20 @@ jobs:
         with:
           command: clippy
           args: --all -- -D warnings
+  wasm-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Check wasm compatibility for common and consensus-core
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --target wasm32-unknown-unknown -p common -p consensus-core --no-default-features
