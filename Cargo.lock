@@ -1278,7 +1278,7 @@ dependencies = [
  "jsonrpsee",
  "parking_lot",
  "serde",
- "thiserror",
+ "thiserror-no-std",
  "tokio",
  "tracing",
  "wasm-bindgen-futures",

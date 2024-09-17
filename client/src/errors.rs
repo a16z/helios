@@ -1,5 +1,4 @@
-use anyhow::Report;
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 use common::errors::BlockNotFoundError;
 use execution::errors::EvmError;
@@ -11,28 +10,28 @@ pub enum NodeError {
     ExecutionEvmError(#[from] EvmError),
 
     #[error("execution error: {0}")]
-    ExecutionError(Report),
+    ExecutionError(anyhow::Error),
 
     #[error("out of sync: {0} seconds behind")]
     OutOfSync(u64),
 
     #[error("consensus payload error: {0}")]
-    ConsensusPayloadError(Report),
+    ConsensusPayloadError(anyhow::Error),
 
     #[error("execution payload error: {0}")]
-    ExecutionPayloadError(Report),
+    ExecutionPayloadError(anyhow::Error),
 
     #[error("consensus client creation error: {0}")]
-    ConsensusClientCreationError(Report),
+    ConsensusClientCreationError(anyhow::Error),
 
     #[error("execution client creation error: {0}")]
-    ExecutionClientCreationError(Report),
+    ExecutionClientCreationError(anyhow::Error),
 
     #[error("consensus advance error: {0}")]
-    ConsensusAdvanceError(Report),
+    ConsensusAdvanceError(anyhow::Error),
 
     #[error("consensus sync error: {0}")]
-    ConsensusSyncError(Report),
+    ConsensusSyncError(anyhow::Error),
 
     #[error(transparent)]
     BlockNotFoundError(#[from] BlockNotFoundError),
@@ -60,5 +59,11 @@ impl NodeError {
             },
             _ => jsonrpsee::core::Error::Custom(self.to_string()),
         }
+    }
+}
+
+impl From<NodeError> for anyhow::Error {
+    fn from(error: NodeError) -> Self {
+        anyhow::Error::msg(error.to_string())
     }
 }

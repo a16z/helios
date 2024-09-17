@@ -10,7 +10,7 @@ serde.workspace = true
 hex.workspace = true
 futures.workspace = true
 tracing.workspace = true
-thiserror.workspace = true
+thiserror-no-std.workspace = true
 tokio.workspace = true
 zduny-wasm-timer.workspace = true
 
