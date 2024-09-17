@@ -1,5 +1,5 @@
-use dirs::home_dir;
 use anyhow::Result;
+use dirs::home_dir;
 
 use config::CliConfig;
 use helios::prelude::*;

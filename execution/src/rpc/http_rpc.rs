@@ -7,8 +7,8 @@ use alloy::rpc::types::{
 };
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 use reqwest::Client;
 use revm::primitives::AccessList;
 

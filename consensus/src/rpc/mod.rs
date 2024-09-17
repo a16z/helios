@@ -2,8 +2,8 @@ pub mod mock_rpc;
 pub mod nimbus_rpc;
 
 use alloy::primitives::B256;
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 

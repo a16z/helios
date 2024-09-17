@@ -1,8 +1,8 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use alloy::primitives::B256;
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 
 use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
