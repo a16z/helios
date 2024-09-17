@@ -1,18 +1,13 @@
 use std::sync::Arc;
 
-use alloy::network::Ethereum;
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{
-    Filter, Log, SyncInfo, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
-};
+use alloy::rpc::types::{Filter, Log, SyncInfo, SyncStatus};
+use common::network_spec::NetworkSpec;
 use eyre::{eyre, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use common::types::{Block, BlockTag};
-use config::Config;
-use consensus::database::Database;
-use consensus::rpc::nimbus_rpc::NimbusRpc;
-use consensus::ConsensusClient;
+use consensus::Consensus;
 use execution::evm::Evm;
 use execution::rpc::http_rpc::HttpRpc;
 use execution::state::State;
@@ -20,23 +15,16 @@ use execution::ExecutionClient;
 
 use crate::errors::NodeError;
 
-pub struct Node<DB: Database> {
-    pub consensus: ConsensusClient<NimbusRpc, DB>,
-    pub execution: Arc<ExecutionClient<Ethereum, HttpRpc<Ethereum>>>,
-    pub config: Arc<Config>,
+pub struct Node<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+    pub consensus: C,
+    pub execution: Arc<ExecutionClient<N, HttpRpc<N>>>,
     pub history_size: usize,
 }
 
-impl<DB: Database> Node<DB> {
-    pub fn new(config: Arc<Config>) -> Result<Self, NodeError> {
-        let consensus_rpc = &config.consensus_rpc;
-        let execution_rpc = &config.execution_rpc;
-
-        let mut consensus = ConsensusClient::new(consensus_rpc, config.clone())
-            .map_err(NodeError::ConsensusClientCreationError)?;
-
-        let block_recv = consensus.block_recv.take().unwrap();
-        let finalized_block_recv = consensus.finalized_block_recv.take().unwrap();
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
+    pub fn new(execution_rpc: &str, mut consensus: C) -> Result<Self, NodeError> {
+        let block_recv = consensus.block_recv().take().unwrap();
+        let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
 
         let state = State::new(block_recv, finalized_block_recv, 256);
         let execution = Arc::new(
@@ -47,19 +35,22 @@ impl<DB: Database> Node<DB> {
         Ok(Node {
             consensus,
             execution,
-            config,
             history_size: 64,
         })
     }
 
-    pub async fn call(&self, tx: &TransactionRequest, block: BlockTag) -> Result<Bytes, NodeError> {
+    pub async fn call(
+        &self,
+        tx: &N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<Bytes, NodeError> {
         self.check_blocktag_age(&block).await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
         evm.call(tx).await.map_err(NodeError::ExecutionEvmError)
     }
 
-    pub async fn estimate_gas(&self, tx: &TransactionRequest) -> Result<u64, NodeError> {
+    pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64, NodeError> {
         self.check_head_age().await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
@@ -131,11 +122,11 @@ impl<DB: Database> Node<DB> {
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<TransactionReceipt>> {
+    ) -> Result<Option<N::ReceiptResponse>> {
         self.execution.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<Transaction> {
+    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<N::TransactionResponse> {
         self.execution.get_transaction(tx_hash).await
     }
 
@@ -143,7 +134,7 @@ impl<DB: Database> Node<DB> {
         &self,
         hash: B256,
         index: u64,
-    ) -> Option<Transaction> {
+    ) -> Option<N::TransactionResponse> {
         self.execution
             .get_transaction_by_block_hash_and_index(hash, index)
             .await
@@ -200,7 +191,7 @@ impl<DB: Database> Node<DB> {
         &self,
         tag: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>> {
+    ) -> Result<Option<Block<N::TransactionResponse>>> {
         self.check_blocktag_age(&tag).await?;
 
         match self.execution.get_block(tag, full_tx).await {
@@ -213,7 +204,7 @@ impl<DB: Database> Node<DB> {
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>> {
+    ) -> Result<Option<Block<N::TransactionResponse>>> {
         let block = self.execution.get_block_by_hash(hash, full_tx).await;
 
         match block {
@@ -223,7 +214,7 @@ impl<DB: Database> Node<DB> {
     }
 
     pub fn chain_id(&self) -> u64 {
-        self.config.chain.chain_id
+        self.consensus.chain_id()
     }
 
     pub async fn syncing(&self) -> Result<SyncStatus> {
@@ -231,7 +222,7 @@ impl<DB: Database> Node<DB> {
             Ok(SyncStatus::None)
         } else {
             let latest_synced_block = self.get_block_number().await.unwrap_or(U256::ZERO);
-            let highest_block = self.consensus.expected_current_slot();
+            let highest_block = self.consensus.expected_highest_block();
 
             Ok(SyncStatus::Info(Box::new(SyncInfo {
                 current_block: latest_synced_block,

@@ -6,8 +6,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alloy::network::Ethereum;
 use alloy::primitives::B256;
 use clap::Parser;
+use consensus::rpc::nimbus_rpc::NimbusRpc;
+use consensus::ConsensusClient;
 use dirs::home_dir;
 use eyre::Result;
 use futures::executor::block_on;
@@ -15,7 +18,7 @@ use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use client::{Client, ClientBuilder};
+use client::{Client, EthereumClientBuilder};
 use config::{CliConfig, Config};
 use consensus::database::FileDB;
 
@@ -33,7 +36,10 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 
     let config = get_config();
-    let mut client = match ClientBuilder::new().config(config).build::<FileDB>() {
+    let mut client = match EthereumClientBuilder::new()
+        .config(config)
+        .build::<FileDB>()
+    {
         Ok(client) => client,
         Err(err) => {
             error!(target: "helios::runner", error = %err);
@@ -50,7 +56,7 @@ async fn main() -> Result<()> {
     std::future::pending().await
 }
 
-fn register_shutdown_handler(client: Client<FileDB>) {
+fn register_shutdown_handler(client: Client<Ethereum, ConsensusClient<NimbusRpc, FileDB>>) {
     let client = Arc::new(client);
     let shutdown_counter = Arc::new(Mutex::new(0));
 

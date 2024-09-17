@@ -43,6 +43,7 @@ alloy = { version = "0.2.1", features = [
     "sol-types",
     "network",
     "ssz",
+    "json-rpc",
 ]}
 revm = { version = "12.1.0", default-features = false, features = [
     "std",

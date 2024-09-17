@@ -27,6 +27,7 @@ use config::Network;
 use super::rpc::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
+use crate::Consensus;
 
 use consensus_core::{
     apply_bootstrap, apply_finality_update, apply_optimistic_update, apply_update,
@@ -43,6 +44,7 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     genesis_time: u64,
     db: DB,
+    config: Arc<Config>,
     phantom: PhantomData<R>,
 }
 
@@ -57,12 +59,40 @@ pub struct Inner<R: ConsensusRpc> {
     pub config: Arc<Config>,
 }
 
+impl<R: ConsensusRpc, DB: Database> Consensus<Transaction> for ConsensusClient<R, DB> {
+    fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
+        self.block_recv.take()
+    }
+
+    fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+        self.finalized_block_recv.take()
+    }
+
+    fn expected_highest_block(&self) -> u64 {
+        todo!()
+    }
+
+    fn chain_id(&self) -> u64 {
+        self.config.chain.chain_id
+    }
+
+    fn shutdown(&self) -> Result<()> {
+        let checkpoint = self.checkpoint_recv.borrow();
+        if let Some(checkpoint) = checkpoint.as_ref() {
+            self.db.save_checkpoint(*checkpoint)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     pub fn new(rpc: &str, config: Arc<Config>) -> Result<ConsensusClient<R, DB>> {
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
 
+        let config_clone = config.clone();
         let rpc = rpc.to_string();
         let genesis_time = config.chain.genesis_time;
         let db = DB::new(&config)?;
@@ -132,17 +162,9 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
             checkpoint_recv,
             genesis_time,
             db,
+            config: config_clone,
             phantom: PhantomData,
         })
-    }
-
-    pub fn shutdown(&self) -> Result<()> {
-        let checkpoint = self.checkpoint_recv.borrow();
-        if let Some(checkpoint) = checkpoint.as_ref() {
-            self.db.save_checkpoint(*checkpoint)?;
-        }
-
-        Ok(())
     }
 
     pub fn expected_current_slot(&self) -> u64 {

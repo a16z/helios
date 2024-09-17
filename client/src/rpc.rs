@@ -1,10 +1,10 @@
 use std::net::{IpAddr, Ipv4Addr};
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
+use alloy::network::{ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
-use alloy::rpc::types::{
-    Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
-};
+use alloy::rpc::json_rpc::RpcObject;
+use alloy::rpc::types::{Filter, Log, SyncStatus};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods, Error},
@@ -13,19 +13,20 @@ use jsonrpsee::{
 };
 use tracing::info;
 
+use common::network_spec::NetworkSpec;
 use common::types::{Block, BlockTag};
-use consensus::database::Database;
+use consensus::Consensus;
 
 use crate::{errors::NodeError, node::Node};
 
-pub struct Rpc<DB: Database> {
-    node: Arc<Node<DB>>,
+pub struct Rpc<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+    node: Arc<Node<N, C>>,
     handle: Option<ServerHandle>,
     address: SocketAddr,
 }
 
-impl<DB: Database> Rpc<DB> {
-    pub fn new(node: Arc<Node<DB>>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Rpc<N, C> {
+    pub fn new(node: Arc<Node<N, C>>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
         let address = SocketAddr::new(
             ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             port.unwrap_or(0),
@@ -53,7 +54,7 @@ impl<DB: Database> Rpc<DB> {
 }
 
 #[rpc(server, namespace = "eth")]
-trait EthRpc {
+trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResponse + RpcObject> {
     #[method(name = "getBalance")]
     async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256, Error>;
     #[method(name = "getTransactionCount")]
@@ -65,9 +66,9 @@ trait EthRpc {
     #[method(name = "getCode")]
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, Error>;
     #[method(name = "call")]
-    async fn call(&self, tx: TransactionRequest, block: BlockTag) -> Result<Bytes, Error>;
+    async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, Error>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, tx: TransactionRequest) -> Result<U64, Error>;
+    async fn estimate_gas(&self, tx: TXR) -> Result<U64, Error>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<U64, Error>;
     #[method(name = "gasPrice")]
@@ -81,28 +82,25 @@ trait EthRpc {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>, Error>;
+    ) -> Result<Option<Block<TX>>, Error>;
     #[method(name = "getBlockByHash")]
     async fn get_block_by_hash(
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>, Error>;
+    ) -> Result<Option<Block<TX>>, Error>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256, Error>;
     #[method(name = "getTransactionReceipt")]
-    async fn get_transaction_receipt(
-        &self,
-        hash: B256,
-    ) -> Result<Option<TransactionReceipt>, Error>;
+    async fn get_transaction_receipt(&self, hash: B256) -> Result<Option<R>, Error>;
     #[method(name = "getTransactionByHash")]
-    async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<Transaction>, Error>;
+    async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<TX>, Error>;
     #[method(name = "getTransactionByBlockHashAndIndex")]
     async fn get_transaction_by_block_hash_and_index(
         &self,
         hash: B256,
         index: U64,
-    ) -> Result<Option<Transaction>, Error>;
+    ) -> Result<Option<TX>, Error>;
     #[method(name = "getLogs")]
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Error>;
     #[method(name = "getFilterChanges")]
@@ -134,14 +132,25 @@ trait NetRpc {
     async fn version(&self) -> Result<u64, Error>;
 }
 
-#[derive(Clone)]
-struct RpcInner<DB: Database> {
-    node: Arc<Node<DB>>,
+struct RpcInner<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+    node: Arc<Node<N, C>>,
     address: SocketAddr,
 }
 
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Clone for RpcInner<N, C> {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node.clone(),
+            address: self.address.clone(),
+        }
+    }
+}
+
 #[async_trait]
-impl<DB: Database> EthRpcServer for RpcInner<DB> {
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
+    EthRpcServer<N::TransactionResponse, N::TransactionRequest, N::ReceiptResponse>
+    for RpcInner<N, C>
+{
     async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256, Error> {
         convert_err(self.node.get_balance(address, block).await)
     }
@@ -162,14 +171,14 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         convert_err(self.node.get_code(address, block).await)
     }
 
-    async fn call(&self, tx: TransactionRequest, block: BlockTag) -> Result<Bytes, Error> {
+    async fn call(&self, tx: N::TransactionRequest, block: BlockTag) -> Result<Bytes, Error> {
         self.node
             .call(&tx, block)
             .await
             .map_err(NodeError::to_json_rpsee_error)
     }
 
-    async fn estimate_gas(&self, tx: TransactionRequest) -> Result<U64, Error> {
+    async fn estimate_gas(&self, tx: N::TransactionRequest) -> Result<U64, Error> {
         self.node
             .estimate_gas(&tx)
             .await
@@ -197,7 +206,7 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>, Error> {
+    ) -> Result<Option<Block<N::TransactionResponse>>, Error> {
         convert_err(self.node.get_block_by_number(block, full_tx).await)
     }
 
@@ -205,7 +214,7 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>, Error> {
+    ) -> Result<Option<Block<N::TransactionResponse>>, Error> {
         convert_err(self.node.get_block_by_hash(hash, full_tx).await)
     }
 
@@ -216,11 +225,14 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
     async fn get_transaction_receipt(
         &self,
         hash: B256,
-    ) -> Result<Option<TransactionReceipt>, Error> {
+    ) -> Result<Option<N::ReceiptResponse>, Error> {
         convert_err(self.node.get_transaction_receipt(hash).await)
     }
 
-    async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<Transaction>, Error> {
+    async fn get_transaction_by_hash(
+        &self,
+        hash: B256,
+    ) -> Result<Option<N::TransactionResponse>, Error> {
         Ok(self.node.get_transaction_by_hash(hash).await)
     }
 
@@ -228,7 +240,7 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         &self,
         hash: B256,
         index: U64,
-    ) -> Result<Option<Transaction>, Error> {
+    ) -> Result<Option<N::TransactionResponse>, Error> {
         Ok(self
             .node
             .get_transaction_by_block_hash_and_index(hash, index.to())
@@ -278,13 +290,15 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
 }
 
 #[async_trait]
-impl<DB: Database> NetRpcServer for RpcInner<DB> {
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> NetRpcServer for RpcInner<N, C> {
     async fn version(&self) -> Result<u64, Error> {
         Ok(self.node.chain_id())
     }
 }
 
-async fn start<DB: Database>(rpc: RpcInner<DB>) -> Result<(ServerHandle, SocketAddr)> {
+async fn start<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
+    rpc: RpcInner<N, C>,
+) -> Result<(ServerHandle, SocketAddr)> {
     let server = ServerBuilder::default().build(rpc.address).await?;
     let addr = server.local_addr()?;
 

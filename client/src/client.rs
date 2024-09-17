@@ -3,18 +3,20 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use alloy::network::Ethereum;
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{
-    Filter, Log, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
-};
+use alloy::rpc::types::{Filter, Log, SyncStatus};
+use consensus::rpc::nimbus_rpc::NimbusRpc;
 use eyre::{eyre, Result};
 use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
 
+use common::network_spec::NetworkSpec;
 use common::types::{Block, BlockTag};
 use config::networks::Network;
 use config::Config;
 use consensus::database::Database;
+use consensus::{Consensus, ConsensusClient};
 
 use crate::node::Node;
 
@@ -25,7 +27,7 @@ use std::path::PathBuf;
 use crate::rpc::Rpc;
 
 #[derive(Default)]
-pub struct ClientBuilder {
+pub struct EthereumClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
@@ -42,7 +44,7 @@ pub struct ClientBuilder {
     strict_checkpoint_age: bool,
 }
 
-impl ClientBuilder {
+impl EthereumClientBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -105,7 +107,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
+    pub fn build<DB: Database>(self) -> Result<Client<Ethereum, ConsensusClient<NimbusRpc, DB>>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -219,24 +221,30 @@ impl ClientBuilder {
             database_type: None,
         };
 
-        Client::<DB>::new(config)
+        let config = Arc::new(config);
+        let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
+
+        Client::<Ethereum, ConsensusClient<NimbusRpc, DB>>::new(
+            &config.execution_rpc.clone(),
+            consensus,
+            config,
+        )
     }
 }
 
-pub struct Client<DB: Database> {
-    node: Arc<Node<DB>>,
+pub struct Client<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+    node: Arc<Node<N, C>>,
     #[cfg(not(target_arch = "wasm32"))]
-    rpc: Option<Rpc<DB>>,
+    rpc: Option<Rpc<N, C>>,
 }
 
-impl<DB: Database> Client<DB> {
-    fn new(config: Config) -> Result<Self> {
-        let config = Arc::new(config);
-        let node = Node::new(config.clone())?;
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
+    fn new(execution_rpc: &str, consensus: C, config: Arc<Config>) -> Result<Self> {
+        let node = Node::new(execution_rpc, consensus)?;
         let node = Arc::new(node);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let mut rpc: Option<Rpc<DB>> = None;
+        let mut rpc: Option<Rpc<N, C>> = None;
 
         #[cfg(not(target_arch = "wasm32"))]
         if config.rpc_bind_ip.is_some() || config.rpc_port.is_some() {
@@ -266,11 +274,11 @@ impl<DB: Database> Client<DB> {
         }
     }
 
-    pub async fn call(&self, tx: &TransactionRequest, block: BlockTag) -> Result<Bytes> {
+    pub async fn call(&self, tx: &N::TransactionRequest, block: BlockTag) -> Result<Bytes> {
         self.node.call(tx, block).await.map_err(|err| err.into())
     }
 
-    pub async fn estimate_gas(&self, tx: &TransactionRequest) -> Result<u64> {
+    pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64> {
         self.node.estimate_gas(tx).await.map_err(|err| err.into())
     }
 
@@ -310,11 +318,11 @@ impl<DB: Database> Client<DB> {
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<TransactionReceipt>> {
+    ) -> Result<Option<N::ReceiptResponse>> {
         self.node.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<Transaction> {
+    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<N::TransactionResponse> {
         self.node.get_transaction_by_hash(tx_hash).await
     }
 
@@ -358,7 +366,7 @@ impl<DB: Database> Client<DB> {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>> {
+    ) -> Result<Option<Block<N::TransactionResponse>>> {
         self.node.get_block_by_number(block, full_tx).await
     }
 
@@ -366,7 +374,7 @@ impl<DB: Database> Client<DB> {
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<Transaction>>> {
+    ) -> Result<Option<Block<N::TransactionResponse>>> {
         self.node.get_block_by_hash(hash, full_tx).await
     }
 
@@ -374,7 +382,7 @@ impl<DB: Database> Client<DB> {
         &self,
         block_hash: B256,
         index: u64,
-    ) -> Option<Transaction> {
+    ) -> Option<N::TransactionResponse> {
         self.node
             .get_transaction_by_block_hash_and_index(block_hash, index)
             .await

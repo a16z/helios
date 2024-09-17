@@ -9,7 +9,7 @@ use consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUp
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-pub trait ConsensusRpc: Send + Sync {
+pub trait ConsensusRpc: Send + Sync + 'static {
     fn new(path: &str) -> Self;
     async fn get_bootstrap(&self, checkpoint: B256) -> Result<Bootstrap>;
     async fn get_updates(&self, period: u64, count: u8) -> Result<Vec<Update>>;
