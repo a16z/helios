@@ -16,18 +16,6 @@ impl BlockNotFoundError {
 }
 
 #[derive(Debug, Error)]
-#[error("slot not found: {slot:?}")]
-pub struct SlotNotFoundError {
-    slot: B256,
-}
-
-impl SlotNotFoundError {
-    pub fn new(slot: B256) -> Self {
-        Self { slot }
-    }
-}
-
-#[derive(Debug, Error)]
 #[error("rpc error on method: {method}, message: {error}")]
 pub struct RpcError<E: ToString> {
     method: String,
