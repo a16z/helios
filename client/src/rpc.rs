@@ -56,17 +56,35 @@ impl<DB: Database> Rpc<DB> {
 #[rpc(server, namespace = "eth")]
 trait EthRpc {
     #[method(name = "getBalance")]
-    async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256, ErrorObjectOwned>;
+    async fn get_balance(
+        &self,
+        address: Address,
+        block: BlockTag,
+    ) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "getTransactionCount")]
-    async fn get_transaction_count(&self, address: Address, block: BlockTag) -> Result<U64, ErrorObjectOwned>;
+    async fn get_transaction_count(
+        &self,
+        address: Address,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockTransactionCountByHash")]
-    async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<U64, ErrorObjectOwned>;
+    async fn get_block_transaction_count_by_hash(
+        &self,
+        hash: B256,
+    ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockTransactionCountByNumber")]
-    async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<U64, ErrorObjectOwned>;
+    async fn get_block_transaction_count_by_number(
+        &self,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getCode")]
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "call")]
-    async fn call(&self, tx: TransactionRequest, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
+    async fn call(
+        &self,
+        tx: TransactionRequest,
+        block: BlockTag,
+    ) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
     async fn estimate_gas(&self, tx: TransactionRequest) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "chainId")]
@@ -84,7 +102,11 @@ trait EthRpc {
         full_tx: bool,
     ) -> Result<Option<Block>, ErrorObjectOwned>;
     #[method(name = "getBlockByHash")]
-    async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>, ErrorObjectOwned>;
+    async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Option<Block>, ErrorObjectOwned>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "getTransactionReceipt")]
@@ -93,7 +115,10 @@ trait EthRpc {
         hash: B256,
     ) -> Result<Option<TransactionReceipt>, ErrorObjectOwned>;
     #[method(name = "getTransactionByHash")]
-    async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<Transaction>, ErrorObjectOwned>;
+    async fn get_transaction_by_hash(
+        &self,
+        hash: B256,
+    ) -> Result<Option<Transaction>, ErrorObjectOwned>;
     #[method(name = "getTransactionByBlockHashAndIndex")]
     async fn get_transaction_by_block_hash_and_index(
         &self,
@@ -139,19 +164,33 @@ struct RpcInner<DB: Database> {
 
 #[async_trait]
 impl<DB: Database> EthRpcServer for RpcInner<DB> {
-    async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256, ErrorObjectOwned> {
+    async fn get_balance(
+        &self,
+        address: Address,
+        block: BlockTag,
+    ) -> Result<U256, ErrorObjectOwned> {
         convert_err(self.node.get_balance(address, block).await)
     }
 
-    async fn get_transaction_count(&self, address: Address, block: BlockTag) -> Result<U64, ErrorObjectOwned> {
+    async fn get_transaction_count(
+        &self,
+        address: Address,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned> {
         convert_err(self.node.get_nonce(address, block).await).map(U64::from)
     }
 
-    async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<U64, ErrorObjectOwned> {
+    async fn get_block_transaction_count_by_hash(
+        &self,
+        hash: B256,
+    ) -> Result<U64, ErrorObjectOwned> {
         convert_err(self.node.get_block_transaction_count_by_hash(hash).await).map(U64::from)
     }
 
-    async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<U64, ErrorObjectOwned> {
+    async fn get_block_transaction_count_by_number(
+        &self,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned> {
         convert_err(self.node.get_block_transaction_count_by_number(block).await).map(U64::from)
     }
 
@@ -159,7 +198,11 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         convert_err(self.node.get_code(address, block).await)
     }
 
-    async fn call(&self, tx: TransactionRequest, block: BlockTag) -> Result<Bytes, ErrorObjectOwned> {
+    async fn call(
+        &self,
+        tx: TransactionRequest,
+        block: BlockTag,
+    ) -> Result<Bytes, ErrorObjectOwned> {
         self.node
             .call(&tx, block)
             .await
@@ -198,7 +241,11 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         convert_err(self.node.get_block_by_number(block, full_tx).await)
     }
 
-    async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Result<Option<Block>, ErrorObjectOwned> {
+    async fn get_block_by_hash(
+        &self,
+        hash: B256,
+        full_tx: bool,
+    ) -> Result<Option<Block>, ErrorObjectOwned> {
         convert_err(self.node.get_block_by_hash(hash, full_tx).await)
     }
 
@@ -213,7 +260,10 @@ impl<DB: Database> EthRpcServer for RpcInner<DB> {
         convert_err(self.node.get_transaction_receipt(hash).await)
     }
 
-    async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<Transaction>, ErrorObjectOwned> {
+    async fn get_transaction_by_hash(
+        &self,
+        hash: B256,
+    ) -> Result<Option<Transaction>, ErrorObjectOwned> {
         Ok(self.node.get_transaction_by_hash(hash).await)
     }
 

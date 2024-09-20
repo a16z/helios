@@ -54,7 +54,9 @@ impl NodeError {
                         data.map(|data| format!("0x{}", hex::encode(data))),
                     )
                 }
-                _ => jsonrpsee::types::error::ErrorObject::owned(1, evm_err.to_string(), None::<()>),
+                _ => {
+                    jsonrpsee::types::error::ErrorObject::owned(1, evm_err.to_string(), None::<()>)
+                }
             },
             _ => jsonrpsee::types::error::ErrorObject::owned(1, self.to_string(), None::<()>),
         }
