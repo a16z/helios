@@ -4,7 +4,9 @@ use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
 
-use helios_consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use helios_consensus_core::types::{
+    BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update,
+};
 
 use super::ConsensusRpc;
 

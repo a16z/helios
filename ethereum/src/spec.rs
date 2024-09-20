@@ -1,5 +1,7 @@
 use alloy::{
-    consensus::{BlobTransactionSidecar, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction},
+    consensus::{
+        BlobTransactionSidecar, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
+    },
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
@@ -53,16 +55,27 @@ impl NetworkSpec for Ethereum {
     fn tx_env(tx: &TransactionRequest) -> TxEnv {
         let mut tx_env = TxEnv::default();
         tx_env.caller = tx.from.unwrap_or_default();
-        tx_env.gas_limit = <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx).map(|v| v as u64).unwrap_or(u64::MAX);
-        tx_env.gas_price = <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx).map(U256::from).unwrap_or_default();
+        tx_env.gas_limit = <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
+            .map(|v| v as u64)
+            .unwrap_or(u64::MAX);
+        tx_env.gas_price = <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
+            .map(U256::from)
+            .unwrap_or_default();
         tx_env.transact_to = tx.to.unwrap_or_default();
         tx_env.value = tx.value.unwrap_or_default();
-        tx_env.data = <TransactionRequest as TransactionBuilder<Self>>::input(tx).unwrap_or_default().clone();
+        tx_env.data = <TransactionRequest as TransactionBuilder<Self>>::input(tx)
+            .unwrap_or_default()
+            .clone();
         tx_env.nonce = <TransactionRequest as TransactionBuilder<Self>>::nonce(tx);
         tx_env.chain_id = <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx);
-        tx_env.access_list =<TransactionRequest as TransactionBuilder<Self>>::access_list(tx).map(|v| v.to_vec()).unwrap_or_default();
-        tx_env.gas_priority_fee = <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx).map(U256::from);
-        tx_env.max_fee_per_blob_gas = <TransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
+        tx_env.access_list = <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
+            .map(|v| v.to_vec())
+            .unwrap_or_default();
+        tx_env.gas_priority_fee =
+            <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
+                .map(U256::from);
+        tx_env.max_fee_per_blob_gas =
+            <TransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
         tx_env.blob_hashes = tx
             .blob_versioned_hashes
             .as_ref()

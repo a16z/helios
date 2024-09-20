@@ -5,7 +5,9 @@ use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
 
-use helios_consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use helios_consensus_core::types::{
+    BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update,
+};
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]

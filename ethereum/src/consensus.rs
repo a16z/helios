@@ -19,8 +19,6 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::watch;
 
-use helios_core::common::types::{Block, Transactions};
-use helios_core::Consensus;
 use helios_consensus_core::{
     apply_bootstrap, apply_finality_update, apply_optimistic_update, apply_update,
     calc_sync_period,
@@ -29,6 +27,8 @@ use helios_consensus_core::{
     types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
     verify_bootstrap, verify_finality_update, verify_optimistic_update, verify_update,
 };
+use helios_core::common::types::{Block, Transactions};
+use helios_core::Consensus;
 
 use crate::config::CheckpointFallback;
 use crate::config::Config;
@@ -665,11 +665,11 @@ mod tests {
     };
 
     use crate::{
+        config::{networks, Config},
         consensus::calc_sync_period,
+        consensus::Inner,
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
-        consensus::Inner,
-        config::{networks, Config},
     };
 
     async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {

@@ -6,8 +6,10 @@ use eyre::Result;
 use retri::{retry, BackoffSettings};
 use serde::de::DeserializeOwned;
 
+use helios_consensus_core::types::{
+    BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update,
+};
 use helios_core::common::errors::RpcError;
-use helios_consensus_core::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;

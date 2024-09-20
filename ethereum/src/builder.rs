@@ -8,11 +8,11 @@ use eyre::{eyre, Result};
 
 use helios_core::client::Client;
 
-use crate::rpc::nimbus_rpc::NimbusRpc;
-use crate::database::Database;
-use crate::consensus::ConsensusClient;
 use crate::config::networks::Network;
 use crate::config::Config;
+use crate::consensus::ConsensusClient;
+use crate::database::Database;
+use crate::rpc::nimbus_rpc::NimbusRpc;
 use crate::spec::Ethereum;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -213,7 +213,7 @@ impl EthereumClientBuilder {
             database_type: None,
         };
 
-        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127,0,0,1)), 8545);
+        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8545);
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
 
