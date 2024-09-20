@@ -6,21 +6,22 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use alloy::network::Ethereum;
 use alloy::primitives::B256;
 use clap::Parser;
-use consensus::rpc::nimbus_rpc::NimbusRpc;
-use consensus::ConsensusClient;
 use dirs::home_dir;
 use eyre::Result;
 use futures::executor::block_on;
+use helios_ethereum::spec::Ethereum;
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use client::{Client, EthereumClientBuilder};
-use config::{CliConfig, Config};
-use consensus::database::FileDB;
+use helios_core::client::Client;
+use helios_ethereum::rpc::nimbus_rpc::NimbusRpc;
+use helios_ethereum::consensus::ConsensusClient;
+use helios_ethereum::builder::EthereumClientBuilder;
+use helios_ethereum::config::{CliConfig, Config};
+use helios_ethereum::database::FileDB;
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -1,6 +1,6 @@
 [package]
-name = "core"
-version = "0.5.5"
+name = "helios-core"
+version = "0.7.0"
 edition = "2021"
 
 [dependencies]

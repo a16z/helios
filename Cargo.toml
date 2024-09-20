@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 autobenches = false
 exclude = ["benches"]
@@ -8,13 +8,10 @@ exclude = ["benches"]
 [workspace]
 members = [
     "cli",
-    "client",
-    "common",
-    "config",
-    "consensus",
-    "execution",
-    "helios-ts",
-    "consensus-core",
+    "core",
+    "ethereum",
+    "ethereum/consensus-core",
+    #"helios-ts",
 ]
 
 default-members = ["cli"]
@@ -80,14 +77,6 @@ typenum = "1.17.0"
 ######################################
 # Top Level Dependencies
 ######################################
-
-[dependencies]
-client = { path = "./client" }
-config = { path = "./config" }
-common = { path = "./common" }
-consensus = { path = "./consensus" }
-execution = { path = "./execution" }
-consensus-core = { path = "./consensus-core" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
