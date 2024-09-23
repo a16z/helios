@@ -1,6 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
-use std::net::IpAddr;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use alloy::primitives::B256;
@@ -15,9 +16,6 @@ use crate::database::Database;
 use crate::rpc::http_rpc::HttpRpc;
 use crate::spec::Ethereum;
 use crate::EthereumClient;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct EthereumClientBuilder {
@@ -214,14 +212,21 @@ impl EthereumClientBuilder {
             database_type: None,
         };
 
-        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8545);
+        #[cfg(not(target_arch = "wasm32"))]
+        let socket = if rpc_bind_ip.is_some() && rpc_port.is_some() {
+            Some(SocketAddr::new(rpc_bind_ip.unwrap(), rpc_port.unwrap()))
+        } else {
+            None
+        };
+
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
 
         Client::<Ethereum, ConsensusClient<HttpRpc, DB>>::new(
             &config.execution_rpc.clone(),
             consensus,
-            Some(socket),
+            #[cfg(not(target_arch = "wasm32"))]
+            socket,
         )
     }
 }

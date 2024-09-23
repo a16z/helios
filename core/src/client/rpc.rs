@@ -1,4 +1,3 @@
-use std::net::{IpAddr, Ipv4Addr};
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
 use alloy::network::{ReceiptResponse, TransactionResponse};
@@ -25,11 +24,7 @@ pub struct Rpc<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
 }
 
 impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Rpc<N, C> {
-    pub fn new(node: Arc<Node<N, C>>, ip: Option<IpAddr>, port: Option<u16>) -> Self {
-        let address = SocketAddr::new(
-            ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
-            port.unwrap_or(0),
-        );
+    pub fn new(node: Arc<Node<N, C>>, address: SocketAddr) -> Self {
         Rpc {
             node,
             handle: None,

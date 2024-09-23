@@ -87,9 +87,7 @@ fn register_shutdown_handler(client: EthereumClient<FileDB>) {
 
 fn get_config() -> Config {
     let cli = Cli::parse();
-
     let config_path = home_dir().unwrap().join(".helios/helios.toml");
-
     let cli_config = cli.as_cli_config();
 
     Config::from_file(&config_path, &cli.network, &cli_config)

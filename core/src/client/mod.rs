@@ -25,7 +25,12 @@ pub struct Client<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
 }
 
 impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
-    pub fn new(execution_rpc: &str, consensus: C, rpc_address: Option<SocketAddr>) -> Result<Self> {
+    pub fn new(
+        execution_rpc: &str,
+        consensus: C,
+        #[cfg(not(target_arch = "wasm32"))]
+        rpc_address: Option<SocketAddr>
+    ) -> Result<Self> {
         let node = Node::new(execution_rpc, consensus)?;
         let node = Arc::new(node);
 
@@ -36,8 +41,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         if let Some(rpc_address) = rpc_address {
             rpc = Some(Rpc::new(
                 node.clone(),
-                Some(rpc_address.ip()),
-                Some(rpc_address.port()),
+                rpc_address,
             ));
         }
 
