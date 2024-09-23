@@ -15,13 +15,9 @@ use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios_core::client::Client;
-use helios_ethereum::builder::EthereumClientBuilder;
 use helios_ethereum::config::{cli::CliConfig, Config};
-use helios_ethereum::consensus::ConsensusClient;
 use helios_ethereum::database::FileDB;
-use helios_ethereum::rpc::nimbus_rpc::NimbusRpc;
-use helios_ethereum::spec::Ethereum;
+use helios_ethereum::{EthereumClient, EthereumClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -57,7 +53,7 @@ async fn main() -> Result<()> {
     std::future::pending().await
 }
 
-fn register_shutdown_handler(client: Client<Ethereum, ConsensusClient<NimbusRpc, FileDB>>) {
+fn register_shutdown_handler(client: EthereumClient<FileDB>) {
     let client = Arc::new(client);
     let shutdown_counter = Arc::new(Mutex::new(0));
 

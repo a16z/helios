@@ -12,13 +12,12 @@ use crate::config::networks::Network;
 use crate::config::Config;
 use crate::consensus::ConsensusClient;
 use crate::database::Database;
-use crate::rpc::nimbus_rpc::NimbusRpc;
+use crate::rpc::http_rpc::HttpRpc;
 use crate::spec::Ethereum;
+use crate::EthereumClient;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-
-type EthereumClient<DB> = Client<Ethereum, ConsensusClient<NimbusRpc, DB>>;
 
 #[derive(Default)]
 pub struct EthereumClientBuilder {
@@ -219,7 +218,7 @@ impl EthereumClientBuilder {
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
 
-        Client::<Ethereum, ConsensusClient<NimbusRpc, DB>>::new(
+        Client::<Ethereum, ConsensusClient<HttpRpc, DB>>::new(
             &config.execution_rpc.clone(),
             consensus,
             Some(socket),
