@@ -2448,7 +2448,6 @@ dependencies = [
  "dirs",
  "eyre",
  "futures",
- "helios-core",
  "helios-ethereum",
  "tokio",
  "tracing",

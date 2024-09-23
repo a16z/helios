@@ -20,4 +20,3 @@ dirs = "5.0.1"
 ctrlc = "3.2.3"
 
 helios-ethereum = { path = "../ethereum" }
-helios-core = { path = "../core" }
