@@ -135,7 +135,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Clone for RpcInner<N,
     fn clone(&self) -> Self {
         Self {
             node: self.node.clone(),
-            address: self.address.clone(),
+            address: self.address,
         }
     }
 }
