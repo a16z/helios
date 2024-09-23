@@ -30,9 +30,9 @@ use helios_consensus_core::{
 use helios_core::consensus::Consensus;
 use helios_core::types::{Block, Transactions};
 
-use crate::config::CheckpointFallback;
+use crate::config::checkpoints::CheckpointFallback;
+use crate::config::networks::Network;
 use crate::config::Config;
-use crate::config::Network;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
 use crate::rpc::ConsensusRpc;

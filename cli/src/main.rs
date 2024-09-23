@@ -17,7 +17,7 @@ use tracing_subscriber::FmtSubscriber;
 
 use helios_core::client::Client;
 use helios_ethereum::builder::EthereumClientBuilder;
-use helios_ethereum::config::{CliConfig, Config};
+use helios_ethereum::config::{cli::CliConfig, Config};
 use helios_ethereum::consensus::ConsensusClient;
 use helios_ethereum::database::FileDB;
 use helios_ethereum::rpc::nimbus_rpc::NimbusRpc;
