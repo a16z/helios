@@ -3,6 +3,8 @@ use alloy::sol_types::decode_revert_reason;
 use eyre::Report;
 use thiserror::Error;
 
+use crate::types::BlockTag;
+
 #[derive(Debug, Error)]
 pub enum ExecutionError {
     #[error("invalid account proof for address: {0}")]
@@ -21,12 +23,14 @@ pub enum ExecutionError {
     TooManyLogsToProve(usize, usize),
     #[error("execution rpc is for the incorrect network")]
     IncorrectRpcNetwork(),
+    #[error("block not found: {0}")]
+    BlockNotFound(BlockTag),
 }
 
 /// Errors that can occur during evm.rs calls
 #[derive(Debug, Error)]
 pub enum EvmError {
-    #[error("execution reverted: {0:?}")]
+    #[error("execution reverted: {}", display_revert(.0))]
     Revert(Option<Bytes>),
 
     #[error("evm error: {0:?}")]
@@ -36,8 +40,9 @@ pub enum EvmError {
     RpcError(Report),
 }
 
-impl EvmError {
-    pub fn decode_revert_reason(data: impl AsRef<[u8]>) -> Option<String> {
-        decode_revert_reason(data.as_ref())
+fn display_revert(output: &Option<Bytes>) -> String {
+    match output {
+        Some(bytes) => decode_revert_reason(bytes.as_ref()).unwrap_or(hex::encode(bytes)),
+        None => "execution halted".to_string(),
     }
 }

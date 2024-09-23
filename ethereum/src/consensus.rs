@@ -27,8 +27,8 @@ use helios_consensus_core::{
     types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
     verify_bootstrap, verify_finality_update, verify_optimistic_update, verify_update,
 };
-use helios_core::common::types::{Block, Transactions};
-use helios_core::Consensus;
+use helios_core::consensus::Consensus;
+use helios_core::types::{Block, Transactions};
 
 use crate::config::CheckpointFallback;
 use crate::config::Config;

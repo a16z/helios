@@ -9,9 +9,9 @@ use eyre::Result;
 use reqwest::Client;
 use revm::primitives::AccessList;
 
-use crate::common::errors::RpcError;
-use crate::common::types::BlockTag;
+use crate::errors::RpcError;
 use crate::network_spec::NetworkSpec;
+use crate::types::BlockTag;
 
 use super::ExecutionRpc;
 

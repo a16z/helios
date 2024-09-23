@@ -13,10 +13,10 @@ use jsonrpsee::{
 };
 use tracing::info;
 
-use crate::client::{errors::NodeError, node::Node};
-use crate::common::types::{Block, BlockTag};
+use crate::client::node::Node;
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
+use crate::types::{Block, BlockTag};
 
 pub struct Rpc<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
     node: Arc<Node<N, C>>,
@@ -171,17 +171,14 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
     }
 
     async fn call(&self, tx: N::TransactionRequest, block: BlockTag) -> Result<Bytes, Error> {
-        self.node
-            .call(&tx, block)
-            .await
-            .map_err(NodeError::to_json_rpsee_error)
+        self.node.call(&tx, block).await.map_err(Error::from)
     }
 
     async fn estimate_gas(&self, tx: N::TransactionRequest) -> Result<U64, Error> {
         self.node
             .estimate_gas(&tx)
             .await
-            .map_err(NodeError::to_json_rpsee_error)
+            .map_err(Error::from)
             .map(U64::from)
     }
 

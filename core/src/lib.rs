@@ -1,10 +1,8 @@
-#![feature(associated_type_defaults)]
-
 pub mod client;
-pub mod common;
+pub mod consensus;
+pub mod errors;
 pub mod network_spec;
+pub mod types;
 
-mod consensus;
 mod execution;
 
-pub use consensus::Consensus;

@@ -12,11 +12,11 @@ use revm::{
 };
 use tracing::trace;
 
-use crate::common::types::BlockTag;
 use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, ExecutionClient,
 };
 use crate::network_spec::NetworkSpec;
+use crate::types::BlockTag;
 
 pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
     execution: Arc<ExecutionClient<N, R>>,

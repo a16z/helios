@@ -11,7 +11,6 @@ use clap::Parser;
 use dirs::home_dir;
 use eyre::Result;
 use futures::executor::block_on;
-use helios_ethereum::spec::Ethereum;
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
@@ -22,6 +21,7 @@ use helios_ethereum::config::{CliConfig, Config};
 use helios_ethereum::consensus::ConsensusClient;
 use helios_ethereum::database::FileDB;
 use helios_ethereum::rpc::nimbus_rpc::NimbusRpc;
+use helios_ethereum::spec::Ethereum;
 
 #[tokio::main]
 async fn main() -> Result<()> {

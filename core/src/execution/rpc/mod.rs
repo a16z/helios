@@ -3,8 +3,8 @@ use alloy::rpc::types::{AccessList, EIP1186AccountProofResponse, FeeHistory, Fil
 use async_trait::async_trait;
 use eyre::Result;
 
-use crate::common::types::BlockTag;
 use crate::network_spec::NetworkSpec;
+use crate::types::BlockTag;
 
 pub mod http_rpc;
 pub mod mock_rpc;

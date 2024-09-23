@@ -3,7 +3,7 @@ use eyre::Result;
 use serde::Serialize;
 use tokio::sync::{mpsc, watch};
 
-use crate::common::types::Block;
+use crate::types::Block;
 
 pub trait Consensus<T: TransactionResponse + Serialize>: Sync + Send + 'static {
     fn block_recv(&mut self) -> Option<mpsc::Receiver<Block<T>>>;

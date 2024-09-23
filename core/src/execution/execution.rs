@@ -9,12 +9,11 @@ use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
-use crate::common::errors::BlockNotFoundError;
-use crate::common::types::{Block, BlockTag, Transactions};
 use crate::execution::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use crate::execution::errors::ExecutionError;
 use crate::execution::state::State;
 use crate::network_spec::NetworkSpec;
+use crate::types::{Block, BlockTag, Transactions};
 
 use super::proof::{encode_account, verify_proof};
 use super::rpc::ExecutionRpc;
@@ -51,7 +50,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .state
             .get_block(tag)
             .await
-            .ok_or(BlockNotFoundError::new(tag))?;
+            .ok_or(ExecutionError::BlockNotFound(tag))?;
 
         let proof = self
             .rpc
@@ -131,7 +130,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .state
             .get_block(tag)
             .await
-            .ok_or(BlockNotFoundError::new(tag))?;
+            .ok_or(ExecutionError::BlockNotFound(tag))?;
 
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());

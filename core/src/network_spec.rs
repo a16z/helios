@@ -1,7 +1,7 @@
 use alloy::{network::Network, rpc::types::Log};
 use revm::primitives::{BlockEnv, TxEnv};
 
-use crate::common::types::Block;
+use crate::types::Block;
 
 pub trait NetworkSpec: Network {
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8>;

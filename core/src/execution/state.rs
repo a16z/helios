@@ -9,8 +9,8 @@ use tokio::{
     sync::{mpsc::Receiver, watch, RwLock},
 };
 
-use crate::common::types::{Block, BlockTag, Transactions};
 use crate::network_spec::NetworkSpec;
+use crate::types::{Block, BlockTag, Transactions};
 
 #[derive(Clone)]
 pub struct State<N: NetworkSpec> {

@@ -18,6 +18,8 @@ use crate::spec::Ethereum;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
+type EthereumClient<DB> = Client<Ethereum, ConsensusClient<NimbusRpc, DB>>;
+
 #[derive(Default)]
 pub struct EthereumClientBuilder {
     network: Option<Network>,
@@ -99,7 +101,7 @@ impl EthereumClientBuilder {
         self
     }
 
-    pub fn build<DB: Database>(self) -> Result<Client<Ethereum, ConsensusClient<NimbusRpc, DB>>> {
+    pub fn build<DB: Database>(self) -> Result<EthereumClient<DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {

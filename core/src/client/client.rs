@@ -9,9 +9,9 @@ use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
 
 use crate::client::node::Node;
-use crate::common::types::{Block, BlockTag};
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
+use crate::types::{Block, BlockTag};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;

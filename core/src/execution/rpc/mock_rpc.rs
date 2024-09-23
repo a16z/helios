@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use eyre::{eyre, Result};
 
 use super::ExecutionRpc;
-use crate::common::types::BlockTag;
 use crate::network_spec::NetworkSpec;
+use crate::types::BlockTag;
 
 #[derive(Clone)]
 pub struct MockRpc {

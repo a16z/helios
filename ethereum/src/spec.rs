@@ -8,7 +8,7 @@ use alloy::{
 };
 use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
-use helios_core::{common::types::Block, network_spec::NetworkSpec};
+use helios_core::{network_spec::NetworkSpec, types::Block};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ethereum;

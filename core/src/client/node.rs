@@ -5,14 +5,14 @@ use alloy::rpc::types::{Filter, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use crate::client::errors::NodeError;
-use crate::common::types::{Block, BlockTag};
 use crate::consensus::Consensus;
+use crate::errors::ClientError;
 use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::state::State;
 use crate::execution::ExecutionClient;
 use crate::network_spec::NetworkSpec;
+use crate::types::{Block, BlockTag};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
     pub consensus: C,
@@ -21,14 +21,13 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
 }
 
 impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
-    pub fn new(execution_rpc: &str, mut consensus: C) -> Result<Self, NodeError> {
+    pub fn new(execution_rpc: &str, mut consensus: C) -> Result<Self, ClientError> {
         let block_recv = consensus.block_recv().take().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
 
         let state = State::new(block_recv, finalized_block_recv, 256);
         let execution = Arc::new(
-            ExecutionClient::new(execution_rpc, state)
-                .map_err(NodeError::ExecutionClientCreationError)?,
+            ExecutionClient::new(execution_rpc, state).map_err(ClientError::InternalError)?,
         );
 
         Ok(Node {
@@ -42,21 +41,19 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         &self,
         tx: &N::TransactionRequest,
         block: BlockTag,
-    ) -> Result<Bytes, NodeError> {
+    ) -> Result<Bytes, ClientError> {
         self.check_blocktag_age(&block).await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
-        evm.call(tx).await.map_err(NodeError::ExecutionEvmError)
+        evm.call(tx).await.map_err(ClientError::EvmError)
     }
 
-    pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64, NodeError> {
+    pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64, ClientError> {
         self.check_head_age().await?;
 
         let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
 
-        evm.estimate_gas(tx)
-            .await
-            .map_err(NodeError::ExecutionEvmError)
+        evm.estimate_gas(tx).await.map_err(ClientError::EvmError)
     }
 
     pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
@@ -239,7 +236,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         Ok(block.miner)
     }
 
-    async fn check_head_age(&self) -> Result<(), NodeError> {
+    async fn check_head_age(&self) -> Result<(), ClientError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -249,19 +246,19 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .execution
             .get_block(BlockTag::Latest, false)
             .await
-            .map_err(|_| NodeError::OutOfSync(timestamp))?
+            .map_err(|_| ClientError::OutOfSync(timestamp))?
             .timestamp
             .to();
 
         let delay = timestamp.checked_sub(block_timestamp).unwrap_or_default();
         if delay > 60 {
-            return Err(NodeError::OutOfSync(delay));
+            return Err(ClientError::OutOfSync(delay));
         }
 
         Ok(())
     }
 
-    async fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), NodeError> {
+    async fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), ClientError> {
         match block {
             BlockTag::Latest => self.check_head_age().await,
             BlockTag::Finalized => Ok(()),
