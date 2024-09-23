@@ -1,9 +1,9 @@
 use alloy::primitives::B256;
-use config::networks;
+use helios_ethereum::config::{checkpoints, networks};
 
 #[tokio::test]
 async fn test_checkpoint_fallback() {
-    let cf = config::checkpoints::CheckpointFallback::new();
+    let cf = checkpoints::CheckpointFallback::new();
 
     assert_eq!(cf.services.get(&networks::Network::MAINNET), None);
     assert_eq!(cf.services.get(&networks::Network::GOERLI), None);
@@ -24,7 +24,7 @@ async fn test_checkpoint_fallback() {
 
 #[tokio::test]
 async fn test_construct_checkpoints() {
-    let cf = config::checkpoints::CheckpointFallback::new()
+    let cf = checkpoints::CheckpointFallback::new()
         .build()
         .await
         .unwrap();
@@ -37,7 +37,7 @@ async fn test_construct_checkpoints() {
 
 #[tokio::test]
 async fn test_fetch_latest_checkpoints() {
-    let cf = config::checkpoints::CheckpointFallback::new()
+    let cf = checkpoints::CheckpointFallback::new()
         .build()
         .await
         .unwrap();
@@ -60,7 +60,7 @@ async fn test_fetch_latest_checkpoints() {
 
 #[tokio::test]
 async fn test_get_all_fallback_endpoints() {
-    let cf = config::checkpoints::CheckpointFallback::new()
+    let cf = checkpoints::CheckpointFallback::new()
         .build()
         .await
         .unwrap();
@@ -76,7 +76,7 @@ async fn test_get_all_fallback_endpoints() {
 
 #[tokio::test]
 async fn test_get_healthy_fallback_endpoints() {
-    let cf = config::checkpoints::CheckpointFallback::new()
+    let cf = checkpoints::CheckpointFallback::new()
         .build()
         .await
         .unwrap();

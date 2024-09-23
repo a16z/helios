@@ -145,7 +145,7 @@ impl EthereumClientBuilder {
         } else if let Some(config) = &self.config {
             config.rpc_bind_ip
         } else {
-            None
+            Some(base_config.rpc_bind_ip)
         };
 
         #[cfg(not(target_arch = "wasm32"))]

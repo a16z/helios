@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use alloy::primitives::b256;
-use config::{networks, Config};
-use consensus::{database::ConfigDB, rpc::mock_rpc::MockRpc, ConsensusClient};
+use helios_ethereum::config::{networks, Config};
+use helios_ethereum::{consensus::ConsensusClient, database::ConfigDB, rpc::mock_rpc::MockRpc};
 
 async fn setup() -> ConsensusClient<MockRpc, ConfigDB> {
     let base_config = networks::mainnet();

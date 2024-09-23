@@ -78,6 +78,10 @@ typenum = "1.17.0"
 # Top Level Dependencies
 ######################################
 
+[dependencies]
+helios-core = { path = "./core" }
+helios-ethereum = { path = "./ethereum" }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 dotenv = "0.15.0"

@@ -172,7 +172,7 @@ pub fn encode_account(proof: &EIP1186AccountProofResponse) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::proof::shared_prefix_length;
+    use crate::execution::proof::shared_prefix_length;
 
     #[tokio::test]
     async fn test_shared_prefix_length() {

@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use alloy::primitives::B256;
 use eyre::Result;
+use reqwest::ClientBuilder;
 use retri::{retry, BackoffSettings};
 use serde::{
     de::{self, Error},
@@ -81,7 +82,13 @@ pub struct CheckpointFallback {
 
 async fn get(req: &str) -> Result<reqwest::Response> {
     retry(
-        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?) },
+        || async {
+            let client = ClientBuilder::new()
+                .timeout(Duration::from_secs(1))
+                .build()
+                .unwrap();
+            Ok::<_, eyre::Report>(client.get(req).send().await?)
+        },
         BackoffSettings::default(),
     )
     .await
@@ -229,7 +236,7 @@ impl CheckpointFallback {
     /// This is an associated function and can be used like so:
     ///
     /// ```rust
-    /// use config::CheckpointFallback;
+    /// use helios_ethereum::config::checkpoints::CheckpointFallback;
     ///
     /// let url = CheckpointFallback::construct_url("https://sync-mainnet.beaconcha.in");
     /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);

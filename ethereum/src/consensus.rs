@@ -68,7 +68,7 @@ impl<R: ConsensusRpc, DB: Database> Consensus<Transaction> for ConsensusClient<R
     }
 
     fn expected_highest_block(&self) -> u64 {
-        todo!()
+        u64::MAX
     }
 
     fn chain_id(&self) -> u64 {

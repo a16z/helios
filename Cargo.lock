@@ -2424,6 +2424,8 @@ dependencies = [
  "dirs",
  "dotenv",
  "eyre",
+ "helios-core",
+ "helios-ethereum",
  "hex",
  "plotters",
  "pretty_assertions",
