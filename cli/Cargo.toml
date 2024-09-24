@@ -1,6 +1,6 @@
 [package]
-name = "cli"
-version = "0.6.1"
+name = "helios-cli"
+version = "0.7.0"
 edition = "2021"
 
 [[bin]]
@@ -19,7 +19,4 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 dirs = "5.0.1"
 ctrlc = "3.2.3"
 
-client = { path = "../client" }
-config = { path = "../config" }
-consensus = { path = "../consensus" }
-common = { path = "../common" }
+helios-ethereum = { path = "../ethereum" }
