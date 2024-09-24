@@ -1,0 +1,38 @@
+[package]
+name = "helios-core"
+version = "0.7.0"
+edition = "2021"
+
+[dependencies]
+# execution
+alloy.workspace = true
+revm.workspace = true
+triehash-ethereum.workspace = true
+
+# async/futures
+futures.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+
+# io
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+# misc
+eyre.workspace = true
+hex.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+zduny-wasm-timer.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+jsonrpsee = { version = "0.19.0", features = ["full"] }
+openssl.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.33"
+gloo-timers = "0.3.0"
+
+[target.wasm32-unknown-unknown.dependencies]
+parking_lot = { version = "0.12.2" }
