@@ -52,7 +52,7 @@ impl NetworkSpec for Ethereum {
         receipt.inner.logs().to_vec()
     }
 
-    fn tx_env(tx: &TransactionRequest) -> TxEnv {
+    fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
         let mut tx_env = TxEnv::default();
         tx_env.caller = tx.from.unwrap_or_default();
         tx_env.gas_limit = <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
@@ -248,8 +248,8 @@ impl TransactionBuilder<Ethereum> for TransactionRequest {
         let common = self.gas.is_some() && self.nonce.is_some();
 
         let legacy = self.gas_price.is_some();
-        //let eip2930 = legacy && self.access_list().is_some();
-        let eip2930 = false;
+        let eip2930 = legacy
+            && <TransactionRequest as TransactionBuilder<Ethereum>>::access_list(self).is_some();
 
         let eip1559 = self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some();
 
