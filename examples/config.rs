@@ -1,8 +1,7 @@
 use dirs::home_dir;
 use eyre::Result;
 
-use config::CliConfig;
-use helios::prelude::*;
+use helios::ethereum::config::{cli::CliConfig, Config};
 
 #[tokio::main]
 async fn main() -> Result<()> {

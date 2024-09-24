@@ -8,13 +8,14 @@ use alloy::sol;
 use alloy::transports::http::{Client as ReqwestClient, Http};
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use pretty_assertions::assert_eq;
-
-use helios::client::{Client, ClientBuilder};
-use helios::consensus::database::ConfigDB;
 use rand::Rng;
 
+use helios::ethereum::{
+    config::networks::Network, database::ConfigDB, EthereumClient, EthereumClientBuilder,
+};
+
 async fn setup() -> (
-    Client<ConfigDB>,
+    EthereumClient<ConfigDB>,
     RootProvider<Http<ReqwestClient>>,
     RootProvider<RetryBackoffService<Http<ReqwestClient>>>,
 ) {
@@ -23,8 +24,8 @@ async fn setup() -> (
 
     let port = rand::thread_rng().gen_range(0..=65535);
 
-    let mut helios_client = ClientBuilder::new()
-        .network(config::Network::MAINNET)
+    let mut helios_client = EthereumClientBuilder::new()
+        .network(Network::MAINNET)
         .execution_rpc(&execution_rpc)
         .consensus_rpc(&consensus_rpc)
         .load_external_fallback()

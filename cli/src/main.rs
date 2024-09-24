@@ -15,9 +15,9 @@ use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use client::{Client, ClientBuilder};
-use config::{CliConfig, Config};
-use consensus::database::FileDB;
+use helios_ethereum::config::{cli::CliConfig, Config};
+use helios_ethereum::database::FileDB;
+use helios_ethereum::{EthereumClient, EthereumClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -33,7 +33,10 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 
     let config = get_config();
-    let mut client = match ClientBuilder::new().config(config).build::<FileDB>() {
+    let mut client = match EthereumClientBuilder::new()
+        .config(config)
+        .build::<FileDB>()
+    {
         Ok(client) => client,
         Err(err) => {
             error!(target: "helios::runner", error = %err);
@@ -50,7 +53,7 @@ async fn main() -> Result<()> {
     std::future::pending().await
 }
 
-fn register_shutdown_handler(client: Client<FileDB>) {
+fn register_shutdown_handler(client: EthereumClient<FileDB>) {
     let client = Arc::new(client);
     let shutdown_counter = Arc::new(Mutex::new(0));
 
@@ -84,9 +87,7 @@ fn register_shutdown_handler(client: Client<FileDB>) {
 
 fn get_config() -> Config {
     let cli = Cli::parse();
-
     let config_path = home_dir().unwrap().join(".helios/helios.toml");
-
     let cli_config = cli.as_cli_config();
 
     Config::from_file(&config_path, &cli.network, &cli_config)
