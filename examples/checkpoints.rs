@@ -1,7 +1,7 @@
 use eyre::Result;
 
 // From helios::config
-use config::{checkpoints, networks};
+use helios::ethereum::config::{checkpoints, networks};
 
 #[tokio::main]
 async fn main() -> Result<()> {

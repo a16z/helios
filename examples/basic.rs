@@ -6,7 +6,10 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::{config::networks::Network, prelude::*};
+use helios::core::types::BlockTag;
+use helios::ethereum::{
+    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -27,7 +30,7 @@ async fn main() -> Result<()> {
     let consensus_rpc = "https://www.lightclientdata.org";
     info!("Using consensus RPC URL: {}", consensus_rpc);
 
-    let mut client: Client<FileDB> = ClientBuilder::new()
+    let mut client: EthereumClient<FileDB> = EthereumClientBuilder::new()
         .network(Network::MAINNET)
         .consensus_rpc(consensus_rpc)
         .execution_rpc(untrusted_rpc_url)

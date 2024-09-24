@@ -9,10 +9,9 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::{
-    client::{Client, ClientBuilder, FileDB},
-    config::networks::Network,
-    types::BlockTag,
+use helios::core::types::BlockTag;
+use helios::ethereum::{
+    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
 };
 
 #[tokio::main]
@@ -36,7 +35,7 @@ async fn main() -> eyre::Result<()> {
 
     // Construct the client
     let data_dir = PathBuf::from("/tmp/helios");
-    let mut client: Client<FileDB> = ClientBuilder::new()
+    let mut client: EthereumClient<FileDB> = EthereumClientBuilder::new()
         .network(Network::MAINNET)
         .data_dir(data_dir)
         .consensus_rpc(consensus_rpc)
