@@ -11,6 +11,7 @@ members = [
     "core",
     "ethereum",
     "ethereum/consensus-core",
+    "opstack",
     #"helios-ts",
 ]
 
@@ -41,6 +42,7 @@ alloy = { version = "0.2.1", features = [
     "network",
     "ssz",
     "json-rpc",
+    "signers",
 ]}
 revm = { version = "12.1.0", default-features = false, features = [
     "std",

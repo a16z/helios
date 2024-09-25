@@ -1,0 +1,32 @@
+[package]
+name = "helios-opstack"
+version = "0.7.0"
+edition = "2021"
+
+[[bin]]
+name = "server"
+path = "./bin/server.rs"
+
+[dependencies]
+alloy.workspace = true
+tokio.workspace = true
+eyre.workspace = true
+tracing.workspace = true
+hex.workspace = true
+sha2.workspace = true
+ethereum_ssz_derive.workspace = true
+ethereum_ssz.workspace = true
+ssz_types.workspace = true
+serde.workspace = true
+typenum.workspace = true
+axum = "0.7.6"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+
+# networking
+libp2p = { version = "0.51.3", features = ["macros", "tokio", "tcp", "mplex", "noise", "gossipsub", "ping"] }
+discv5 = "0.7.0"
+libp2p-identity = { version = "0.1.2", features = ["secp256k1"] }
+unsigned-varint = "0.7.1"
+snap = "1"
+
+helios-core = { path = "../core" }
