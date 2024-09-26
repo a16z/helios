@@ -45,7 +45,7 @@ impl<N: NetworkSpec> State<N> {
                             inner_ref.write().await.push_finalized_block(block);
                         }
 
-                    }
+                    },
                 }
             }
         });

@@ -8,7 +8,9 @@ use ssz::Decode;
 
 use types::ExecutionPayload;
 
+pub mod consensus;
 pub mod server;
+pub mod spec;
 pub mod types;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

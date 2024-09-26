@@ -199,7 +199,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let receipts_fut = tx_hashes.iter().map(|hash| async move {
             let receipt = self.rpc.get_transaction_receipt(*hash).await;
-            receipt?.ok_or(eyre::eyre!("not reachable"))
+            receipt?.ok_or(eyre::eyre!("missing block receipt"))
         });
 
         let receipts = join_all(receipts_fut).await;
