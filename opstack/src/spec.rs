@@ -16,9 +16,9 @@ use op_alloy_network::{
 use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
 #[derive(Clone, Copy, Debug)]
-pub struct Optimism;
+pub struct OpStack;
 
-impl NetworkSpec for Optimism {
+impl NetworkSpec for OpStack {
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
         let receipt = &receipt.inner.inner;
         let bloom = receipt.bloom();
@@ -131,7 +131,7 @@ impl NetworkSpec for Optimism {
     }
 }
 
-impl Network for Optimism {
+impl Network for OpStack {
     type TxType = op_alloy_consensus::OpTxType;
     type TxEnvelope = alloy::consensus::TxEnvelope;
     type UnsignedTx = alloy::consensus::TypedTransaction;
@@ -143,7 +143,7 @@ impl Network for Optimism {
     type HeaderResponse = alloy::rpc::types::Header;
 }
 
-impl TransactionBuilder<Optimism> for TransactionRequest {
+impl TransactionBuilder<OpStack> for TransactionRequest {
     fn chain_id(&self) -> Option<ChainId> {
         self.chain_id
     }
@@ -287,7 +287,7 @@ impl TransactionBuilder<Optimism> for TransactionRequest {
         self.populate_blob_hashes();
     }
 
-    fn build_unsigned(self) -> BuildResult<TypedTransaction, Optimism> {
+    fn build_unsigned(self) -> BuildResult<TypedTransaction, OpStack> {
         if let Err((tx_type, missing)) = self.missing_keys() {
             let tx_type = OpTxType::try_from(tx_type as u8).unwrap();
             return Err(
@@ -298,10 +298,10 @@ impl TransactionBuilder<Optimism> for TransactionRequest {
         Ok(self.build_typed_tx().expect("checked by missing_keys"))
     }
 
-    async fn build<W: NetworkWallet<Optimism>>(
+    async fn build<W: NetworkWallet<OpStack>>(
         self,
         wallet: &W,
-    ) -> Result<<Optimism as Network>::TxEnvelope, TransactionBuilderError<Optimism>> {
+    ) -> Result<<OpStack as Network>::TxEnvelope, TransactionBuilderError<OpStack>> {
         Ok(wallet.sign_request(self).await?)
     }
 }

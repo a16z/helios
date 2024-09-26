@@ -4,14 +4,22 @@ use alloy::{
 };
 use eyre::Result;
 use serde::{Deserialize, Serialize};
+use spec::OpStack;
 use ssz::Decode;
 
+use helios_core::client::Client;
+
+use consensus::ConsensusClient;
 use types::ExecutionPayload;
 
+mod builder;
 pub mod consensus;
 pub mod server;
 pub mod spec;
 pub mod types;
+
+pub use builder::OpStackClientBuilder;
+pub type OpStackClient = Client<OpStack, ConsensusClient>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequencerCommitment {
