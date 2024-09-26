@@ -39,6 +39,8 @@ elif [ "${ARCHITECTURE}" = "arm64" ] ||[ "${ARCHITECTURE}" = "aarch64" ] ; then
   ARCHITECTURE="arm64" # 64-bit Arm.
 elif [ "${ARCHITECTURE}" = "armv7l" ]; then
   ARCHITECTURE="armv7l" # 32-bit Arm.
+elif [ "${ARCHITECTURE}" = "riscv64" ]; then
+  ARCHITECTURE="riscv64gc" # 64-bit integer RISC-V with MAFDC extensions.
 else
   ARCHITECTURE="amd64" # Amd.
 fi

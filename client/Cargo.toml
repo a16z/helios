@@ -20,7 +20,7 @@ config = { path = "../config" }
 common = { path = "../common" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-jsonrpsee = { version = "0.17.1", features = ["full"] }
+jsonrpsee = { version = "0.19.0", features = ["full"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-timers = "0.3.0"
