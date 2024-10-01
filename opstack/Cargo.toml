@@ -7,10 +7,6 @@ edition = "2021"
 name = "server"
 path = "./bin/server.rs"
 
-[[bin]]
-name = "client"
-path = "./bin/client.rs"
-
 [dependencies]
 tokio.workspace = true
 eyre.workspace = true

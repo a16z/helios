@@ -28,8 +28,8 @@ pub struct ChainConfig {
 
 #[derive(Serialize, Deserialize)]
 pub struct NetworkConfig {
-    consensus_rpc: Option<Url>,
-    chain: ChainConfig,
+    pub consensus_rpc: Option<Url>,
+    pub chain: ChainConfig,
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -1,20 +1,26 @@
-use alloy::primitives::address;
+use std::net::SocketAddr;
+
+use clap::Parser;
 use eyre::Result;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use helios_opstack::server::start_server;
+use helios_opstack::{
+    config::{Network, NetworkConfig},
+    server::start_server,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     enable_tracing();
+    let cli = Cli::parse();
+    let config = NetworkConfig::from(cli.network);
 
-    let server_addr = "127.0.0.1:3000".parse()?;
-    let gossip_addr = "0.0.0.0:9876".parse()?;
+    let chain_id = config.chain.chain_id;
+    let unsafe_signer = config.chain.unsafe_signer;
+    let server_addr = cli.server_address;
+    let gossip_addr = cli.gossip_address;
 
-    let signer = address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a");
-    let chain_id = 8453;
-
-    start_server(server_addr, gossip_addr, chain_id, signer).await?;
+    start_server(server_addr, gossip_addr, chain_id, unsafe_signer).await?;
 
     Ok(())
 }
@@ -30,4 +36,14 @@ fn enable_tracing() {
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
+}
+
+#[derive(Parser)]
+struct Cli {
+    #[clap(short, long)]
+    network: Network,
+    #[clap(short, long, default_value = "127.0.0.1:3000")]
+    server_address: SocketAddr,
+    #[clap(short, long, default_value = "0.0.0.0:9876")]
+    gossip_address: SocketAddr,
 }
