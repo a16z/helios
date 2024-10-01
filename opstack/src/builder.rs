@@ -1,23 +1,33 @@
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
 use alloy::primitives::Address;
 use eyre::Result;
+use reqwest::{IntoUrl, Url};
 
-use crate::{consensus::ConsensusClient, OpStackClient};
+use crate::{
+    config::{ChainConfig, Config},
+    consensus::ConsensusClient,
+    OpStackClient,
+};
 
 #[derive(Default)]
 pub struct OpStackClientBuilder {
+    config: Option<Config>,
     chain_id: Option<u64>,
     unsafe_signer: Option<Address>,
-    server_rpc: Option<String>,
-    execution_rpc: Option<String>,
-    rpc_bind_ip: Option<IpAddr>,
-    rpc_port: Option<u16>,
+    consensus_rpc: Option<Url>,
+    execution_rpc: Option<Url>,
+    rpc_socket: Option<SocketAddr>,
 }
 
 impl OpStackClientBuilder {
     pub fn new() -> Self {
         OpStackClientBuilder::default()
+    }
+
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = Some(config);
+        self
     }
 
     pub fn chain_id(mut self, chain_id: u64) -> Self {
@@ -30,53 +40,57 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn server_rpc(mut self, server_rpc: &str) -> Self {
-        self.server_rpc = Some(server_rpc.to_string());
+    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Self {
+        self.consensus_rpc = Some(consensus_rpc.into_url().unwrap());
         self
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
-        self.execution_rpc = Some(execution_rpc.to_string());
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
+        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
         self
     }
 
-    pub fn rpc_bind_ip(mut self, ip: IpAddr) -> Self {
-        self.rpc_bind_ip = Some(ip);
-        self
-    }
-
-    pub fn rpc_port(mut self, port: u16) -> Self {
-        self.rpc_port = Some(port);
+    pub fn rpc_socket(mut self, socket: SocketAddr) -> Self {
+        self.rpc_socket = Some(socket);
         self
     }
 
     pub fn build(self) -> Result<OpStackClient> {
-        let Some(chain_id) = self.chain_id else {
-            eyre::bail!("chain id required");
+        let config = if let Some(config) = self.config {
+            config
+        } else {
+            let Some(chain_id) = self.chain_id else {
+                eyre::bail!("chain id required");
+            };
+
+            let Some(unsafe_signer) = self.unsafe_signer else {
+                eyre::bail!("unsafe signer required");
+            };
+
+            let Some(consensus_rpc) = self.consensus_rpc else {
+                eyre::bail!("consensus rpc required");
+            };
+
+            let Some(execution_rpc) = self.execution_rpc else {
+                eyre::bail!("execution rpc required");
+            };
+
+            Config {
+                consensus_rpc,
+                execution_rpc,
+                rpc_socket: self.rpc_socket,
+                chain: ChainConfig {
+                    chain_id,
+                    unsafe_signer,
+                },
+            }
         };
 
-        let Some(unsafe_signer) = self.unsafe_signer else {
-            eyre::bail!("unsafe signer required");
-        };
-
-        let Some(server_rpc) = self.server_rpc else {
-            eyre::bail!("server rpc required");
-        };
-
-        let Some(execution_rpc) = self.execution_rpc else {
-            eyre::bail!("execution rpc required");
-        };
-
-        let Some(rpc_bind_ip) = self.rpc_bind_ip else {
-            eyre::bail!("rpc bind ip required");
-        };
-
-        let Some(rpc_port) = self.rpc_port else {
-            eyre::bail!("rpc port required");
-        };
-
-        let rpc_address = SocketAddr::new(rpc_bind_ip, rpc_port);
-        let consensus = ConsensusClient::new(&server_rpc, unsafe_signer, chain_id);
-        OpStackClient::new(&execution_rpc, consensus, Some(rpc_address))
+        let consensus = ConsensusClient::new(&config);
+        OpStackClient::new(
+            &config.execution_rpc.to_string(),
+            consensus,
+            config.rpc_socket,
+        )
     }
 }

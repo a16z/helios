@@ -13,6 +13,7 @@ use consensus::ConsensusClient;
 use types::ExecutionPayload;
 
 mod builder;
+pub mod config;
 pub mod consensus;
 pub mod server;
 pub mod spec;

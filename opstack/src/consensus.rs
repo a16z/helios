@@ -18,7 +18,7 @@ use tokio::{
 use helios_core::consensus::Consensus;
 use helios_core::types::{Block, Transactions};
 
-use crate::{types::ExecutionPayload, SequencerCommitment};
+use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
 
 pub struct ConsensusClient {
     block_recv: Option<Receiver<Block<Transaction>>>,
@@ -27,14 +27,14 @@ pub struct ConsensusClient {
 }
 
 impl ConsensusClient {
-    pub fn new(server_url: &str, unsafe_signer: Address, chain_id: u64) -> Self {
+    pub fn new(config: &Config) -> Self {
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalied_block_recv) = watch::channel(None);
 
         let mut inner = Inner {
-            server_url: server_url.to_string(),
-            unsafe_signer,
-            chain_id,
+            server_url: config.consensus_rpc.to_string(),
+            unsafe_signer: config.chain.unsafe_signer,
+            chain_id: config.chain.chain_id,
             latest_hash: None,
             block_send,
             finalized_block_send,
@@ -50,7 +50,7 @@ impl ConsensusClient {
         Self {
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalied_block_recv),
-            chain_id,
+            chain_id: config.chain.chain_id,
         }
     }
 }
@@ -89,7 +89,7 @@ struct Inner {
 
 impl Inner {
     pub async fn advance(&mut self) -> Result<()> {
-        let req = format!("{}/latest", self.server_url);
+        let req = format!("{}latest", self.server_url);
         let commitment = reqwest::get(req)
             .await?
             .json::<SequencerCommitment>()

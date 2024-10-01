@@ -2981,8 +2981,11 @@ dependencies = [
  "ctrlc",
  "dirs",
  "eyre",
+ "figment",
  "futures",
+ "helios-core",
  "helios-ethereum",
+ "helios-opstack",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -3074,10 +3077,12 @@ version = "0.7.0"
 dependencies = [
  "alloy",
  "axum",
+ "clap",
  "discv5",
  "ethereum_ssz 0.6.0",
  "ethereum_ssz_derive 0.6.0",
  "eyre",
+ "figment",
  "helios-core",
  "hex",
  "libp2p",
@@ -3096,6 +3101,7 @@ dependencies = [
  "tracing-subscriber",
  "typenum",
  "unsigned-varint",
+ "url",
 ]
 
 [[package]]
@@ -7398,6 +7404,7 @@ dependencies = [
  "form_urlencoded",
  "idna 0.5.0",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
