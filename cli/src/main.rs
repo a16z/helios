@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::{
     path::PathBuf,
     process::exit,
@@ -183,9 +183,9 @@ impl EthereumArgs {
 struct OpStackArgs {
     #[clap(short, long)]
     network: String,
-    #[clap(short = 'b', long, env)]
+    #[clap(short = 'b', long, env, default_value = "127.0.0.1")]
     rpc_bind_ip: Option<IpAddr>,
-    #[clap(short = 'p', long, env)]
+    #[clap(short = 'p', long, env, default_value = "8545")]
     rpc_port: Option<u16>,
     #[clap(short, long, env)]
     execution_rpc: Option<String>,
@@ -217,6 +217,11 @@ impl OpStackArgs {
 
         if let Some(rpc) = &self.consensus_rpc {
             user_dict.insert("consensus_rpc", Value::from(rpc.clone()));
+        }
+
+        if self.rpc_bind_ip.is_some() && self.rpc_port.is_some() {
+            let rpc_socket = SocketAddr::new(self.rpc_bind_ip.unwrap(), self.rpc_port.unwrap());
+            user_dict.insert("rpc_socket", Value::from(rpc_socket.to_string()));
         }
 
         if let Some(ip) = self.rpc_bind_ip {
