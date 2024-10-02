@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use alloy::consensus::Transaction as TxTrait;
 use alloy::primitives::{b256, keccak256, Address, B256, U256, U64};
@@ -35,7 +35,7 @@ impl ConsensusClient {
             server_url: config.consensus_rpc.to_string(),
             unsafe_signer: config.chain.unsafe_signer,
             chain_id: config.chain.chain_id,
-            latest_hash: None,
+            latest_block: None,
             block_send,
             finalized_block_send,
         };
@@ -82,7 +82,7 @@ struct Inner {
     server_url: String,
     unsafe_signer: Address,
     chain_id: u64,
-    latest_hash: Option<B256>,
+    latest_block: Option<u64>,
     block_send: Sender<Block<Transaction>>,
     finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
 }
@@ -97,11 +97,28 @@ impl Inner {
 
         if commitment.verify(self.unsafe_signer, self.chain_id).is_ok() {
             let payload = ExecutionPayload::try_from(&commitment)?;
-            if self.latest_hash != Some(payload.block_hash) {
-                tracing::info!("latest blockhash updated: {}", payload.block_hash);
-                let block = payload_to_block(payload);
-                self.latest_hash = Some(block.hash);
-                _ = self.block_send.send(block).await;
+            if self
+                .latest_block
+                .map(|latest| payload.block_number > latest)
+                .unwrap_or(true)
+            {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                let timestamp = Duration::from_secs(payload.timestamp);
+                let age = now.saturating_sub(timestamp);
+                let number = payload.block_number;
+
+                if let Ok(block) = payload_to_block(payload) {
+                    self.latest_block = Some(block.number.to());
+                    _ = self.block_send.send(block).await;
+
+                    tracing::info!(
+                        "unsafe head updated: block={} age={}s",
+                        number,
+                        age.as_secs()
+                    );
+                } else {
+                    tracing::warn!("invalid block received");
+                }
             }
         }
 
@@ -109,7 +126,7 @@ impl Inner {
     }
 }
 
-fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
+fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
     let empty_nonce = "0x0000000000000000".to_string();
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
@@ -121,13 +138,13 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
         .map(|(i, tx_bytes)| {
             let tx_bytes = tx_bytes.to_vec();
             let mut tx_bytes_slice = tx_bytes.as_slice();
-            let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice).unwrap();
+            let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice)?;
             let transaction_type = Some(tx_envelope.tx_type().into());
 
-            match tx_envelope {
+            Ok(match tx_envelope {
                 OpTxEnvelope::Legacy(inner) => {
                     let inner_tx = inner.tx();
-                    let mut tx = Transaction {
+                    Transaction {
                         hash: *inner.hash(),
                         nonce: inner_tx.nonce,
                         block_hash: Some(value.block_hash),
@@ -140,22 +157,19 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
                         input: inner_tx.input.to_vec().into(),
                         chain_id: inner_tx.chain_id,
                         transaction_type,
+                        from: inner.recover_signer()?,
+                        signature: Some(Signature {
+                            r: inner.signature().r(),
+                            s: inner.signature().s(),
+                            v: U256::from(inner.signature().v().to_u64()),
+                            y_parity: None,
+                        }),
                         ..Default::default()
-                    };
-
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: None,
-                    });
-
-                    tx
+                    }
                 }
                 OpTxEnvelope::Eip2930(inner) => {
                     let inner_tx = inner.tx();
-                    let mut tx = Transaction {
+                    Transaction {
                         hash: *inner.hash(),
                         nonce: inner_tx.nonce,
                         block_hash: Some(value.block_hash),
@@ -168,23 +182,20 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
                         input: inner_tx.input.to_vec().into(),
                         chain_id: Some(inner_tx.chain_id),
                         transaction_type,
+                        from: inner.recover_signer()?,
+                        signature: Some(Signature {
+                            r: inner.signature().r(),
+                            s: inner.signature().s(),
+                            v: U256::from(inner.signature().v().to_u64()),
+                            y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
+                        }),
+                        access_list: Some(inner.tx().access_list.clone()),
                         ..Default::default()
-                    };
-
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-                    tx.access_list = Some(inner.tx().access_list.clone());
-
-                    tx
+                    }
                 }
                 OpTxEnvelope::Eip1559(inner) => {
                     let inner_tx = inner.tx();
-                    let mut tx = Transaction {
+                    Transaction {
                         hash: *inner.hash(),
                         nonce: inner_tx.nonce,
                         block_hash: Some(value.block_hash),
@@ -197,33 +208,22 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
                         input: inner_tx.input.to_vec().into(),
                         chain_id: Some(inner_tx.chain_id),
                         transaction_type,
+                        from: inner.recover_signer()?,
+                        signature: Some(Signature {
+                            r: inner.signature().r(),
+                            s: inner.signature().s(),
+                            v: U256::from(inner.signature().v().to_u64()),
+                            y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
+                        }),
+                        access_list: Some(inner_tx.access_list.clone()),
+                        max_fee_per_gas: Some(inner_tx.max_fee_per_gas),
+                        max_priority_fee_per_gas: Some(inner_tx.max_priority_fee_per_gas),
                         ..Default::default()
-                    };
-
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-
-                    let tx_inner = inner.tx();
-                    tx.access_list = Some(tx_inner.access_list.clone());
-                    tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
-                    tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
-
-                    tx.gas_price = Some(gas_price(
-                        tx_inner.max_fee_per_gas,
-                        tx_inner.max_priority_fee_per_gas,
-                        value.base_fee_per_gas.to(),
-                    ));
-
-                    tx
+                    }
                 }
                 OpTxEnvelope::Eip4844(inner) => {
                     let inner_tx = inner.tx();
-                    let mut tx = Transaction {
+                    Transaction {
                         hash: *inner.hash(),
                         nonce: inner_tx.nonce(),
                         block_hash: Some(value.block_hash),
@@ -236,36 +236,25 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
                         input: inner_tx.input().to_vec().into(),
                         chain_id: inner_tx.chain_id(),
                         transaction_type,
+                        from: inner.recover_signer()?,
+                        signature: Some(Signature {
+                            r: inner.signature().r(),
+                            s: inner.signature().s(),
+                            v: U256::from(inner.signature().v().to_u64()),
+                            y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
+                        }),
+                        access_list: Some(inner_tx.tx().access_list.clone()),
+                        max_fee_per_gas: Some(inner_tx.tx().max_fee_per_gas),
+                        max_priority_fee_per_gas: Some(inner_tx.tx().max_priority_fee_per_gas),
+                        max_fee_per_blob_gas: Some(inner_tx.tx().max_fee_per_blob_gas),
+                        blob_versioned_hashes: Some(inner_tx.tx().blob_versioned_hashes.clone()),
                         ..Default::default()
-                    };
-
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-
-                    let tx_inner = inner.tx().tx();
-                    tx.access_list = Some(tx_inner.access_list.clone());
-                    tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
-                    tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
-                    tx.max_fee_per_blob_gas = Some(tx_inner.max_fee_per_blob_gas);
-                    tx.gas_price = Some(tx_inner.max_fee_per_gas);
-                    tx.blob_versioned_hashes = Some(tx_inner.blob_versioned_hashes.clone());
-
-                    tx.gas_price = Some(gas_price(
-                        tx_inner.max_fee_per_gas,
-                        tx_inner.max_priority_fee_per_gas,
-                        value.base_fee_per_gas.to(),
-                    ));
-
-                    tx
+                    }
                 }
                 OpTxEnvelope::Deposit(inner) => {
                     let hash =
                         keccak256([&[0x7Eu8], alloy::rlp::encode(&inner).as_slice()].concat());
+
                     let tx = Transaction {
                         hash,
                         nonce: inner.nonce(),
@@ -285,11 +274,11 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
                     tx
                 }
                 _ => unreachable!("new tx type"),
-            }
+            })
         })
-        .collect::<Vec<Transaction>>();
+        .collect::<Result<Vec<Transaction>>>()?;
 
-    Block {
+    Ok(Block {
         number: U64::from(value.block_number),
         base_fee_per_gas: value.base_fee_per_gas,
         difficulty: U256::ZERO,
@@ -313,9 +302,5 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
         uncles: vec![],
         blob_gas_used: Some(U64::from(value.blob_gas_used)),
         excess_blob_gas: Some(U64::from(value.excess_blob_gas)),
-    }
-}
-
-fn gas_price(max_fee: u128, max_prio_fee: u128, base_fee: u128) -> u128 {
-    u128::min(max_fee, max_prio_fee + base_fee)
+    })
 }

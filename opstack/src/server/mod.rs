@@ -47,12 +47,12 @@ pub async fn start_server(
 async fn latest_handler(
     State(state): State<Arc<RwLock<ServerState>>>,
 ) -> Json<Option<SequencerCommitment>> {
-    Json(state.read().await.latest_commitment.clone())
+    Json(state.read().await.latest_commitment.clone().map(|v| v.0))
 }
 
 struct ServerState {
     commitment_recv: Receiver<SequencerCommitment>,
-    latest_commitment: Option<SequencerCommitment>,
+    latest_commitment: Option<(SequencerCommitment, u64)>,
 }
 
 impl ServerState {
@@ -70,9 +70,19 @@ impl ServerState {
     pub fn update(&mut self) {
         if let Ok(commitment) = self.commitment_recv.try_recv() {
             if let Ok(payload) = ExecutionPayload::try_from(&commitment) {
-                tracing::info!("new commitment with blockhash: {}", payload.block_hash);
-                self.latest_commitment = Some(commitment);
+                if self.is_latest_commitment(payload.block_number) {
+                    tracing::info!("new commitment for block: {}", payload.block_number);
+                    self.latest_commitment = Some((commitment, payload.block_number));
+                }
             }
+        }
+    }
+
+    fn is_latest_commitment(&self, block_number: u64) -> bool {
+        if let Some((_, latest_block_number)) = self.latest_commitment {
+            block_number > latest_block_number
+        } else {
+            true
         }
     }
 }
