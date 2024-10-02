@@ -11,6 +11,7 @@ members = [
     "core",
     "ethereum",
     "ethereum/consensus-core",
+    "opstack",
     #"helios-ts",
 ]
 
@@ -41,6 +42,7 @@ alloy = { version = "0.2.1", features = [
     "network",
     "ssz",
     "json-rpc",
+    "signers",
 ]}
 revm = { version = "12.1.0", default-features = false, features = [
     "std",
@@ -58,6 +60,7 @@ tokio = { version = "1", features = ["rt", "sync", "macros"] }
 
 # io
 reqwest = { version = "0.12.4", features = ["json"] }
+url = { version = "2.5.2", features = ["serde"] }
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 
