@@ -79,7 +79,7 @@ pub fn mainnet() -> BaseConfig {
             "c7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce"
         ),
         rpc_port: 8545,
-        consensus_rpc: Some("https://www.lightclientdata.org".to_string()),
+        consensus_rpc: Some("https://ethereum.operationsolarstorm.org".to_string()),
         chain: ChainConfig {
             chain_id: 1,
             genesis_time: 1606824023,
