@@ -64,12 +64,9 @@ impl Config {
                 match err.kind {
                     figment::error::Kind::MissingField(field) => {
                         let field = field.replace('_', "-");
-
                         println!("\x1b[91merror\x1b[0m: missing configuration field: {field}");
-
                         println!("\n\ttry supplying the proper command line argument: --{field}");
-
-                        println!("\talternatively, you can add the field to your helios.toml file or as an environment variable");
+                        println!("\talternatively, you can add the field to your helios.toml file");
                         println!("\nfor more information, check the github README");
                     }
                     _ => println!("cannot parse configuration: {err}"),
