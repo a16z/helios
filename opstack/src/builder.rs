@@ -90,6 +90,7 @@ impl OpStackClientBuilder {
         OpStackClient::new(
             &config.execution_rpc.to_string(),
             consensus,
+            #[cfg(not(target_arch = "wasm32"))]
             config.rpc_socket,
         )
     }

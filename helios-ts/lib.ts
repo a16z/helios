@@ -1,11 +1,8 @@
-import init, { Client } from "./pkg/index";
+import initWasm, { EthereumClient, OpStackClient } from "./pkg/index";
 
-export async function createHeliosProvider(
-  config: Config
-): Promise<HeliosProvider> {
+export async function init() {
   const wasmData = require("./pkg/index_bg.wasm");
-  await init(wasmData);
-  return new HeliosProvider(config);
+  await initWasm(wasmData);
 }
 
 /// An EIP-1193 compliant Ethereum provider. Treat this the same as you
@@ -15,20 +12,32 @@ export class HeliosProvider {
   #chainId;
 
   /// Do not use this constructor. Instead use the createHeliosProvider function.
-  constructor(config: Config) {
-    const executionRpc = config.executionRpc;
-    const consensusRpc = config.consensusRpc;
-    const checkpoint = config.checkpoint;
-    const network = config.network ?? Network.MAINNET;
-    const dbType = config.dbType ?? "localstorage";
+  constructor(config: Config, kind: "ethereum" | "opstack") {
+    if (kind === "ethereum") {
+      const executionRpc = config.executionRpc;
+      const consensusRpc = config.consensusRpc;
+      const checkpoint = config.checkpoint;
+      const network = config.network ?? Network.MAINNET;
+      const dbType = config.dbType ?? "localstorage";
 
-    this.#client = new Client(
-      executionRpc,
-      consensusRpc,
-      network,
-      checkpoint,
-      dbType
-    );
+      this.#client = new EthereumClient(
+        executionRpc,
+        consensusRpc,
+        network,
+        checkpoint,
+        dbType
+      );
+    } else if (kind === "opstack") {
+      const executionRpc = config.executionRpc;
+      const network = config.network;
+
+      this.#client = new OpStackClient(
+        executionRpc,
+        network,
+      );
+    } else {
+      throw "invalid kind: must be ethereum or opstack";
+    }
     this.#chainId = this.#client.chain_id();
   }
 

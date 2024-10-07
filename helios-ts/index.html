@@ -1,24 +1,189 @@
 <!DOCTYPE html>
-<html lang="en-US">
-  <head>
-    <meta charset="utf-8" />
-    <title>hello-wasm example</title>
-  </head>
-  <body>
-    <script src="./dist/lib.js"></script>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
-    <script>
-      const config = {
-        executionRpc:"http://localhost:9001/proxy",
-        consensusRpc: "http://localhost:9002/proxy",
-        checkpoint: "0x3f692997a0c0c66baa549ba3b1897f705b44f36b412fc70ff0e78fdef647bbc3",
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Helios Demo</title>
+
+  <script src="./dist/lib.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+
+  <style>
+    /* Ensure html and body take full height */
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    h1, h2, h3 {
+      color: #FF8800;
+    }
+    /* Container for header content */
+    .header {
+      padding: 10px 25px;
+    }
+    /* Container for panels */
+    .panels-container {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: nowrap;
+      padding: 0 20px 20px 20px;
+      box-sizing: border-box;
+      flex: 1 1 auto; /* Allow panels-container to grow */
+      overflow: hidden; /* Prevent panels from overflowing */
+    }
+    .panel {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      width: 32.8%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: scroll;
+    }
+    .panel h2 {
+      margin-top: 0;
+    }
+    .blocks-container {
+      flex: 1 1 auto; /* Allow to grow and fill panel */
+      overflow-y: auto; /* Enable vertical scrolling */
+      overflow-x: hidden; /* Hide horizontal scrollbar */
+    }
+    .block-info {
+      background-color: #f4f4f4;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+      margin-bottom: 10px;
+      overflow-x: auto;
+      opacity: 0; /* Start with opacity 0 */
+      animation: fadeIn 1s forwards; /* Apply fade-in animation */
+    }
+    /* Keyframe animation for fade-in effect */
+    @keyframes fadeIn {
+      to {
+        opacity: 1;
+      }
+    }
+    /* Responsive adjustments */
+    @media (max-width: 900px) {
+      .panel {
+        width: 100%;
+        margin-bottom: 20px;
+      }
+      .panels-container {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Helios Demo</h1>
+    <p><em>Fast, Secure, and Portable Multichain Light Client</em></p>
+  </div>
+
+  <div class="panels-container">
+    <div class="panel" id="ethereum-panel">
+      <h2>Ethereum</h2>
+      <div class="blocks" id="ethereum-blocks">
+        <pre class="block-info" id="ethereum-syncing">Syncing...</pre>
+      </div>
+    </div>
+    <div class="panel" id="optimism-panel">
+      <h2>Optimism</h2>
+      <div class="blocks" id="optimism-blocks">
+        <pre class="block-info syncing" id="optimism-syncing">Syncing...</pre>
+      </div>
+    </div>
+    <div class="panel" id="base-panel">
+      <h2>Base</h2>
+      <div class="blocks" id="base-blocks">
+        <pre class="block-info" id="base-syncing">Syncing...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    helios.init().then(() => {
+      let alcehmyKey = "a--NIcyeycPntQX42kunxUIVkg6_ekYc"
+
+      let configEthereum = {
+        executionRpc: "https://eth-mainnet.g.alchemy.com/v2/" + alcehmyKey,
+        checkpoint: "0x0c78688807a28d205459f0433cc7962187cd2f49a96c31f298c089d8777c2a0e",
+        dbType: "localstorage"
       };
 
-      helios.createHeliosProvider(config).then(heliosProvider => {
-        heliosProvider.sync().then(() => {
-          window.provider = new ethers.providers.Web3Provider(heliosProvider);
-        });
+      let ethereumProvider = new helios.HeliosProvider(configEthereum, "ethereum");
+      ethereumProvider.sync().then(() => {
+        window.heliosEthereum = new ethers.providers.Web3Provider(ethereumProvider);
       });
-    </script>
-  </body>
+      
+      let configOptimsim = {
+        executionRpc: "https://opt-mainnet.g.alchemy.com/v2/" + alcehmyKey,
+        network: "optimism",
+      };
+
+      let optimismProvider = new helios.HeliosProvider(configOptimsim, "opstack");
+      optimismProvider .sync().then(() => {
+        window.heliosOptimism = new ethers.providers.Web3Provider(optimismProvider);
+      });
+
+      let configBase = {
+        executionRpc: "https://base-mainnet.g.alchemy.com/v2/" + alcehmyKey,
+        network: "base",
+      };
+
+      let baseProvider = new helios.HeliosProvider(configBase, "opstack");
+      baseProvider.sync().then(() => {
+        window.heliosBase = new ethers.providers.Web3Provider(baseProvider);
+      });
+
+      // Function to update block info for a network
+      async function updateBlockInfo(provider, networkName) {
+        if (provider) {
+          try {
+            const blockNumber = await provider.getBlockNumber();
+            if (provider.lastUpdate == undefined || blockNumber > provider.lastUpdate) {
+              provider.lastUpdate = blockNumber;
+              const block = await provider.getBlock(blockNumber);
+              const blocksContainer = document.getElementById(networkName + "-blocks");
+
+              const blockEntry = document.createElement('pre');
+              blockEntry.className = 'block-info';
+              blockEntry.textContent = JSON.stringify({
+                number: block.number,
+                hash: block.hash,
+                timestamp: new Date(block.timestamp * 1000).toLocaleString().replace(",", ""),
+                transactions: block.transactions.length,
+              }, null, 2);
+
+              blocksContainer.insertBefore(blockEntry, blocksContainer.firstChild);
+
+              let syncingElement = document.getElementById(networkName + "-syncing");
+              if (syncingElement) {
+                syncingElement.remove();
+              }
+
+              if (blocksContainer.childElementCount > 100) {
+                blocksContainer.removeChild(blocksContainer.lastChild);
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching block for ${networkName}:`, error);
+          }
+        }
+      }
+
+      setInterval(async () => updateBlockInfo(window.heliosEthereum, "ethereum"), 1000);
+      setInterval(async () => updateBlockInfo(window.heliosOptimism, "optimism"), 1000);
+      setInterval(async () => updateBlockInfo(window.heliosBase, "base"), 1000);
+    });
+  </script>
+</body>
 </html>
