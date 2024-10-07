@@ -83,10 +83,15 @@ pub struct CheckpointFallback {
 async fn get(req: &str) -> Result<reqwest::Response> {
     retry(
         || async {
+            #[cfg(not(target_arch = "wasm32"))]
             let client = ClientBuilder::new()
                 .timeout(Duration::from_secs(1))
                 .build()
                 .unwrap();
+
+            #[cfg(target_arch = "wasm32")]
+            let client = ClientBuilder::new().build().unwrap();
+
             Ok::<_, eyre::Report>(client.get(req).send().await?)
         },
         BackoffSettings::default(),

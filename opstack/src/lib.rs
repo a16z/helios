@@ -15,6 +15,7 @@ use types::ExecutionPayload;
 mod builder;
 pub mod config;
 pub mod consensus;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod server;
 pub mod spec;
 pub mod types;
