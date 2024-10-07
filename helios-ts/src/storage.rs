@@ -5,8 +5,7 @@ use alloy::{hex::FromHex, primitives::B256};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
 
-use config::Config;
-use consensus::database::Database;
+use helios_ethereum::{config::Config, database::Database};
 
 #[derive(Clone)]
 pub struct LocalStorageDB;

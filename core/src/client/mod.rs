@@ -9,6 +9,7 @@ use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
 
 use crate::client::node::Node;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
