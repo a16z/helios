@@ -17,6 +17,7 @@ typenum.workspace = true
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 reqwest.workspace = true
 url.workspace = true
+zduny-wasm-timer.workspace = true
 
 # consensus
 alloy.workspace = true
@@ -28,19 +29,27 @@ ssz_types.workspace = true
 op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
 op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
 op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
-
-# server
-axum = "0.7.6"
-clap = { version = "4.5.4", features = ["derive", "env"] }
+snap = "1"
 
 # config
 figment = { version = "0.10.7", features = ["toml", "env"] }
 
+helios-core = { path = "../core" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# server
+axum = "0.7.6"
+clap = { version = "4.5.4", features = ["derive", "env"] }
 # networking
 libp2p = { version = "0.51.3", features = ["macros", "tokio", "tcp", "mplex", "noise", "gossipsub", "ping"] }
 discv5 = "0.7.0"
 libp2p-identity = { version = "0.1.2", features = ["secp256k1"] }
 unsigned-varint = "0.7.1"
-snap = "1"
 
-helios-core = { path = "../core" }
+[target.wasm32-unknown-unknown.dependencies]
+parking_lot = { version = "0.12.2" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.37"
+getrandom = { version = "0.2.1", features = ["js"] }
+

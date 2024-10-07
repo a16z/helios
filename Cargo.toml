@@ -12,7 +12,7 @@ members = [
     "ethereum",
     "ethereum/consensus-core",
     "opstack",
-    #"helios-ts",
+    "helios-ts",
 ]
 
 default-members = ["cli"]

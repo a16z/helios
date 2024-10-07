@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use alloy::consensus::Transaction as TxTrait;
 use alloy::primitives::{b256, keccak256, Address, B256, U256, U64};
@@ -7,13 +7,11 @@ use alloy::rpc::types::{Parity, Signature, Transaction};
 use eyre::Result;
 use op_alloy_consensus::OpTxEnvelope;
 use tokio::sync::mpsc::Sender;
-use tokio::{
-    sync::{
-        mpsc::{channel, Receiver},
-        watch,
-    },
-    time::sleep,
+use tokio::sync::{
+    mpsc::{channel, Receiver},
+    watch,
 };
+use zduny_wasm_timer::{Delay, SystemTime, UNIX_EPOCH};
 
 use helios_core::consensus::Consensus;
 use helios_core::types::{Block, Transactions};
@@ -40,10 +38,16 @@ impl ConsensusClient {
             finalized_block_send,
         };
 
-        tokio::spawn(async move {
+        #[cfg(not(target_arch = "wasm32"))]
+        let run = tokio::spawn;
+
+        #[cfg(target_arch = "wasm32")]
+        let run = wasm_bindgen_futures::spawn_local;
+
+        run(async move {
             loop {
                 _ = inner.advance().await;
-                sleep(Duration::from_secs(1)).await;
+                Delay::new(Duration::from_secs(1)).await.unwrap();
             }
         });
 
