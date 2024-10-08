@@ -200,17 +200,17 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
-        let slot = slot.unwrap_or(self.store.optimistic_header.slot);
+        let slot = slot.unwrap_or(self.store.optimistic_header.beacon.slot);
         let block = self.rpc.get_block(slot).await?;
         let block_hash = block.tree_hash_root();
 
-        let latest_slot = self.store.optimistic_header.slot;
-        let finalized_slot = self.store.finalized_header.slot;
+        let latest_slot = self.store.optimistic_header.beacon.slot;
+        let finalized_slot = self.store.finalized_header.beacon.slot;
 
         let verified_block_hash = if slot == latest_slot {
-            self.store.optimistic_header.tree_hash_root()
+            self.store.optimistic_header.beacon.tree_hash_root()
         } else if slot == finalized_slot {
-            self.store.finalized_header.tree_hash_root()
+            self.store.finalized_header.beacon.tree_hash_root()
         } else {
             return Err(ConsensusError::PayloadNotFound(slot).into());
         };
@@ -268,7 +268,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         self.bootstrap(checkpoint).await?;
 
-        let current_period = calc_sync_period(self.store.finalized_header.slot);
+        let current_period = calc_sync_period(self.store.finalized_header.beacon.slot);
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -307,7 +307,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         if self.store.next_sync_committee.is_none() {
             debug!(target: "helios::consensus", "checking for sync committee update");
-            let current_period = calc_sync_period(self.store.finalized_header.slot);
+            let current_period = calc_sync_period(self.store.finalized_header.beacon.slot);
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
@@ -325,9 +325,9 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let slot = self.store.optimistic_header.slot;
+        let slot = self.store.optimistic_header.beacon.slot;
         let payload = self.get_execution_payload(&Some(slot)).await?;
-        let finalized_slot = self.store.finalized_header.slot;
+        let finalized_slot = self.store.finalized_header.beacon.slot;
         let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
         self.block_send.send(payload_to_block(payload)).await?;
@@ -363,7 +363,7 @@ impl<R: ConsensusRpc> Inner<R> {
             .await
             .map_err(|err| eyre!("could not fetch bootstrap: {}", err))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot);
+        let is_valid = self.is_valid_checkpoint(bootstrap.header.beacon.slot);
 
         if !is_valid {
             if self.config.strict_checkpoint_age {
@@ -373,7 +373,7 @@ impl<R: ConsensusRpc> Inner<R> {
             }
         }
 
-        verify_bootstrap(&bootstrap, checkpoint)?;
+        verify_bootstrap(&bootstrap, checkpoint, &self.config.forks)?;
         apply_bootstrap(&mut self.store, &bootstrap);
 
         Ok(())
@@ -436,12 +436,12 @@ impl<R: ConsensusRpc> Inner<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.finalized_header.slot);
+        let age = self.age(self.store.finalized_header.beacon.slot);
 
         info!(
             target: "helios::consensus",
             "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.finalized_header.slot,
+            self.store.finalized_header.beacon.slot,
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -454,12 +454,12 @@ impl<R: ConsensusRpc> Inner<R> {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.optimistic_header.slot);
+        let age = self.age(self.store.optimistic_header.beacon.slot);
 
         info!(
             target: "helios::consensus",
             "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.optimistic_header.slot,
+            self.store.optimistic_header.beacon.slot,
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -641,11 +641,8 @@ mod tests {
         Inner,
     };
     use alloy::primitives::b256;
-    use consensus_core::errors::ConsensusError;
-    use consensus_core::types::{
-        bls::{PublicKey, Signature},
-        Header,
-    };
+    use consensus_core::types::bls::{PublicKey, Signature};
+    use consensus_core::{errors::ConsensusError, types::LightClientHeader};
 
     use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};
@@ -687,7 +684,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot.into());
+        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -701,7 +698,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_committee() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot.into());
+        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -721,7 +718,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_finality() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot.into());
+        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -729,7 +726,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.finalized_header = Header::default();
+        update.finalized_header = LightClientHeader::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -741,7 +738,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_sig() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.slot.into());
+        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -772,7 +769,7 @@ mod tests {
         let client = get_client(false, true).await;
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
-        update.finalized_header = Header::default();
+        update.finalized_header = LightClientHeader::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
