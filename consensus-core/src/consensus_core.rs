@@ -265,7 +265,7 @@ fn verify_generic_update(
 
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-    let fork_version = calculate_fork_version(forks, update.signature_slot);
+    let fork_version = calculate_fork_version(forks, update.signature_slot.saturating_sub(1));
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
     let is_valid_sig = verify_sync_committee_signture(
         &pks,
