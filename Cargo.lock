@@ -3137,6 +3137,7 @@ name = "helios-opstack"
 version = "0.7.0"
 dependencies = [
  "alloy",
+ "alloy-rlp",
  "axum",
  "clap",
  "discv5",
@@ -3162,6 +3163,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "triehash-ethereum",
  "typenum",
  "unsigned-varint",
  "url",
