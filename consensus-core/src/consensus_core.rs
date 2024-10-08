@@ -154,6 +154,9 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
         let store_period = calc_sync_period(store.finalized_header.slot);
 
         if store.next_sync_committee.is_none() {
+            if update_finalized_period != store_period {
+                return None;
+            }
             store
                 .next_sync_committee
                 .clone_from(&update.next_sync_committee);
