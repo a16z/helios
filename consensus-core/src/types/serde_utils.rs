@@ -36,32 +36,3 @@ pub mod u256 {
         val.parse().map_err(D::Error::custom)
     }
 }
-
-// pub mod header {
-//     use crate::types::Header;
-//     use serde::{Deserialize, Deserializer};
-//
-//     pub fn deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         let header: LightClientHeader = Deserialize::deserialize(deserializer)?;
-//
-//         Ok(match header {
-//             LightClientHeader::Unwrapped(header) => header,
-//             LightClientHeader::Wrapped(header) => header.beacon,
-//         })
-//     }
-//
-//     #[derive(serde::Deserialize)]
-//     #[serde(untagged)]
-//     enum LightClientHeader {
-//         Unwrapped(Header),
-//         Wrapped(Beacon),
-//     }
-//
-//     #[derive(serde::Deserialize)]
-//     struct Beacon {
-//         beacon: Header,
-//     }
-// }
