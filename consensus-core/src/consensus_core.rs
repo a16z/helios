@@ -372,7 +372,7 @@ fn is_valid_header(header: &LightClientHeader, forks: &Forks) -> bool {
         };
 
         let proof_valid =
-            is_execution_payload_proof_valid(&header.beacon, &execution, &execution_branch);
+            is_execution_payload_proof_valid(&header.beacon, execution, execution_branch);
 
         proof_valid && valid_execution_type
     } else {
