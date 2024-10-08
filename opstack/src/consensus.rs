@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use alloy::consensus::Transaction as TxTrait;
-use alloy::primitives::{b256, keccak256, Address, B256, U256, U64};
+use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{Parity, Signature, Transaction};
+use alloy_rlp::encode;
 use eyre::Result;
 use op_alloy_consensus::OpTxEnvelope;
 use tokio::sync::mpsc::Sender;
@@ -11,6 +12,7 @@ use tokio::sync::{
     mpsc::{channel, Receiver},
     watch,
 };
+use triehash_ethereum::ordered_trie_root;
 use zduny_wasm_timer::{Delay, SystemTime, UNIX_EPOCH};
 
 use helios_core::consensus::Consensus;
@@ -131,7 +133,7 @@ impl Inner {
 }
 
 fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
-    let empty_nonce = "0x0000000000000000".to_string();
+    let empty_nonce = fixed_bytes!("0000000000000000");
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
 
@@ -282,6 +284,12 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         })
         .collect::<Result<Vec<Transaction>>>()?;
 
+    let txs = Transactions::Full(txs);
+    let txs_root = ordered_trie_root(txs.hashes());
+
+    let withdrawals = value.withdrawals.iter().map(|v| encode(v));
+    let withdrawals_root = ordered_trie_root(withdrawals);
+
     Ok(Block {
         number: U64::from(value.block_number),
         base_fee_per_gas: value.base_fee_per_gas,
@@ -297,12 +305,13 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         state_root: value.state_root,
         timestamp: U64::from(value.timestamp),
         total_difficulty: U64::ZERO,
-        transactions: Transactions::Full(txs),
+        transactions: txs,
         mix_hash: value.prev_randao,
         nonce: empty_nonce,
         sha3_uncles: empty_uncle_hash,
         size: U64::ZERO,
-        transactions_root: B256::default(),
+        transactions_root: B256::from_slice(txs_root.as_bytes()),
+        withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
         uncles: vec![],
         blob_gas_used: Some(U64::from(value.blob_gas_used)),
         excess_blob_gas: Some(U64::from(value.excess_blob_gas)),

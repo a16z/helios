@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
+use alloy::consensus::{Header, EMPTY_OMMER_ROOT_HASH};
 use alloy::network::TransactionResponse;
-use alloy::primitives::{Address, Bytes, B256, U256, U64};
+use alloy::primitives::{Address, Bloom, Bytes, B256, U256, U64, FixedBytes};
 use serde::{de::Error, ser::SerializeSeq, Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -17,7 +18,7 @@ pub struct Block<T: TransactionResponse> {
     pub logs_bloom: Bytes,
     pub miner: Address,
     pub mix_hash: B256,
-    pub nonce: String,
+    pub nonce: FixedBytes<8>,
     pub parent_hash: B256,
     pub receipts_root: B256,
     pub sha3_uncles: B256,
@@ -28,8 +29,39 @@ pub struct Block<T: TransactionResponse> {
     pub transactions: Transactions<T>,
     pub transactions_root: B256,
     pub uncles: Vec<B256>,
+    pub withdrawals_root: B256,
     pub blob_gas_used: Option<U64>,
     pub excess_blob_gas: Option<U64>,
+}
+
+impl<T: TransactionResponse> Block<T> {
+    pub fn is_hash_valid(&self) -> bool {
+        let header = Header {
+            parent_hash: self.parent_hash,
+            ommers_hash: EMPTY_OMMER_ROOT_HASH,
+            beneficiary: self.miner,
+            state_root: self.state_root,
+            transactions_root: self.transactions_root,
+            receipts_root: self.receipts_root,
+            withdrawals_root: Some(self.withdrawals_root),
+            logs_bloom: Bloom::from_slice(&self.logs_bloom),
+            difficulty: self.difficulty,
+            number: self.number.to(),
+            gas_limit: self.gas_limit.to(),
+            gas_used: self.gas_used.to(),
+            timestamp: self.timestamp.to(),
+            mix_hash: self.mix_hash,
+            nonce: self.nonce,
+            base_fee_per_gas: Some(self.base_fee_per_gas.to()),
+            blob_gas_used: self.blob_gas_used.map(|v| v.to()),
+            excess_blob_gas: self.excess_blob_gas.map(|v| v.to()),
+            parent_beacon_block_root: None,
+            requests_root: None,
+            extra_data: self.extra_data.clone(),
+        };
+
+        header.hash_slow() == self.hash
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
