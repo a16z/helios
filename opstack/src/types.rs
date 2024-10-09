@@ -35,4 +35,3 @@ pub struct Withdrawal {
     address: Address,
     amount: u64,
 }
-

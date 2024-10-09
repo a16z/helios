@@ -3,8 +3,8 @@ use std::process;
 use std::sync::Arc;
 
 use alloy::consensus::{Transaction as TxTrait, TxEnvelope};
-use alloy::primitives::{b256, B256, U256, U64};
-use alloy::rlp::Decodable;
+use alloy::primitives::{b256, fixed_bytes, B256, U256, U64};
+use alloy::rlp::{encode, Decodable};
 use alloy::rpc::types::{Parity, Signature, Transaction};
 use chrono::Duration;
 use eyre::eyre;
@@ -12,6 +12,7 @@ use eyre::Result;
 use futures::future::join_all;
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
+use triehash_ethereum::ordered_trie_root;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::channel;
@@ -521,7 +522,7 @@ impl<R: ConsensusRpc> Inner<R> {
 }
 
 fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
-    let empty_nonce = "0x0000000000000000".to_string();
+    let empty_nonce = fixed_bytes!("0000000000000000");
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
 
@@ -620,6 +621,12 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
         })
         .collect::<Vec<Transaction>>();
 
+    let raw_txs = value.transactions().iter().map(|tx| tx.inner.to_vec());
+    let txs_root = ordered_trie_root(raw_txs);
+
+    let withdrawals = value.withdrawals().unwrap().iter().map(encode);
+    let withdrawals_root = ordered_trie_root(withdrawals);
+
     Block {
         number: U64::from(*value.block_number()),
         base_fee_per_gas: *value.base_fee_per_gas(),
@@ -640,10 +647,12 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
         nonce: empty_nonce,
         sha3_uncles: empty_uncle_hash,
         size: U64::ZERO,
-        transactions_root: B256::default(),
+        transactions_root: B256::from_slice(txs_root.as_bytes()),
         uncles: vec![],
         blob_gas_used: value.blob_gas_used().map(|v| U64::from(*v)).ok(),
         excess_blob_gas: value.excess_blob_gas().map(|v| U64::from(*v)).ok(),
+        withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
+        parent_beacon_block_root: Some(*value.parent_hash()),
     }
 }
 

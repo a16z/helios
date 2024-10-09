@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use alloy::consensus::{Header, EMPTY_OMMER_ROOT_HASH};
 use alloy::network::TransactionResponse;
-use alloy::primitives::{Address, Bloom, Bytes, B256, U256, U64, FixedBytes};
+use alloy::primitives::{Address, Bloom, Bytes, FixedBytes, B256, U256, U64};
 use serde::{de::Error, ser::SerializeSeq, Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -32,6 +32,7 @@ pub struct Block<T: TransactionResponse> {
     pub withdrawals_root: B256,
     pub blob_gas_used: Option<U64>,
     pub excess_blob_gas: Option<U64>,
+    pub parent_beacon_block_root: Option<B256>,
 }
 
 impl<T: TransactionResponse> Block<T> {
@@ -55,7 +56,7 @@ impl<T: TransactionResponse> Block<T> {
             base_fee_per_gas: Some(self.base_fee_per_gas.to()),
             blob_gas_used: self.blob_gas_used.map(|v| v.to()),
             excess_blob_gas: self.excess_blob_gas.map(|v| v.to()),
-            parent_beacon_block_root: None,
+            parent_beacon_block_root: self.parent_beacon_block_root,
             requests_root: None,
             extra_data: self.extra_data.clone(),
         };
@@ -64,7 +65,7 @@ impl<T: TransactionResponse> Block<T> {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Transactions<T: TransactionResponse> {
     Hashes(Vec<B256>),
     Full(Vec<T>),
@@ -108,6 +109,16 @@ impl<T: TransactionResponse + Serialize> Serialize for Transactions<T> {
                 seq.end()
             }
         }
+    }
+}
+
+impl<'de, T: TransactionResponse + Deserialize<'de>> Deserialize<'de> for Transactions<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let txs: Vec<T> = serde::Deserialize::deserialize(deserializer)?;
+        Ok(Transactions::Full(txs))
     }
 }
 

@@ -3006,6 +3006,7 @@ name = "helios-consensus-core"
 version = "0.7.0"
 dependencies = [
  "alloy",
+ "alloy-rlp",
  "bls12_381",
  "ethereum_ssz 0.6.0",
  "ethereum_ssz_derive 0.6.0",
@@ -3077,6 +3078,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tree_hash",
+ "triehash-ethereum",
  "wasm-bindgen-futures",
  "zduny-wasm-timer",
 ]
