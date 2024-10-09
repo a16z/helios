@@ -284,16 +284,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
     }
 
     pub async fn push_finalized_block(&mut self, block: Block<N::TransactionResponse>) {
-        self.finalized_block = Some(block.clone());
-
         if let Some(old_block) = self.blocks.get(&block.number.to()) {
             if old_block.hash != block.hash {
-                self.remove_block(old_block.number.to());
-                self.push_block(block).await;
+                self.blocks = BTreeMap::new();
             }
-        } else {
-            self.push_block(block).await;
         }
+
+        self.finalized_block = Some(block.clone());
+        self.push_block(block).await;
     }
 
     fn remove_block(&mut self, number: u64) {
