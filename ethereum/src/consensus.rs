@@ -24,8 +24,8 @@ use helios_consensus_core::{
     apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
     errors::ConsensusError,
     expected_current_slot, get_bits,
-    types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
-    verify_bootstrap, verify_finality_update, verify_optimistic_update, verify_update,
+    types::{ExecutionPayload, FinalityUpdate, LightClientStore, Update},
+    verify_bootstrap, verify_finality_update, verify_update,
 };
 use helios_core::consensus::Consensus;
 use helios_core::types::{Block, Transactions};
@@ -802,28 +802,6 @@ mod tests {
         update.sync_aggregate.sync_committee_signature = Signature::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
-        assert_eq!(
-            err.to_string(),
-            ConsensusError::InvalidSignature.to_string()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_verify_optimistic() {
-        let client = get_client(false, true).await;
-
-        let update = client.rpc.get_optimistic_update().await.unwrap();
-        client.verify_optimistic_update(&update).unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_verify_optimistic_invalid_sig() {
-        let client = get_client(false, true).await;
-
-        let mut update = client.rpc.get_optimistic_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = Signature::default();
-
-        let err = client.verify_optimistic_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidSignature.to_string()
