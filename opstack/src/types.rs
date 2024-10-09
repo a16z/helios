@@ -1,4 +1,5 @@
 use alloy::primitives::{Address, B256, U256};
+use alloy_rlp::RlpEncodable;
 use ssz_derive::{Decode, Encode};
 use ssz_types::{FixedVector, VariableList};
 
@@ -27,7 +28,7 @@ pub type Transaction = VariableList<u8, typenum::U1073741824>;
 pub type LogsBloom = FixedVector<u8, typenum::U256>;
 pub type ExtraData = VariableList<u8, typenum::U32>;
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode, RlpEncodable)]
 pub struct Withdrawal {
     index: u64,
     validator_index: u64,

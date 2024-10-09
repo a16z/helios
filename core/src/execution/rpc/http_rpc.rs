@@ -5,13 +5,13 @@ use alloy::rpc::types::{BlockId, EIP1186AccountProofResponse, FeeHistory, Filter
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
-use eyre::Result;
+use eyre::{eyre, Result};
 use reqwest::Client;
 use revm::primitives::AccessList;
 
 use crate::errors::RpcError;
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use crate::types::{Block, BlockTag};
 
 use super::ExecutionRpc;
 
@@ -189,5 +189,15 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .get_fee_history(block_count, last_block.into(), reward_percentiles)
             .await
             .map_err(|e| RpcError::new("fee_history", e))?)
+    }
+
+    async fn get_block(&self, hash: B256) -> Result<Block<N::TransactionResponse>> {
+        self.provider
+            .raw_request::<_, Option<Block<N::TransactionResponse>>>(
+                "eth_getBlockByHash".into(),
+                (hash, true),
+            )
+            .await?
+            .ok_or(eyre!("block not found"))
     }
 }

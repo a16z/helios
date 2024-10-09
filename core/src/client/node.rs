@@ -25,7 +25,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         let block_recv = consensus.block_recv().take().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
 
-        let state = State::new(block_recv, finalized_block_recv, 256);
+        let state = State::new(block_recv, finalized_block_recv, 256, execution_rpc);
         let execution = Arc::new(
             ExecutionClient::new(execution_rpc, state).map_err(ClientError::InternalError)?,
         );

@@ -11,6 +11,7 @@ alloy = { version = "0.2.1", features = [
     "rlp",
     "k256",
 ] }
+alloy-rlp = "0.3.0"
 bls12_381.workspace = true
 ssz_types.workspace = true
 ethereum_ssz_derive.workspace = true

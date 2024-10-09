@@ -3,8 +3,8 @@ use std::process;
 use std::sync::Arc;
 
 use alloy::consensus::{Transaction as TxTrait, TxEnvelope};
-use alloy::primitives::{b256, B256, U256, U64};
-use alloy::rlp::Decodable;
+use alloy::primitives::{b256, fixed_bytes, B256, U256, U64};
+use alloy::rlp::{encode, Decodable};
 use alloy::rpc::types::{Parity, Signature, Transaction};
 use chrono::Duration;
 use eyre::eyre;
@@ -12,6 +12,7 @@ use eyre::Result;
 use futures::future::join_all;
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
+use triehash_ethereum::ordered_trie_root;
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::channel;
@@ -20,12 +21,11 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::watch;
 
 use helios_consensus_core::{
-    apply_bootstrap, apply_finality_update, apply_optimistic_update, apply_update,
-    calc_sync_period,
+    apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
     errors::ConsensusError,
     expected_current_slot, get_bits,
-    types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
-    verify_bootstrap, verify_finality_update, verify_optimistic_update, verify_update,
+    types::{ExecutionPayload, FinalityUpdate, LightClientStore, Update},
+    verify_bootstrap, verify_finality_update, verify_update,
 };
 use helios_core::consensus::Consensus;
 use helios_core::types::{Block, Transactions};
@@ -304,10 +304,6 @@ impl<R: ConsensusRpc> Inner<R> {
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
-        let optimistic_update = self.rpc.get_optimistic_update().await?;
-        self.verify_optimistic_update(&optimistic_update)?;
-        self.apply_optimistic_update(&optimistic_update);
-
         info!(
             target: "helios::consensus",
             "consensus client in sync with checkpoint: 0x{}",
@@ -321,10 +317,6 @@ impl<R: ConsensusRpc> Inner<R> {
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
-
-        let optimistic_update = self.rpc.get_optimistic_update().await?;
-        self.verify_optimistic_update(&optimistic_update)?;
-        self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
             debug!(target: "helios::consensus", "checking for sync committee update");
@@ -420,16 +412,6 @@ impl<R: ConsensusRpc> Inner<R> {
         )
     }
 
-    fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
-        verify_optimistic_update(
-            update,
-            self.expected_current_slot(),
-            &self.store,
-            self.config.chain.genesis_root,
-            &self.config.forks,
-        )
-    }
-
     pub fn apply_update(&mut self, update: &Update) {
         let new_checkpoint = apply_update(&mut self.store, update);
         if new_checkpoint.is_some() {
@@ -438,19 +420,20 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
+        let prev_finalized_slot = self.store.finalized_header.slot;
+        let prev_optimistic_slot = self.store.optimistic_header.slot;
         let new_checkpoint = apply_finality_update(&mut self.store, update);
+        let new_finalized_slot = self.store.finalized_header.slot;
+        let new_optimistic_slot = self.store.optimistic_header.slot;
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
-        self.log_finality_update(update);
-    }
-
-    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let new_checkpoint = apply_optimistic_update(&mut self.store, update);
-        if new_checkpoint.is_some() {
-            self.last_checkpoint = new_checkpoint;
+        if new_finalized_slot != prev_finalized_slot {
+            self.log_finality_update(update);
         }
-        self.log_optimistic_update(update);
+        if new_optimistic_slot != prev_optimistic_slot {
+            self.log_optimistic_update(update)
+        }
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate) {
@@ -471,7 +454,7 @@ impl<R: ConsensusRpc> Inner<R> {
         );
     }
 
-    fn log_optimistic_update(&self, update: &OptimisticUpdate) {
+    fn log_optimistic_update(&self, update: &FinalityUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -521,7 +504,7 @@ impl<R: ConsensusRpc> Inner<R> {
 }
 
 fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
-    let empty_nonce = "0x0000000000000000".to_string();
+    let empty_nonce = fixed_bytes!("0000000000000000");
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
 
@@ -620,6 +603,12 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
         })
         .collect::<Vec<Transaction>>();
 
+    let raw_txs = value.transactions().iter().map(|tx| tx.inner.to_vec());
+    let txs_root = ordered_trie_root(raw_txs);
+
+    let withdrawals = value.withdrawals().unwrap().iter().map(encode);
+    let withdrawals_root = ordered_trie_root(withdrawals);
+
     Block {
         number: U64::from(*value.block_number()),
         base_fee_per_gas: *value.base_fee_per_gas(),
@@ -640,10 +629,12 @@ fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
         nonce: empty_nonce,
         sha3_uncles: empty_uncle_hash,
         size: U64::ZERO,
-        transactions_root: B256::default(),
+        transactions_root: B256::from_slice(txs_root.as_bytes()),
         uncles: vec![],
         blob_gas_used: value.blob_gas_used().map(|v| U64::from(*v)).ok(),
         excess_blob_gas: value.excess_blob_gas().map(|v| U64::from(*v)).ok(),
+        withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
+        parent_beacon_block_root: Some(*value.parent_hash()),
     }
 }
 
@@ -811,28 +802,6 @@ mod tests {
         update.sync_aggregate.sync_committee_signature = Signature::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
-        assert_eq!(
-            err.to_string(),
-            ConsensusError::InvalidSignature.to_string()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_verify_optimistic() {
-        let client = get_client(false, true).await;
-
-        let update = client.rpc.get_optimistic_update().await.unwrap();
-        client.verify_optimistic_update(&update).unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_verify_optimistic_invalid_sig() {
-        let client = get_client(false, true).await;
-
-        let mut update = client.rpc.get_optimistic_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = Signature::default();
-
-        let err = client.verify_optimistic_update(&update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidSignature.to_string()
