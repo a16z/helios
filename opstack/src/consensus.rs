@@ -284,8 +284,8 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         })
         .collect::<Result<Vec<Transaction>>>()?;
 
-    let txs = Transactions::Full(txs);
-    let txs_root = ordered_trie_root(txs.hashes());
+    let raw_txs = value.transactions.iter().map(|tx| tx.to_vec());
+    let txs_root = ordered_trie_root(raw_txs);
 
     let withdrawals = value.withdrawals.iter().map(|v| encode(v));
     let withdrawals_root = ordered_trie_root(withdrawals);
@@ -305,7 +305,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         state_root: value.state_root,
         timestamp: U64::from(value.timestamp),
         total_difficulty: U64::ZERO,
-        transactions: txs,
+        transactions: Transactions::Full(txs),
         mix_hash: value.prev_randao,
         nonce: empty_nonce,
         sha3_uncles: empty_uncle_hash,
@@ -315,5 +315,6 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         uncles: vec![],
         blob_gas_used: Some(U64::from(value.blob_gas_used)),
         excess_blob_gas: Some(U64::from(value.excess_blob_gas)),
+        parent_beacon_block_root: None,
     })
 }

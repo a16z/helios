@@ -1,4 +1,5 @@
 use alloy::primitives::{Address, FixedBytes, B256, U256};
+use alloy_rlp::RlpEncodable;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use ssz_derive::Encode;
@@ -182,7 +183,7 @@ impl Default for ExecutionPayloadHeader {
     }
 }
 
-#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
+#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize, RlpEncodable)]
 pub struct Withdrawal {
     #[serde(with = "serde_utils::u64")]
     index: u64,
