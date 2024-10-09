@@ -9,26 +9,31 @@ use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use crate::errors::ConsensusError;
 use crate::proof::{
-    is_current_committee_proof_valid, is_finality_proof_valid, is_next_committee_proof_valid,
+    is_current_committee_proof_valid, is_execution_payload_proof_valid, is_finality_proof_valid,
+    is_next_committee_proof_valid,
 };
 use crate::types::bls::{PublicKey, Signature};
 use crate::types::{
-    Bootstrap, FinalityUpdate, Forks, GenericUpdate, Header, LightClientStore, OptimisticUpdate,
-    Update,
+    Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate, Header,
+    LightClientHeader, LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
     calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
     get_participating_keys,
 };
 
-pub fn verify_bootstrap(bootstrap: &Bootstrap, checkpoint: B256) -> Result<()> {
+pub fn verify_bootstrap(bootstrap: &Bootstrap, checkpoint: B256, forks: &Forks) -> Result<()> {
+    if !is_valid_header(&bootstrap.header, forks) {
+        return Err(ConsensusError::InvalidExecutionPayloadProof.into());
+    }
+
     let committee_valid = is_current_committee_proof_valid(
-        &bootstrap.header,
+        &bootstrap.header.beacon,
         &bootstrap.current_sync_committee,
         &bootstrap.current_sync_committee_branch,
     );
 
-    let header_hash = bootstrap.header.tree_hash_root();
+    let header_hash = bootstrap.header.beacon.tree_hash_root();
     let header_valid = header_hash == checkpoint;
 
     if !header_valid {
@@ -117,18 +122,18 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
         u64::max(store.current_max_active_participants, committee_bits);
 
     let should_update_optimistic = committee_bits > safety_threshold(store)
-        && update.attested_header.slot > store.optimistic_header.slot;
+        && update.attested_header.beacon.slot > store.optimistic_header.beacon.slot;
 
     if should_update_optimistic {
         store.optimistic_header = update.attested_header.clone();
     }
 
-    let update_attested_period = calc_sync_period(update.attested_header.slot);
+    let update_attested_period = calc_sync_period(update.attested_header.beacon.slot);
 
     let update_finalized_slot = update
         .finalized_header
         .as_ref()
-        .map(|h| h.slot)
+        .map(|h| h.beacon.slot)
         .unwrap_or(0);
 
     let update_finalized_period = calc_sync_period(update_finalized_slot);
@@ -144,16 +149,19 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
             warn!("skipping block with low vote count");
         }
 
-        let update_is_newer = update_finalized_slot > store.finalized_header.slot;
+        let update_is_newer = update_finalized_slot > store.finalized_header.beacon.slot;
         let good_update = update_is_newer || update_has_finalized_next_committee;
 
         has_majority && good_update
     };
 
     if should_apply_update {
-        let store_period = calc_sync_period(store.finalized_header.slot);
+        let store_period = calc_sync_period(store.finalized_header.beacon.slot);
 
         if store.next_sync_committee.is_none() {
+            if update_finalized_period != store_period {
+                return None;
+            }
             store
                 .next_sync_committee
                 .clone_from(&update.next_sync_committee);
@@ -167,15 +175,15 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
             store.current_max_active_participants = 0;
         }
 
-        if update_finalized_slot > store.finalized_header.slot {
+        if update_finalized_slot > store.finalized_header.beacon.slot {
             store.finalized_header = update.finalized_header.clone().unwrap();
 
-            if store.finalized_header.slot > store.optimistic_header.slot {
+            if store.finalized_header.beacon.slot > store.optimistic_header.beacon.slot {
                 store.optimistic_header = store.finalized_header.clone();
             }
 
-            if store.finalized_header.slot % 32 == 0 {
-                let checkpoint = store.finalized_header.tree_hash_root();
+            if store.finalized_header.beacon.slot % 32 == 0 {
+                let checkpoint = store.finalized_header.beacon.tree_hash_root();
                 return Some(checkpoint);
             }
         }
@@ -198,16 +206,26 @@ fn verify_generic_update(
         return Err(ConsensusError::InsufficientParticipation.into());
     }
 
-    let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
+    if !is_valid_header(&update.attested_header, forks) {
+        return Err(ConsensusError::InvalidExecutionPayloadProof.into());
+    }
+
+    let update_finalized_slot = update
+        .finalized_header
+        .clone()
+        .unwrap_or_default()
+        .beacon
+        .slot;
+
     let valid_time: bool = expected_current_slot >= update.signature_slot
-        && update.signature_slot > update.attested_header.slot
-        && update.attested_header.slot >= update_finalized_slot;
+        && update.signature_slot > update.attested_header.beacon.slot
+        && update.attested_header.beacon.slot >= update_finalized_slot;
 
     if !valid_time {
         return Err(ConsensusError::InvalidTimestamp.into());
     }
 
-    let store_period = calc_sync_period(store.finalized_header.slot);
+    let store_period = calc_sync_period(store.finalized_header.beacon.slot);
     let update_sig_period = calc_sync_period(update.signature_slot);
     let valid_period = if store.next_sync_committee.is_some() {
         update_sig_period == store_period || update_sig_period == store_period + 1
@@ -219,19 +237,28 @@ fn verify_generic_update(
         return Err(ConsensusError::InvalidPeriod.into());
     }
 
-    let update_attested_period = calc_sync_period(update.attested_header.slot);
+    let update_attested_period = calc_sync_period(update.attested_header.beacon.slot);
     let update_has_next_committee = store.next_sync_committee.is_none()
         && update.next_sync_committee.is_some()
         && update_attested_period == store_period;
 
-    if update.attested_header.slot <= store.finalized_header.slot && !update_has_next_committee {
+    if update.attested_header.beacon.slot <= store.finalized_header.beacon.slot
+        && !update_has_next_committee
+    {
         return Err(ConsensusError::NotRelevant.into());
     }
 
     if let Some(finalized_header) = &update.finalized_header {
         if let Some(finality_branch) = &update.finality_branch {
-            let is_valid =
-                is_finality_proof_valid(&update.attested_header, finalized_header, finality_branch);
+            if !is_valid_header(finalized_header, forks) {
+                return Err(ConsensusError::InvalidExecutionPayloadProof.into());
+            }
+
+            let is_valid = is_finality_proof_valid(
+                &update.attested_header.beacon,
+                &finalized_header.beacon,
+                finality_branch,
+            );
 
             if !is_valid {
                 return Err(ConsensusError::InvalidFinalityProof.into());
@@ -244,7 +271,7 @@ fn verify_generic_update(
     if let Some(next_sync_committee) = &update.next_sync_committee {
         if let Some(next_sync_committee_branch) = &update.next_sync_committee_branch {
             let is_valid = is_next_committee_proof_valid(
-                &update.attested_header,
+                &update.attested_header.beacon,
                 next_sync_committee,
                 next_sync_committee_branch,
             );
@@ -265,11 +292,11 @@ fn verify_generic_update(
 
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-    let fork_version = calculate_fork_version(forks, update.signature_slot);
+    let fork_version = calculate_fork_version(forks, update.signature_slot.saturating_sub(1));
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
     let is_valid_sig = verify_sync_committee_signture(
         &pks,
-        &update.attested_header,
+        &update.attested_header.beacon,
         &update.sync_aggregate.sync_committee_signature,
         fork_data_root,
     );
@@ -323,4 +350,32 @@ fn safety_threshold(store: &LightClientStore) -> u64 {
         store.current_max_active_participants,
         store.previous_max_active_participants,
     ) / 2
+}
+
+fn is_valid_header(header: &LightClientHeader, forks: &Forks) -> bool {
+    let epoch = header.beacon.slot / 32;
+
+    if epoch < forks.capella.epoch {
+        header.execution.is_none() && header.execution_branch.is_none()
+    } else if header.execution.is_some() && header.execution_branch.is_some() {
+        let execution = header.execution.as_ref().unwrap();
+        let execution_branch = header.execution_branch.as_ref().unwrap();
+
+        let valid_execution_type = match execution {
+            ExecutionPayloadHeader::Deneb(_) => epoch >= forks.deneb.epoch,
+            ExecutionPayloadHeader::Capella(_) => {
+                epoch >= forks.capella.epoch && epoch < forks.deneb.epoch
+            }
+            ExecutionPayloadHeader::Bellatrix(_) => {
+                epoch >= forks.bellatrix.epoch && epoch < forks.altair.epoch
+            }
+        };
+
+        let proof_valid =
+            is_execution_payload_proof_valid(&header.beacon, execution, execution_branch);
+
+        proof_valid && valid_execution_type
+    } else {
+        false
+    }
 }

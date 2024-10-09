@@ -17,6 +17,8 @@ pub enum ConsensusError {
     InvalidNextSyncCommitteeProof,
     #[error("invalid current sync committee proof")]
     InvalidCurrentSyncCommitteeProof,
+    #[error("invalid execution payload proof")]
+    InvalidExecutionPayloadProof,
     #[error("invalid sync committee signature")]
     InvalidSignature,
     #[error("invalid header hash found: {0}, expected: {1}")]

@@ -2,14 +2,20 @@ use alloy::primitives::B256;
 use sha2::{Digest, Sha256};
 use tree_hash::TreeHash;
 
-use crate::types::{Header, SyncCommittee};
+use crate::types::{ExecutionPayloadHeader, Header, SyncCommittee};
 
 pub fn is_finality_proof_valid(
     attested_header: &Header,
     finality_header: &Header,
     finality_branch: &[B256],
 ) -> bool {
-    is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
+    is_proof_valid(
+        attested_header.state_root,
+        finality_header,
+        finality_branch,
+        6,
+        41,
+    )
 }
 
 pub fn is_next_committee_proof_valid(
@@ -18,7 +24,7 @@ pub fn is_next_committee_proof_valid(
     next_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
-        attested_header,
+        attested_header.state_root,
         next_committee,
         next_committee_branch,
         5,
@@ -32,7 +38,7 @@ pub fn is_current_committee_proof_valid(
     current_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
-        attested_header,
+        attested_header.state_root,
         current_committee,
         current_committee_branch,
         5,
@@ -40,8 +46,16 @@ pub fn is_current_committee_proof_valid(
     )
 }
 
-fn is_proof_valid<T: TreeHash>(
+pub fn is_execution_payload_proof_valid(
     attested_header: &Header,
+    execution: &ExecutionPayloadHeader,
+    execution_branch: &[B256],
+) -> bool {
+    is_proof_valid(attested_header.body_root, execution, execution_branch, 4, 9)
+}
+
+fn is_proof_valid<T: TreeHash>(
+    root: B256,
     leaf_object: &T,
     branch: &[B256],
     depth: usize,
@@ -66,5 +80,5 @@ fn is_proof_valid<T: TreeHash>(
         derived_root = B256::from_slice(&hasher.finalize_reset());
     }
 
-    derived_root == attested_header.state_root
+    derived_root == root
 }
