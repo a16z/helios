@@ -21,8 +21,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::watch;
 
 use helios_consensus_core::{
-    apply_bootstrap, apply_finality_update, apply_optimistic_update, apply_update,
-    calc_sync_period,
+    apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
     errors::ConsensusError,
     expected_current_slot, get_bits,
     types::{ExecutionPayload, FinalityUpdate, LightClientStore, OptimisticUpdate, Update},
@@ -305,10 +304,6 @@ impl<R: ConsensusRpc> Inner<R> {
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
-        let optimistic_update = self.rpc.get_optimistic_update().await?;
-        self.verify_optimistic_update(&optimistic_update)?;
-        self.apply_optimistic_update(&optimistic_update);
-
         info!(
             target: "helios::consensus",
             "consensus client in sync with checkpoint: 0x{}",
@@ -322,10 +317,6 @@ impl<R: ConsensusRpc> Inner<R> {
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
-
-        let optimistic_update = self.rpc.get_optimistic_update().await?;
-        self.verify_optimistic_update(&optimistic_update)?;
-        self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
             debug!(target: "helios::consensus", "checking for sync committee update");
@@ -421,16 +412,6 @@ impl<R: ConsensusRpc> Inner<R> {
         )
     }
 
-    fn verify_optimistic_update(&self, update: &OptimisticUpdate) -> Result<()> {
-        verify_optimistic_update(
-            update,
-            self.expected_current_slot(),
-            &self.store,
-            self.config.chain.genesis_root,
-            &self.config.forks,
-        )
-    }
-
     pub fn apply_update(&mut self, update: &Update) {
         let new_checkpoint = apply_update(&mut self.store, update);
         if new_checkpoint.is_some() {
@@ -439,19 +420,20 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
+        let prev_finalized_slot = self.store.finalized_header.slot;
+        let prev_optimistic_slot = self.store.optimistic_header.slot;
         let new_checkpoint = apply_finality_update(&mut self.store, update);
+        let new_finalized_slot = self.store.finalized_header.slot;
+        let new_optimistic_slot = self.store.optimistic_header.slot;
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
-        self.log_finality_update(update);
-    }
-
-    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate) {
-        let new_checkpoint = apply_optimistic_update(&mut self.store, update);
-        if new_checkpoint.is_some() {
-            self.last_checkpoint = new_checkpoint;
+        if new_finalized_slot != prev_finalized_slot {
+            self.log_finality_update(update);
         }
-        self.log_optimistic_update(update);
+        if new_optimistic_slot != prev_optimistic_slot {
+            self.log_optimistic_update(update)
+        }
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate) {
@@ -472,7 +454,7 @@ impl<R: ConsensusRpc> Inner<R> {
         );
     }
 
-    fn log_optimistic_update(&self, update: &OptimisticUpdate) {
+    fn log_optimistic_update(&self, update: &FinalityUpdate) {
         let participation =
             get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
