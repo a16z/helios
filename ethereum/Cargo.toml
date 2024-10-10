@@ -32,7 +32,6 @@ tracing.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 superstruct.workspace = true
-zduny-wasm-timer.workspace = true
 retri.workspace = true
 
 helios-core = { path = "../core" }

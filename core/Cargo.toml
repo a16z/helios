@@ -24,7 +24,6 @@ eyre.workspace = true
 hex.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
-zduny-wasm-timer.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jsonrpsee = { version = "0.19.0", features = ["full"] }
@@ -33,6 +32,11 @@ openssl.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.33"
 gloo-timers = "0.3.0"
+wasmtimer = "0.2.0"
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["console", "Storage", "Window"]
