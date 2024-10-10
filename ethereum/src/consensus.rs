@@ -13,7 +13,6 @@ use futures::future::join_all;
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
 use triehash_ethereum::ordered_trie_root;
-use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
@@ -28,6 +27,7 @@ use helios_consensus_core::{
     verify_bootstrap, verify_finality_update, verify_update,
 };
 use helios_core::consensus::Consensus;
+use helios_core::time::{interval_at, Instant, SystemTime, UNIX_EPOCH};
 use helios_core::types::{Block, Transactions};
 
 use crate::config::checkpoints::CheckpointFallback;
@@ -136,10 +136,11 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 
             _ = inner.send_blocks().await;
 
+            let start = Instant::now() + inner.duration_until_next_update().to_std().unwrap();
+            let mut interval = interval_at(start, std::time::Duration::from_secs(12));
+
             loop {
-                zduny_wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
-                    .await
-                    .unwrap();
+                interval.tick().await;
 
                 let res = inner.advance().await;
                 if let Err(err) = res {
@@ -360,7 +361,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_else(|_| panic!("unreachable"))
             .as_secs();
 
         let time_to_next_slot = next_slot_timestamp - now;
@@ -474,7 +475,10 @@ impl<R: ConsensusRpc> Inner<R> {
 
     fn age(&self, slot: u64) -> Duration {
         let expected_time = self.slot_timestamp(slot);
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|_| panic!("unreachable"));
+
         let delay = now - std::time::Duration::from_secs(expected_time);
         chrono::Duration::from_std(delay).unwrap()
     }

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Filter, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
-use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
@@ -12,6 +11,7 @@ use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::state::State;
 use crate::execution::ExecutionClient;
 use crate::network_spec::NetworkSpec;
+use crate::time::{SystemTime, UNIX_EPOCH};
 use crate::types::{Block, BlockTag};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
@@ -239,7 +239,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
     async fn check_head_age(&self) -> Result<(), ClientError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_else(|_| panic!("unreachable"))
             .as_secs();
 
         let block_timestamp = self

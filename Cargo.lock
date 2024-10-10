@@ -3021,6 +3021,7 @@ dependencies = [
  "tree_hash",
  "tree_hash_derive",
  "typenum",
+ "wasmtimer",
  "zduny-wasm-timer",
 ]
 
@@ -3046,7 +3047,8 @@ dependencies = [
  "tracing",
  "triehash-ethereum",
  "wasm-bindgen-futures",
- "zduny-wasm-timer",
+ "wasmtimer",
+ "web-sys",
 ]
 
 [[package]]
@@ -3080,7 +3082,6 @@ dependencies = [
  "tree_hash",
  "triehash-ethereum",
  "wasm-bindgen-futures",
- "zduny-wasm-timer",
 ]
 
 [[package]]
@@ -3119,7 +3120,6 @@ dependencies = [
  "unsigned-varint",
  "url",
  "wasm-bindgen-futures",
- "zduny-wasm-timer",
 ]
 
 [[package]]
@@ -7654,6 +7654,20 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "wasmtimer"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f656cd8858a5164932d8a90f936700860976ec21eb00e0fe2aa8cab13f6b4cf"
+dependencies = [
+ "futures",
+ "js-sys",
+ "parking_lot 0.12.3",
+ "pin-utils",
+ "slab",
+ "wasm-bindgen",
 ]
 
 [[package]]

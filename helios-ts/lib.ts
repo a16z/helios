@@ -50,6 +50,14 @@ export class HeliosProvider {
   }
 
   async request(req: Request): Promise<any> {
+    try {
+      return await this.#req(req);
+    } catch (err) {
+      throw new Error(err.toString());
+    }
+  }
+
+  async #req(req: Request): Promise<any> {
     switch (req.method) {
       case "eth_getBalance": {
         return this.#client.get_balance(req.params[0], req.params[1]);

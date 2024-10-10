@@ -13,9 +13,9 @@ use tokio::sync::{
     watch,
 };
 use triehash_ethereum::ordered_trie_root;
-use zduny_wasm_timer::{Delay, SystemTime, UNIX_EPOCH};
 
 use helios_core::consensus::Consensus;
+use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_core::types::{Block, Transactions};
 
 use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
@@ -47,9 +47,10 @@ impl ConsensusClient {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
+            let mut interval = interval(Duration::from_secs(1));
             loop {
                 _ = inner.advance().await;
-                Delay::new(Duration::from_secs(1)).await.unwrap();
+                interval.tick().await;
             }
         });
 
@@ -108,7 +109,10 @@ impl Inner {
                 .map(|latest| payload.block_number > latest)
                 .unwrap_or(true)
             {
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_else(|_| panic!("unreachable"));
+
                 let timestamp = Duration::from_secs(payload.timestamp);
                 let age = now.saturating_sub(timestamp);
                 let number = payload.block_number;
