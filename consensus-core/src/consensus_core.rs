@@ -14,7 +14,7 @@ use crate::proof::{
 };
 use crate::types::bls::{PublicKey, Signature};
 use crate::types::{
-    Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate, Header,
+    BeaconBlockHeader, Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate,
     LightClientHeader, LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
@@ -336,7 +336,7 @@ fn has_finality_update(update: &GenericUpdate) -> bool {
 
 fn verify_sync_committee_signture(
     pks: &[PublicKey],
-    attested_header: &Header,
+    attested_header: &BeaconBlockHeader,
     signature: &Signature,
     fork_data_root: B256,
 ) -> bool {
