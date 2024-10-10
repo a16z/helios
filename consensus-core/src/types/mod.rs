@@ -205,15 +205,15 @@ struct SignedBeaconBlockHeader {
     signature: Signature,
 }
 
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-struct BeaconBlockHeader {
+#[derive(Serialize, Deserialize, Debug, Default, Encode, TreeHash, Clone)]
+pub struct BeaconBlockHeader {
     #[serde(with = "serde_utils::u64")]
-    slot: u64,
+    pub slot: u64,
     #[serde(with = "serde_utils::u64")]
-    proposer_index: u64,
-    parent_root: B256,
-    state_root: B256,
-    body_root: B256,
+    pub proposer_index: u64,
+    pub parent_root: B256,
+    pub state_root: B256,
+    pub body_root: B256,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -331,20 +331,9 @@ pub struct OptimisticUpdate {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LightClientHeader {
-    pub beacon: Header,
+    pub beacon: BeaconBlockHeader,
     pub execution: Option<ExecutionPayloadHeader>,
     pub execution_branch: Option<Vec<B256>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
-pub struct Header {
-    #[serde(with = "serde_utils::u64")]
-    pub slot: u64,
-    #[serde(with = "serde_utils::u64")]
-    pub proposer_index: u64,
-    pub parent_root: B256,
-    pub state_root: B256,
-    pub body_root: B256,
 }
 
 #[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize)]
