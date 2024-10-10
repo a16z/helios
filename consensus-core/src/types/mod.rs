@@ -336,17 +336,6 @@ pub struct LightClientHeader {
     pub execution_branch: Option<Vec<B256>>,
 }
 
-// #[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
-// pub struct Header {
-//     #[serde(with = "serde_utils::u64")]
-//     pub slot: u64,
-//     #[serde(with = "serde_utils::u64")]
-//     pub proposer_index: u64,
-//     pub parent_root: B256,
-//     pub state_root: B256,
-//     pub body_root: B256,
-// }
-
 #[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize)]
 pub struct SyncCommittee {
     pub pubkeys: FixedVector<PublicKey, typenum::U512>,
