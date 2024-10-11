@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["dist"]
+}

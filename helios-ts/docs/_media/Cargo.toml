@@ -1,0 +1,170 @@
+[package]
+name = "helios"
+version = "0.7.0"
+edition = "2021"
+autobenches = false
+exclude = ["benches"]
+
+[workspace]
+members = [
+    "cli",
+    "core",
+    "ethereum",
+    "ethereum/consensus-core",
+    "opstack",
+    "helios-ts",
+]
+
+default-members = ["cli"]
+
+######################################
+# Workspace Dependencies
+######################################
+
+[workspace.dependencies]
+# consensus
+ssz_types = "0.7.0"
+ethereum_ssz_derive = "0.6.0"
+ethereum_ssz = "0.6.0"
+tree_hash_derive = "0.7.0"
+tree_hash = "0.7.0"
+sha2 = "0.9"
+bls12_381 = { version = "0.8.0", features = ["experimental"] }
+
+# execution
+alloy = { version = "0.2.1", features = [
+    "rpc-types",
+    "consensus",
+    "rlp",
+    "k256",
+    "provider-http",
+    "sol-types",
+    "network",
+    "ssz",
+    "json-rpc",
+    "signers",
+]}
+revm = { version = "12.1.0", default-features = false, features = [
+    "std",
+    "serde",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+]}
+triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
+
+# async/futures
+async-trait = "0.1.57"
+futures = "0.3.23"
+tokio = { version = "1", features = ["rt", "sync", "macros"] }
+
+# io
+reqwest = { version = "0.12.4", features = ["json"] }
+url = { version = "2.5.2", features = ["serde"] }
+serde = { version = "1.0.143", features = ["derive"] }
+serde_json = "1.0.85"
+
+# misc
+eyre = "0.6.8"
+hex = "0.4.3"
+toml = "0.5.9"
+tracing = "0.1.37"
+chrono = "0.4.23"
+thiserror = "1.0.37"
+superstruct = "0.7.0"
+openssl = { version = "0.10", features = ["vendored"] }
+zduny-wasm-timer = "0.2.8"
+retri = "0.1.0"
+typenum = "1.17.0"
+
+######################################
+# Top Level Dependencies
+######################################
+
+[dependencies]
+helios-core = { path = "./core" }
+helios-ethereum = { path = "./ethereum" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+dotenv = "0.15.0"
+serde = { version = "1.0.154", features = ["derive"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+alloy = { version = "0.2.1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+eyre = "0.6.8"
+dirs = "5.0.1"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing = "0.1.37"
+tracing-test = "0.2.4"
+criterion = { version = "0.5.1", features = ["async_tokio", "plotters"] }
+plotters = "0.3.4"
+tempfile = "3.4.0"
+hex = "0.4.3"
+pretty_assertions = "1.4.0"
+rand = "0.8.5"
+
+######################################
+# Dependency Patches
+######################################
+
+[patch.crates-io]
+ethereum_hashing = { git = "https://github.com/ncitron/ethereum_hashing", rev = "7ee70944ed4fabe301551da8c447e4f4ae5e6c35" }
+
+######################################
+# Profiles
+######################################
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.bench]
+debug = true
+
+######################################
+# Examples
+######################################
+
+[[example]]
+name = "checkpoints"
+path = "examples/checkpoints.rs"
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "client"
+path = "examples/client.rs"
+
+[[example]]
+name = "config"
+path = "examples/config.rs"
+
+[[example]]
+name = "call"
+path = "examples/call.rs"
+
+######################################
+# Benchmarks
+######################################
+
+[[bench]]
+name = "file_db"
+harness = false
+
+[[bench]]
+name = "get_balance"
+harness = false
+
+[[bench]]
+name = "get_code"
+harness = false
+
+[[bench]]
+name = "sync"
+harness = false
