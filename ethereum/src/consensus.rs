@@ -421,11 +421,11 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        let prev_finalized_slot = self.store.finalized_header.slot;
-        let prev_optimistic_slot = self.store.optimistic_header.slot;
+        let prev_finalized_slot = self.store.finalized_header.beacon.slot;
+        let prev_optimistic_slot = self.store.optimistic_header.beacon.slot;
         let new_checkpoint = apply_finality_update(&mut self.store, update);
-        let new_finalized_slot = self.store.finalized_header.slot;
-        let new_optimistic_slot = self.store.optimistic_header.slot;
+        let new_finalized_slot = self.store.finalized_header.beacon.slot;
+        let new_optimistic_slot = self.store.optimistic_header.beacon.slot;
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
@@ -654,10 +654,8 @@ mod tests {
     use tokio::sync::{mpsc::channel, watch};
 
     use helios_consensus_core::errors::ConsensusError;
-    use helios_consensus_core::types::{
-        bls::{PublicKey, Signature},
-        Header,
-    };
+    use helios_consensus_core::types::bls::{PublicKey, Signature};
+    use helios_consensus_core::types::LightClientHeader;
 
     use crate::{
         config::{networks, Config},

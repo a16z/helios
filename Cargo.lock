@@ -3099,7 +3099,6 @@ dependencies = [
  "triehash-ethereum",
  "wasm-bindgen-futures",
  "wasmtimer",
- "web-sys",
 ]
 
 [[package]]
