@@ -31,11 +31,11 @@ mod proof;
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     pub rpc: R,
-    state: State<N>,
+    state: State<N, R>,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
-    pub fn new(rpc: &str, state: State<N>) -> Result<Self> {
+    pub fn new(rpc: &str, state: State<N, R>) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(rpc)?;
         Ok(ExecutionClient::<N, R> { rpc, state })
     }

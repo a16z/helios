@@ -6,13 +6,13 @@ use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Filter, Log, SyncStatus};
 use eyre::Result;
 use tracing::{info, warn};
-use zduny_wasm_timer::Delay;
 
 use crate::client::node::Node;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
+use crate::time::interval;
 use crate::types::{Block, BlockTag};
 
 pub mod node;
@@ -192,12 +192,12 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
     }
 
     pub async fn wait_synced(&self) {
+        let mut interval = interval(Duration::from_millis(100));
         loop {
+            interval.tick().await;
             if let Ok(SyncStatus::None) = self.syncing().await {
                 break;
             }
-
-            Delay::new(Duration::from_millis(100)).await.unwrap();
         }
     }
 }
