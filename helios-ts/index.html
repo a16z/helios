@@ -111,7 +111,7 @@
 
   <script>
     helios.init().then(() => {
-      let alcehmyKey = "<ALCHEMY_KEY>"
+      let alcehmyKey = "<ALCHEMY_KEY>";
 
       let configEthereum = {
         executionRpc: "https://eth-mainnet.g.alchemy.com/v2/" + alcehmyKey,
@@ -149,33 +149,43 @@
         if (provider) {
           try {
             const blockNumber = await provider.getBlockNumber();
-            if (provider.lastUpdate == undefined || blockNumber > provider.lastUpdate) {
-              provider.lastUpdate = blockNumber;
-              const block = await provider.getBlock(blockNumber);
-              const blocksContainer = document.getElementById(networkName + "-blocks");
-
-              const blockEntry = document.createElement('pre');
-              blockEntry.className = 'block-info';
-              blockEntry.textContent = JSON.stringify({
-                number: block.number,
-                hash: block.hash,
-                timestamp: new Date(block.timestamp * 1000).toLocaleString().replace(",", ""),
-                transactions: block.transactions.length,
-              }, null, 2);
-
-              blocksContainer.insertBefore(blockEntry, blocksContainer.firstChild);
-
-              let syncingElement = document.getElementById(networkName + "-syncing");
-              if (syncingElement) {
-                syncingElement.remove();
-              }
-
-              if (blocksContainer.childElementCount > 100) {
-                blocksContainer.removeChild(blocksContainer.lastChild);
+            if (provider.lastUpdate == undefined) {
+              updateBlockInfoAt(provider, networkName, blockNumber);
+            } else if (blockNumber > provider.lastUpdate) {
+              for(let n = provider.lastUpdate + 1; n <= blockNumber; n++) {
+                updateBlockInfoAt(provider, networkName, n);
               }
             }
           } catch (error) {
             console.error(`Error fetching block for ${networkName}:`, error);
+          }
+        }
+      }
+
+      async function updateBlockInfoAt(provider, networkName, blockNumber) {
+        provider.lastUpdate = blockNumber;
+        const block = await provider.getBlock(blockNumber);
+        if (block) {
+          const blocksContainer = document.getElementById(networkName + "-blocks");
+
+          const blockEntry = document.createElement('pre');
+          blockEntry.className = 'block-info';
+          blockEntry.textContent = JSON.stringify({
+            number: block.number,
+            hash: block.hash,
+            timestamp: new Date(block.timestamp * 1000).toLocaleString().replace(",", ""),
+            transactions: block.transactions.length,
+          }, null, 2);
+
+          blocksContainer.insertBefore(blockEntry, blocksContainer.firstChild);
+
+          let syncingElement = document.getElementById(networkName + "-syncing");
+          if (syncingElement) {
+            syncingElement.remove();
+          }
+
+          if (blocksContainer.childElementCount > 100) {
+            blocksContainer.removeChild(blocksContainer.lastChild);
           }
         }
       }

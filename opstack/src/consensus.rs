@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use alloy::consensus::Transaction as TxTrait;
-use alloy::primitives::{b256, keccak256, Address, B256, U256, U64};
+use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{Parity, Signature, Transaction};
+use alloy_rlp::encode;
 use eyre::Result;
 use op_alloy_consensus::OpTxEnvelope;
 use tokio::sync::mpsc::Sender;
@@ -11,9 +12,10 @@ use tokio::sync::{
     mpsc::{channel, Receiver},
     watch,
 };
-use zduny_wasm_timer::{Delay, SystemTime, UNIX_EPOCH};
+use triehash_ethereum::ordered_trie_root;
 
 use helios_core::consensus::Consensus;
+use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_core::types::{Block, Transactions};
 
 use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
@@ -45,9 +47,10 @@ impl ConsensusClient {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
+            let mut interval = interval(Duration::from_secs(1));
             loop {
                 _ = inner.advance().await;
-                Delay::new(Duration::from_secs(1)).await.unwrap();
+                interval.tick().await;
             }
         });
 
@@ -106,7 +109,10 @@ impl Inner {
                 .map(|latest| payload.block_number > latest)
                 .unwrap_or(true)
             {
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_else(|_| panic!("unreachable"));
+
                 let timestamp = Duration::from_secs(payload.timestamp);
                 let age = now.saturating_sub(timestamp);
                 let number = payload.block_number;
@@ -131,7 +137,7 @@ impl Inner {
 }
 
 fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
-    let empty_nonce = "0x0000000000000000".to_string();
+    let empty_nonce = fixed_bytes!("0000000000000000");
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
 
@@ -282,6 +288,12 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         })
         .collect::<Result<Vec<Transaction>>>()?;
 
+    let raw_txs = value.transactions.iter().map(|tx| tx.to_vec());
+    let txs_root = ordered_trie_root(raw_txs);
+
+    let withdrawals = value.withdrawals.iter().map(|v| encode(v));
+    let withdrawals_root = ordered_trie_root(withdrawals);
+
     Ok(Block {
         number: U64::from(value.block_number),
         base_fee_per_gas: value.base_fee_per_gas,
@@ -302,9 +314,11 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         nonce: empty_nonce,
         sha3_uncles: empty_uncle_hash,
         size: U64::ZERO,
-        transactions_root: B256::default(),
+        transactions_root: B256::from_slice(txs_root.as_bytes()),
+        withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
         uncles: vec![],
         blob_gas_used: Some(U64::from(value.blob_gas_used)),
         excess_blob_gas: Some(U64::from(value.excess_blob_gas)),
+        parent_beacon_block_root: None,
     })
 }
