@@ -7,6 +7,7 @@ edition = "2021"
 # consensus
 tree_hash.workspace = true
 revm.workspace = true
+triehash-ethereum.workspace = true
 
 # config
 figment = { version = "0.10.7", features = ["toml", "env"] }
@@ -31,7 +32,6 @@ tracing.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 superstruct.workspace = true
-zduny-wasm-timer.workspace = true
 retri.workspace = true
 
 helios-core = { path = "../core" }

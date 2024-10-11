@@ -1,11 +1,14 @@
 use std::cmp;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy::primitives::B256;
 use eyre::Result;
 use ssz_types::BitVector;
 use tracing::{info, warn};
 use tree_hash::TreeHash;
-use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
+#[cfg(target_arch = "wasm32")]
+use wasmtimer::std::{SystemTime, UNIX_EPOCH};
 
 use crate::errors::ConsensusError;
 use crate::proof::{
@@ -309,10 +312,14 @@ fn verify_generic_update(
 }
 
 pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
-    let now = now.duration_since(UNIX_EPOCH).unwrap();
-    let since_genesis = now - std::time::Duration::from_secs(genesis_time);
+    let now = now
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| panic!("unreachable"))
+        .as_secs();
 
-    since_genesis.as_secs() / 12
+    let since_genesis = now - genesis_time;
+
+    since_genesis / 12
 }
 
 pub fn calc_sync_period(slot: u64) -> u64 {
