@@ -24,7 +24,7 @@
 
 #### Defined in
 
-lib.d.ts:4
+[lib.ts:15](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L15)
 
 ## Methods
 
@@ -42,7 +42,7 @@ lib.d.ts:4
 
 #### Defined in
 
-lib.d.ts:7
+[lib.ts:43](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L43)
 
 ***
 
@@ -56,7 +56,7 @@ lib.d.ts:7
 
 #### Defined in
 
-lib.d.ts:5
+[lib.ts:35](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L35)
 
 ***
 
@@ -70,4 +70,4 @@ lib.d.ts:5
 
 #### Defined in
 
-lib.d.ts:6
+[lib.ts:39](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L39)

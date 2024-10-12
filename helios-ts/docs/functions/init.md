@@ -14,4 +14,4 @@
 
 ## Defined in
 
-lib.d.ts:1
+[lib.ts:3](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L3)

@@ -40,7 +40,8 @@
     "lint:package": "bunx publint --strict && attw --pack --ignore-rules cjs-resolves-to-esm",
     "publish": "npm publish --access public",
     "publish:canary": "npm publish --tag canary --access public",
-    "publish:dry": "npm publish --dry-run"
+    "publish:dry": "npm publish --dry-run",
+    "typecheck": "tsc --noEmit"
   },
   "files": ["dist", "pkg", "cargo.toml", "Cargo.lock", "types"],
   "devDependencies": {

@@ -14,7 +14,7 @@
 
 #### Defined in
 
-lib.d.ts:19
+[lib.ts:123](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L123)
 
 ***
 
@@ -24,4 +24,4 @@ lib.d.ts:19
 
 #### Defined in
 
-lib.d.ts:18
+[lib.ts:122](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L122)

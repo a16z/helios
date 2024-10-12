@@ -34,4 +34,4 @@ Where to cache checkpoints, default to "localstorage"
 
 ## Defined in
 
-lib.d.ts:9
+[lib.ts:112](https://github.com/a16z/helios/blob/main/helios-ts/lib.ts#L112)
