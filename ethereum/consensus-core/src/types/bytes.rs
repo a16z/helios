@@ -6,13 +6,13 @@ use ssz_types::{
 };
 use tree_hash_derive::TreeHash;
 
-#[derive(Debug, Clone, Default, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Encode, Decode, TreeHash, PartialEq)]
 #[ssz(struct_behaviour = "transparent")]
 pub struct ByteVector<N: typenum::Unsigned> {
     pub inner: FixedVector<u8, N>,
 }
 
-#[derive(Debug, Clone, Default, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Encode, Decode, TreeHash, PartialEq)]
 #[ssz(struct_behaviour = "transparent")]
 pub struct ByteList<N: typenum::Unsigned> {
     pub inner: VariableList<u8, N>,

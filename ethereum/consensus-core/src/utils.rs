@@ -4,7 +4,10 @@ use ssz_types::{BitVector, FixedVector};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
-use crate::types::{bls::PublicKey, Forks, SyncCommittee};
+use crate::{
+    consensus_spec::ConsensusSpec,
+    types::{bls::PublicKey, Forks, SyncCommittee},
+};
 
 pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
     let domain_type = [7, 00, 00, 00];
@@ -12,8 +15,11 @@ pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
     compute_signing_root(header, domain)
 }
 
-pub fn calculate_fork_version(forks: &Forks, slot: u64) -> FixedVector<u8, typenum::U4> {
-    let epoch = slot / 32;
+pub fn calculate_fork_version<S: ConsensusSpec>(
+    forks: &Forks,
+    slot: u64,
+) -> FixedVector<u8, typenum::U4> {
+    let epoch = slot / S::slots_per_epoch();
 
     let version = if epoch >= forks.deneb.epoch {
         forks.deneb.fork_version
@@ -42,9 +48,9 @@ pub fn compute_fork_data_root(
     fork_data.tree_hash_root()
 }
 
-pub fn get_participating_keys(
-    committee: &SyncCommittee,
-    bitfield: &BitVector<typenum::U512>,
+pub fn get_participating_keys<S: ConsensusSpec>(
+    committee: &SyncCommittee<S>,
+    bitfield: &BitVector<S::SyncCommitteeSize>,
 ) -> Result<Vec<PublicKey>> {
     let mut pks: Vec<PublicKey> = Vec::new();
 

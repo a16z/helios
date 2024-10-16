@@ -2,7 +2,10 @@ use alloy::primitives::B256;
 use sha2::{Digest, Sha256};
 use tree_hash::TreeHash;
 
-use crate::types::{BeaconBlockHeader, ExecutionPayloadHeader, SyncCommittee};
+use crate::{
+    consensus_spec::ConsensusSpec,
+    types::{ExecutionPayloadHeader, BeaconBlockHeader, SyncCommittee},
+};
 
 pub fn is_finality_proof_valid(
     attested_header: &BeaconBlockHeader,
@@ -18,9 +21,9 @@ pub fn is_finality_proof_valid(
     )
 }
 
-pub fn is_next_committee_proof_valid(
+pub fn is_next_committee_proof_valid<S: ConsensusSpec>(
     attested_header: &BeaconBlockHeader,
-    next_committee: &SyncCommittee,
+    next_committee: &SyncCommittee<S>,
     next_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
@@ -32,9 +35,9 @@ pub fn is_next_committee_proof_valid(
     )
 }
 
-pub fn is_current_committee_proof_valid(
+pub fn is_current_committee_proof_valid<S: ConsensusSpec>(
     attested_header: &BeaconBlockHeader,
-    current_committee: &SyncCommittee,
+    current_committee: &SyncCommittee<S>,
     current_committee_branch: &[B256],
 ) -> bool {
     is_proof_valid(
