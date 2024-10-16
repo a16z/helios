@@ -59,7 +59,7 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for HttpRpc {
             self.rpc, period, count
         );
 
-        let res: UpdateResponse<S> = get(&req).await.map_err(|e| RpcError::new("updates", e))?;
+        let res: Vec<UpdateData<S>> = get(&req).await.map_err(|e| RpcError::new("updates", e))?;
 
         Ok(res.into_iter().map(|d| d.data).collect())
     }
@@ -109,8 +109,6 @@ struct BeaconBlockResponse<S: ConsensusSpec> {
 struct BeaconBlockData<S: ConsensusSpec> {
     message: BeaconBlock<S>,
 }
-
-type UpdateResponse<S: ConsensusSpec> = Vec<UpdateData<S>>;
 
 #[derive(Deserialize, Debug)]
 #[serde(bound = "S: ConsensusSpec")]

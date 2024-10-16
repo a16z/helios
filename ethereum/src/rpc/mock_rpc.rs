@@ -33,7 +33,7 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
 
     async fn get_updates(&self, _period: u64, _count: u8) -> Result<Vec<Update<S>>> {
         let res = read_to_string(self.testdata.join("updates.json"))?;
-        let updates: UpdateResponse<S> = serde_json::from_str(&res)?;
+        let updates: Vec<UpdateData<S>> = serde_json::from_str(&res)?;
         Ok(updates.into_iter().map(|update| update.data).collect())
     }
 
@@ -72,8 +72,6 @@ struct BeaconBlockResponse<S: ConsensusSpec> {
 struct BeaconBlockData<S: ConsensusSpec> {
     message: BeaconBlock<S>,
 }
-
-type UpdateResponse<S: ConsensusSpec> = Vec<UpdateData<S>>;
 
 #[derive(Deserialize, Debug)]
 #[serde(bound = "S: ConsensusSpec")]
