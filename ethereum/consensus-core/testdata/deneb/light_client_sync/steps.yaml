@@ -1,0 +1,86 @@
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0xbccdacbfe0f0bfd10367dfc318b479e2830ed7c5119151ad0eb917fc66d51203_sf
+    current_slot: 41
+    checks:
+      finalized_header: {slot: 24, beacon_root: '0x805e4ee1f71217879435ee1129804df0b5dcb9281fa1f6c51f876e9574c6e223',
+        execution_root: '0xd101569f91f185612958585ddff28a06bc2d3439a58be530b4cf54e716c32b37'}
+      optimistic_header: {slot: 40, beacon_root: '0xbccdacbfe0f0bfd10367dfc318b479e2830ed7c5119151ad0eb917fc66d51203',
+        execution_root: '0xee31952ed8b21f21248d82904168363317632967fcaa6314478a99b6b25516ed'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0xd4ce0e0859a2174eae7aaf78f495881993cbc87fd3ce4e989e06e394997b392d_sf
+    current_slot: 89
+    checks:
+      finalized_header: {slot: 72, beacon_root: '0x2cfb9d0a1386595c9a243fe1d09852333a2b33c7456274a0d00351b66d50da03',
+        execution_root: '0x917dc78183daf0b443486d4ffa8fc9d7f5943f9377cd061c761e7d558338bd67'}
+      optimistic_header: {slot: 88, beacon_root: '0xd4ce0e0859a2174eae7aaf78f495881993cbc87fd3ce4e989e06e394997b392d',
+        execution_root: '0x8951d9500ab722a8abf4e94659fdfd8a1d59625f509d17883a783523d9cd93ef'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0xc6c5ddcf90452de44c4999ae023184a2cd06131698243ce6600ee4f64b9619b3_xf
+    current_slot: 129
+    checks:
+      finalized_header: {slot: 96, beacon_root: '0x5038b0f069d0be2be1bd4c1713781d097838eab7654a6343ab0208214a1adc4c',
+        execution_root: '0x53ac59f741a78897efc8a7e2cc04df0bcec584af06a054149af25018f9383507'}
+      optimistic_header: {slot: 112, beacon_root: '0xc6c5ddcf90452de44c4999ae023184a2cd06131698243ce6600ee4f64b9619b3',
+        execution_root: '0x9048604814fb3a9983ac5b6016a84f918096f4c725f728b80ac5ebe08475d0b6'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0x8f3184a43451ee317bbef720462dabc4178523e729455b683d87532e37b0ddaf_sx
+    current_slot: 130
+    checks:
+      finalized_header: {slot: 96, beacon_root: '0x5038b0f069d0be2be1bd4c1713781d097838eab7654a6343ab0208214a1adc4c',
+        execution_root: '0x53ac59f741a78897efc8a7e2cc04df0bcec584af06a054149af25018f9383507'}
+      optimistic_header: {slot: 129, beacon_root: '0x8f3184a43451ee317bbef720462dabc4178523e729455b683d87532e37b0ddaf',
+        execution_root: '0x0b867f06a5a9bb4c57666666506c0087afd41b84ac06a00cca95116ed170cd30'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0x786cfdfb9771e4c1c09ed01d74ecc5f8afe6c938e606ebc64d97ed7bdd67c556_sf
+    current_slot: 131
+    checks:
+      finalized_header: {slot: 96, beacon_root: '0x5038b0f069d0be2be1bd4c1713781d097838eab7654a6343ab0208214a1adc4c',
+        execution_root: '0x53ac59f741a78897efc8a7e2cc04df0bcec584af06a054149af25018f9383507'}
+      optimistic_header: {slot: 130, beacon_root: '0x786cfdfb9771e4c1c09ed01d74ecc5f8afe6c938e606ebc64d97ed7bdd67c556',
+        execution_root: '0x6c92cbacb492e617cb10c36be363987e5f3d30cf0b36f8c8de1d009d017950bf'}
+- force_update:
+    current_slot: 194
+    checks:
+      finalized_header: {slot: 130, beacon_root: '0x786cfdfb9771e4c1c09ed01d74ecc5f8afe6c938e606ebc64d97ed7bdd67c556',
+        execution_root: '0x6c92cbacb492e617cb10c36be363987e5f3d30cf0b36f8c8de1d009d017950bf'}
+      optimistic_header: {slot: 130, beacon_root: '0x786cfdfb9771e4c1c09ed01d74ecc5f8afe6c938e606ebc64d97ed7bdd67c556',
+        execution_root: '0x6c92cbacb492e617cb10c36be363987e5f3d30cf0b36f8c8de1d009d017950bf'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0x05165fba6c41bc5274d86d7794b06698d52bd4d275240a2b3ec08b04cf0635a8_xx
+    current_slot: 195
+    checks:
+      finalized_header: {slot: 130, beacon_root: '0x786cfdfb9771e4c1c09ed01d74ecc5f8afe6c938e606ebc64d97ed7bdd67c556',
+        execution_root: '0x6c92cbacb492e617cb10c36be363987e5f3d30cf0b36f8c8de1d009d017950bf'}
+      optimistic_header: {slot: 131, beacon_root: '0x05165fba6c41bc5274d86d7794b06698d52bd4d275240a2b3ec08b04cf0635a8',
+        execution_root: '0x0bd647a1e924e0920f72b7fb0432692d16de58e454cdc1cde271dc5f564dd562'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0x03a58e8f457512a7988d38cb169b34b5da8c79051d3c886e98d36aa128a3e070_sf
+    current_slot: 196
+    checks:
+      finalized_header: {slot: 130, beacon_root: '0x786cfdfb9771e4c1c09ed01d74ecc5f8afe6c938e606ebc64d97ed7bdd67c556',
+        execution_root: '0x6c92cbacb492e617cb10c36be363987e5f3d30cf0b36f8c8de1d009d017950bf'}
+      optimistic_header: {slot: 195, beacon_root: '0x03a58e8f457512a7988d38cb169b34b5da8c79051d3c886e98d36aa128a3e070',
+        execution_root: '0xdb3a4e3e9f96e3274a8f0d23948ce7b19b9e539d49f29d72ff76022cfa7a572d'}
+- force_update:
+    current_slot: 196
+    checks:
+      finalized_header: {slot: 195, beacon_root: '0x03a58e8f457512a7988d38cb169b34b5da8c79051d3c886e98d36aa128a3e070',
+        execution_root: '0xdb3a4e3e9f96e3274a8f0d23948ce7b19b9e539d49f29d72ff76022cfa7a572d'}
+      optimistic_header: {slot: 195, beacon_root: '0x03a58e8f457512a7988d38cb169b34b5da8c79051d3c886e98d36aa128a3e070',
+        execution_root: '0xdb3a4e3e9f96e3274a8f0d23948ce7b19b9e539d49f29d72ff76022cfa7a572d'}
+- process_update:
+    update_fork_digest: '0x0cbce901'
+    update: update_0xf6e7eb9c1fdcdfb8cb82e22f8bf6ca413a6a5124bc98475f456a82d863a47c8b_sf
+    current_slot: 281
+    checks:
+      finalized_header: {slot: 264, beacon_root: '0xfeac334247732597ef695937422052c8083d09fb7bf0d213b4a0abc8a067417c',
+        execution_root: '0xbfdf2f56fe219d613064d448f5c6f388e322efd68ef4c066dd48b31d33189eb8'}
+      optimistic_header: {slot: 280, beacon_root: '0xf6e7eb9c1fdcdfb8cb82e22f8bf6ca413a6a5124bc98475f456a82d863a47c8b',
+        execution_root: '0xf2c5c2ccee8c9f6418616ab7215f4b58fb9b05dd6ff4b4aba4b6edf726d7e8a5'}
