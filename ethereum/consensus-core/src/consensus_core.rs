@@ -349,6 +349,8 @@ pub fn verify_generic_update<S: ConsensusSpec>(
     Ok(())
 }
 
+/// WARNING: `force_update` allows Helios to accept a header with less than a quorum of signaures.
+/// Use with caution only in cases where it is not possible that valid updates are being censored.
 pub fn force_update<S: ConsensusSpec>(store: &mut LightClientStore<S>, current_slot: u64) {
     if current_slot > store.finalized_header.beacon().slot + S::slots_per_sync_commitee_period() {
         if let Some(mut best_valid_update) = store.best_valid_update.clone() {
