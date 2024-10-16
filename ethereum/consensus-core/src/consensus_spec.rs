@@ -25,6 +25,10 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
         Self::EpochsPerSyncCommiteePeriod::to_u64()
     }
 
+    fn slots_per_sync_commitee_period() -> u64 {
+        Self::slots_per_epoch() * Self::epochs_per_sync_commitee_period()
+    }
+
     fn sync_commitee_size() -> u64 {
         Self::SyncCommitteeSize::to_u64()
     }

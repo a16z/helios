@@ -32,6 +32,7 @@ pub struct LightClientStore<S: ConsensusSpec> {
     pub optimistic_header: LightClientHeader,
     pub previous_max_active_participants: u64,
     pub current_max_active_participants: u64,
+    pub best_valid_update: Option<GenericUpdate<S>>,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -422,7 +423,7 @@ pub struct Fork {
     pub fork_version: FixedBytes<4>,
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct GenericUpdate<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
     pub sync_aggregate: SyncAggregate<S>,
