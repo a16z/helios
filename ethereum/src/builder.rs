@@ -7,6 +7,7 @@ use std::sync::Arc;
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
 
+use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::client::Client;
 
 use crate::config::networks::Network;
@@ -222,7 +223,7 @@ impl EthereumClientBuilder {
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
 
-        Client::<Ethereum, ConsensusClient<HttpRpc, DB>>::new(
+        Client::<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>>::new(
             &config.execution_rpc.clone(),
             consensus,
             #[cfg(not(target_arch = "wasm32"))]

@@ -3064,10 +3064,13 @@ dependencies = [
  "eyre",
  "getrandom 0.2.15",
  "serde",
+ "serde_yaml",
  "sha2 0.9.9",
+ "snap",
  "ssz_types",
  "superstruct",
  "thiserror",
+ "tokio",
  "tracing",
  "tree_hash",
  "tree_hash_derive",
@@ -3131,6 +3134,7 @@ dependencies = [
  "tracing",
  "tree_hash",
  "triehash-ethereum",
+ "typenum",
  "wasm-bindgen-futures",
 ]
 
@@ -7666,7 +7670,7 @@ checksum = "4b8220be1fa9e4c889b30fd207d4906657e7e90b12e0e6b0c8b8d8709f5de021"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.84",
 ]
 
 [[package]]

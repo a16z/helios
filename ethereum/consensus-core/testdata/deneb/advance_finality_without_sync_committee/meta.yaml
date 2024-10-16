@@ -1,0 +1,3 @@
+{genesis_validators_root: '0x0a08c27fe4ece2483f9e581f78c66379a06f96e9c24cd1390594ff939b26f95b',
+trusted_block_root: '0xc0f6807024e3a40cea50955a9daa481045e44a5e08ccb5aed4d1cd705fc624d4',
+bootstrap_fork_digest: '0x0cbce901', store_fork_digest: '0x0cbce901'}
