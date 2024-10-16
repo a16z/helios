@@ -1,0 +1,8 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "out": "./docs",
+  "entryPoints": ["./lib.ts"],
+  "plugin": ["typedoc-plugin-markdown"],
+  "gitRevision": "master",
+  "tsconfig": "tsconfig.json"
+}

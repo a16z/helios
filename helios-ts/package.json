@@ -1,22 +1,62 @@
 {
   "name": "helios",
   "version": "0.1.0",
-  "main": "./dist/lib.js",
-  "types": "./dist/lib.d.ts",
+  "private": false,
+  "description": "Helios is a fast, light Ethereum client for the browser and Node.js.",
+  "keywords": ["ethereum", "light client", "wasm", "rust"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/evmts/helios.git",
+    "directory": "helios-ts"
+  },
+  "license": "MIT",
+  "contributors": ["Noah Citron <https://x.com/NoahCitron>", "Will Cory <https://x.com/fucory>"],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": {
+        "import": "./types/esm/lib.d.ts",
+        "require": "./types/cjs/lib.d.cts"
+      },
+      "import": "./dist/lib.js",
+      "require": "./dist/lib.cjs"
+    }
+  },
+  "main": "./dist/lib.cjs",
+  "module": "./dist/lib.js",
+  "types": "./types/esm/lib.d.ts",
   "scripts": {
-    "build": "webpack"
+    "build": "webpack && npm run build:types",
+    "build:types": "npm run build:types:cjs && npm run build:types:esm",
+    "build:types:cjs": "tsc --module CommonJS --moduleResolution node --outDir ./types/cjs && find ./types/cjs -type f -name '*.d.ts' -print0 | xargs -0 -I {} sh -c 'mv \"$1\" \"${1%.d.ts}.d.cts\"' _ {}",
+    "build:types:esm": "tsc --module NodeNext --outDir ./types/esm",
+    "docs": "typedoc",
+    "format": "biome format . --write",
+    "format:check": "biome format .",
+    "lint": "biome check . --write --unsafe",
+    "lint:check": "biome check . --verbose",
+    "lint:package": "bunx publint --strict && attw --pack --ignore-rules cjs-resolves-to-esm",
+    "publish": "npm publish --access public",
+    "publish:canary": "npm publish --tag canary --access public",
+    "publish:dry": "npm publish --dry-run",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "files": ["dist", "pkg", "cargo.toml", "Cargo.lock", "types"],
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "^1.6.0",
-    "ts-loader": "^9.4.1",
-    "typescript": "^4.9.3",
-    "webpack": "^5.75.0",
-    "webpack-cli": "^5.0.0"
-  },
-  "dependencies": {
-    "ethers": "^5.7.2"
+    "@arethetypeswrong/cli": "^0.16.4",
+    "@biomejs/biome": "^1.9.3",
+    "@wasm-tool/wasm-pack-plugin": "^1.7.0",
+    "ethers": "^6.13.4",
+    "publint": "^0.2.11",
+    "ts-loader": "^9.5.1",
+    "typedoc": "^0.26.9",
+    "typedoc-plugin-markdown": "^4.2.9",
+    "typescript": "^5.6.3",
+    "wasm-pack": "^0.13.0",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-merge": "^6.0.1"
   }
 }
