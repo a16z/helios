@@ -9,7 +9,7 @@ use tree_hash_derive::TreeHash;
 
 use super::bytes::ByteVector;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode, TreeHash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode, TreeHash, PartialEq)]
 #[ssz(struct_behaviour = "transparent")]
 #[serde(transparent)]
 pub struct PublicKey {

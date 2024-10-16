@@ -3064,10 +3064,13 @@ dependencies = [
  "eyre",
  "getrandom 0.2.15",
  "serde",
+ "serde_yaml",
  "sha2 0.9.9",
+ "snap",
  "ssz_types",
  "superstruct",
  "thiserror",
+ "tokio",
  "tracing",
  "tree_hash",
  "tree_hash_derive",
@@ -3131,6 +3134,7 @@ dependencies = [
  "tracing",
  "tree_hash",
  "triehash-ethereum",
+ "typenum",
  "wasm-bindgen-futures",
 ]
 

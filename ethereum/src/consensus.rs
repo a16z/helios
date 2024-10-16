@@ -21,6 +21,7 @@ use tokio::sync::watch;
 
 use helios_consensus_core::{
     apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
+    consensus_spec::ConsensusSpec,
     errors::ConsensusError,
     expected_current_slot, get_bits,
     types::{ExecutionPayload, FinalityUpdate, LightClientStore, Update},
@@ -37,28 +38,31 @@ use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use crate::database::Database;
 use crate::rpc::ConsensusRpc;
 
-pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
+pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub block_recv: Option<Receiver<Block<Transaction>>>,
     pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     genesis_time: u64,
     db: DB,
     config: Arc<Config>,
-    phantom: PhantomData<R>,
+    phantom: PhantomData<(S, R)>,
 }
 
 #[derive(Debug)]
-pub struct Inner<R: ConsensusRpc> {
+pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
     pub rpc: R,
-    pub store: LightClientStore,
+    pub store: LightClientStore<S>,
     last_checkpoint: Option<B256>,
     block_send: Sender<Block<Transaction>>,
     finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
     checkpoint_send: watch::Sender<Option<B256>>,
     pub config: Arc<Config>,
+    phantom: PhantomData<S>,
 }
 
-impl<R: ConsensusRpc, DB: Database> Consensus<Transaction> for ConsensusClient<R, DB> {
+impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Transaction>
+    for ConsensusClient<S, R, DB>
+{
     fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
         self.block_recv.take()
     }
@@ -85,8 +89,8 @@ impl<R: ConsensusRpc, DB: Database> Consensus<Transaction> for ConsensusClient<R
     }
 }
 
-impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
-    pub fn new(rpc: &str, config: Arc<Config>) -> Result<ConsensusClient<R, DB>> {
+impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, DB> {
+    pub fn new(rpc: &str, config: Arc<Config>) -> Result<ConsensusClient<S, R, DB>> {
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
@@ -106,7 +110,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
-            let mut inner = Inner::<R>::new(
+            let mut inner = Inner::<S, R>::new(
                 &rpc,
                 block_send,
                 finalized_block_send,
@@ -174,12 +178,18 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     }
 }
 
-async fn sync_fallback<R: ConsensusRpc>(inner: &mut Inner<R>, fallback: &str) -> Result<()> {
+async fn sync_fallback<S: ConsensusSpec, R: ConsensusRpc<S>>(
+    inner: &mut Inner<S, R>,
+    fallback: &str,
+) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
     inner.sync(checkpoint).await
 }
 
-async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64) -> Result<()> {
+async fn sync_all_fallbacks<S: ConsensusSpec, R: ConsensusRpc<S>>(
+    inner: &mut Inner<S, R>,
+    chain_id: u64,
+) -> Result<()> {
     let network = Network::from_chain_id(chain_id)?;
     let checkpoint = CheckpointFallback::new()
         .build()
@@ -190,14 +200,14 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64
     inner.sync(checkpoint).await
 }
 
-impl<R: ConsensusRpc> Inner<R> {
+impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     pub fn new(
         rpc: &str,
         block_send: Sender<Block<Transaction>>,
         finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
         checkpoint_send: watch::Sender<Option<B256>>,
         config: Arc<Config>,
-    ) -> Inner<R> {
+    ) -> Inner<S, R> {
         let rpc = R::new(rpc);
 
         Inner {
@@ -208,6 +218,7 @@ impl<R: ConsensusRpc> Inner<R> {
             finalized_block_send,
             checkpoint_send,
             config,
+            phantom: PhantomData,
         }
     }
 
@@ -221,18 +232,18 @@ impl<R: ConsensusRpc> Inner<R> {
         }
     }
 
-    pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
-        let slot = slot.unwrap_or(self.store.optimistic_header.beacon.slot);
+    pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload<S>> {
+        let slot = slot.unwrap_or(self.store.optimistic_header.beacon().slot);
         let block = self.rpc.get_block(slot).await?;
         let block_hash = block.tree_hash_root();
 
-        let latest_slot = self.store.optimistic_header.beacon.slot;
-        let finalized_slot = self.store.finalized_header.beacon.slot;
+        let latest_slot = self.store.optimistic_header.beacon().slot;
+        let finalized_slot = self.store.finalized_header.beacon().slot;
 
         let verified_block_hash = if slot == latest_slot {
-            self.store.optimistic_header.beacon.tree_hash_root()
+            self.store.optimistic_header.beacon().tree_hash_root()
         } else if slot == finalized_slot {
-            self.store.finalized_header.beacon.tree_hash_root()
+            self.store.finalized_header.beacon().tree_hash_root()
         } else {
             return Err(ConsensusError::PayloadNotFound(slot).into());
         };
@@ -248,7 +259,7 @@ impl<R: ConsensusRpc> Inner<R> {
         &self,
         start_slot: u64,
         end_slot: u64,
-    ) -> Result<Vec<ExecutionPayload>> {
+    ) -> Result<Vec<ExecutionPayload<S>>> {
         let payloads_fut = (start_slot..end_slot)
             .rev()
             .map(|slot| self.rpc.get_block(slot));
@@ -261,7 +272,7 @@ impl<R: ConsensusRpc> Inner<R> {
             .execution_payload()
             .parent_hash();
 
-        let mut payloads: Vec<ExecutionPayload> = Vec::new();
+        let mut payloads: Vec<ExecutionPayload<S>> = Vec::new();
         for result in join_all(payloads_fut).await {
             if result.is_err() {
                 continue;
@@ -290,7 +301,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         self.bootstrap(checkpoint).await?;
 
-        let current_period = calc_sync_period(self.store.finalized_header.beacon.slot);
+        let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -321,7 +332,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         if self.store.next_sync_committee.is_none() {
             debug!(target: "helios::consensus", "checking for sync committee update");
-            let current_period = calc_sync_period(self.store.finalized_header.beacon.slot);
+            let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
             if updates.len() == 1 {
@@ -339,9 +350,9 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let slot = self.store.optimistic_header.beacon.slot;
+        let slot = self.store.optimistic_header.beacon().slot;
         let payload = self.get_execution_payload(&Some(slot)).await?;
-        let finalized_slot = self.store.finalized_header.beacon.slot;
+        let finalized_slot = self.store.finalized_header.beacon().slot;
         let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
         self.block_send.send(payload_to_block(payload)).await?;
@@ -377,7 +388,7 @@ impl<R: ConsensusRpc> Inner<R> {
             .await
             .map_err(|err| eyre!("could not fetch bootstrap: {}", err))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.beacon.slot);
+        let is_valid = self.is_valid_checkpoint(bootstrap.header.beacon().slot);
 
         if !is_valid {
             if self.config.strict_checkpoint_age {
@@ -393,8 +404,8 @@ impl<R: ConsensusRpc> Inner<R> {
         Ok(())
     }
 
-    pub fn verify_update(&self, update: &Update) -> Result<()> {
-        verify_update(
+    pub fn verify_update(&self, update: &Update<S>) -> Result<()> {
+        verify_update::<S>(
             update,
             self.expected_current_slot(),
             &self.store,
@@ -403,8 +414,8 @@ impl<R: ConsensusRpc> Inner<R> {
         )
     }
 
-    fn verify_finality_update(&self, update: &FinalityUpdate) -> Result<()> {
-        verify_finality_update(
+    fn verify_finality_update(&self, update: &FinalityUpdate<S>) -> Result<()> {
+        verify_finality_update::<S>(
             update,
             self.expected_current_slot(),
             &self.store,
@@ -413,19 +424,19 @@ impl<R: ConsensusRpc> Inner<R> {
         )
     }
 
-    pub fn apply_update(&mut self, update: &Update) {
-        let new_checkpoint = apply_update(&mut self.store, update);
+    pub fn apply_update(&mut self, update: &Update<S>) {
+        let new_checkpoint = apply_update::<S>(&mut self.store, update);
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
     }
 
-    fn apply_finality_update(&mut self, update: &FinalityUpdate) {
-        let prev_finalized_slot = self.store.finalized_header.beacon.slot;
-        let prev_optimistic_slot = self.store.optimistic_header.beacon.slot;
-        let new_checkpoint = apply_finality_update(&mut self.store, update);
-        let new_finalized_slot = self.store.finalized_header.beacon.slot;
-        let new_optimistic_slot = self.store.optimistic_header.beacon.slot;
+    fn apply_finality_update(&mut self, update: &FinalityUpdate<S>) {
+        let prev_finalized_slot = self.store.finalized_header.beacon().slot;
+        let prev_optimistic_slot = self.store.optimistic_header.beacon().slot;
+        let new_checkpoint = apply_finality_update::<S>(&mut self.store, update);
+        let new_finalized_slot = self.store.finalized_header.beacon().slot;
+        let new_optimistic_slot = self.store.optimistic_header.beacon().slot;
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
         }
@@ -437,16 +448,17 @@ impl<R: ConsensusRpc> Inner<R> {
         }
     }
 
-    fn log_finality_update(&self, update: &FinalityUpdate) {
+    fn log_finality_update(&self, update: &FinalityUpdate<S>) {
+        let size = S::sync_commitee_size() as f32;
         let participation =
-            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
+            get_bits::<S>(&update.sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.finalized_header.beacon.slot);
+        let age = self.age(self.store.finalized_header.beacon().slot);
 
         info!(
             target: "helios::consensus",
             "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.finalized_header.beacon.slot,
+            self.store.finalized_header.beacon().slot,
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -455,16 +467,17 @@ impl<R: ConsensusRpc> Inner<R> {
         );
     }
 
-    fn log_optimistic_update(&self, update: &FinalityUpdate) {
+    fn log_optimistic_update(&self, update: &FinalityUpdate<S>) {
+        let size = S::sync_commitee_size() as f32;
         let participation =
-            get_bits(&update.sync_aggregate.sync_committee_bits) as f32 / 512f32 * 100f32;
+            get_bits::<S>(&update.sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
-        let age = self.age(self.store.optimistic_header.beacon.slot);
+        let age = self.age(self.store.optimistic_header.beacon().slot);
 
         info!(
             target: "helios::consensus",
             "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
-            self.store.optimistic_header.beacon.slot,
+            self.store.optimistic_header.beacon().slot,
             participation,
             age.num_days(),
             age.num_hours() % 24,
@@ -507,7 +520,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 }
 
-fn payload_to_block(value: ExecutionPayload) -> Block<Transaction> {
+fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Transaction> {
     let empty_nonce = fixed_bytes!("0000000000000000");
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");

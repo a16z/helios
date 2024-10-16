@@ -33,6 +33,7 @@ chrono.workspace = true
 thiserror.workspace = true
 superstruct.workspace = true
 retri.workspace = true
+typenum.workspace = true
 
 helios-core = { path = "../core" }
 helios-consensus-core = { path = "consensus-core" }

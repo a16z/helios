@@ -1,11 +1,15 @@
+use std::marker::PhantomData;
+
 use alloy::primitives::{Address, FixedBytes, B256, U256};
 use alloy_rlp::RlpEncodable;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use ssz_derive::Encode;
+use ssz_derive::{Decode, Encode};
 use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVector, VariableList};
 use superstruct::superstruct;
 use tree_hash_derive::TreeHash;
+
+use crate::consensus_spec::ConsensusSpec;
 
 use self::{
     bls::{PublicKey, Signature},
@@ -21,55 +25,58 @@ pub type KZGCommitment = ByteVector<typenum::U48>;
 pub type Transaction = ByteList<typenum::U1073741824>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct LightClientStore {
+pub struct LightClientStore<S: ConsensusSpec> {
     pub finalized_header: LightClientHeader,
-    pub current_sync_committee: SyncCommittee,
-    pub next_sync_committee: Option<SyncCommittee>,
+    pub current_sync_committee: SyncCommittee<S>,
+    pub next_sync_committee: Option<SyncCommittee<S>>,
     pub optimistic_header: LightClientHeader,
     pub previous_max_active_participants: u64,
     pub current_max_active_participants: u64,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct BeaconBlock {
+#[serde(bound = "S: ConsensusSpec")]
+pub struct BeaconBlock<S: ConsensusSpec> {
     #[serde(with = "serde_utils::u64")]
     pub slot: u64,
     #[serde(with = "serde_utils::u64")]
     pub proposer_index: u64,
     pub parent_root: B256,
     pub state_root: B256,
-    pub body: BeaconBlockBody,
+    pub body: BeaconBlockBody<S>,
 }
 
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
         derive(Deserialize, Clone, Debug, Encode, TreeHash, Default),
-        serde(deny_unknown_fields)
+        serde(deny_unknown_fields),
+        serde(bound = "S: ConsensusSpec"),
     )
 )]
 #[derive(Encode, TreeHash, Deserialize, Debug, Clone)]
 #[serde(untagged)]
+#[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
 #[tree_hash(enum_behaviour = "transparent")]
-pub struct BeaconBlockBody {
+pub struct BeaconBlockBody<S: ConsensusSpec> {
     randao_reveal: Signature,
     eth1_data: Eth1Data,
     graffiti: B256,
-    proposer_slashings: VariableList<ProposerSlashing, typenum::U16>,
-    attester_slashings: VariableList<AttesterSlashing, typenum::U2>,
-    attestations: VariableList<Attestation, typenum::U128>,
-    deposits: VariableList<Deposit, typenum::U16>,
-    voluntary_exits: VariableList<SignedVoluntaryExit, typenum::U16>,
-    sync_aggregate: SyncAggregate,
-    pub execution_payload: ExecutionPayload,
+    proposer_slashings: VariableList<ProposerSlashing, S::MaxProposerSlashings>,
+    attester_slashings: VariableList<AttesterSlashing<S>, S::MaxAttesterSlashings>,
+    attestations: VariableList<Attestation<S>, S::MaxAttestations>,
+    deposits: VariableList<Deposit, S::MaxDeposits>,
+    voluntary_exits: VariableList<SignedVoluntaryExit, S::MaxVoluntaryExits>,
+    sync_aggregate: SyncAggregate<S>,
+    pub execution_payload: ExecutionPayload<S>,
     #[superstruct(only(Capella, Deneb))]
-    bls_to_execution_changes: VariableList<SignedBlsToExecutionChange, typenum::U16>,
+    bls_to_execution_changes: VariableList<SignedBlsToExecutionChange, S::MaxBlsToExecutionChanged>,
     #[superstruct(only(Deneb))]
-    blob_kzg_commitments: VariableList<KZGCommitment, typenum::U4096>,
+    blob_kzg_commitments: VariableList<KZGCommitment, S::MaxBlobKzgCommitments>,
 }
 
-impl Default for BeaconBlockBody {
+impl<S: ConsensusSpec> Default for BeaconBlockBody<S> {
     fn default() -> Self {
         BeaconBlockBody::Bellatrix(BeaconBlockBodyBellatrix::default())
     }
@@ -92,15 +99,17 @@ pub struct BlsToExecutionChange {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(Deserialize, Debug, Default, Encode, TreeHash, Clone),
+        derive(Default, Debug, Deserialize, Encode, TreeHash, Clone),
         serde(deny_unknown_fields),
+        serde(bound = "S: ConsensusSpec"),
     )
 )]
-#[derive(Debug, Clone, Deserialize, Encode, TreeHash)]
+#[derive(Debug, Deserialize, Clone, Encode, TreeHash)]
 #[serde(untagged)]
+#[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
 #[tree_hash(enum_behaviour = "transparent")]
-pub struct ExecutionPayload {
+pub struct ExecutionPayload<S: ConsensusSpec> {
     pub parent_hash: B256,
     pub fee_recipient: Address,
     pub state_root: B256,
@@ -121,29 +130,43 @@ pub struct ExecutionPayload {
     pub block_hash: B256,
     pub transactions: VariableList<Transaction, typenum::U1048576>,
     #[superstruct(only(Capella, Deneb))]
-    pub withdrawals: VariableList<Withdrawal, typenum::U16>,
+    pub withdrawals: VariableList<Withdrawal, S::MaxWithdrawals>,
     #[superstruct(only(Deneb))]
     #[serde(with = "serde_utils::u64")]
     pub blob_gas_used: u64,
     #[superstruct(only(Deneb))]
     #[serde(with = "serde_utils::u64")]
     pub excess_blob_gas: u64,
+    #[ssz(skip_serializing, skip_deserializing)]
+    #[tree_hash(skip_hashing)]
+    #[serde(skip)]
+    phantom: PhantomData<S>,
 }
 
-impl Default for ExecutionPayload {
+impl<S: ConsensusSpec> Default for ExecutionPayload<S> {
     fn default() -> Self {
-        ExecutionPayload::Bellatrix(ExecutionPayloadBellatrix::default())
+        ExecutionPayload::<S>::Bellatrix(ExecutionPayloadBellatrix::<S>::default())
     }
 }
 
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(Serialize, Deserialize, Debug, Default, Encode, TreeHash, Clone),
+        derive(
+            Serialize,
+            Deserialize,
+            Debug,
+            Default,
+            Encode,
+            Decode,
+            TreeHash,
+            Clone,
+            PartialEq
+        ),
         serde(deny_unknown_fields),
     )
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, TreeHash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, TreeHash, PartialEq)]
 #[serde(untagged)]
 #[ssz(enum_behaviour = "transparent")]
 #[tree_hash(enum_behaviour = "transparent")]
@@ -218,22 +241,25 @@ struct BeaconBlockHeader {
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct AttesterSlashing {
-    attestation_1: IndexedAttestation,
-    attestation_2: IndexedAttestation,
+#[serde(bound = "S: ConsensusSpec")]
+pub struct AttesterSlashing<S: ConsensusSpec> {
+    attestation_1: IndexedAttestation<S>,
+    attestation_2: IndexedAttestation<S>,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-struct IndexedAttestation {
+#[serde(bound = "S: ConsensusSpec")]
+struct IndexedAttestation<S: ConsensusSpec> {
     #[serde(with = "quoted_u64_var_list")]
-    attesting_indices: VariableList<u64, typenum::U2048>,
+    attesting_indices: VariableList<u64, S::MaxValidatorsPerCommitee>,
     data: AttestationData,
     signature: Signature,
 }
 
 #[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
-pub struct Attestation {
-    aggregation_bits: BitList<typenum::U2048>,
+#[serde(bound = "S: ConsensusSpec")]
+pub struct Attestation<S: ConsensusSpec> {
+    aggregation_bits: BitList<S::MaxValidatorsPerCommitee>,
     data: AttestationData,
     signature: Signature,
 }
@@ -293,51 +319,72 @@ pub struct Eth1Data {
     block_hash: B256,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Bootstrap {
+#[derive(Deserialize, Debug, Decode)]
+#[serde(bound = "S: ConsensusSpec")]
+pub struct Bootstrap<S: ConsensusSpec> {
     pub header: LightClientHeader,
-    pub current_sync_committee: SyncCommittee,
-    pub current_sync_committee_branch: Vec<B256>,
+    pub current_sync_committee: SyncCommittee<S>,
+    pub current_sync_committee_branch: FixedVector<B256, typenum::U5>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Update {
+#[derive(Serialize, Deserialize, Debug, Clone, Decode)]
+#[serde(bound = "S: ConsensusSpec")]
+pub struct Update<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
-    pub next_sync_committee: SyncCommittee,
-    pub next_sync_committee_branch: Vec<B256>,
+    pub next_sync_committee: SyncCommittee<S>,
+    pub next_sync_committee_branch: FixedVector<B256, typenum::U5>,
     pub finalized_header: LightClientHeader,
-    pub finality_branch: Vec<B256>,
-    pub sync_aggregate: SyncAggregate,
+    pub finality_branch: FixedVector<B256, typenum::U6>,
+    pub sync_aggregate: SyncAggregate<S>,
     #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FinalityUpdate {
+#[derive(Serialize, Deserialize, Debug, Clone, Decode)]
+#[serde(bound = "S: ConsensusSpec")]
+pub struct FinalityUpdate<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
     pub finalized_header: LightClientHeader,
-    pub finality_branch: Vec<B256>,
-    pub sync_aggregate: SyncAggregate,
+    pub finality_branch: FixedVector<B256, typenum::U6>,
+    pub sync_aggregate: SyncAggregate<S>,
     #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct OptimisticUpdate {
+#[derive(Serialize, Deserialize, Debug, Decode)]
+#[serde(bound = "S: ConsensusSpec")]
+pub struct OptimisticUpdate<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
-    pub sync_aggregate: SyncAggregate,
+    pub sync_aggregate: SyncAggregate<S>,
     #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[superstruct(
+    variants(Bellatrix, Capella, Deneb),
+    variant_attributes(
+        derive(Default, Debug, Clone, Serialize, Deserialize, Decode, PartialEq),
+        serde(deny_unknown_fields),
+    )
+)]
+#[derive(Debug, Clone, Serialize, Deserialize, Decode, PartialEq)]
+#[serde(untagged)]
+#[ssz(enum_behaviour = "transparent")]
 pub struct LightClientHeader {
     pub beacon: Header,
-    pub execution: Option<ExecutionPayloadHeader>,
-    pub execution_branch: Option<Vec<B256>>,
+    #[superstruct(only(Capella, Deneb))]
+    pub execution: ExecutionPayloadHeader,
+    #[superstruct(only(Capella, Deneb))]
+    pub execution_branch: FixedVector<B256, typenum::U4>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
+impl Default for LightClientHeader {
+    fn default() -> Self {
+        LightClientHeader::Bellatrix(LightClientHeaderBellatrix::default())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode, TreeHash, PartialEq)]
 pub struct Header {
     #[serde(with = "serde_utils::u64")]
     pub slot: u64,
@@ -348,15 +395,15 @@ pub struct Header {
     pub body_root: B256,
 }
 
-#[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize)]
-pub struct SyncCommittee {
-    pub pubkeys: FixedVector<PublicKey, typenum::U512>,
+#[derive(Debug, Clone, Default, Encode, TreeHash, Serialize, Deserialize, Decode, PartialEq)]
+pub struct SyncCommittee<S: ConsensusSpec> {
+    pub pubkeys: FixedVector<PublicKey, S::SyncCommitteeSize>,
     pub aggregate_pubkey: PublicKey,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, TreeHash)]
-pub struct SyncAggregate {
-    pub sync_committee_bits: BitVector<typenum::U512>,
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode, TreeHash)]
+pub struct SyncAggregate<S: ConsensusSpec> {
+    pub sync_committee_bits: BitVector<S::SyncCommitteeSize>,
     pub sync_committee_signature: Signature,
 }
 
@@ -375,46 +422,47 @@ pub struct Fork {
     pub fork_version: FixedBytes<4>,
 }
 
-pub struct GenericUpdate {
+#[derive(Debug)]
+pub struct GenericUpdate<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
-    pub sync_aggregate: SyncAggregate,
+    pub sync_aggregate: SyncAggregate<S>,
     pub signature_slot: u64,
-    pub next_sync_committee: Option<SyncCommittee>,
-    pub next_sync_committee_branch: Option<Vec<B256>>,
+    pub next_sync_committee: Option<SyncCommittee<S>>,
+    pub next_sync_committee_branch: Option<FixedVector<B256, typenum::U5>>,
     pub finalized_header: Option<LightClientHeader>,
-    pub finality_branch: Option<Vec<B256>>,
+    pub finality_branch: Option<FixedVector<B256, typenum::U6>>,
 }
 
-impl From<&Update> for GenericUpdate {
-    fn from(update: &Update) -> Self {
+impl<S: ConsensusSpec> From<&Update<S>> for GenericUpdate<S> {
+    fn from(update: &Update<S>) -> Self {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
             signature_slot: update.signature_slot,
-            next_sync_committee: Some(update.next_sync_committee.clone()),
-            next_sync_committee_branch: Some(update.next_sync_committee_branch.clone()),
-            finalized_header: Some(update.finalized_header.clone()),
-            finality_branch: Some(update.finality_branch.clone()),
+            next_sync_committee: default_to_none(update.next_sync_committee.clone()),
+            next_sync_committee_branch: default_to_none(update.next_sync_committee_branch.clone()),
+            finalized_header: default_header_to_none(update.finalized_header.clone()),
+            finality_branch: default_to_none(update.finality_branch.clone()),
         }
     }
 }
 
-impl From<&FinalityUpdate> for GenericUpdate {
-    fn from(update: &FinalityUpdate) -> Self {
+impl<S: ConsensusSpec> From<&FinalityUpdate<S>> for GenericUpdate<S> {
+    fn from(update: &FinalityUpdate<S>) -> Self {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
             signature_slot: update.signature_slot,
             next_sync_committee: None,
             next_sync_committee_branch: None,
-            finalized_header: Some(update.finalized_header.clone()),
-            finality_branch: Some(update.finality_branch.clone()),
+            finalized_header: default_header_to_none(update.finalized_header.clone()),
+            finality_branch: default_to_none(update.finality_branch.clone()),
         }
     }
 }
 
-impl From<&OptimisticUpdate> for GenericUpdate {
-    fn from(update: &OptimisticUpdate) -> Self {
+impl<S: ConsensusSpec> From<&OptimisticUpdate<S>> for GenericUpdate<S> {
+    fn from(update: &OptimisticUpdate<S>) -> Self {
         Self {
             attested_header: update.attested_header.clone(),
             sync_aggregate: update.sync_aggregate.clone(),
@@ -424,5 +472,89 @@ impl From<&OptimisticUpdate> for GenericUpdate {
             finalized_header: None,
             finality_branch: None,
         }
+    }
+}
+
+fn default_to_none<T: Default + PartialEq>(value: T) -> Option<T> {
+    if value == T::default() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+fn default_header_to_none(value: LightClientHeader) -> Option<LightClientHeader> {
+    match &value {
+        LightClientHeader::Bellatrix(header) => {
+            if header.beacon == Header::default() {
+                None
+            } else {
+                Some(value)
+            }
+        }
+        LightClientHeader::Capella(header) => match &header.execution {
+            ExecutionPayloadHeader::Bellatrix(payload_header) => {
+                let is_default = header.beacon == Header::default()
+                    && payload_header == &ExecutionPayloadHeaderBellatrix::default();
+
+                if is_default {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            ExecutionPayloadHeader::Capella(payload_header) => {
+                let is_default = header.beacon == Header::default()
+                    && payload_header == &ExecutionPayloadHeaderCapella::default();
+
+                if is_default {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            ExecutionPayloadHeader::Deneb(payload_header) => {
+                let is_default = header.beacon == Header::default()
+                    && payload_header == &ExecutionPayloadHeaderDeneb::default();
+
+                if is_default {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+        },
+        LightClientHeader::Deneb(header) => match &header.execution {
+            ExecutionPayloadHeader::Bellatrix(payload_header) => {
+                let is_default = header.beacon == Header::default()
+                    && payload_header == &ExecutionPayloadHeaderBellatrix::default();
+
+                if is_default {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            ExecutionPayloadHeader::Capella(payload_header) => {
+                let is_default = header.beacon == Header::default()
+                    && payload_header == &ExecutionPayloadHeaderCapella::default();
+
+                if is_default {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            ExecutionPayloadHeader::Deneb(payload_header) => {
+                let is_default = header.beacon == Header::default()
+                    && payload_header == &ExecutionPayloadHeaderDeneb::default();
+
+                if is_default {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+        },
     }
 }

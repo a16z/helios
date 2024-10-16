@@ -10,6 +10,7 @@ use tree_hash::TreeHash;
 #[cfg(target_arch = "wasm32")]
 use wasmtimer::std::{SystemTime, UNIX_EPOCH};
 
+use crate::consensus_spec::ConsensusSpec;
 use crate::errors::ConsensusError;
 use crate::proof::{
     is_current_committee_proof_valid, is_execution_payload_proof_valid, is_finality_proof_valid,
@@ -25,18 +26,22 @@ use crate::utils::{
     get_participating_keys,
 };
 
-pub fn verify_bootstrap(bootstrap: &Bootstrap, checkpoint: B256, forks: &Forks) -> Result<()> {
-    if !is_valid_header(&bootstrap.header, forks) {
+pub fn verify_bootstrap<S: ConsensusSpec>(
+    bootstrap: &Bootstrap<S>,
+    checkpoint: B256,
+    forks: &Forks,
+) -> Result<()> {
+    if !is_valid_header::<S>(&bootstrap.header, forks) {
         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
     }
 
     let committee_valid = is_current_committee_proof_valid(
-        &bootstrap.header.beacon,
+        &bootstrap.header.beacon(),
         &bootstrap.current_sync_committee,
         &bootstrap.current_sync_committee_branch,
     );
 
-    let header_hash = bootstrap.header.beacon.tree_hash_root();
+    let header_hash = bootstrap.header.beacon().tree_hash_root();
     let header_valid = header_hash == checkpoint;
 
     if !header_valid {
@@ -50,40 +55,43 @@ pub fn verify_bootstrap(bootstrap: &Bootstrap, checkpoint: B256, forks: &Forks) 
     Ok(())
 }
 
-pub fn verify_update(
-    update: &Update,
+pub fn verify_update<S: ConsensusSpec>(
+    update: &Update<S>,
     expected_current_slot: u64,
-    store: &LightClientStore,
+    store: &LightClientStore<S>,
     genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
-    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
+    verify_generic_update::<S>(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn verify_finality_update(
-    update: &FinalityUpdate,
+pub fn verify_finality_update<S: ConsensusSpec>(
+    update: &FinalityUpdate<S>,
     expected_current_slot: u64,
-    store: &LightClientStore,
+    store: &LightClientStore<S>,
     genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
-    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
+    verify_generic_update::<S>(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn verify_optimistic_update(
-    update: &OptimisticUpdate,
+pub fn verify_optimistic_update<S: ConsensusSpec>(
+    update: &OptimisticUpdate<S>,
     expected_current_slot: u64,
-    store: &LightClientStore,
+    store: &LightClientStore<S>,
     genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
     let update = GenericUpdate::from(update);
-    verify_generic_update(&update, expected_current_slot, store, genesis_root, forks)
+    verify_generic_update::<S>(&update, expected_current_slot, store, genesis_root, forks)
 }
 
-pub fn apply_bootstrap(store: &mut LightClientStore, bootstrap: &Bootstrap) {
+pub fn apply_bootstrap<S: ConsensusSpec>(
+    store: &mut LightClientStore<S>,
+    bootstrap: &Bootstrap<S>,
+) {
     *store = LightClientStore {
         finalized_header: bootstrap.header.clone(),
         current_sync_committee: bootstrap.current_sync_committee.clone(),
@@ -94,52 +102,58 @@ pub fn apply_bootstrap(store: &mut LightClientStore, bootstrap: &Bootstrap) {
     };
 }
 
-pub fn apply_update(store: &mut LightClientStore, update: &Update) -> Option<B256> {
-    let update = GenericUpdate::from(update);
-    apply_generic_update(store, &update)
-}
-
-pub fn apply_finality_update(
-    store: &mut LightClientStore,
-    update: &FinalityUpdate,
+pub fn apply_update<S: ConsensusSpec>(
+    store: &mut LightClientStore<S>,
+    update: &Update<S>,
 ) -> Option<B256> {
     let update = GenericUpdate::from(update);
-    apply_generic_update(store, &update)
+    apply_generic_update::<S>(store, &update)
 }
 
-pub fn apply_optimistic_update(
-    store: &mut LightClientStore,
-    update: &OptimisticUpdate,
+pub fn apply_finality_update<S: ConsensusSpec>(
+    store: &mut LightClientStore<S>,
+    update: &FinalityUpdate<S>,
 ) -> Option<B256> {
     let update = GenericUpdate::from(update);
-    apply_generic_update(store, &update)
+    apply_generic_update::<S>(store, &update)
+}
+
+pub fn apply_optimistic_update<S: ConsensusSpec>(
+    store: &mut LightClientStore<S>,
+    update: &OptimisticUpdate<S>,
+) -> Option<B256> {
+    let update = GenericUpdate::from(update);
+    apply_generic_update::<S>(store, &update)
 }
 
 // implements state changes from apply_light_client_update and process_light_client_update in
 // the specification
 /// Returns the new checkpoint if one is created, otherwise None
-fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) -> Option<B256> {
-    let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
+pub fn apply_generic_update<S: ConsensusSpec>(
+    store: &mut LightClientStore<S>,
+    update: &GenericUpdate<S>,
+) -> Option<B256> {
+    let committee_bits = get_bits::<S>(&update.sync_aggregate.sync_committee_bits);
 
     store.current_max_active_participants =
         u64::max(store.current_max_active_participants, committee_bits);
 
     let should_update_optimistic = committee_bits > safety_threshold(store)
-        && update.attested_header.beacon.slot > store.optimistic_header.beacon.slot;
+        && update.attested_header.beacon().slot > store.optimistic_header.beacon().slot;
 
     if should_update_optimistic {
         store.optimistic_header = update.attested_header.clone();
     }
 
-    let update_attested_period = calc_sync_period(update.attested_header.beacon.slot);
+    let update_attested_period = calc_sync_period::<S>(update.attested_header.beacon().slot);
 
     let update_finalized_slot = update
         .finalized_header
         .as_ref()
-        .map(|h| h.beacon.slot)
+        .map(|h| h.beacon().slot)
         .unwrap_or(0);
 
-    let update_finalized_period = calc_sync_period(update_finalized_slot);
+    let update_finalized_period = calc_sync_period::<S>(update_finalized_slot);
 
     let update_has_finalized_next_committee = store.next_sync_committee.is_none()
         && has_sync_update(update)
@@ -147,19 +161,19 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
         && update_finalized_period == update_attested_period;
 
     let should_apply_update = {
-        let has_majority = committee_bits * 3 >= 512 * 2;
+        let has_majority = committee_bits * 3 >= S::sync_commitee_size() * 2;
         if !has_majority {
             warn!("skipping block with low vote count");
         }
 
-        let update_is_newer = update_finalized_slot > store.finalized_header.beacon.slot;
+        let update_is_newer = update_finalized_slot > store.finalized_header.beacon().slot;
         let good_update = update_is_newer || update_has_finalized_next_committee;
 
         has_majority && good_update
     };
 
     if should_apply_update {
-        let store_period = calc_sync_period(store.finalized_header.beacon.slot);
+        let store_period = calc_sync_period::<S>(store.finalized_header.beacon().slot);
 
         if store.next_sync_committee.is_none() {
             if update_finalized_period != store_period {
@@ -178,15 +192,15 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
             store.current_max_active_participants = 0;
         }
 
-        if update_finalized_slot > store.finalized_header.beacon.slot {
+        if update_finalized_slot > store.finalized_header.beacon().slot {
             store.finalized_header = update.finalized_header.clone().unwrap();
 
-            if store.finalized_header.beacon.slot > store.optimistic_header.beacon.slot {
+            if store.finalized_header.beacon().slot > store.optimistic_header.beacon().slot {
                 store.optimistic_header = store.finalized_header.clone();
             }
 
-            if store.finalized_header.beacon.slot % 32 == 0 {
-                let checkpoint = store.finalized_header.beacon.tree_hash_root();
+            if store.finalized_header.beacon().slot % S::slots_per_epoch() == 0 {
+                let checkpoint = store.finalized_header.beacon().tree_hash_root();
                 return Some(checkpoint);
             }
         }
@@ -197,39 +211,38 @@ fn apply_generic_update(store: &mut LightClientStore, update: &GenericUpdate) ->
 
 // implements checks from validate_light_client_update and process_light_client_update in the
 // specification
-fn verify_generic_update(
-    update: &GenericUpdate,
+pub fn verify_generic_update<S: ConsensusSpec>(
+    update: &GenericUpdate<S>,
     expected_current_slot: u64,
-    store: &LightClientStore,
+    store: &LightClientStore<S>,
     genesis_root: B256,
     forks: &Forks,
 ) -> Result<()> {
-    let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
+    let bits = get_bits::<S>(&update.sync_aggregate.sync_committee_bits);
     if bits == 0 {
         return Err(ConsensusError::InsufficientParticipation.into());
     }
 
-    if !is_valid_header(&update.attested_header, forks) {
+    if !is_valid_header::<S>(&update.attested_header, forks) {
         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
     }
 
     let update_finalized_slot = update
         .finalized_header
         .clone()
-        .unwrap_or_default()
-        .beacon
-        .slot;
+        .map(|v| v.beacon().slot)
+        .unwrap_or_default();
 
     let valid_time: bool = expected_current_slot >= update.signature_slot
-        && update.signature_slot > update.attested_header.beacon.slot
-        && update.attested_header.beacon.slot >= update_finalized_slot;
+        && update.signature_slot > update.attested_header.beacon().slot
+        && update.attested_header.beacon().slot >= update_finalized_slot;
 
     if !valid_time {
         return Err(ConsensusError::InvalidTimestamp.into());
     }
 
-    let store_period = calc_sync_period(store.finalized_header.beacon.slot);
-    let update_sig_period = calc_sync_period(update.signature_slot);
+    let store_period = calc_sync_period::<S>(store.finalized_header.beacon().slot);
+    let update_sig_period = calc_sync_period::<S>(update.signature_slot);
     let valid_period = if store.next_sync_committee.is_some() {
         update_sig_period == store_period || update_sig_period == store_period + 1
     } else {
@@ -240,12 +253,12 @@ fn verify_generic_update(
         return Err(ConsensusError::InvalidPeriod.into());
     }
 
-    let update_attested_period = calc_sync_period(update.attested_header.beacon.slot);
+    let update_attested_period = calc_sync_period::<S>(update.attested_header.beacon().slot);
     let update_has_next_committee = store.next_sync_committee.is_none()
         && update.next_sync_committee.is_some()
         && update_attested_period == store_period;
 
-    if update.attested_header.beacon.slot <= store.finalized_header.beacon.slot
+    if update.attested_header.beacon().slot <= store.finalized_header.beacon().slot
         && !update_has_next_committee
     {
         return Err(ConsensusError::NotRelevant.into());
@@ -253,13 +266,13 @@ fn verify_generic_update(
 
     if let Some(finalized_header) = &update.finalized_header {
         if let Some(finality_branch) = &update.finality_branch {
-            if !is_valid_header(finalized_header, forks) {
+            if !is_valid_header::<S>(finalized_header, forks) {
                 return Err(ConsensusError::InvalidExecutionPayloadProof.into());
             }
 
             let is_valid = is_finality_proof_valid(
-                &update.attested_header.beacon,
-                &finalized_header.beacon,
+                &update.attested_header.beacon(),
+                &finalized_header.beacon(),
                 finality_branch,
             );
 
@@ -274,7 +287,7 @@ fn verify_generic_update(
     if let Some(next_sync_committee) = &update.next_sync_committee {
         if let Some(next_sync_committee_branch) = &update.next_sync_committee_branch {
             let is_valid = is_next_committee_proof_valid(
-                &update.attested_header.beacon,
+                &update.attested_header.beacon(),
                 next_sync_committee,
                 next_sync_committee_branch,
             );
@@ -295,11 +308,11 @@ fn verify_generic_update(
 
     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-    let fork_version = calculate_fork_version(forks, update.signature_slot.saturating_sub(1));
+    let fork_version = calculate_fork_version::<S>(forks, update.signature_slot.saturating_sub(1));
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
     let is_valid_sig = verify_sync_committee_signture(
         &pks,
-        &update.attested_header.beacon,
+        &update.attested_header.beacon(),
         &update.sync_aggregate.sync_committee_signature,
         fork_data_root,
     );
@@ -322,22 +335,20 @@ pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
     since_genesis / 12
 }
 
-pub fn calc_sync_period(slot: u64) -> u64 {
-    // 32 slots per epoch
-    let epoch = slot / 32;
-    // 256 epochs per sync committee
-    epoch / 256
+pub fn calc_sync_period<S: ConsensusSpec>(slot: u64) -> u64 {
+    let epoch = slot / S::slots_per_epoch();
+    epoch / S::epochs_per_sync_commitee_period()
 }
 
-pub fn get_bits(bitfield: &BitVector<typenum::U512>) -> u64 {
+pub fn get_bits<S: ConsensusSpec>(bitfield: &BitVector<S::SyncCommitteeSize>) -> u64 {
     bitfield.iter().filter(|v| *v).count() as u64
 }
 
-fn has_sync_update(update: &GenericUpdate) -> bool {
+fn has_sync_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
     update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some()
 }
 
-fn has_finality_update(update: &GenericUpdate) -> bool {
+fn has_finality_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
     update.finalized_header.is_some() && update.finality_branch.is_some()
 }
 
@@ -352,21 +363,21 @@ fn verify_sync_committee_signture(
     signature.verify(signing_root.as_slice(), pks)
 }
 
-fn safety_threshold(store: &LightClientStore) -> u64 {
+fn safety_threshold<S: ConsensusSpec>(store: &LightClientStore<S>) -> u64 {
     cmp::max(
         store.current_max_active_participants,
         store.previous_max_active_participants,
     ) / 2
 }
 
-fn is_valid_header(header: &LightClientHeader, forks: &Forks) -> bool {
-    let epoch = header.beacon.slot / 32;
+fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> bool {
+    let epoch = header.beacon().slot / S::slots_per_epoch();
 
     if epoch < forks.capella.epoch {
-        header.execution.is_none() && header.execution_branch.is_none()
-    } else if header.execution.is_some() && header.execution_branch.is_some() {
-        let execution = header.execution.as_ref().unwrap();
-        let execution_branch = header.execution_branch.as_ref().unwrap();
+        header.execution().is_err() && header.execution_branch().is_err()
+    } else if header.execution().is_ok() && header.execution_branch().is_ok() {
+        let execution = header.execution().unwrap();
+        let execution_branch = header.execution_branch().unwrap();
 
         let valid_execution_type = match execution {
             ExecutionPayloadHeader::Deneb(_) => epoch >= forks.deneb.epoch,
@@ -379,7 +390,7 @@ fn is_valid_header(header: &LightClientHeader, forks: &Forks) -> bool {
         };
 
         let proof_valid =
-            is_execution_payload_proof_valid(&header.beacon, execution, execution_branch);
+            is_execution_payload_proof_valid(&header.beacon(), execution, execution_branch);
 
         proof_valid && valid_execution_type
     } else {
