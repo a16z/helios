@@ -181,9 +181,9 @@ pub fn apply_generic_update<S: ConsensusSpec>(
     };
 
     if should_apply_update {
-        apply_update_no_quorum_check(store, update);
+        let checkpoint = apply_update_no_quorum_check(store, update);
         store.best_valid_update = None;
-        None
+        checkpoint
     } else {
         None
     }
