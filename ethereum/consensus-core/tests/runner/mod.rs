@@ -17,7 +17,7 @@ use helios_consensus_core::{
     verify_bootstrap, verify_generic_update,
 };
 
-pub fn run<P: Into<PathBuf>>(test_data_dir: P) {
+pub fn run<P: Into<PathBuf>>(test_data_dir: P, with_electra: bool) {
     let test_data_dir: PathBuf = test_data_dir.into();
     let steps_file = test_data_dir.join("steps.yaml");
     let steps = std::fs::read_to_string(steps_file).unwrap();
@@ -25,7 +25,7 @@ pub fn run<P: Into<PathBuf>>(test_data_dir: P) {
 
     let mut store = LightClientStore::default();
     let config = get_meta_config(&test_data_dir);
-    let forks = get_forks();
+    let forks = get_forks(with_electra);
 
     let bootstrap = get_bootstrap(&test_data_dir);
     verify_bootstrap(&bootstrap, config.trusted_block_root, &forks).expect("bootstrap failed");
@@ -157,7 +157,7 @@ fn get_meta_config(test_data_dir: &PathBuf) -> MetaConfig {
     serde_yaml::from_str(&meta).unwrap()
 }
 
-fn get_forks() -> Forks {
+fn get_forks(with_electra: bool) -> Forks {
     Forks {
         genesis: Fork {
             epoch: 0,
@@ -178,6 +178,10 @@ fn get_forks() -> Forks {
         deneb: Fork {
             epoch: 0,
             fork_version: fixed_bytes!("04000001"),
+        },
+        electra: Fork {
+            epoch: if with_electra { 0 } else { u64::MAX },
+            fork_version: fixed_bytes!("05000001"),
         },
     }
 }
