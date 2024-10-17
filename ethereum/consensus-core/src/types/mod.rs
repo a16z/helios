@@ -407,10 +407,15 @@ pub struct ConsolidationRequest {
 
 #[superstruct(
     variants(Base, Electra),
-    variant_attributes(derive(Deserialize, Debug, Decode,), serde(deny_unknown_fields),)
+    variant_attributes(
+        derive(Deserialize, Debug, Decode),
+        serde(deny_unknown_fields),
+        serde(bound = "S: ConsensusSpec"),
+    )
 )]
 #[derive(Deserialize, Debug, Decode)]
 #[serde(untagged)]
+#[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
 pub struct Bootstrap<S: ConsensusSpec> {
     pub header: LightClientHeader,
@@ -441,10 +446,12 @@ impl<S: ConsensusSpec> Bootstrap<S> {
     variant_attributes(
         derive(Serialize, Deserialize, Debug, Clone, Decode,),
         serde(deny_unknown_fields),
+        serde(bound = "S: ConsensusSpec"),
     )
 )]
 #[derive(Serialize, Deserialize, Debug, Clone, Decode)]
 #[serde(untagged)]
+#[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
 pub struct Update<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
@@ -487,10 +494,12 @@ impl<S: ConsensusSpec> Update<S> {
     variant_attributes(
         derive(Serialize, Deserialize, Debug, Clone, Decode,),
         serde(deny_unknown_fields),
+        serde(bound = "S: ConsensusSpec"),
     )
 )]
 #[derive(Serialize, Deserialize, Debug, Clone, Decode)]
 #[serde(untagged)]
+#[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
 pub struct FinalityUpdate<S: ConsensusSpec> {
     pub attested_header: LightClientHeader,
