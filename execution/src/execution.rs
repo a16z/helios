@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use alloy::consensus::{Receipt, ReceiptWithBloom, TxReceipt, TxType};
 use alloy::primitives::{keccak256, Address, B256, U256};
@@ -273,29 +273,46 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
+        // Collect all (unique) tx hashes
+        let txs_hash = logs
+            .iter()
+            .map(|log| {
+                log.transaction_hash
+                    .ok_or(eyre::eyre!("tx hash not found in log"))
+            })
+            .collect::<Result<HashSet<_>, _>>()?;
+
+        // Collect all (proven) tx receipts
+        let receipts_fut = txs_hash.iter().map(|&tx_hash| async move {
+            let receipt = self.rpc.get_transaction_receipt(tx_hash).await;
+            receipt?.ok_or(eyre::eyre!(ExecutionError::NoReceiptForTransaction(
+                tx_hash
+            )))
+        });
+        let receipts = join_all(receipts_fut).await;
+        let receipts = receipts.into_iter().collect::<Result<Vec<_>>>()?;
+
+        // Map tx hashes to encoded logs
+        let receipts_logs_encoded: HashMap<_, _> = receipts
+            .iter()
+            .map(|r| {
+                let tx_hash = r.transaction_hash;
+                let encoded_logs = r
+                    .inner
+                    .logs()
+                    .iter()
+                    .map(|l| encode(&l.inner))
+                    .collect::<Vec<_>>();
+                (tx_hash, encoded_logs)
+            })
+            .collect();
+
         for log in logs.iter() {
-            // For every log
-            // Get the hash of the tx that generated it
-            let tx_hash = log
-                .transaction_hash
-                .ok_or(eyre::eyre!("tx hash not found in log"))?;
-
-            // Get its proven receipt
-            let receipt = self
-                .get_transaction_receipt(tx_hash)
-                .await?
-                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
-
             // Check if the receipt contains the desired log
             // Encoding logs for comparison
-            let receipt_logs_encoded = receipt
-                .inner
-                .logs()
-                .iter()
-                .map(|log| encode(&log.inner))
-                .collect::<Vec<_>>();
-
+            let tx_hash = log.transaction_hash.unwrap();
             let log_encoded = encode(&log.inner);
+            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
 
             if !receipt_logs_encoded.contains(&log_encoded) {
                 return Err(ExecutionError::MissingLog(
