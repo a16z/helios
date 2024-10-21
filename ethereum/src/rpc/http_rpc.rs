@@ -20,14 +20,45 @@ pub struct HttpRpc {
     rpc: String,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum HttpRpcMessage<T> {
+    Success(T),
+    Error(HttpRpcError),
+}
+
+#[derive(Deserialize, Debug)]
+struct HttpRpcError {
+    code: u16,
+    message: String,
+}
+
 async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
-    let bytes = retry(
-        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?.bytes().await?) },
+    let response = retry(
+        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?) },
         BackoffSettings::default(),
     )
     .await?;
 
-    Ok(serde_json::from_slice::<R>(&bytes)?)
+    let status = response.status();
+
+    let bytes = response.bytes().await?;
+    let message: HttpRpcMessage<R> = serde_json::from_slice(&bytes).map_err(|e| {
+        if status.is_success() {
+            eyre::eyre!("deserialization error: {}", e)
+        } else {
+            eyre::eyre!("status: {}, raw response: {:?}", status.as_u16(), bytes)
+        }
+    })?;
+
+    match message {
+        HttpRpcMessage::Success(data) => Ok(data),
+        HttpRpcMessage::Error(error) => Err(eyre::eyre!(
+            "status: {}, message: {}",
+            error.code,
+            error.message
+        )),
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
