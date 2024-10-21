@@ -21,13 +21,21 @@ pub struct HttpRpc {
 }
 
 async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
-    let bytes = retry(
-        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?.bytes().await?) },
+    let response = retry(
+        || async { Ok::<_, eyre::Report>(reqwest::get(req).await?) },
         BackoffSettings::default(),
     )
     .await?;
 
-    Ok(serde_json::from_slice::<R>(&bytes)?)
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_body: serde_json::Value = response.json().await?;
+        let message = error_body["message"].as_str().unwrap_or("Unknown error");
+        return Err(eyre::eyre!("HTTP error {}: {}", status, message));
+    }
+
+    let bytes = response.bytes().await?;
+    serde_json::from_slice::<R>(&bytes).map_err(|e| eyre::eyre!("Deserialization error: {}", e))
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
