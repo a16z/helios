@@ -1,11 +1,14 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::consensus::Transaction as TxTrait;
 use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
 use alloy::rlp::Decodable;
-use alloy::rpc::types::{Parity, Signature, Transaction};
+use alloy::rpc::types::{EIP1186AccountProofResponse, Parity, Signature, Transaction};
 use alloy_rlp::encode;
 use eyre::Result;
+use helios_core::execution::proof::{self, encode_account};
+use helios_ethereum::MainnetConsensusSpec;
 use op_alloy_consensus::OpTxEnvelope;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{
@@ -134,6 +137,84 @@ impl Inner {
 
         Ok(())
     }
+}
+
+async fn get_unsafe_signer<DB: helios_ethereum::database::Database>(
+    checkpoint: B256,
+) -> Option<Address> {
+    let consensus_rpc = "ethereum.operationsolarstorm.org".to_string();
+    let base_config = helios_ethereum::config::networks::mainnet();
+    let config = helios_ethereum::config::Config {
+        consensus_rpc,
+        execution_rpc: String::new(),
+        checkpoint: Some(checkpoint),
+        default_checkpoint: checkpoint,
+        rpc_bind_ip: None,
+        rpc_port: None,
+        data_dir: None,
+        chain: base_config.chain,
+        forks: base_config.forks,
+        max_checkpoint_age: base_config.max_checkpoint_age,
+        fallback: None,
+        load_external_fallback: false,
+        strict_checkpoint_age: false,
+        database_type: None,
+    };
+
+    let mut consensus = helios_ethereum::consensus::ConsensusClient::<
+        MainnetConsensusSpec,
+        helios_ethereum::rpc::http_rpc::HttpRpc,
+        DB,
+    >::new(&consensus_rpc, Arc::new(config))
+    .unwrap();
+
+    let recv = consensus.finalized_block_recv().unwrap();
+    recv.changed().await.unwrap();
+    let block = recv.borrow().unwrap();
+    let state_root = block.state_root;
+    let num = block.number.to::<u64>();
+
+    let system_config: Address = todo!();
+    let proof = fetch_unsafe_signer_proof(num);
+
+    let account_path = keccak256(system_config).to_vec();
+    let account_encoded = encode_account(&proof);
+
+    let is_valid = proof::verify_proof(
+        &proof.account_proof,
+        state_root.as_slice(),
+        &account_path,
+        &account_encoded,
+    );
+
+    if !is_valid {
+        return None;
+    }
+
+    if let Some(storage_proof) = proof.storage_proof.first() {
+        let key = storage_proof.key.0;
+        let key_hash = keccak256(key);
+        let value = encode(storage_proof.value);
+
+        let is_valid = proof::verify_proof(
+            &storage_proof.proof,
+            proof.storage_hash.as_slice(),
+            key_hash.as_slice(),
+            &value,
+        );
+
+        let unsafe_signer_slot =
+            b256!("65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08");
+        if key == unsafe_signer_slot && is_valid {
+            return Some(Address::from_slice(&value[12..32]));
+        }
+    }
+
+    None
+}
+
+fn fetch_unsafe_signer_proof(block_number: u64) -> EIP1186AccountProofResponse {
+    todo!()
 }
 
 fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {

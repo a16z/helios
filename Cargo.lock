@@ -3153,6 +3153,7 @@ dependencies = [
  "figment",
  "getrandom 0.2.15",
  "helios-core",
+ "helios-ethereum",
  "hex",
  "libp2p",
  "libp2p-identity",

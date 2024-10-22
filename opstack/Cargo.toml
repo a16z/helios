@@ -36,6 +36,7 @@ snap = "1"
 figment = { version = "0.10.7", features = ["toml", "env"] }
 
 helios-core = { path = "../core" }
+helios-ethereum = { path = "../ethereum" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # server
