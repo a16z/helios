@@ -35,6 +35,7 @@ Helios also provides documentation of its supported RPC methods in the [rpc.md](
 
 
 ### OP Stack
+
 To run Helios on an OP Stack chain, run the command below, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy and $NETWORK with a supported OP Stack network:
 
 ```
@@ -94,6 +95,10 @@ execution_rpc = "https://base-mainnet.g.alchemy.com/v2/XXXXX"
 ```
 
 A comprehensive breakdown of config options is available in the [config.md](./config.md) file.
+
+### Using Helios as a library
+
+Examples of running Helios as a rust library can be seen in the [examples](./examples) directory.
 
 ### Supported Ethereum Checkpoints <a id="supported-checkpoints"></a>
 
