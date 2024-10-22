@@ -36,7 +36,7 @@ Helios also provides documentation of its supported RPC methods in the [rpc.md](
 
 ### OP Stack
 
-To run Helios on an OP Stack chain, run the command below, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy and $NETWORK with a supported OP Stack network:
+To run Helios on an OP Stack chain, run the command below, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy and `$NETWORK` with a supported OP Stack network:
 
 ```
 helios opstack --network $NETWORK --execution-rpc $ETH_RPC_URL
