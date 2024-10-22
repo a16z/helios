@@ -1,0 +1,71 @@
+name: Build, Lint, and Publish
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      publish_type:
+        description: 'Type of publish: dry, production, or canary'
+        required: true
+        default: 'dry'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 🛎️ Checkout repository
+      uses: actions/checkout@v3
+
+    - name: 🛠️ Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22' 
+
+    - name: 🔧 Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: 📦 Cargo build
+      run: cargo build --release
+
+    - name: 📥 Install dependencies
+      working-directory: ./helios-ts
+      run: npm ci --frozen-lockfile
+
+    - name: 🔍 Run linters
+      working-directory: ./helios-ts
+      run: npm run lint:check
+      continue-on-error: true
+
+    - name: 🎨 Check formatting
+      working-directory: ./helios-ts
+      run: npm run format:check
+      continue-on-error: true
+
+    - name: 📦 Lint package
+      working-directory: ./helios-ts
+      run: npm run lint:package
+      continue-on-error: true
+
+    - name: 🏗️ Build Helios-TS
+      working-directory: ./helios-ts
+      run: npm run build
+      continue-on-error: true
+
+    - name: 🚀 Publish Package
+      if: ${{ success() &&
+      github.event.inputs.publish_type != 'dry' }}
+      working-directory: ./helios-ts
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      run: |
+        if [ "${{ github.event.inputs.publish_type }}" == "production" ]; then
+          npm run publish
+        elif [ "${{ github.event.inputs.publish_type }}" == "canary" ]; then
+          npm run publish:canary
+        fi
