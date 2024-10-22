@@ -37,7 +37,7 @@ pub fn start(urls: Vec<Url>, signer: Address, chain_id: u64, sender: Sender<Sequ
                     .map(|url| get_commitment(&client, url, sender.clone(), signer, chain_id)),
             )
             .await;
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_millis(500)).await;
         }
     });
 }
