@@ -1,6 +1,6 @@
 use alloy::primitives::Address;
 use libp2p::gossipsub::{IdentTopic, Message, MessageAcceptance, TopicHash};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 
 use crate::SequencerCommitment;
 
@@ -12,16 +12,13 @@ pub struct BlockHandler {
 }
 
 impl BlockHandler {
-    pub fn new(signer: Address, chain_id: u64) -> (Self, Receiver<SequencerCommitment>) {
-        let (send, recv) = channel(256);
-        let handler = Self {
+    pub fn new(signer: Address, chain_id: u64, sender: Sender<SequencerCommitment>) -> Self {
+        Self {
             chain_id,
             signer,
-            commitment_sender: send,
+            commitment_sender: sender,
             blocks_v3_topic: IdentTopic::new(format!("/optimism/{}/2/blocks", chain_id)),
-        };
-
-        (handler, recv)
+        }
     }
 
     pub fn topics(&self) -> Vec<TopicHash> {

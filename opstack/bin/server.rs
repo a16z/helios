@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use clap::Parser;
 use eyre::Result;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use url::Url;
 
 use helios_opstack::{
     config::{Network, NetworkConfig},
@@ -19,8 +20,16 @@ async fn main() -> Result<()> {
     let unsafe_signer = config.chain.unsafe_signer;
     let server_addr = cli.server_address;
     let gossip_addr = cli.gossip_address;
+    let replica_urls = cli.replica_urls.unwrap_or_default();
 
-    start_server(server_addr, gossip_addr, chain_id, unsafe_signer).await?;
+    start_server(
+        server_addr,
+        gossip_addr,
+        chain_id,
+        unsafe_signer,
+        replica_urls,
+    )
+    .await?;
 
     Ok(())
 }
@@ -46,4 +55,6 @@ struct Cli {
     server_address: SocketAddr,
     #[clap(short, long, default_value = "0.0.0.0:9876")]
     gossip_address: SocketAddr,
+    #[clap(short, long, value_delimiter = ',')]
+    replica_urls: Option<Vec<Url>>,
 }
