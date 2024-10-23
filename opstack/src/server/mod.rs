@@ -4,26 +4,33 @@ use alloy::primitives::Address;
 use axum::{extract::State, routing::get, Json, Router};
 use eyre::Result;
 use tokio::{
-    sync::{mpsc::Receiver, RwLock},
+    sync::{
+        mpsc::{channel, Receiver},
+        RwLock,
+    },
     time::sleep,
 };
+use url::Url;
 
 use crate::{types::ExecutionPayload, SequencerCommitment};
 
 use self::net::{block_handler::BlockHandler, gossip::GossipService};
 
 pub mod net;
+mod poller;
 
 pub async fn start_server(
     server_addr: SocketAddr,
     gossip_addr: SocketAddr,
     chain_id: u64,
     signer: Address,
+    replica_urls: Vec<Url>,
 ) -> Result<()> {
     let state = Arc::new(RwLock::new(ServerState::new(
         gossip_addr,
         chain_id,
         signer,
+        replica_urls,
     )?));
 
     let state_copy = state.clone();
@@ -36,6 +43,7 @@ pub async fn start_server(
 
     let router = Router::new()
         .route("/latest", get(latest_handler))
+        .route("/chain_id", get(chain_id_handler))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(server_addr).await?;
@@ -50,25 +58,38 @@ async fn latest_handler(
     Json(state.read().await.latest_commitment.clone().map(|v| v.0))
 }
 
+async fn chain_id_handler(State(state): State<Arc<RwLock<ServerState>>>) -> Json<u64> {
+    Json(state.read().await.chain_id)
+}
+
 struct ServerState {
+    chain_id: u64,
     commitment_recv: Receiver<SequencerCommitment>,
     latest_commitment: Option<(SequencerCommitment, u64)>,
 }
 
 impl ServerState {
-    pub fn new(addr: SocketAddr, chain_id: u64, signer: Address) -> Result<Self> {
-        let (handler, commitment_recv) = BlockHandler::new(signer, chain_id);
+    pub fn new(
+        addr: SocketAddr,
+        chain_id: u64,
+        signer: Address,
+        replica_urls: Vec<Url>,
+    ) -> Result<Self> {
+        let (send, commitment_recv) = channel(256);
+        poller::start(replica_urls, signer, chain_id, send.clone());
+        let handler = BlockHandler::new(signer, chain_id, send);
         let gossip = GossipService::new(addr, chain_id, handler);
         gossip.start()?;
 
         Ok(Self {
+            chain_id,
             commitment_recv,
             latest_commitment: None,
         })
     }
 
     pub fn update(&mut self) {
-        if let Ok(commitment) = self.commitment_recv.try_recv() {
+        while let Ok(commitment) = self.commitment_recv.try_recv() {
             if let Ok(payload) = ExecutionPayload::try_from(&commitment) {
                 if self.is_latest_commitment(payload.block_number) {
                     tracing::info!("new commitment for block: {}", payload.block_number);

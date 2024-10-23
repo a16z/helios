@@ -17,6 +17,7 @@ typenum.workspace = true
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 reqwest.workspace = true
 url.workspace = true
+futures.workspace = true
 
 # consensus
 alloy.workspace = true
