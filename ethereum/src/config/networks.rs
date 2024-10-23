@@ -106,6 +106,10 @@ pub fn mainnet() -> BaseConfig {
                 epoch: 269568,
                 fork_version: fixed_bytes!("04000000"),
             },
+            electra: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("05000000"),
+            },
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
@@ -146,6 +150,10 @@ pub fn goerli() -> BaseConfig {
             deneb: Fork {
                 epoch: 231680,
                 fork_version: fixed_bytes!("04001020"),
+            },
+            electra: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("05001020"),
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
@@ -188,6 +196,10 @@ pub fn sepolia() -> BaseConfig {
                 epoch: 132608,
                 fork_version: fixed_bytes!("90000073"),
             },
+            electra: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("90000074"),
+            },
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
@@ -228,6 +240,10 @@ pub fn holesky() -> BaseConfig {
             deneb: Fork {
                 epoch: 29696,
                 fork_version: fixed_bytes!("05017000"),
+            },
+            electra: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("06017000"),
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days
