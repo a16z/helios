@@ -1,5 +1,5 @@
 use alloy::consensus::Account;
-use alloy::primitives::{b256, keccak256, Bytes, U256};
+use alloy::primitives::{b256, keccak256, Bytes, B256, U256};
 use alloy::rlp::{encode, Decodable};
 use alloy::rpc::types::EIP1186AccountProofResponse;
 
@@ -105,10 +105,18 @@ fn is_empty_value(value: &[u8]) -> bool {
         code_hash: b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
     };
 
+    let new_empty_account = Account {
+        nonce: 0,
+        balance: U256::ZERO,
+        storage_root: B256::ZERO,
+        code_hash: B256::ZERO,
+    };
+
     let empty_account = encode(empty_account);
+    let new_empty_account = encode(new_empty_account);
 
     let is_empty_slot = value.len() == 1 && value[0] == 0x80;
-    let is_empty_account = value == empty_account;
+    let is_empty_account = value == empty_account || value == new_empty_account;
     is_empty_slot || is_empty_account
 }
 

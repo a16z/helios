@@ -101,7 +101,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             slot_map.insert(key, storage_proof.value);
         }
 
-        let code = if proof.code_hash == KECCAK_EMPTY {
+        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
             Vec::new()
         } else {
             let code = self.rpc.get_code(address, block.number.to()).await?;
