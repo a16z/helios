@@ -5,7 +5,7 @@ use eyre::Result;
 use futures::future::join_all;
 use reqwest::{Client, ClientBuilder};
 use tokio::{sync::mpsc::Sender, time::sleep};
-use tracing::{info, warn};
+use tracing::warn;
 use url::Url;
 
 use crate::SequencerCommitment;
@@ -57,7 +57,6 @@ async fn get_commitment(
         .await?;
 
     if commitment.verify(signer, chain_id).is_ok() {
-        info!("sending replica commitment");
         sender.send(commitment).await?;
     }
 

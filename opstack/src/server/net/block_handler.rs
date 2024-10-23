@@ -1,7 +1,6 @@
 use alloy::primitives::Address;
 use libp2p::gossipsub::{IdentTopic, Message, MessageAcceptance, TopicHash};
 use tokio::sync::mpsc::Sender;
-use tracing::info;
 
 use crate::SequencerCommitment;
 
@@ -32,7 +31,6 @@ impl BlockHandler {
         };
 
         if commitment.verify(self.signer, self.chain_id).is_ok() {
-            info!("sending local commitment");
             _ = self.commitment_sender.try_send(commitment);
             MessageAcceptance::Accept
         } else {
