@@ -239,7 +239,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: build
-        run: cargo build --package cli --release --target riscv64gc-unknown-linux-gnu
+        run: cargo build --package helios-cli --release --target riscv64gc-unknown-linux-gnu
 
       - name: archive
         run: tar -czvf "helios_linux_riscv64gc.tar.gz" -C ./target/riscv64gc-unknown-linux-gnu/release helios
