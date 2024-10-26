@@ -3,15 +3,17 @@ use std::path::PathBuf;
 use alloy::primitives::b256;
 use eyre::Result;
 
-use helios::prelude::*;
+use helios::ethereum::{
+    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Create a new Helios Client Builder
-    let mut builder = ClientBuilder::new();
+    let mut builder = EthereumClientBuilder::new();
 
     // Set the network to mainnet
-    builder = builder.network(networks::Network::MAINNET);
+    builder = builder.network(Network::MAINNET);
 
     // Set the consensus rpc url
     builder = builder.consensus_rpc("https://www.lightclientdata.org");
@@ -37,7 +39,7 @@ async fn main() -> Result<()> {
     builder = builder.load_external_fallback();
 
     // Build the client
-    let _client: Client<FileDB> = builder.build().unwrap();
+    let _client: EthereumClient<FileDB> = builder.build().unwrap();
     println!("Constructed client!");
 
     Ok(())

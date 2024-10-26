@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 autobenches = false
 exclude = ["benches"]
@@ -8,13 +8,11 @@ exclude = ["benches"]
 [workspace]
 members = [
     "cli",
-    "client",
-    "common",
-    "config",
-    "consensus",
-    "execution",
+    "core",
+    "ethereum",
+    "ethereum/consensus-core",
+    "opstack",
     "helios-ts",
-    "consensus-core",
 ]
 
 default-members = ["cli"]
@@ -43,6 +41,8 @@ alloy = { version = "0.2.1", features = [
     "sol-types",
     "network",
     "ssz",
+    "json-rpc",
+    "signers",
 ]}
 revm = { version = "12.1.0", default-features = false, features = [
     "std",
@@ -60,6 +60,7 @@ tokio = { version = "1", features = ["rt", "sync", "macros"] }
 
 # io
 reqwest = { version = "0.12.4", features = ["json"] }
+url = { version = "2.5.2", features = ["serde"] }
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 
@@ -81,12 +82,8 @@ typenum = "1.17.0"
 ######################################
 
 [dependencies]
-client = { path = "./client" }
-config = { path = "./config" }
-common = { path = "./common" }
-consensus = { path = "./consensus" }
-execution = { path = "./execution" }
-consensus-core = { path = "./consensus-core" }
+helios-core = { path = "./core" }
+helios-ethereum = { path = "./ethereum" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

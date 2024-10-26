@@ -1,0 +1,50 @@
+[package]
+name = "helios-ethereum"
+version = "0.7.0"
+edition = "2021"
+
+[dependencies]
+# consensus
+tree_hash.workspace = true
+revm.workspace = true
+triehash-ethereum.workspace = true
+
+# config
+figment = { version = "0.10.7", features = ["toml", "env"] }
+serde_yaml = "0.9.14"
+strum = { version = "0.26.2", features = ["derive"] }
+
+# async/futures
+tokio.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+
+# io
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+#misc
+alloy.workspace = true
+eyre.workspace = true
+hex.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+superstruct.workspace = true
+retri.workspace = true
+typenum.workspace = true
+
+helios-core = { path = "../core" }
+helios-consensus-core = { path = "consensus-core" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.37"
+getrandom = { version = "0.2.1", features = ["js"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+openssl.workspace = true
+dirs = "5.0.1"
+
+[target.wasm32-unknown-unknown.dependencies]
+parking_lot = { version = "0.12.2" }

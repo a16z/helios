@@ -1,0 +1,56 @@
+[package]
+name = "helios-opstack"
+version = "0.7.0"
+edition = "2021"
+
+[[bin]]
+name = "server"
+path = "./bin/server.rs"
+
+[dependencies]
+tokio.workspace = true
+eyre.workspace = true
+tracing.workspace = true
+hex.workspace = true
+serde.workspace = true
+typenum.workspace = true
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+reqwest.workspace = true
+url.workspace = true
+futures.workspace = true
+
+# consensus
+alloy.workspace = true
+revm.workspace = true
+sha2.workspace = true
+ethereum_ssz_derive.workspace = true
+ethereum_ssz.workspace = true
+ssz_types.workspace = true
+triehash-ethereum.workspace = true
+alloy-rlp = "0.3.0"
+op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
+op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
+op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
+snap = "1"
+
+# config
+figment = { version = "0.10.7", features = ["toml", "env"] }
+
+helios-core = { path = "../core" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# server
+axum = "0.7.6"
+clap = { version = "4.5.4", features = ["derive", "env"] }
+# networking
+libp2p = { version = "0.51.3", features = ["macros", "tokio", "tcp", "mplex", "noise", "gossipsub", "ping"] }
+discv5 = "0.7.0"
+libp2p-identity = { version = "0.1.2", features = ["secp256k1"] }
+unsigned-varint = "0.7.1"
+
+[target.wasm32-unknown-unknown.dependencies]
+parking_lot = { version = "0.12.2" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.37"
+getrandom = { version = "0.2.1", features = ["js"] }

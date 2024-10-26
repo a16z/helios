@@ -5,6 +5,7 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
+  workflow_dispatch:
 
 env:
   MAINNET_EXECUTION_RPC: ${{ secrets.MAINNET_EXECUTION_RPC }}
