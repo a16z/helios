@@ -302,7 +302,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         // Collect all (proven) tx receipts as a map of tx hash to receipt
         let receipts_fut = txs_hash.iter().map(|&tx_hash| async move {
             let receipt = self.get_transaction_receipt(tx_hash).await;
-            receipt?.map(|r| (tx_hash, r)).ok_or(eyre::eyre!(ExecutionError::NoReceiptForTransaction(tx_hash)))
+            receipt?.map(|r| (tx_hash, r)).ok_or(eyre::eyre!(
+                ExecutionError::NoReceiptForTransaction(tx_hash)
+            ))
         });
         let receipts = join_all(receipts_fut).await;
         let receipts: HashMap<_, _> = receipts.into_iter().collect::<Result<_, _>>()?;
@@ -324,7 +326,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             // Encoding logs for comparison
             let tx_hash = log.transaction_hash.unwrap();
             let log_encoded = encode(&log.inner);
-            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap(); 
+            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
 
             if !receipt_logs_encoded.contains(&log_encoded) {
                 return Err(ExecutionError::MissingLog(
