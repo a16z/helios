@@ -4,7 +4,7 @@ use tree_hash::TreeHash;
 
 use crate::{
     consensus_spec::ConsensusSpec,
-    types::{BeaconBlockHeader, ExecutionPayloadHeader, SyncCommittee, Forks},
+    types::{BeaconBlockHeader, ExecutionPayloadHeader, Forks, SyncCommittee},
 };
 
 pub fn is_finality_proof_valid(
