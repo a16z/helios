@@ -109,6 +109,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         #[cfg(target_arch = "wasm32")]
         let run = wasm_bindgen_futures::spawn_local;
 
+        let db_clone = db.clone();
         run(async move {
             let mut inner = Inner::<S, R>::new(
                 &rpc,
@@ -117,6 +118,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 checkpoint_send,
                 config.clone(),
             );
+            let mut last_saved_checkpoint = initial_checkpoint;
 
             let res = inner.sync(initial_checkpoint).await;
             if let Err(err) = res {
@@ -138,6 +140,18 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 }
             }
 
+            if let Some(last_checkpoint) = inner.last_checkpoint {
+                if last_checkpoint != last_saved_checkpoint {
+                    // There is a more recent checkpoint to save
+                    info!(target: "helios::consensus", "saving checkpoint to DB: 0x{}", hex::encode(last_checkpoint));
+                    if let Err(err) = db_clone.save_checkpoint(last_checkpoint) {
+                        error!(target: "helios::consensus", err = %err, "failed to save checkpoint");
+                        process::exit(1);
+                    }
+                    last_saved_checkpoint = last_checkpoint;
+                }
+            }
+
             _ = inner.send_blocks().await;
 
             let start = Instant::now() + inner.duration_until_next_update().to_std().unwrap();
@@ -150,6 +164,16 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "advance error: {}", err);
                     continue;
+                }
+                if let Some(last_checkpoint) = inner.last_checkpoint {
+                    if last_checkpoint != last_saved_checkpoint {
+                        // There is a more recent checkpoint to save
+                        info!(target: "helios::consensus", "saving checkpoint: 0x{}", hex::encode(last_checkpoint));
+                        if let Err(err) = db_clone.save_checkpoint(last_checkpoint) {
+                            warn!(target: "helios::consensus", err = %err, "failed to save checkpoint");
+                        }
+                        last_saved_checkpoint = last_checkpoint;
+                    }
                 }
 
                 let res = inner.send_blocks().await;
