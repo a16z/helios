@@ -179,4 +179,10 @@ impl OpStackClient {
         let logs = map_err(self.inner.get_logs(&filter).await)?;
         Ok(serde_wasm_bindgen::to_value(&logs)?)
     }
+
+    #[wasm_bindgen]
+    pub async fn get_client_version(&self) -> Result<String, JsError> {
+        let version = map_err(self.inner.get_client_version().await)?;
+        Ok(version)
+    }
 }

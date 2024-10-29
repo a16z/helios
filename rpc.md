@@ -25,3 +25,4 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getBlockTransactionCountByNumber` | `get_block_transaction_count_by_number` | Returns the number of transactions in a block from a block matching the block number. | `client.get_block_transaction_count_by_number(&self, block: BlockTag)` |
 | `eth_coinbase` | `get_coinbase` | Returns the client coinbase address. | `client.get_coinbase(&self)` |
 | `eth_syncing` | `syncing` | Returns an object with data about the sync status or false. | `client.syncing(&self)` |
+| `web3_getClientVersion` | `get_client_version` | Returns the current version of the chain client. | `client.get_client_version(&self)` |

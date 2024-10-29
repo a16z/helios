@@ -133,6 +133,14 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("get_logs", e))?)
     }
 
+    async fn get_client_version(&self) -> Result<String> {
+        Ok(self
+            .provider
+            .get_client_version()
+            .await
+            .map_err(|e| RpcError::new("get_client_version", e))?)
+    }
+
     async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
         Ok(self
             .provider

@@ -153,6 +153,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         self.node.get_block_number().await
     }
 
+    pub async fn get_client_version(&self) -> Result<String> {
+        self.node.get_client_version().await
+    }
+
     pub async fn get_block_by_number(
         &self,
         block: BlockTag,

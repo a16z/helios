@@ -74,6 +74,8 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getCode")]
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
+    #[method(name = "getClientVersion")]
+    async fn get_client_version(&self) -> Result<String, ErrorObjectOwned>;
     #[method(name = "call")]
     async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
@@ -192,6 +194,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
 
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned> {
         convert_err(self.node.get_code(address, block).await)
+    }
+
+    async fn get_client_version(&self) -> Result<String, ErrorObjectOwned> {
+        convert_err(self.node.get_client_version().await)
     }
 
     async fn call(

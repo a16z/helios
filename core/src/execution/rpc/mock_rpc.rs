@@ -45,6 +45,10 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(hex::decode(&code[2..code.len() - 1])?)
     }
 
+    async fn get_client_version(&self) -> Result<String> {
+        Ok("Mock/v0.1.0".to_string())
+    }
+
     async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<B256> {
         Err(eyre!("not implemented"))
     }

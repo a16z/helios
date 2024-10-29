@@ -176,6 +176,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .await
     }
 
+    pub async fn get_client_version(&self) -> Result<String> {
+        self.rpc.get_client_version().await
+    }
+
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
