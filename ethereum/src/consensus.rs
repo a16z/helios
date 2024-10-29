@@ -43,7 +43,7 @@ pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     genesis_time: u64,
-    db: DB,
+    db: Arc<DB>,
     config: Arc<Config>,
     phantom: PhantomData<(S, R)>,
 }
@@ -80,11 +80,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Transaction>
     }
 
     fn shutdown(&self) -> Result<()> {
-        let checkpoint = self.checkpoint_recv.borrow();
-        if let Some(checkpoint) = checkpoint.as_ref() {
-            self.db.save_checkpoint(*checkpoint)?;
-        }
-
         Ok(())
     }
 }
@@ -98,7 +93,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         let config_clone = config.clone();
         let rpc = rpc.to_string();
         let genesis_time = config.chain.genesis_time;
-        let db = DB::new(&config)?;
+        let db = Arc::new(DB::new(&config)?);
         let initial_checkpoint = config
             .checkpoint
             .unwrap_or_else(|| db.load_checkpoint().unwrap_or(config.default_checkpoint));
@@ -160,6 +155,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
             }
         });
 
+        save_new_checkpoints(checkpoint_recv.clone(), db.clone(), initial_checkpoint);
+
         Ok(ConsensusClient {
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalized_block_recv),
@@ -176,6 +173,39 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
 
         expected_current_slot(now, self.genesis_time)
     }
+}
+
+fn save_new_checkpoints<DB: Database>(
+    mut checkpoint_recv: watch::Receiver<Option<B256>>,
+    db: Arc<DB>,
+    initial_checkpoint: B256,
+) {
+    #[cfg(not(target_arch = "wasm32"))]
+    let run = tokio::spawn;
+
+    #[cfg(target_arch = "wasm32")]
+    let run = wasm_bindgen_futures::spawn_local;
+
+    run(async move {
+        let mut last_saved_checkpoint = initial_checkpoint;
+        loop {
+            let new_checkpoint = *checkpoint_recv.borrow_and_update();
+            if let Some(new_checkpoint) = new_checkpoint.as_ref() {
+                if *new_checkpoint != last_saved_checkpoint {
+                    // There is a more recent checkpoint to save
+                    if db.save_checkpoint(*new_checkpoint).is_err() {
+                        warn!(target: "helios::consensus", "failed to save checkpoint");
+                    } else {
+                        info!(target: "helios::consensus", "saved checkpoint to DB: 0x{}", hex::encode(*new_checkpoint));
+                        last_saved_checkpoint = *new_checkpoint;
+                    }
+                }
+            }
+            if checkpoint_recv.changed().await.is_err() {
+                break;
+            }
+        }
+    });
 }
 
 async fn sync_fallback<S: ConsensusSpec, R: ConsensusRpc<S>>(
