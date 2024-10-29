@@ -160,9 +160,9 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         Ok(ConsensusClient {
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalized_block_recv),
-            checkpoint_recv: checkpoint_recv,
+            checkpoint_recv,
             genesis_time,
-            db: db,
+            db,
             config: config_clone,
             phantom: PhantomData,
         })
