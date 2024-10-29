@@ -89,7 +89,7 @@ impl From<Network> for NetworkConfig {
                 consensus_rpc: Some("https://worldchain.operationsolarstorm.org".parse().unwrap()),
                 chain: ChainConfig {
                     chain_id: 480,
-                    unsafe_signer: address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a"),
+                    unsafe_signer: address!("2270d6eC8E760daA317DD978cFB98C8f144B1f3A"),
                 },
             },
             Network::Unichain => NetworkConfig {
@@ -103,7 +103,7 @@ impl From<Network> for NetworkConfig {
                 consensus_rpc: Some("https://zora.operationsolarstorm.org".parse().unwrap()),
                 chain: ChainConfig {
                     chain_id: 7777777,
-                    unsafe_signer: address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a"),
+                    unsafe_signer: address!("3Dc8Dfd0709C835cAd15a6A27e089FF4cF4C9228"),
                 },
             },
         }
