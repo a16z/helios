@@ -37,7 +37,6 @@ pub enum Network {
     Optimism,
     Base,
     Worldchain,
-    Unichain,
     Zora
 }
 
@@ -47,7 +46,6 @@ impl Display for Network {
             Self::Optimism => f.write_str("optimism"),
             Self::Base => f.write_str("base"),
             Self::Worldchain => f.write_str("worldchain"),
-            Self::Unichain => f.write_str("unichain"),
             Self::Zora => f.write_str("zora"),
         }
     }
@@ -61,7 +59,6 @@ impl FromStr for Network {
             "optimism" => Ok(Self::Optimism),
             "base" => Ok(Self::Base),
             "worldchain" => Ok(Self::Worldchain),
-            "unichain" => Ok(Self::Unichain),
             "zora" => Ok(Self::Zora),
             _ => Err(eyre::eyre!("network not recognized")),
         }
@@ -90,13 +87,6 @@ impl From<Network> for NetworkConfig {
                 chain: ChainConfig {
                     chain_id: 480,
                     unsafe_signer: address!("2270d6eC8E760daA317DD978cFB98C8f144B1f3A"),
-                },
-            },
-            Network::Unichain => NetworkConfig {
-                consensus_rpc: Some("https://unichain.operationsolarstorm.org".parse().unwrap()),
-                chain: ChainConfig {
-                    chain_id: 130,
-                    unsafe_signer: address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a"),
                 },
             },
             Network::Zora => NetworkConfig {
