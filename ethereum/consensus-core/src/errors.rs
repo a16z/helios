@@ -29,6 +29,4 @@ pub enum ConsensusError {
     CheckpointTooOld,
     #[error("consensus rpc is for the incorrect network")]
     IncorrectRpcNetwork,
-    #[error("finalized header missing")]
-    MissingFinalizedHeader,
 }
