@@ -331,7 +331,6 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Web3RpcServer for Rpc
     }
 }
 
-
 async fn start<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
     rpc: RpcInner<N, C>,
 ) -> Result<(ServerHandle, SocketAddr)> {
