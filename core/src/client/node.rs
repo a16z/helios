@@ -140,7 +140,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         self.execution.get_logs(filter).await
     }
 
-    pub async fn get_client_version(&self) -> Result<String> {
+    pub async fn client_version(&self) -> Result<String> {
         self.execution.get_client_version().await
     }
 

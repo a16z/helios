@@ -74,8 +74,6 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getCode")]
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
-    #[method(name = "getClientVersion")]
-    async fn get_client_version(&self) -> Result<String, ErrorObjectOwned>;
     #[method(name = "call")]
     async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
@@ -143,6 +141,12 @@ trait NetRpc {
     async fn version(&self) -> Result<u64, ErrorObjectOwned>;
 }
 
+#[rpc(client, server, namespace = "web3")]
+trait Web3Rpc {
+    #[method(name = "clientVersion")]
+    async fn client_version(&self) -> Result<String, ErrorObjectOwned>;
+}
+
 struct RpcInner<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
     node: Arc<Node<N, C>>,
     address: SocketAddr,
@@ -194,10 +198,6 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
 
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned> {
         convert_err(self.node.get_code(address, block).await)
-    }
-
-    async fn get_client_version(&self) -> Result<String, ErrorObjectOwned> {
-        convert_err(self.node.get_client_version().await)
     }
 
     async fn call(
@@ -324,6 +324,14 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> NetRpcServer for RpcI
     }
 }
 
+#[async_trait]
+impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Web3RpcServer for RpcInner<N, C> {
+    async fn client_version(&self) -> Result<String, ErrorObjectOwned> {
+        convert_err(self.node.client_version().await)
+    }
+}
+
+
 async fn start<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
     rpc: RpcInner<N, C>,
 ) -> Result<(ServerHandle, SocketAddr)> {
@@ -332,10 +340,12 @@ async fn start<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
 
     let mut methods = Methods::new();
     let eth_methods: Methods = EthRpcServer::into_rpc(rpc.clone()).into();
-    let net_methods: Methods = NetRpcServer::into_rpc(rpc).into();
+    let net_methods: Methods = NetRpcServer::into_rpc(rpc.clone()).into();
+    let web3_methods: Methods = Web3RpcServer::into_rpc(rpc).into();
 
     methods.merge(eth_methods)?;
     methods.merge(net_methods)?;
+    methods.merge(web3_methods)?;
 
     let handle = server.start(methods);
 
