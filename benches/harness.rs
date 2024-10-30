@@ -1,7 +1,11 @@
 #![allow(dead_code)]
-use helios_core::types::BlockTag;
 use alloy::primitives::{Address, B256, U256};
-use helios_ethereum::{config::{checkpoints, networks}, database::FileDB, EthereumClient, EthereumClientBuilder};
+use helios_core::types::BlockTag;
+use helios_ethereum::{
+    config::{checkpoints, networks},
+    database::FileDB,
+    EthereumClient, EthereumClientBuilder,
+};
 use std::{path::PathBuf, str::FromStr};
 
 /// Fetches the latest mainnet checkpoint from the fallback service.
@@ -11,7 +15,10 @@ use std::{path::PathBuf, str::FromStr};
 /// This list is NOT guaranteed to be secure, but is provided in good faith.
 /// The raw list can be found here: https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml
 pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {
-    let cf = checkpoints::CheckpointFallback::new().build().await.unwrap();
+    let cf = checkpoints::CheckpointFallback::new()
+        .build()
+        .await
+        .unwrap();
     cf.fetch_latest_checkpoint(&networks::Network::MAINNET)
         .await
 }
@@ -22,7 +29,9 @@ pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {
 /// The client is parameterized with a [FileDB](client::FileDB).
 /// It will also use the environment variable `MAINNET_EXECUTION_RPC` to connect to a mainnet node.
 /// The client will use `https://www.lightclientdata.org` as the consensus RPC.
-pub fn construct_mainnet_client(rt: &tokio::runtime::Runtime) -> eyre::Result<EthereumClient<FileDB>> {
+pub fn construct_mainnet_client(
+    rt: &tokio::runtime::Runtime,
+) -> eyre::Result<EthereumClient<FileDB>> {
     rt.block_on(inner_construct_mainnet_client())
 }
 
@@ -44,7 +53,7 @@ pub async fn construct_mainnet_client_with_checkpoint(
     checkpoint: B256,
 ) -> eyre::Result<EthereumClient<FileDB>> {
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
-    
+
     let mut client = EthereumClientBuilder::new()
         .network(networks::Network::MAINNET)
         .consensus_rpc("https://www.lightclientdata.org")
@@ -73,7 +82,9 @@ pub fn construct_runtime() -> tokio::runtime::Runtime {
 /// The client is parameterized with a [FileDB](client::FileDB).
 /// It will also use the environment variable `GOERLI_EXECUTION_RPC` to connect to a mainnet node.
 /// The client will use `http://testing.prater.beacon-api.nimbus.team` as the consensus RPC.
-pub fn construct_goerli_client(rt: &tokio::runtime::Runtime) -> eyre::Result<EthereumClient<FileDB>> {
+pub fn construct_goerli_client(
+    rt: &tokio::runtime::Runtime,
+) -> eyre::Result<EthereumClient<FileDB>> {
     rt.block_on(async {
         let benchmark_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
         let mut client = EthereumClientBuilder::new()
