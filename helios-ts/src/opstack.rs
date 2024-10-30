@@ -28,6 +28,8 @@ impl OpStackClient {
         let network_config = match network.as_str() {
             "optimism" => NetworkConfig::from(Network::Optimism),
             "base" => NetworkConfig::from(Network::Base),
+            "worldchain" => NetworkConfig::from(Network::Worldchain),
+            "zora" => NetworkConfig::from(Network::Zora),
             other => Err(JsError::new(&format!("invalid network: {}", other)))?,
         };
 

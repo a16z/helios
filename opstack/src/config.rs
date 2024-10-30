@@ -36,6 +36,8 @@ pub struct NetworkConfig {
 pub enum Network {
     Optimism,
     Base,
+    Worldchain,
+    Zora
 }
 
 impl Display for Network {
@@ -43,6 +45,8 @@ impl Display for Network {
         match self {
             Self::Optimism => f.write_str("optimism"),
             Self::Base => f.write_str("base"),
+            Self::Worldchain => f.write_str("worldchain"),
+            Self::Zora => f.write_str("zora"),
         }
     }
 }
@@ -54,6 +58,8 @@ impl FromStr for Network {
         match s {
             "optimism" => Ok(Self::Optimism),
             "base" => Ok(Self::Base),
+            "worldchain" => Ok(Self::Worldchain),
+            "zora" => Ok(Self::Zora),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -74,6 +80,20 @@ impl From<Network> for NetworkConfig {
                 chain: ChainConfig {
                     chain_id: 8453,
                     unsafe_signer: address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a"),
+                },
+            },
+            Network::Worldchain => NetworkConfig {
+                consensus_rpc: Some("https://worldchain.operationsolarstorm.org".parse().unwrap()),
+                chain: ChainConfig {
+                    chain_id: 480,
+                    unsafe_signer: address!("2270d6eC8E760daA317DD978cFB98C8f144B1f3A"),
+                },
+            },
+            Network::Zora => NetworkConfig {
+                consensus_rpc: Some("https://zora.operationsolarstorm.org".parse().unwrap()),
+                chain: ChainConfig {
+                    chain_id: 7777777,
+                    unsafe_signer: address!("3Dc8Dfd0709C835cAd15a6A27e089FF4cF4C9228"),
                 },
             },
         }
