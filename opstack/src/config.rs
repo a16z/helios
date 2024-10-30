@@ -37,7 +37,7 @@ pub enum Network {
     Optimism,
     Base,
     Worldchain,
-    Zora
+    Zora,
 }
 
 impl Display for Network {
@@ -83,7 +83,11 @@ impl From<Network> for NetworkConfig {
                 },
             },
             Network::Worldchain => NetworkConfig {
-                consensus_rpc: Some("https://worldchain.operationsolarstorm.org".parse().unwrap()),
+                consensus_rpc: Some(
+                    "https://worldchain.operationsolarstorm.org"
+                        .parse()
+                        .unwrap(),
+                ),
                 chain: ChainConfig {
                     chain_id: 480,
                     unsafe_signer: address!("2270d6eC8E760daA317DD978cFB98C8f144B1f3A"),
