@@ -696,9 +696,10 @@ mod tests {
     use alloy::primitives::b256;
     use tokio::sync::{mpsc::channel, watch};
 
+    use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
     use helios_consensus_core::errors::ConsensusError;
     use helios_consensus_core::types::bls::{PublicKey, Signature};
-    use helios_consensus_core::types::LightClientHeader;
+    use helios_consensus_core::types::{LightClientHeader, Update};
 
     use crate::{
         config::{networks, Config},
@@ -708,7 +709,10 @@ mod tests {
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };
 
-    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
+    async fn get_client(
+        strict_checkpoint_age: bool,
+        sync: bool,
+    ) -> Inner<MainnetConsensusSpec, MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
@@ -745,7 +749,9 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(
+            client.store.finalized_header.beacon().slot.into(),
+        );
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -759,7 +765,9 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_committee() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(
+            client.store.finalized_header.beacon().slot.into(),
+        );
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -778,18 +786,25 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_update_invalid_finality() {
-        let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let mut client = get_client(false, false).await;
+        let period = calc_sync_period::<MainnetConsensusSpec>(
+            client.store.finalized_header.beacon().slot.into(),
+        );
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
 
-        let mut update = updates[0].clone();
-        update.finalized_header = LightClientHeader::default();
+        // Verify and apply first update
+        client.verify_update(&updates[0]).unwrap();
+        client.apply_update(&updates[0]);
 
-        let err = client.verify_update(&update).err().unwrap();
+        let mut next_update = updates[1].clone();
+        // Set a different finalized header to test invalid finality proof
+        next_update.finalized_header = updates[0].finalized_header.clone();
+
+        let err = client.verify_update(&next_update).err().unwrap();
         assert_eq!(
             err.to_string(),
             ConsensusError::InvalidFinalityProof.to_string()
@@ -799,7 +814,9 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_sig() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(
+            client.store.finalized_header.beacon().slot.into(),
+        );
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -830,7 +847,17 @@ mod tests {
         let client = get_client(false, true).await;
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
-        update.finalized_header = LightClientHeader::default();
+        // Get finalized header from an older update
+        let period = calc_sync_period::<MainnetConsensusSpec>(
+            client.store.finalized_header.beacon().slot.into(),
+        );
+        let updates: Vec<Update<MainnetConsensusSpec>> = client
+            .rpc
+            .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await
+            .unwrap();
+        // Replace here to test invalid finality proof
+        update.finalized_header = updates[0].finalized_header.clone();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(

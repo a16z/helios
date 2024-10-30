@@ -307,6 +307,8 @@ pub fn verify_generic_update<S: ConsensusSpec>(
         } else {
             return Err(ConsensusError::InvalidFinalityProof.into());
         }
+    } else {
+        return Err(ConsensusError::InvalidFinalizedHeader.into());
     }
 
     if let Some(next_sync_committee) = &update.next_sync_committee {
