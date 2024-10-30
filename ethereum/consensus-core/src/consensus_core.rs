@@ -504,8 +504,13 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
             }
         };
 
-        let proof_valid =
-            is_execution_payload_proof_valid(header.beacon(), execution, execution_branch);
+        let proof_valid = is_execution_payload_proof_valid(
+            header.beacon(),
+            execution,
+            execution_branch,
+            epoch,
+            forks,
+        );
 
         proof_valid && valid_execution_type
     } else {

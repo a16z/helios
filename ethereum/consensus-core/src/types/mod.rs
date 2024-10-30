@@ -8,6 +8,7 @@ use ssz_derive::{Decode, Encode};
 use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVector, VariableList};
 use superstruct::superstruct;
 use tree_hash_derive::TreeHash;
+use typenum::Unsigned;
 
 use crate::consensus_spec::ConsensusSpec;
 
@@ -53,13 +54,17 @@ pub struct BeaconBlock<S: ConsensusSpec> {
         derive(Deserialize, Clone, Debug, Encode, TreeHash, Default),
         serde(deny_unknown_fields),
         serde(bound = "S: ConsensusSpec"),
-    )
+    ),
+    specific_variant_attributes(Electra(tree_hash(
+        struct_behaviour = "profile",
+        max_fields = "typenum::U64"
+    )))
 )]
 #[derive(Encode, TreeHash, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 #[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent_stable")]
 pub struct BeaconBlockBody<S: ConsensusSpec> {
     randao_reveal: Signature,
     eth1_data: Eth1Data,
@@ -120,13 +125,17 @@ pub struct BlsToExecutionChange {
         derive(Default, Debug, Deserialize, Encode, TreeHash, Clone),
         serde(deny_unknown_fields),
         serde(bound = "S: ConsensusSpec"),
-    )
+    ),
+    specific_variant_attributes(Electra(tree_hash(
+        struct_behaviour = "profile",
+        max_fields = "typenum::U64"
+    )))
 )]
 #[derive(Debug, Deserialize, Clone, Encode, TreeHash)]
 #[serde(untagged)]
 #[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent_stable")]
 pub struct ExecutionPayload<S: ConsensusSpec> {
     pub parent_hash: B256,
     pub fee_recipient: Address,
@@ -155,6 +164,8 @@ pub struct ExecutionPayload<S: ConsensusSpec> {
     #[superstruct(only(Deneb, Electra))]
     #[serde(with = "serde_utils::u64")]
     pub excess_blob_gas: u64,
+    #[superstruct(only(Electra))]
+    pub system_logs_root: B256,
     #[ssz(skip_serializing, skip_deserializing)]
     #[tree_hash(skip_hashing)]
     #[serde(skip)]
@@ -182,12 +193,16 @@ impl<S: ConsensusSpec> Default for ExecutionPayload<S> {
             PartialEq
         ),
         serde(deny_unknown_fields),
-    )
+    ),
+    specific_variant_attributes(Electra(tree_hash(
+        struct_behaviour = "profile",
+        max_fields = "typenum::U64"
+    )))
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, TreeHash, PartialEq)]
 #[serde(untagged)]
 #[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent_stable")]
 pub struct ExecutionPayloadHeader {
     pub parent_hash: B256,
     pub fee_recipient: Address,
@@ -216,6 +231,8 @@ pub struct ExecutionPayloadHeader {
     #[superstruct(only(Deneb, Electra))]
     #[serde(with = "serde_utils::u64")]
     pub excess_blob_gas: u64,
+    #[superstruct(only(Electra))]
+    pub system_logs_root: B256,
 }
 
 impl Default for ExecutionPayloadHeader {
@@ -270,13 +287,17 @@ pub struct AttesterSlashing<S: ConsensusSpec> {
     variant_attributes(
         derive(Deserialize, Debug, Default, Encode, TreeHash, Clone,),
         serde(deny_unknown_fields),
-    )
+    ),
+    specific_variant_attributes(Electra(tree_hash(
+        struct_behaviour = "profile",
+        max_fields = "typenum::U8"
+    )))
 )]
 #[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
 #[serde(bound = "S: ConsensusSpec")]
 #[serde(untagged)]
 #[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent_stable")]
 struct IndexedAttestation<S: ConsensusSpec> {
     #[serde(with = "quoted_u64_var_list")]
     #[superstruct(only(Base), partial_getter(rename = "attesting_indices_base"))]
@@ -299,13 +320,18 @@ impl<S: ConsensusSpec> Default for IndexedAttestation<S> {
     variant_attributes(
         derive(Deserialize, Debug, Encode, TreeHash, Clone,),
         serde(deny_unknown_fields),
-    )
+    ),
+    specific_variant_attributes(Electra(tree_hash(
+        struct_behaviour = "profile",
+        max_fields = "typenum::U8"
+    ))),
+    //ref_attributes(derive(TreeHash), tree_hash(enum_behaviour = "transparent")),
 )]
 #[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
 #[serde(bound = "S: ConsensusSpec")]
 #[serde(untagged)]
 #[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
+#[tree_hash(enum_behaviour = "transparent_stable")]
 pub struct Attestation<S: ConsensusSpec> {
     #[superstruct(only(Base), partial_getter(rename = "aggregation_bits_base"))]
     aggregation_bits: BitList<S::MaxValidatorsPerCommitee>,
@@ -373,6 +399,7 @@ pub struct Eth1Data {
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
+#[tree_hash(struct_behaviour = "profile", max_fields = "typenum::U16")]
 pub struct ExecutionRequests<S: ConsensusSpec> {
     deposits: VariableList<DepositRequest, S::MaxDepositRequests>,
     withdrawals: VariableList<WithdrawalRequest, S::MaxWithdrawalRequests>,
@@ -429,7 +456,7 @@ pub struct Bootstrap<S: ConsensusSpec> {
         only(Electra),
         partial_getter(rename = "current_sync_committee_branch_electra")
     )]
-    pub current_sync_committee_branch: FixedVector<B256, typenum::U6>,
+    pub current_sync_committee_branch: FixedVector<B256, typenum::U8>,
 }
 
 impl<S: ConsensusSpec> Bootstrap<S> {
@@ -546,7 +573,7 @@ pub struct LightClientHeader {
     #[superstruct(only(Capella, Deneb, Electra))]
     pub execution: ExecutionPayloadHeader,
     #[superstruct(only(Capella, Deneb, Electra))]
-    pub execution_branch: FixedVector<B256, typenum::U4>,
+    pub execution_branch: FixedVector<B256, typenum::U7>,
 }
 
 impl Default for LightClientHeader {

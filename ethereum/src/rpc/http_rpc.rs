@@ -45,7 +45,7 @@ async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
     let bytes = response.bytes().await?;
     let message: HttpRpcMessage<R> = serde_json::from_slice(&bytes).map_err(|e| {
         if status.is_success() {
-            eyre::eyre!("deserialization error: {}", e)
+            eyre::eyre!("deserialization error: {}, raw response: {:?}", e, bytes)
         } else {
             eyre::eyre!("status: {}, raw response: {:?}", status.as_u16(), bytes)
         }

@@ -35,3 +35,16 @@ wasmtimer = "0.2.0"
 tokio = { version = "1", features = ["full"] }
 snap = "1"
 serde_yaml = "0.9.34"
+
+# [patch.crates-io]
+# ethereum_hashing = { git = "https://github.com/ncitron/ethereum_hashing", rev = "7ee70944ed4fabe301551da8c447e4f4ae5e6c35" }
+# ssz_types = { path = "../ssz_types" }
+# tree_hash = { path = "../tree_hash/tree_hash" }
+# tree_hash_derive = { path = "../tree_hash/tree_hash_derive" }
+# 
+#[patch.crates-io]
+#ssz_types = { git = "https://github.com/macladson/ssz_types", branch = "stable-container" }
+#ethereum_ssz = { git = "https://github.com/macladson/ethereum_ssz", branch = "stable-container" }
+#ethereum_ssz_derive = { git = "https://github.com/macladson/ethereum_ssz", branch = "stable-container" }
+#tree_hash = { git = "https://github.com/macladson/tree_hash", branch = "stable-container" }
+#tree_hash_derive = { git = "https://github.com/macladson/tree_hash", branch = "stable-container" }
