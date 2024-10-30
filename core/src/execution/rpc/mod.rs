@@ -41,7 +41,6 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_new_pending_transaction_filter(&self) -> Result<U256>;
     async fn chain_id(&self) -> Result<u64>;
     async fn get_block(&self, hash: B256) -> Result<Block<N::TransactionResponse>>;
-    async fn get_client_version(&self) -> Result<String>;
 
     async fn get_fee_history(
         &self,

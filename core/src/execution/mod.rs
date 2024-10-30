@@ -7,6 +7,7 @@ use alloy::rpc::types::{Filter, Log};
 use eyre::Result;
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
+use std::env;
 use triehash_ethereum::ordered_trie_root;
 
 use crate::network_spec::NetworkSpec;
@@ -177,7 +178,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     }
 
     pub async fn get_client_version(&self) -> Result<String> {
-        self.rpc.get_client_version().await
+        let helios_version = env::var("CARGO_PKG_VERSION");
+        Ok(format!("helios-{}", helios_version.unwrap()))
     }
 
     pub async fn get_transaction_receipt(
