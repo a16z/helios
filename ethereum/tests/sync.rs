@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use alloy::primitives::b256;
-use helios_consensus_core::consensus_spec::MinimalConsensusSpec;
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::{consensus::ConsensusClient, database::ConfigDB, rpc::mock_rpc::MockRpc};
 
-async fn setup() -> ConsensusClient<MinimalConsensusSpec, MockRpc, ConfigDB> {
+async fn setup() -> ConsensusClient<MockRpc, ConfigDB> {
     let base_config = networks::mainnet();
     let config = Config {
         consensus_rpc: String::new(),
