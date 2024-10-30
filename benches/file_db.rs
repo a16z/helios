@@ -1,7 +1,6 @@
 use alloy::primitives::b256;
-use config::Config;
-use consensus::database::{Database, FileDB};
 use criterion::{criterion_group, criterion_main, Criterion};
+use helios_ethereum::{config::Config, database::{Database, FileDB}};
 use tempfile::tempdir;
 
 mod harness;

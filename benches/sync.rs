@@ -1,6 +1,6 @@
 use alloy::primitives::Address;
 use criterion::{criterion_group, criterion_main, Criterion};
-use helios::types::BlockTag;
+use helios_core::types::BlockTag;
 
 mod harness;
 

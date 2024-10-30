@@ -699,6 +699,7 @@ mod tests {
     use helios_consensus_core::errors::ConsensusError;
     use helios_consensus_core::types::bls::{PublicKey, Signature};
     use helios_consensus_core::types::LightClientHeader;
+    use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 
     use crate::{
         config::{networks, Config},
@@ -708,7 +709,7 @@ mod tests {
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };
 
-    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MainnetConsensusSpec ,MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
@@ -745,7 +746,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(client.store.finalized_header.beacon().slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -759,7 +760,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_committee() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(client.store.finalized_header.beacon().slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -779,7 +780,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_finality() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(client.store.finalized_header.beacon().slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -799,7 +800,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_update_invalid_sig() {
         let client = get_client(false, false).await;
-        let period = calc_sync_period(client.store.finalized_header.beacon.slot.into());
+        let period = calc_sync_period::<MainnetConsensusSpec>(client.store.finalized_header.beacon().slot.into());
         let updates = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
