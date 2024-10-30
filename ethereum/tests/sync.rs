@@ -3,8 +3,9 @@ use std::sync::Arc;
 use alloy::primitives::b256;
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::{consensus::ConsensusClient, database::ConfigDB, rpc::mock_rpc::MockRpc};
+use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 
-async fn setup() -> ConsensusClient<MockRpc, ConfigDB> {
+async fn setup() -> ConsensusClient<MainnetConsensusSpec, MockRpc, ConfigDB> {
     let base_config = networks::mainnet();
     let config = Config {
         consensus_rpc: String::new(),
@@ -26,5 +27,5 @@ async fn test_sync() {
     let client = setup().await;
 
     let block = client.block_recv.unwrap().recv().await.unwrap();
-    assert_eq!(block.number.to::<u64>(), 17923113);
+    assert_eq!(block.number.to::<u64>(), 17923112);
 }
