@@ -54,7 +54,7 @@ Currently supported network values are `optimism` and `base`, with more to come 
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
-`--rpc-bind-ip` or `-b` sets the ip that binds to the JSON-RPC server. Be default, Helios will use `127.0.0.1`. Use `0.0.0.0` to allow remote access.
+`--rpc-bind-ip` or `-b` sets the ip that binds to the JSON-RPC server. By default, Helios will use `127.0.0.1`. Use `0.0.0.0` to allow remote access.
 
 `--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
@@ -65,7 +65,7 @@ For example, you can specify the fallback like so: `helios --fallback "https://s
 `--load-external-fallback` or `-l` enables weak subjectivity checkpoint fallback (no value needed).
 For example, say you set a checkpoint value that is too outdated and Helios cannot sync to it.
 If this flag is set, Helios will query all network apis in the community-maintained list
-at [ethpandaops/checkpoint-synz-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml) for their latest slots.
+at [ethpandaops/checkpoint-sync-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml) for their latest slots.
 The list of slots is filtered for healthy apis and the most frequent checkpoint occurring in the latest epoch will be returned.
 Note: this is a community-maintained list and thus no security guarantees are provided. Use this as a last resort if your checkpoint passed into `--checkpoint` fails.
 This is not recommended as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
