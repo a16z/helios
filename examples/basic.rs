@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     client.start().await?;
     client.wait_synced().await;
 
-    let client_version = client.client_version().await?;
+    let client_version = client.client_version().await;
     let head_block_num = client.get_block_number().await?;
     let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
     let block = BlockTag::Latest;

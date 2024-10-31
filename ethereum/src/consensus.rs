@@ -697,7 +697,7 @@ mod tests {
     use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
     use helios_consensus_core::errors::ConsensusError;
     use helios_consensus_core::types::bls::{PublicKey, Signature};
-    use helios_consensus_core::types::{LightClientHeader, Update};
+    use helios_consensus_core::types::Update;
 
     use crate::{
         config::{networks, Config},
