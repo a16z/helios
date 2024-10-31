@@ -114,7 +114,7 @@ export class HeliosProvider {
         return this.#client.get_block_by_number(req.params[0], req.params[1]);
       }
       case "web3_clientVersion": {
-        return this.#client.get_client_version();
+        return this.#client.client_version();
       }
       default: {
         throw `method not implemented: ${req.method}`;

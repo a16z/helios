@@ -43,9 +43,8 @@ pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     genesis_time: u64,
-    db: Arc<DB>,
     config: Arc<Config>,
-    phantom: PhantomData<(S, R)>,
+    phantom: PhantomData<(S, R, DB)>,
 }
 
 #[derive(Debug)]
@@ -162,7 +161,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
             finalized_block_recv: Some(finalized_block_recv),
             checkpoint_recv,
             genesis_time,
-            db,
             config: config_clone,
             phantom: PhantomData,
         })
@@ -699,7 +697,7 @@ mod tests {
     use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
     use helios_consensus_core::errors::ConsensusError;
     use helios_consensus_core::types::bls::{PublicKey, Signature};
-    use helios_consensus_core::types::{LightClientHeader, Update};
+    use helios_consensus_core::types::Update;
 
     use crate::{
         config::{networks, Config},
