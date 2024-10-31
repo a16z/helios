@@ -1,15 +1,18 @@
 use std::net::SocketAddr;
 
+#[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use eyre::Result;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use url::Url;
 
+#[cfg(not(target_arch = "wasm32"))]
 use helios_opstack::{
     config::{Network, NetworkConfig},
     server::start_server,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() -> Result<()> {
     enable_tracing();
@@ -34,6 +37,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+#[cfg(target_arch = "wasm32")]
+fn main() -> Result<()> {
+    eyre::bail!("server not supported in wasm");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn enable_tracing() {
     let env_filter = EnvFilter::builder()
         .with_default_directive("helios_opstack=info".parse().unwrap())
@@ -47,6 +56,7 @@ fn enable_tracing() {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Parser)]
 struct Cli {
     #[clap(short, long)]
