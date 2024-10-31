@@ -84,7 +84,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown
-      - name: Check wasm compatibility for common and consensus-core
+      - name: Check wasm compatibility
         uses: actions-rs/cargo@v1
         with:
           command: check
