@@ -176,6 +176,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .await
     }
 
+    pub async fn get_client_version(&self) -> Result<String> {
+        let helios_version = std::env!("CARGO_PKG_VERSION");
+        Ok(format!("helios-{}", helios_version))
+    }
+
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,

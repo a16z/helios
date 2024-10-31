@@ -140,6 +140,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         self.execution.get_logs(filter).await
     }
 
+    pub async fn client_version(&self) -> Result<String> {
+        self.execution.get_client_version().await
+    }
+
     pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
         self.execution.get_filter_changes(filter_id).await
     }
