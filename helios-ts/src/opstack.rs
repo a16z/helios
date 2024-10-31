@@ -183,8 +183,7 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
-    pub async fn get_client_version(&self) -> Result<String, JsError> {
-        let version = map_err(self.inner.get_client_version().await)?;
-        Ok(version)
+    pub async fn client_version(&self) -> String {
+        self.inner.client_version().await
     }
 }

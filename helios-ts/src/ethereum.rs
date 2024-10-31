@@ -240,7 +240,7 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
-    pub async fn get_client_version(&self) -> Result<String, JsError> {
-        map_err(self.inner.get_client_version().await)
+    pub async fn client_version(&self) -> String {
+        self.inner.client_version().await
     }
 }

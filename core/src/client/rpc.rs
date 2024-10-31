@@ -327,7 +327,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> NetRpcServer for RpcI
 #[async_trait]
 impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Web3RpcServer for RpcInner<N, C> {
     async fn client_version(&self) -> Result<String, ErrorObjectOwned> {
-        convert_err(self.node.client_version().await)
+        Ok(self.node.client_version().await)
     }
 }
 
