@@ -15,7 +15,7 @@ pub fn is_finality_proof_valid(
     forks: &Forks,
 ) -> bool {
     let (index, depth) = if current_epoch >= forks.electra.epoch {
-        (41, 7)
+        (41, 9)
     } else {
         (41, 6)
     };
@@ -37,7 +37,7 @@ pub fn is_next_committee_proof_valid<S: ConsensusSpec>(
     forks: &Forks,
 ) -> bool {
     let (index, depth) = if current_epoch >= forks.electra.epoch {
-        (23, 6)
+        (23, 8)
     } else {
         (23, 5)
     };
@@ -59,7 +59,7 @@ pub fn is_current_committee_proof_valid<S: ConsensusSpec>(
     forks: &Forks,
 ) -> bool {
     let (index, depth) = if current_epoch >= forks.electra.epoch {
-        (22, 6)
+        (22, 8)
     } else {
         (22, 5)
     };
@@ -77,8 +77,22 @@ pub fn is_execution_payload_proof_valid(
     attested_header: &BeaconBlockHeader,
     execution: &ExecutionPayloadHeader,
     execution_branch: &[B256],
+    current_epoch: u64,
+    forks: &Forks,
 ) -> bool {
-    is_proof_valid(attested_header.body_root, execution, execution_branch, 4, 9)
+    let (index, depth) = if current_epoch >= forks.electra.epoch {
+        (9, 7)
+    } else {
+        (9, 4)
+    };
+
+    is_proof_valid(
+        attested_header.body_root,
+        execution,
+        execution_branch,
+        depth,
+        index,
+    )
 }
 
 fn is_proof_valid<T: TreeHash>(

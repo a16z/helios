@@ -463,7 +463,9 @@ fn has_sync_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
 }
 
 fn has_finality_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
-    update.finalized_header.is_some() && update.finality_branch.is_some()
+    let normal = update.finalized_header.is_some() && update.finality_branch.is_some();
+    let genesis = update.finalized_header.is_none() && update.finality_branch.is_some();
+    normal || genesis
 }
 
 fn verify_sync_committee_signture(
@@ -504,8 +506,13 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
             }
         };
 
-        let proof_valid =
-            is_execution_payload_proof_valid(header.beacon(), execution, execution_branch);
+        let proof_valid = is_execution_payload_proof_valid(
+            header.beacon(),
+            execution,
+            execution_branch,
+            epoch,
+            forks,
+        );
 
         proof_valid && valid_execution_type
     } else {

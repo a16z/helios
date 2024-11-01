@@ -24,8 +24,8 @@ default-members = ["cli"]
 [workspace.dependencies]
 # consensus
 ssz_types = "0.7.0"
-ethereum_ssz_derive = "0.6.0"
-ethereum_ssz = "0.6.0"
+ethereum_ssz_derive = "0.5.4"
+ethereum_ssz = "0.5.4"
 tree_hash_derive = "0.7.0"
 tree_hash = "0.7.0"
 sha2 = "0.9"
@@ -111,6 +111,11 @@ rand = "0.8.5"
 
 [patch.crates-io]
 ethereum_hashing = { git = "https://github.com/ncitron/ethereum_hashing", rev = "7ee70944ed4fabe301551da8c447e4f4ae5e6c35" }
+ssz_types = { git = "https://github.com/ncitron/ssz_types", branch = "stable-container" }
+ethereum_ssz = { git = "https://github.com/ncitron/ethereum_ssz", branch = "stable-container" }
+ethereum_ssz_derive = { git = "https://github.com/ncitron/ethereum_ssz", branch = "stable-container" }
+tree_hash = { git = "https://github.com/ncitron/tree_hash", branch = "stable-container" }
+tree_hash_derive = { git = "https://github.com/ncitron/tree_hash", branch = "stable-container" }
 
 ######################################
 # Profiles
