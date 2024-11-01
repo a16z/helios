@@ -688,8 +688,10 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .filter_map(|value| value.ok())
         .collect::<Vec<Transaction>>();
 
-    let withdrawals = value.withdrawals().unwrap().iter().map(encode);
-    let withdrawals_root = ordered_trie_root(withdrawals);
+    let withdrawals_root = value
+        .withdrawals()
+        .map(|w| w.tree_hash_root())
+        .unwrap_or_default();
 
     Block {
         number: U64::from(*value.block_number()),
@@ -715,7 +717,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         uncles: vec![],
         blob_gas_used: value.blob_gas_used().map(|v| U64::from(*v)).ok(),
         excess_blob_gas: value.excess_blob_gas().map(|v| U64::from(*v)).ok(),
-        withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
+        withdrawals_root,
         parent_beacon_block_root: Some(*value.parent_hash()),
     }
 }
