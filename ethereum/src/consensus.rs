@@ -2,14 +2,15 @@ use std::marker::PhantomData;
 use std::process;
 use std::sync::Arc;
 
-use alloy::consensus::{Transaction as TxTrait, TxEnvelope};
+use alloy::consensus::TxEnvelope;
 use alloy::primitives::{b256, fixed_bytes, B256, U256, U64};
-use alloy::rlp::{encode, Decodable};
+use alloy::rlp::encode;
 use alloy::rpc::types::{Parity, Signature, Transaction};
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
 use futures::future::join_all;
+use revm::primitives::{AccessList, AccessListItem};
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
 use triehash_ethereum::ordered_trie_root;
@@ -241,16 +242,44 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let finalized_slot = self.store.finalized_header.beacon().slot;
 
         let verified_block_hash = if slot == latest_slot {
+            let root = self
+                .store
+                .optimistic_header
+                .execution()
+                .unwrap()
+                .transactions_root();
+            // println!("store slot: {}", self.store.optimistic_header.beacon().slot);
+            // println!("tx root in header: {}", root);
             self.store.optimistic_header.beacon().tree_hash_root()
         } else if slot == finalized_slot {
+            let root = self
+                .store
+                .finalized_header
+                .execution()
+                .unwrap()
+                .transactions_root();
+            // println!("store slot: {}", self.store.finalized_header.beacon().slot);
+            // println!("tx root in header: {}", root);
             self.store.finalized_header.beacon().tree_hash_root()
         } else {
             return Err(ConsensusError::PayloadNotFound(slot).into());
         };
 
+        // println!("fetched block slot: {}", block.slot);
+        let calc_root = block
+            .body
+            .execution_payload()
+            .transactions()
+            .tree_hash_root();
+        // println!("caluclated tx root: {}", calc_root);
+        for tx in block.body.execution_payload().transactions() {
+            // println!("tx hash: {}", tx.tree_hash_root());
+        }
+
         if verified_block_hash != block_hash {
             Err(ConsensusError::InvalidHeaderHash(block_hash, verified_block_hash).into())
         } else {
+            // println!("txs: {:#?}", block.body.execution_payload().transactions());
             Ok(block.body.execution_payload().clone())
         }
     }
@@ -302,6 +331,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.bootstrap(checkpoint).await?;
 
         let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
+        println!("current period: {}", current_period);
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -529,99 +559,134 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .transactions()
         .iter()
         .enumerate()
-        .map(|(i, tx_bytes)| {
-            let tx_bytes = tx_bytes.inner.to_vec();
-            let mut tx_bytes_slice = tx_bytes.as_slice();
-            let tx_envelope = TxEnvelope::decode(&mut tx_bytes_slice).unwrap();
+        .map(|(i, ssz_tx)| {
+            let raw_sig = if let Some(sig) = &ssz_tx.signature.secp256k1 {
+                &sig.inner
+            } else {
+                eyre::bail!("no signature in tx");
+            };
+
+            let signature = Signature {
+                r: U256::from_be_slice(&raw_sig[0..32]),
+                s: U256::from_be_slice(&raw_sig[32..64]),
+                v: U256::from(raw_sig[64] as u64),
+                y_parity: Some(Parity(raw_sig[64] as u64 == 1)),
+            };
+
+            let from = alloy::primitives::Signature::try_from(signature)?
+                .recover_address_from_prehash(&ssz_tx.payload.tree_hash_root())?;
+
+            let access_list = ssz_tx.payload.access_list.as_ref().map(|access_list| {
+                AccessList(
+                    access_list
+                        .iter()
+                        .map(|elem| AccessListItem {
+                            address: elem.address,
+                            storage_keys: elem.storage_keys.to_vec(),
+                        })
+                        .collect(),
+                )
+            });
+
+            let max_fee_per_gas = if ssz_tx.payload.tx_type.map(|t| t >= 2) == Some(true) {
+                ssz_tx
+                    .payload
+                    .max_fees_per_gas
+                    .as_ref()
+                    .map(|v| v.regular.map(|v| v.to()))
+                    .flatten()
+            } else {
+                None
+            };
+
+            let max_priority_fee_per_gas = ssz_tx
+                .payload
+                .max_priority_fees_per_gas
+                .as_ref()
+                .map(|fee| fee.regular.map(|value| value.to()))
+                .flatten();
+
+            let blob_versioned_hashes = ssz_tx
+                .payload
+                .blob_versioned_hashes
+                .as_ref()
+                .map(|hashes| hashes.to_vec());
+
+            let max_fee_per_blob_gas = ssz_tx
+                .payload
+                .max_fees_per_gas
+                .as_ref()
+                .map(|fees| fees.blob.map(|v| v.to()))
+                .flatten();
+
+            let gas_price = if ssz_tx.payload.tx_type.map(|t| t < 2) == Some(true) {
+                ssz_tx
+                    .payload
+                    .max_fees_per_gas
+                    .as_ref()
+                    .ok_or(eyre::eyre!("invalid gas price"))?
+                    .regular
+                    .ok_or(eyre::eyre!("invalid gas price"))?
+                    .to()
+            } else {
+                calculate_gas_price(
+                    max_fee_per_gas.ok_or(eyre::eyre!("invalid gas price"))?,
+                    max_priority_fee_per_gas.ok_or(eyre::eyre!("invalid gas price"))?,
+                    value.base_fee_per_gas().to(),
+                )
+            };
+
+            let input = ssz_tx
+                .payload
+                .input
+                .clone()
+                .unwrap_or_default()
+                .inner
+                .to_vec()
+                .into();
 
             let mut tx = Transaction {
-                hash: *tx_envelope.tx_hash(),
-                nonce: tx_envelope.nonce(),
+                hash: B256::ZERO,
+                nonce: ssz_tx.payload.nonce.unwrap_or_default(),
                 block_hash: Some(*value.block_hash()),
                 block_number: Some(*value.block_number()),
                 transaction_index: Some(i as u64),
-                to: tx_envelope.to().to().cloned(),
-                value: tx_envelope.value(),
-                gas_price: tx_envelope.gas_price(),
-                gas: tx_envelope.gas_limit(),
-                input: tx_envelope.input().to_vec().into(),
-                chain_id: tx_envelope.chain_id(),
-                transaction_type: Some(tx_envelope.tx_type().into()),
+                to: ssz_tx.payload.to,
+                value: ssz_tx.payload.value.unwrap_or_default(),
+                gas_price: Some(gas_price),
+                gas: ssz_tx.payload.gas.unwrap_or_default() as u128,
+                input,
+                signature: Some(signature),
+                from,
+
+                // EIP-155
+                chain_id: ssz_tx.payload.chain_id,
+
+                // EIP-2718
+                transaction_type: ssz_tx.payload.tx_type,
+
+                // EIP-2930
+                access_list,
+
+                // EIP-1559
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+
+                // EIP-4844
+                blob_versioned_hashes,
+                max_fee_per_blob_gas,
+
                 ..Default::default()
             };
 
-            match tx_envelope {
-                TxEnvelope::Legacy(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: None,
-                    });
-                }
-                TxEnvelope::Eip2930(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-                    tx.access_list = Some(inner.tx().access_list.clone());
-                }
-                TxEnvelope::Eip1559(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
+            let consensus_tx = TxEnvelope::try_from(tx.clone())?;
+            let hash = consensus_tx.tx_hash();
+            tx.hash = *hash;
 
-                    let tx_inner = inner.tx();
-                    tx.access_list = Some(tx_inner.access_list.clone());
-                    tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
-                    tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
-
-                    tx.gas_price = Some(gas_price(
-                        tx_inner.max_fee_per_gas,
-                        tx_inner.max_priority_fee_per_gas,
-                        value.base_fee_per_gas().to(),
-                    ));
-                }
-                TxEnvelope::Eip4844(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-
-                    let tx_inner = inner.tx().tx();
-                    tx.access_list = Some(tx_inner.access_list.clone());
-                    tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
-                    tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
-                    tx.max_fee_per_blob_gas = Some(tx_inner.max_fee_per_blob_gas);
-                    tx.gas_price = Some(tx_inner.max_fee_per_gas);
-                    tx.blob_versioned_hashes = Some(tx_inner.blob_versioned_hashes.clone());
-
-                    tx.gas_price = Some(gas_price(
-                        tx_inner.max_fee_per_gas,
-                        tx_inner.max_priority_fee_per_gas,
-                        value.base_fee_per_gas().to(),
-                    ));
-                }
-                _ => todo!(),
-            }
-
-            tx
+            Ok(tx)
         })
+        .filter_map(|value| value.ok())
         .collect::<Vec<Transaction>>();
-
-    let raw_txs = value.transactions().iter().map(|tx| tx.inner.to_vec());
-    let txs_root = ordered_trie_root(raw_txs);
 
     let withdrawals = value.withdrawals().unwrap().iter().map(encode);
     let withdrawals_root = ordered_trie_root(withdrawals);
@@ -646,7 +711,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         nonce: empty_nonce,
         sha3_uncles: empty_uncle_hash,
         size: U64::ZERO,
-        transactions_root: B256::from_slice(txs_root.as_bytes()),
+        transactions_root: value.transactions().tree_hash_root(),
         uncles: vec![],
         blob_gas_used: value.blob_gas_used().map(|v| U64::from(*v)).ok(),
         excess_blob_gas: value.excess_blob_gas().map(|v| U64::from(*v)).ok(),
@@ -655,7 +720,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
     }
 }
 
-fn gas_price(max_fee: u128, max_prio_fee: u128, base_fee: u128) -> u128 {
+fn calculate_gas_price(max_fee: u128, max_prio_fee: u128, base_fee: u128) -> u128 {
     u128::min(max_fee, max_prio_fee + base_fee)
 }
 

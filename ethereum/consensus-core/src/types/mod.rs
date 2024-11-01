@@ -15,15 +15,16 @@ use crate::consensus_spec::ConsensusSpec;
 use self::{
     bls::{PublicKey, Signature},
     bytes::{ByteList, ByteVector},
+    transaction::Transaction,
 };
 
 pub mod bls;
 pub mod bytes;
 mod serde_utils;
+pub mod transaction;
 
 pub type LogsBloom = ByteVector<typenum::U256>;
 pub type KZGCommitment = ByteVector<typenum::U48>;
-pub type Transaction = ByteList<typenum::U1073741824>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LightClientStore<S: ConsensusSpec> {

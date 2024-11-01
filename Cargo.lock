@@ -3040,6 +3040,7 @@ dependencies = [
  "eyre",
  "getrandom 0.2.15",
  "serde",
+ "serde_json",
  "serde_yaml",
  "sha2 0.9.9",
  "snap",

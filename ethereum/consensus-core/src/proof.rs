@@ -83,10 +83,16 @@ pub fn is_execution_payload_proof_valid(
     let (index, depth) = if current_epoch >= forks.electra.epoch {
         (9, 7)
     } else {
-        (5, 5)
+        (9, 4)
     };
 
-    is_proof_valid(attested_header.body_root, execution, execution_branch, depth, index)
+    is_proof_valid(
+        attested_header.body_root,
+        execution,
+        execution_branch,
+        depth,
+        index,
+    )
 }
 
 fn is_proof_valid<T: TreeHash>(

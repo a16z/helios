@@ -259,13 +259,13 @@ pub fn pectra_devnet() -> BaseConfig {
 pub fn ssz_devnet() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "7b2b946f60f3d8783aed880f3c2c3d752412135604f7be28e4846f2ccbe217c0"
+            "809b44003e091e39cb2f276f8e4398ecc39733befa0478e9d3b30dde899d0398"
         ),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
-            chain_id: 1,
-            genesis_time: 1730145956,
+            chain_id: 7061395750,
+            genesis_time: 1730378785,
             genesis_root: b256!("fa54b7e42269605816b27366ffd77b960a20a21a17eb96917990db75db2efa63"),
         },
         forks: Forks {
