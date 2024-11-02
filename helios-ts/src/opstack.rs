@@ -26,7 +26,7 @@ impl OpStackClient {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
-            "optimism" => NetworkConfig::from(Network::Optimism),
+            "op-mainnet" => NetworkConfig::from(Network::OpMainnet),
             "base" => NetworkConfig::from(Network::Base),
             "worldchain" => NetworkConfig::from(Network::Worldchain),
             "zora" => NetworkConfig::from(Network::Zora),
