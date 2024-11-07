@@ -197,6 +197,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let tx_hashes = block.transactions.hashes();
 
+        // TODO: replace this with rpc.get_block_receipts?
         let receipts_fut = tx_hashes.iter().map(|hash| async move {
             let receipt = self.rpc.get_transaction_receipt(*hash).await;
             receipt?.ok_or(eyre::eyre!("missing block receipt"))
@@ -215,6 +216,37 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         }
 
         Ok(Some(receipt))
+    }
+
+    pub async fn get_block_receipts(
+        &self,
+        tag: BlockTag,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let block = self.state.get_block(tag).await;
+        let block = if let Some(block) = block {
+            block
+        } else {
+            return Ok(None);
+        };
+
+        let tag = BlockTag::Number(block.number.to());
+
+        let receipts = self
+            .rpc
+            .get_block_receipts(tag)
+            .await?
+            .ok_or(eyre::eyre!("block receipts not found"))?;
+
+        let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(N::encode_receipt).collect();
+
+        let expected_receipt_root = ordered_trie_root(receipts_encoded);
+        let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
+
+        if expected_receipt_root != block.receipts_root {
+            return Err(ExecutionError::BlockReceiptRootMismatch(tag).into());
+        }
+
+        Ok(Some(receipts))
     }
 
     pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {

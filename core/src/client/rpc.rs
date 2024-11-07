@@ -102,6 +102,9 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "getTransactionReceipt")]
     async fn get_transaction_receipt(&self, hash: B256) -> Result<Option<R>, ErrorObjectOwned>;
+    #[method(name = "getBlockReceipts")]
+    async fn get_block_receipts(&self, block: BlockTag)
+        -> Result<Option<Vec<R>>, ErrorObjectOwned>;
     #[method(name = "getTransactionByHash")]
     async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<TX>, ErrorObjectOwned>;
     #[method(name = "getTransactionByBlockHashAndIndex")]
@@ -129,6 +132,7 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
         slot: B256,
         block: BlockTag,
     ) -> Result<U256, ErrorObjectOwned>;
+
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
@@ -255,6 +259,13 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
         hash: B256,
     ) -> Result<Option<N::ReceiptResponse>, ErrorObjectOwned> {
         convert_err(self.node.get_transaction_receipt(hash).await)
+    }
+
+    async fn get_block_receipts(
+        &self,
+        block: BlockTag,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>, ErrorObjectOwned> {
+        convert_err(self.node.get_block_receipts(block).await)
     }
 
     async fn get_transaction_by_hash(

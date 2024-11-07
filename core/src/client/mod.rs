@@ -113,6 +113,13 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         self.node.get_transaction_receipt(tx_hash).await
     }
 
+    pub async fn get_block_receipts(
+        &self,
+        block: BlockTag,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.node.get_block_receipts(block).await
+    }
+
     pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<N::TransactionResponse> {
         self.node.get_transaction_by_hash(tx_hash).await
     }
