@@ -132,7 +132,6 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
         slot: B256,
         block: BlockTag,
     ) -> Result<U256, ErrorObjectOwned>;
-
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]

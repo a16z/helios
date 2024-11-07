@@ -243,7 +243,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
         if expected_receipt_root != block.receipts_root {
-            return Err(ExecutionError::BlockReceiptRootMismatch(tag).into());
+            return Err(ExecutionError::BlockReceiptsRootMismatch(tag).into());
         }
 
         Ok(Some(receipts))
