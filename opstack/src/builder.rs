@@ -82,6 +82,7 @@ impl OpStackClientBuilder {
                 chain: ChainConfig {
                     chain_id,
                     unsafe_signer,
+                    system_config_contract: Address::ZERO,
                 },
             }
         };

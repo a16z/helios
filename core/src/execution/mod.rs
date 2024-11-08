@@ -25,8 +25,7 @@ pub mod evm;
 pub mod rpc;
 pub mod state;
 pub mod types;
-
-mod proof;
+pub mod proof;
 
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
