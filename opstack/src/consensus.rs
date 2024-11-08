@@ -1,12 +1,11 @@
-use std::time::Duration;
-
 use alloy::consensus::Transaction as TxTrait;
 use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
 use alloy::rlp::Decodable;
-use alloy::rpc::types::{Parity, Signature, Transaction};
+use alloy::rpc::types::{EIP1186AccountProofResponse, Parity, Signature, Transaction};
 use alloy_rlp::encode;
-use eyre::Result;
+use eyre::{Result, eyre};
 use op_alloy_consensus::OpTxEnvelope;
+use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{
     mpsc::{channel, Receiver},
@@ -14,11 +13,20 @@ use tokio::sync::{
 };
 use triehash_ethereum::ordered_trie_root;
 
+use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::Consensus;
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_core::types::{Block, Transactions};
+use helios_ethereum::config::networks::mainnet;
+use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
+use std::sync::Arc;
 
 use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
+
+use helios_core::execution::proof::{encode_account, verify_proof};
+use helios_ethereum::database::ConfigDB;
+use helios_ethereum::rpc::http_rpc::HttpRpc;
+use tracing::{info, warn};
 
 pub struct ConsensusClient {
     block_recv: Option<Receiver<Block<Transaction>>>,
@@ -47,6 +55,7 @@ impl ConsensusClient {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
+            inner.verify_unsafe_signer().await.unwrap(); // TODO: make this async
             let mut interval = interval(Duration::from_secs(1));
             loop {
                 _ = inner.advance().await;
@@ -132,6 +141,64 @@ impl Inner {
             }
         }
 
+        Ok(())
+    }
+
+    async fn verify_unsafe_signer(&mut self) -> Result<()> {
+        let eth_config = mainnet(); // TODO: Do we account for testnets too?
+        let mut eth_consensus = EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
+            &eth_config.consensus_rpc.clone().unwrap(),
+            Arc::new(eth_config.into()),
+        )?;
+        let block = eth_consensus.block_recv().unwrap().recv().await.unwrap();
+        // Query proof from op consensus server
+        let req = format!(
+            "{}signer_proof/{}",
+            self.server_url,
+            block.number.to::<u64>()
+        );
+        let proof = reqwest::get(req)
+            .await?
+            .json::<EIP1186AccountProofResponse>()
+            .await?;
+
+        // Verify unsafe signer
+        // with account proof
+        let account_path = keccak256(proof.address).to_vec();
+        let account_encoded = encode_account(&proof);
+        let is_valid = verify_proof(
+            &proof.account_proof,
+            block.state_root.as_slice(),
+            &account_path,
+            &account_encoded,
+        );
+        if !is_valid {
+            warn!(target: "helios::opstack", "account proof invalid");
+            return Err(eyre!("account proof invalid"));
+        }
+        // with storage proof
+        let storage_proof = proof.storage_proof[0].clone();
+        let key = storage_proof.key.0;
+        let key_hash = keccak256(key);
+        let value = encode(storage_proof.value);
+        let is_valid = verify_proof(
+            &storage_proof.proof,
+            proof.storage_hash.as_slice(),
+            key_hash.as_slice(),
+            &value,
+        );
+        if !is_valid {
+            warn!(target: "helios::opstack", "storage proof invalid");
+            return Err(eyre!("storage proof invalid"));
+        }
+        // Replace unsafe signer if different
+        let verified_signer = Address::from_slice(&storage_proof.value.to_be_bytes::<32>()[12..32]);
+        if verified_signer != self.unsafe_signer {
+            info!(target: "helios::opstack", "unsafe signer updated: {}", verified_signer);
+            self.unsafe_signer = verified_signer;
+        }
+        // Shutdown eth consensus client
+        eth_consensus.shutdown()?;
         Ok(())
     }
 }

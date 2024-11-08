@@ -91,3 +91,24 @@ impl Config {
         }
     }
 }
+
+impl From<BaseConfig> for Config {
+    fn from(base: BaseConfig) -> Self {
+        Config {
+            rpc_bind_ip: Some(base.rpc_bind_ip),
+            rpc_port: Some(base.rpc_port),
+            consensus_rpc: base.consensus_rpc.unwrap_or_default(),
+            execution_rpc: String::new(),
+            checkpoint: None,
+            default_checkpoint: base.default_checkpoint,
+            chain: base.chain,
+            forks: base.forks,
+            max_checkpoint_age: base.max_checkpoint_age,
+            data_dir: base.data_dir,
+            fallback: None,
+            load_external_fallback: base.load_external_fallback,
+            strict_checkpoint_age: base.strict_checkpoint_age,
+            database_type: None,
+        }
+    }
+}
