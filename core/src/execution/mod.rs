@@ -22,10 +22,10 @@ use self::types::Account;
 pub mod constants;
 pub mod errors;
 pub mod evm;
+pub mod proof;
 pub mod rpc;
 pub mod state;
 pub mod types;
-pub mod proof;
 
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {

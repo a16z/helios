@@ -86,8 +86,8 @@ async fn signer_proof_handler(
 ) -> Result<Json<EIP1186AccountProofResponse>, StatusCode> {
     let rpc = HttpRpc::<Ethereum>::new(&state.read().await.execution_rpc.to_string())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let signer_slot = B256::from_str(UNSAFE_SIGNER_SLOT)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let signer_slot =
+        B256::from_str(UNSAFE_SIGNER_SLOT).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let proof = rpc
         .get_proof(
             state.read().await.system_config_contract,
