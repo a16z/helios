@@ -48,7 +48,7 @@ impl ConsensusClient {
             finalized_block_send,
         };
 
-        let _ = verify_unsafe_signer(inner.server_url.clone(), inner.unsafe_signer.clone());
+        verify_unsafe_signer(inner.server_url.clone(), inner.unsafe_signer.clone());
 
         #[cfg(not(target_arch = "wasm32"))]
         let run = tokio::spawn;
