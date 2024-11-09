@@ -86,7 +86,7 @@ execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
 
 [op-mainnet]
-consensus_rpc = "https://optimism.operationsolarstorm.org"
+consensus_rpc = "https://op-mainnet.operationsolarstorm.org"
 execution_rpc = "https://opt-mainnet.g.alchemy.com/v2/XXXXX"
 
 [base]

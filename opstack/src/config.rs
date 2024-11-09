@@ -69,7 +69,7 @@ impl From<Network> for NetworkConfig {
     fn from(value: Network) -> Self {
         match value {
             Network::OpMainnet => NetworkConfig {
-                consensus_rpc: Some("https://optimism.operationsolarstorm.org".parse().unwrap()),
+                consensus_rpc: Some("https://op-mainnet.operationsolarstorm.org".parse().unwrap()),
                 chain: ChainConfig {
                     chain_id: 10,
                     unsafe_signer: address!("AAAA45d9549EDA09E70937013520214382Ffc4A2"),
