@@ -184,33 +184,38 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         if receipt.is_none() {
             return Ok(None);
         }
-
         let receipt = receipt.unwrap();
-        let block_number = receipt.block_number().unwrap();
 
-        let block = self.state.get_block(BlockTag::Number(block_number)).await;
+        let block_number = receipt.block_number().unwrap();
+        let tag = BlockTag::Number(block_number);
+
+        let block = self.state.get_block(tag).await;
         let block = if let Some(block) = block {
             block
         } else {
             return Ok(None);
         };
 
-        let tx_hashes = block.transactions.hashes();
+        // Fetch all receipts in block, check root and inclusion
+        let receipts = self
+            .rpc
+            .get_block_receipts(tag)
+            .await?
+            .ok_or(eyre::eyre!("missing block receipt"))?;
 
-        // TODO: replace this with rpc.get_block_receipts?
-        let receipts_fut = tx_hashes.iter().map(|hash| async move {
-            let receipt = self.rpc.get_transaction_receipt(*hash).await;
-            receipt?.ok_or(eyre::eyre!("missing block receipt"))
-        });
-
-        let receipts = join_all(receipts_fut).await;
-        let receipts = receipts.into_iter().collect::<Result<Vec<_>>>()?;
         let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(N::encode_receipt).collect();
-
-        let expected_receipt_root = ordered_trie_root(receipts_encoded);
+        let expected_receipt_root = ordered_trie_root(receipts_encoded.clone());
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
-        if expected_receipt_root != block.receipts_root || !N::receipt_contains(&receipts, &receipt)
+        if expected_receipt_root != block.receipts_root
+            // Note: Some RPC providers return different response in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
+            // Primarily due to https://github.com/ethereum/execution-apis/issues/295 not finalized
+            // Which means that the basic equality check in N::receipt_contains can be flaky
+            // So as a fallback do equality check on encoded receipts as well
+            || !(
+                N::receipt_contains(&receipts, &receipt)
+                || receipts_encoded.contains(&N::encode_receipt(&receipt))
+            )
         {
             return Err(ExecutionError::ReceiptRootMismatch(tx_hash).into());
         }
