@@ -337,6 +337,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .collect::<Result<HashSet<_>, _>>()?;
 
         // Collect all (proven) tx receipts as a map of tx hash to receipt
+        // TODO: use get_block_receipts instead to reduce the number of RPC calls?
         let receipts_fut = txs_hash.iter().map(|&tx_hash| async move {
             let receipt = self.get_transaction_receipt(tx_hash).await;
             receipt?.map(|r| (tx_hash, r)).ok_or(eyre::eyre!(
