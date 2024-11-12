@@ -84,6 +84,8 @@ impl OpStackClientBuilder {
                     unsafe_signer,
                     system_config_contract: Address::ZERO,
                 },
+                load_external_fallback: None,
+                checkpoint: None,
             }
         };
 

@@ -43,6 +43,8 @@ impl OpStackClient {
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,
+            load_external_fallback: None,
+            checkpoint: None,
         };
 
         let inner = map_err(OpStackClientBuilder::new().config(config).build())?;

@@ -2,7 +2,7 @@ use std::{
     collections::HashMap, fmt::Display, net::SocketAddr, path::PathBuf, process::exit, str::FromStr,
 };
 
-use alloy::primitives::{address, Address};
+use alloy::primitives::{address, Address, B256};
 use eyre::Result;
 use figment::{
     providers::{Format, Serialized, Toml},
@@ -12,15 +12,17 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub consensus_rpc: Url,
     pub execution_rpc: Url,
     pub rpc_socket: Option<SocketAddr>,
     pub chain: ChainConfig,
+    pub load_external_fallback: Option<bool>,
+    pub checkpoint: Option<B256>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ChainConfig {
     pub chain_id: u64,
     pub unsafe_signer: Address,

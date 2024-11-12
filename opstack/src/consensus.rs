@@ -53,7 +53,7 @@ impl ConsensusClient {
             finalized_block_send,
         };
 
-        verify_unsafe_signer(inner.server_url.clone(), inner.unsafe_signer.clone());
+        verify_unsafe_signer(config.clone(), inner.unsafe_signer.clone());
 
         #[cfg(not(target_arch = "wasm32"))]
         let run = tokio::spawn;
@@ -157,7 +157,7 @@ impl Inner {
     }
 }
 
-fn verify_unsafe_signer(server_url: String, signer: Arc<Mutex<Address>>) {
+fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
     #[cfg(not(target_arch = "wasm32"))]
     let run = tokio::spawn;
 
@@ -165,7 +165,11 @@ fn verify_unsafe_signer(server_url: String, signer: Arc<Mutex<Address>>) {
     let run = wasm_bindgen_futures::spawn_local;
 
     run(async move {
-        let eth_config = mainnet();
+        let mut eth_config = mainnet();
+        eth_config.load_external_fallback = config.load_external_fallback.unwrap_or(false);
+        if let Some(checkpoint) = config.checkpoint {
+            eth_config.default_checkpoint = checkpoint;
+        }
         let mut eth_consensus = EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
             &eth_config
                 .consensus_rpc
@@ -180,7 +184,7 @@ fn verify_unsafe_signer(server_url: String, signer: Arc<Mutex<Address>>) {
             .await
             .ok_or_eyre("failed to receive block")?;
         // Query proof from op consensus server
-        let req = format!("{}unsafe_signer_proof/{}", server_url, block.hash);
+        let req = format!("{}unsafe_signer_proof/{}", config.consensus_rpc, block.hash);
         let proof = reqwest::get(req)
             .await?
             .json::<EIP1186AccountProofResponse>()

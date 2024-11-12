@@ -63,7 +63,10 @@ pub async fn start_server(
     let router = Router::new()
         .route("/latest", get(latest_handler))
         .route("/chain_id", get(chain_id_handler))
-        .route("/unsafe_signer_proof/:block_hash", get(unsafe_signer_proof_handler))
+        .route(
+            "/unsafe_signer_proof/:block_hash",
+            get(unsafe_signer_proof_handler),
+        )
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(server_addr).await?;
