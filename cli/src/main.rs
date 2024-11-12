@@ -195,7 +195,7 @@ struct OpStackArgs {
         short = 'w',
         long = "eth-checkpoint",
         env = "ETH_CHECKPOINT",
-        help = "Set custom weak subjectivity checkpoint for Ethereum mainnet. Helios uses this to sync and verify the unsafe signer address used by <NETWORK>"
+        help = "Set custom weak subjectivity checkpoint for Ethereum mainnet. Helios uses this to sync and trustlessly fetch the correct unsafe signer address used by <NETWORK>"
     )]
     checkpoint: Option<B256>,
     #[clap(
