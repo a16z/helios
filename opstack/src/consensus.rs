@@ -5,6 +5,7 @@ use alloy::rpc::types::{EIP1186AccountProofResponse, Parity, Signature, Transact
 use alloy_rlp::encode;
 use eyre::{eyre, OptionExt, Result};
 use op_alloy_consensus::OpTxEnvelope;
+use std::str::FromStr;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{
@@ -27,6 +28,10 @@ use helios_core::execution::proof::{encode_account, verify_proof};
 use helios_ethereum::database::ConfigDB;
 use helios_ethereum::rpc::http_rpc::HttpRpc;
 use tracing::{error, info, warn};
+
+// Storage slot containing the unsafe signer address in all superchain system config contracts
+const UNSAFE_SIGNER_SLOT: &str =
+    "0x65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08";
 
 pub struct ConsensusClient {
     block_recv: Option<Receiver<Block<Transaction>>>,
@@ -175,7 +180,7 @@ fn verify_unsafe_signer(server_url: String, signer: Arc<Mutex<Address>>) {
             .await
             .ok_or_eyre("failed to receive block")?;
         // Query proof from op consensus server
-        let req = format!("{}signer_proof/{}", server_url, block.number.to::<u64>());
+        let req = format!("{}unsafe_signer_proof/{}", server_url, block.hash);
         let proof = reqwest::get(req)
             .await?
             .json::<EIP1186AccountProofResponse>()
@@ -198,6 +203,10 @@ fn verify_unsafe_signer(server_url: String, signer: Arc<Mutex<Address>>) {
         // with storage proof
         let storage_proof = proof.storage_proof[0].clone();
         let key = storage_proof.key.0;
+        if key != B256::from_str(UNSAFE_SIGNER_SLOT)? {
+            warn!(target: "helios::opstack", "account proof invalid");
+            return Err(eyre!("account proof invalid"));
+        }
         let key_hash = keccak256(key);
         let value = encode(storage_proof.value);
         let is_valid = verify_proof(

@@ -1,6 +1,9 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use alloy::{primitives::Address, rpc::types::EIP1186AccountProofResponse};
+use alloy::{
+    primitives::{Address, FixedBytes, B256},
+    rpc::types::EIP1186AccountProofResponse,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -8,7 +11,6 @@ use axum::{
     Json, Router,
 };
 use eyre::Result;
-use revm::primitives::B256;
 use tokio::{
     sync::{
         mpsc::{channel, Receiver},
@@ -61,7 +63,7 @@ pub async fn start_server(
     let router = Router::new()
         .route("/latest", get(latest_handler))
         .route("/chain_id", get(chain_id_handler))
-        .route("/signer_proof/:block_number", get(signer_proof_handler))
+        .route("/unsafe_signer_proof/:block_hash", get(unsafe_signer_proof_handler))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(server_addr).await?;
@@ -80,19 +82,23 @@ async fn chain_id_handler(State(state): State<Arc<RwLock<ServerState>>>) -> Json
     Json(state.read().await.chain_id)
 }
 
-async fn signer_proof_handler(
+async fn unsafe_signer_proof_handler(
     State(state): State<Arc<RwLock<ServerState>>>,
-    Path(block_number): Path<u64>,
+    Path(block_hash): Path<FixedBytes<32>>,
 ) -> Result<Json<EIP1186AccountProofResponse>, StatusCode> {
     let rpc = HttpRpc::<Ethereum>::new(&state.read().await.execution_rpc.to_string())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let signer_slot =
         B256::from_str(UNSAFE_SIGNER_SLOT).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let block = rpc
+        .get_block(block_hash)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let proof = rpc
         .get_proof(
             state.read().await.system_config_contract,
             &[signer_slot],
-            block_number,
+            block.number.to(),
         )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
