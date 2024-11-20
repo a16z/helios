@@ -18,7 +18,6 @@ use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::Consensus;
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_core::types::{Block, Transactions};
-use helios_ethereum::config::networks::mainnet;
 use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
 use std::sync::{Arc, Mutex};
 
@@ -165,7 +164,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
     let run = wasm_bindgen_futures::spawn_local;
 
     run(async move {
-        let mut eth_config = mainnet();
+        let mut eth_config = config.eth_network.to_base_config();
         eth_config.load_external_fallback = config.load_external_fallback.unwrap_or(false);
         if let Some(checkpoint) = config.checkpoint {
             eth_config.default_checkpoint = checkpoint;

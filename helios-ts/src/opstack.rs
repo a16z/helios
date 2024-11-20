@@ -22,7 +22,11 @@ pub struct OpStackClient {
 #[wasm_bindgen]
 impl OpStackClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(execution_rpc: String, network: String) -> Result<OpStackClient, JsError> {
+    pub fn new(
+        execution_rpc: String,
+        network: String,
+        eth_network: String,
+    ) -> Result<OpStackClient, JsError> {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
@@ -45,6 +49,9 @@ impl OpStackClient {
             rpc_socket: None,
             load_external_fallback: None,
             checkpoint: None,
+            eth_network: eth_network
+                .parse()
+                .map_err(|_| JsError::new("invalid ethereum network"))?,
         };
 
         let inner = map_err(OpStackClientBuilder::new().config(config).build())?;

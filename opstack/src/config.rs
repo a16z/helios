@@ -9,6 +9,7 @@ use figment::{
     value::Value,
     Figment,
 };
+use helios_ethereum::config::networks::Network as EthNetwork;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -20,6 +21,7 @@ pub struct Config {
     pub chain: ChainConfig,
     pub load_external_fallback: Option<bool>,
     pub checkpoint: Option<B256>,
+    pub eth_network: EthNetwork,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

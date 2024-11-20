@@ -9,6 +9,7 @@ use crate::{
     consensus::ConsensusClient,
     OpStackClient,
 };
+use helios_ethereum::config::networks::Network as EthNetwork;
 
 #[derive(Default)]
 pub struct OpStackClientBuilder {
@@ -18,6 +19,7 @@ pub struct OpStackClientBuilder {
     consensus_rpc: Option<Url>,
     execution_rpc: Option<Url>,
     rpc_socket: Option<SocketAddr>,
+    eth_network: Option<EthNetwork>,
 }
 
 impl OpStackClientBuilder {
@@ -55,6 +57,11 @@ impl OpStackClientBuilder {
         self
     }
 
+    pub fn eth_network(mut self, network: EthNetwork) -> Self {
+        self.eth_network = Some(network);
+        self
+    }
+
     pub fn build(self) -> Result<OpStackClient> {
         let config = if let Some(config) = self.config {
             config
@@ -75,6 +82,10 @@ impl OpStackClientBuilder {
                 eyre::bail!("execution rpc required");
             };
 
+            let Some(eth_network) = self.eth_network else {
+                eyre::bail!("ethereum network required");
+            };
+
             Config {
                 consensus_rpc,
                 execution_rpc,
@@ -86,9 +97,9 @@ impl OpStackClientBuilder {
                 },
                 load_external_fallback: None,
                 checkpoint: None,
+                eth_network,
             }
         };
-
         let consensus = ConsensusClient::new(&config);
         OpStackClient::new(
             &config.execution_rpc.to_string(),
