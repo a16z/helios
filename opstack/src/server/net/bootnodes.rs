@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use discv5::enr::{CombinedKey, Enr};
 
-/// Default bootnodes to use. Currently consists of 2 Base bootnodes & 1 Optimism bootnode.
+/// Default bootnodes to use. Currently consists of 2 Base bootnodes & 1 Op Mainnet bootnode.
 pub fn bootnodes() -> Vec<Enr<CombinedKey>> {
     let bootnodes = [
         "enr:-J64QBbwPjPLZ6IOOToOLsSjtFUjjzN66qmBZdUexpO32Klrc458Q24kbty2PdRaLacHM5z-cZQr8mjeQu3pik6jPSOGAYYFIqBfgmlkgnY0gmlwhDaRWFWHb3BzdGFja4SzlAUAiXNlY3AyNTZrMaECmeSnJh7zjKrDSPoNMGXoopeDF4hhpj5I0OsQUUt4u8uDdGNwgiQGg3VkcIIkBg",

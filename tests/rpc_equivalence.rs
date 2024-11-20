@@ -121,6 +121,33 @@ async fn get_transaction_receipt() {
 }
 
 #[tokio::test]
+async fn get_block_receipts() {
+    let (_handle, helios_provider, provider) = setup().await;
+
+    let block = helios_provider
+        .get_block_by_number(BlockNumberOrTag::Latest, false)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let block_num = block.header.number.unwrap().into();
+
+    let helios_receipts = helios_provider
+        .get_block_receipts(block_num)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let receipts = provider
+        .get_block_receipts(block_num)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(helios_receipts, receipts);
+}
+
+#[tokio::test]
 async fn get_balance() {
     let (_handle, helios_provider, provider) = setup().await;
     let num = helios_provider.get_block_number().await.unwrap();

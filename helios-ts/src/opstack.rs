@@ -26,7 +26,7 @@ impl OpStackClient {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
-            "optimism" => NetworkConfig::from(Network::Optimism),
+            "op-mainnet" => NetworkConfig::from(Network::OpMainnet),
             "base" => NetworkConfig::from(Network::Base),
             "worldchain" => NetworkConfig::from(Network::Worldchain),
             "zora" => NetworkConfig::from(Network::Zora),
@@ -188,6 +188,13 @@ impl OpStackClient {
         let tx: B256 = serde_wasm_bindgen::from_value(tx)?;
         let receipt = map_err(self.inner.get_transaction_receipt(tx).await)?;
         Ok(serde_wasm_bindgen::to_value(&receipt)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_block_receipts(&self, block: JsValue) -> Result<JsValue, JsError> {
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let receipts = map_err(self.inner.get_block_receipts(block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&receipts)?)
     }
 
     #[wasm_bindgen]
