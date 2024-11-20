@@ -34,7 +34,7 @@ pub struct NetworkConfig {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Network {
-    Optimism,
+    OpMainnet,
     Base,
     Worldchain,
     Zora,
@@ -43,7 +43,7 @@ pub enum Network {
 impl Display for Network {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Optimism => f.write_str("optimism"),
+            Self::OpMainnet => f.write_str("op-mainnet"),
             Self::Base => f.write_str("base"),
             Self::Worldchain => f.write_str("worldchain"),
             Self::Zora => f.write_str("zora"),
@@ -56,7 +56,7 @@ impl FromStr for Network {
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            "optimism" => Ok(Self::Optimism),
+            "op-mainnet" => Ok(Self::OpMainnet),
             "base" => Ok(Self::Base),
             "worldchain" => Ok(Self::Worldchain),
             "zora" => Ok(Self::Zora),
@@ -68,8 +68,12 @@ impl FromStr for Network {
 impl From<Network> for NetworkConfig {
     fn from(value: Network) -> Self {
         match value {
-            Network::Optimism => NetworkConfig {
-                consensus_rpc: Some("https://optimism.operationsolarstorm.org".parse().unwrap()),
+            Network::OpMainnet => NetworkConfig {
+                consensus_rpc: Some(
+                    "https://op-mainnet.operationsolarstorm.org"
+                        .parse()
+                        .unwrap(),
+                ),
                 chain: ChainConfig {
                     chain_id: 10,
                     unsafe_signer: address!("AAAA45d9549EDA09E70937013520214382Ffc4A2"),

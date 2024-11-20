@@ -42,7 +42,7 @@ To run Helios on an OP Stack chain, run the command below, replacing `$ETH_RPC_U
 helios opstack --network $NETWORK --execution-rpc $ETH_RPC_URL
 ```
 
-Currently supported network values are `optimism` and `base`, with more to come soon.
+Currently supported network values are `op-mainnet` and `base`, with more to come soon.
 
 ### Additional Ethereum CLI Options <a id="additional-cli-options"></a>
 
@@ -85,8 +85,8 @@ consensus_rpc = "https://ethereum.operationsolarstorm.org"
 execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 checkpoint = "0x85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
 
-[optimism]
-consensus_rpc = "https://optimism.operationsolarstorm.org"
+[op-mainnet]
+consensus_rpc = "https://op-mainnet.operationsolarstorm.org"
 execution_rpc = "https://opt-mainnet.g.alchemy.com/v2/XXXXX"
 
 [base]
