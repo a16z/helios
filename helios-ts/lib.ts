@@ -104,8 +104,15 @@ export class HeliosProvider {
       case "eth_getTransactionReceipt": {
         return this.#client.get_transaction_receipt(req.params[0]);
       }
+      case "eth_getTransactionByHash": {
+        return this.#client.get_transaction_by_hash(req.params[0]);
+      }
+      case "eth_getTransactionByBlockHashAndIndex": {
+        return this.#client.get_transaction_by_block_hash_and_index(req.params[0], req.params[1]);
+      }
       case "eth_getBlockReceipts":
         return this.#client.get_block_receipts(req.params[0]);
+      }
       case "eth_getLogs": {
         return this.#client.get_logs(req.params[0]);
       }
