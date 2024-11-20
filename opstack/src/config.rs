@@ -21,7 +21,6 @@ pub struct Config {
     pub chain: ChainConfig,
     pub load_external_fallback: Option<bool>,
     pub checkpoint: Option<B256>,
-    pub eth_network: EthNetwork,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -29,6 +28,7 @@ pub struct ChainConfig {
     pub chain_id: u64,
     pub unsafe_signer: Address,
     pub system_config_contract: Address,
+    pub eth_network: EthNetwork,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -79,6 +79,7 @@ impl From<Network> for NetworkConfig {
                     chain_id: 10,
                     unsafe_signer: address!("AAAA45d9549EDA09E70937013520214382Ffc4A2"),
                     system_config_contract: address!("229047fed2591dbec1eF1118d64F7aF3dB9EB290"),
+                    eth_network: EthNetwork::MAINNET,
                 },
             },
             Network::Base => NetworkConfig {
@@ -87,6 +88,7 @@ impl From<Network> for NetworkConfig {
                     chain_id: 8453,
                     unsafe_signer: address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a"),
                     system_config_contract: address!("73a79Fab69143498Ed3712e519A88a918e1f4072"),
+                    eth_network: EthNetwork::MAINNET,
                 },
             },
             Network::Worldchain => NetworkConfig {
@@ -99,6 +101,7 @@ impl From<Network> for NetworkConfig {
                     chain_id: 480,
                     unsafe_signer: address!("2270d6eC8E760daA317DD978cFB98C8f144B1f3A"),
                     system_config_contract: address!("6ab0777fD0e609CE58F939a7F70Fe41F5Aa6300A"),
+                    eth_network: EthNetwork::MAINNET,
                 },
             },
             Network::Zora => NetworkConfig {
@@ -107,6 +110,7 @@ impl From<Network> for NetworkConfig {
                     chain_id: 7777777,
                     unsafe_signer: address!("3Dc8Dfd0709C835cAd15a6A27e089FF4cF4C9228"),
                     system_config_contract: address!("A3cAB0126d5F504B071b81a3e8A2BBBF17930d86"),
+                    eth_network: EthNetwork::MAINNET,
                 },
             },
         }

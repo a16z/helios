@@ -205,14 +205,6 @@ struct OpStackArgs {
         help = "Enable fallback for weak subjectivity checkpoint. Use if --ethereum-checkpoint fails."
     )]
     load_external_fallback: bool,
-    #[clap(
-        short = 's',
-        long = "ethereum-network",
-        env = "ETHEREUM_NETWORK",
-        default_value = "MAINNET",
-        help = "Set the Ethereum network to use with the opstack (MAINNET, GOERLI, HOLESKY, SEPOLIA)"
-    )]
-    eth_network: Option<String>,
 }
 
 impl OpStackArgs {
@@ -260,10 +252,6 @@ impl OpStackArgs {
 
         if let Some(checkpoint) = self.checkpoint {
             user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
-        }
-
-        if let Some(eth_network) = &self.eth_network {
-            user_dict.insert("eth_network", Value::from(eth_network.clone()));
         }
 
         Serialized::from(user_dict, &self.network)

@@ -94,10 +94,10 @@ impl OpStackClientBuilder {
                     chain_id,
                     unsafe_signer,
                     system_config_contract: Address::ZERO,
+                    eth_network,
                 },
                 load_external_fallback: None,
                 checkpoint: None,
-                eth_network,
             }
         };
         let consensus = ConsensusClient::new(&config);
