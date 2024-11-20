@@ -1,3 +1,4 @@
+use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
@@ -115,6 +116,22 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("get_transaction_receipt", e))?;
 
         Ok(receipt)
+    }
+
+    async fn get_block_receipts(&self, block: BlockTag) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let block = match block {
+            BlockTag::Latest => BlockNumberOrTag::Latest,
+            BlockTag::Finalized => BlockNumberOrTag::Finalized,
+            BlockTag::Number(num) => BlockNumberOrTag::Number(num),
+        };
+
+        let receipts = self
+            .provider
+            .get_block_receipts(block)
+            .await
+            .map_err(|e| RpcError::new("get_block_receipts", e))?;
+
+        Ok(receipts)
     }
 
     async fn get_transaction(&self, tx_hash: B256) -> Result<Option<N::TransactionResponse>> {

@@ -176,6 +176,13 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_block_receipts(&self, block: JsValue) -> Result<JsValue, JsError> {
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let receipts = map_err(self.inner.get_block_receipts(block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&receipts)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn get_logs(&self, filter: JsValue) -> Result<JsValue, JsError> {
         let filter: Filter = serde_wasm_bindgen::from_value(filter)?;
         let logs = map_err(self.inner.get_logs(&filter).await)?;

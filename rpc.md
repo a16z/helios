@@ -19,6 +19,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getBlockByHash` | `get_block_by_hash` | Returns the information of a block by hash. | `get_block_by_hash(&self, hash: &str, full_tx: bool)` |
 | `eth_sendRawTransaction` | `send_raw_transaction` | Submits a raw transaction to the network. | `client.send_raw_transaction(&self, bytes: &str)` |
 | `eth_getTransactionReceipt` | `get_transaction_receipt` | Returns the receipt of a transaction by transaction hash. | `client.get_transaction_receipt(&self, hash: &str)` |
+| `eth_getBlockReceipts` | `get_block_receipts` | Returns all transaction receipts of a block by number. | `client.get_block_receipts(&self, block: BlockTag)` |
 | `eth_getLogs` | `get_logs` | Returns an array of logs matching the filter. | `client.get_logs(&self, filter: Filter)` |
 | `eth_getStorageAt` | `get_storage_at` | Returns the value from a storage position at a given address. | `client.get_storage_at(&self, address: &str, slot: H256, block: BlockTag)` |
 | `eth_getBlockTransactionCountByHash` | `get_block_transaction_count_by_hash` | Returns the number of transactions in a block from a block matching the transaction hash. | `client.get_block_transaction_count_by_hash(&self, hash: &str)` |

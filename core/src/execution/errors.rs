@@ -25,6 +25,8 @@ pub enum ExecutionError {
     IncorrectRpcNetwork(),
     #[error("block not found: {0}")]
     BlockNotFound(BlockTag),
+    #[error("receipts root mismatch for block: {0}")]
+    BlockReceiptsRootMismatch(BlockTag),
 }
 
 /// Errors that can occur during evm.rs calls
