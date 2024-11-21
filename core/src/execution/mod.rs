@@ -338,9 +338,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         // Collect all (proven) tx receipts for all block numbers
         let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
             let tag = BlockTag::Number(block_num);
-            println!("tag: {:?}", tag);
             let receipts = self.get_block_receipts(tag).await;
-            println!("receipts: {:?}", receipts);
             receipts?.ok_or_else(|| eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))
         });
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
