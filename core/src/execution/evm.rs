@@ -233,7 +233,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
             storage_keys: Vec::default(),
         };
 
-        let coinbase = self.execution.get_block(self.block, false).await?.miner;
+        let coinbase = self
+            .execution
+            .get_block(self.block, false)
+            .await
+            .unwrap()
+            .miner;
         let producer_access_entry = AccessListItem {
             address: coinbase,
             storage_keys: Vec::default(),

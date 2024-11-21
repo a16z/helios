@@ -66,12 +66,12 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     async fn get_block_transaction_count_by_hash(
         &self,
         hash: B256,
-    ) -> Result<U64, ErrorObjectOwned>;
+    ) -> Result<Option<U64>, ErrorObjectOwned>;
     #[method(name = "getBlockTransactionCountByNumber")]
     async fn get_block_transaction_count_by_number(
         &self,
         block: BlockTag,
-    ) -> Result<U64, ErrorObjectOwned>;
+    ) -> Result<Option<U64>, ErrorObjectOwned>;
     #[method(name = "getCode")]
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "call")]
@@ -188,15 +188,25 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
     async fn get_block_transaction_count_by_hash(
         &self,
         hash: B256,
-    ) -> Result<U64, ErrorObjectOwned> {
-        convert_err(self.node.get_block_transaction_count_by_hash(hash).await).map(U64::from)
+    ) -> Result<Option<U64>, ErrorObjectOwned> {
+        convert_err(
+            self.node
+                .get_block_transaction_count_by_hash(hash)
+                .await
+                .map(|opt| opt.map(U64::from)),
+        )
     }
 
     async fn get_block_transaction_count_by_number(
         &self,
         block: BlockTag,
-    ) -> Result<U64, ErrorObjectOwned> {
-        convert_err(self.node.get_block_transaction_count_by_number(block).await).map(U64::from)
+    ) -> Result<Option<U64>, ErrorObjectOwned> {
+        convert_err(
+            self.node
+                .get_block_transaction_count_by_number(block)
+                .await
+                .map(|opt| opt.map(U64::from)),
+        )
     }
 
     async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned> {
