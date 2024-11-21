@@ -62,7 +62,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let proof = self
             .rpc
-            .get_proof(address, slots, block.number.to())
+            .get_proof(address, slots, block.number.into())
             .await?;
 
         let account_path = keccak256(address).to_vec();

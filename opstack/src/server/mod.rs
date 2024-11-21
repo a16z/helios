@@ -93,15 +93,11 @@ async fn unsafe_signer_proof_handler(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let signer_slot =
         B256::from_str(UNSAFE_SIGNER_SLOT).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let block = rpc
-        .get_block(block_hash)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let proof = rpc
         .get_proof(
             state.read().await.system_config_contract,
             &[signer_slot],
-            block.number.to(),
+            block_hash.into(),
         )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
