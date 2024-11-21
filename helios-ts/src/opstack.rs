@@ -112,23 +112,27 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
-    pub async fn get_block_transaction_count_by_hash(&self, hash: JsValue) -> Result<u32, JsError> {
+    pub async fn get_block_transaction_count_by_hash(
+        &self,
+        hash: JsValue,
+    ) -> Result<Option<u32>, JsError> {
         let hash: B256 = serde_wasm_bindgen::from_value(hash)?;
         let count = map_err(self.inner.get_block_transaction_count_by_hash(hash).await)?;
-        Ok(count as u32)
+        Ok(count.map(|v| v as u32))
     }
 
     #[wasm_bindgen]
     pub async fn get_block_transaction_count_by_number(
         &self,
         block: JsValue,
-    ) -> Result<u32, JsError> {
+    ) -> Result<Option<u32>, JsError> {
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
-        let res = self
-            .inner
-            .get_block_transaction_count_by_number(block)
-            .await;
-        Ok(map_err(res)? as u32)
+        let count = map_err(
+            self.inner
+                .get_block_transaction_count_by_number(block)
+                .await,
+        )?;
+        Ok(count.map(|v| v as u32))
     }
 
     #[wasm_bindgen]
