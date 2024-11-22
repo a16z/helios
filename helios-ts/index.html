@@ -95,10 +95,10 @@
         <pre class="block-info" id="ethereum-syncing">Syncing...</pre>
       </div>
     </div>
-    <div class="panel" id="optimism-panel">
+    <div class="panel" id="op-mainnet-panel">
       <h2>OP Mainnet</h2>
-      <div class="blocks" id="optimism-blocks">
-        <pre class="block-info syncing" id="optimism-syncing">Syncing...</pre>
+      <div class="blocks" id="op-mainnet-blocks">
+        <pre class="block-info syncing" id="op-mainnet-syncing">Syncing...</pre>
       </div>
     </div>
     <div class="panel" id="base-panel">
@@ -111,10 +111,10 @@
 
   <script>
     helios.init().then(() => {
-      let alcehmyKey = "<ALCHEMY_KEY>";
+      let alchemyKey = "<ALCHEMY_KEY>";
 
       let configEthereum = {
-        executionRpc: "https://eth-mainnet.g.alchemy.com/v2/" + alcehmyKey,
+        executionRpc: "https://eth-mainnet.g.alchemy.com/v2/" + alchemyKey,
         checkpoint: "0x0c78688807a28d205459f0433cc7962187cd2f49a96c31f298c089d8777c2a0e",
         dbType: "localstorage"
       };
@@ -124,18 +124,18 @@
         window.heliosEthereum = new ethers.providers.Web3Provider(ethereumProvider);
       });
       
-      let configOptimsim = {
-        executionRpc: "https://opt-mainnet.g.alchemy.com/v2/" + alcehmyKey,
+      let configOpMainnet = {
+        executionRpc: "https://opt-mainnet.g.alchemy.com/v2/" + alchemyKey,
         network: "op-mainnet",
       };
 
-      let opMainnetProvider = new helios.HeliosProvider(configOptimsim, "opstack");
+      let opMainnetProvider = new helios.HeliosProvider(configOpMainnet, "opstack");
       opMainnetProvider .sync().then(() => {
         window.heliosOpMainnet = new ethers.providers.Web3Provider(opMainnetProvider);
       });
 
       let configBase = {
-        executionRpc: "https://base-mainnet.g.alchemy.com/v2/" + alcehmyKey,
+        executionRpc: "https://base-mainnet.g.alchemy.com/v2/" + alchemyKey,
         network: "base",
       };
 
