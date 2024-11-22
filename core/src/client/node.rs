@@ -144,6 +144,19 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .await
     }
 
+    pub async fn get_transaction_by_block_number_and_index(
+        &self,
+        block: BlockTag,
+        index: u64,
+    ) -> Result<Option<N::TransactionResponse>> {
+        self.check_blocktag_age(&block).await?;
+
+        Ok(self
+            .execution
+            .get_transaction_by_block_number_and_index(block, index)
+            .await)
+    }
+
     pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         self.execution.get_logs(filter).await
     }

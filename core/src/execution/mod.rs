@@ -175,7 +175,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         index: u64,
     ) -> Option<N::TransactionResponse> {
         self.state
-            .get_transaction_by_block_and_index(block_hash, index)
+            .get_transaction_by_block_hash_and_index(block_hash, index)
+            .await
+    }
+
+    pub async fn get_transaction_by_block_number_and_index(
+        &self,
+        tag: BlockTag,
+        index: u64,
+    ) -> Option<N::TransactionResponse> {
+        self.state
+            .get_transaction_by_block_and_index(tag, index)
             .await
     }
 

@@ -101,6 +101,22 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_transaction_by_block_number_and_index(
+        &self,
+        block: JsValue,
+        index: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let index: u64 = serde_wasm_bindgen::from_value(index)?;
+        let tx = map_err(
+            self.inner
+                .get_transaction_by_block_number_and_index(block, index)
+                .await,
+        )?;
+        Ok(serde_wasm_bindgen::to_value(&tx)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn get_transaction_count(
         &self,
         addr: JsValue,

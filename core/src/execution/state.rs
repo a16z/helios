@@ -3,7 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use alloy::primitives::{Address, B256, U256};
+use alloy::{
+    primitives::{Address, B256, U256},
+    signers::k256::elliptic_curve::rand_core::block,
+};
 use eyre::{eyre, Result};
 use tokio::{
     select,
@@ -108,7 +111,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
             .cloned()
     }
 
-    pub async fn get_transaction_by_block_and_index(
+    pub async fn get_transaction_by_block_hash_and_index(
         &self,
         block_hash: B256,
         index: u64,
@@ -123,6 +126,18 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
                 Transactions::Hashes(_) => unreachable!(),
             })
             .cloned()
+    }
+
+    pub async fn get_transaction_by_block_and_index(
+        &self,
+        tag: BlockTag,
+        index: u64,
+    ) -> Option<N::TransactionResponse> {
+        let block = self.get_block(tag).await?;
+        match &block.transactions {
+            Transactions::Full(txs) => txs.get(index as usize).cloned(),
+            Transactions::Hashes(_) => unreachable!(),
+        }
     }
 
     // block field fetch
