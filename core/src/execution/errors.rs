@@ -17,6 +17,8 @@ pub enum ExecutionError {
     ReceiptRootMismatch(B256),
     #[error("could not prove receipt for tx: {0}")]
     NoReceiptForTransaction(B256),
+    #[error("could not prove receipts for block: {0}")]
+    NoReceiptsForBlock(BlockTag),
     #[error("missing log for transaction: {0}, index: {1}")]
     MissingLog(B256, U256),
     #[error("too many logs to prove: {0}, current limit is: {1}")]

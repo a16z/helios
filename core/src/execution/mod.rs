@@ -5,7 +5,7 @@ use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
 use alloy::rpc::types::{Filter, Log};
 use eyre::Result;
-use futures::future::join_all;
+use futures::future::try_join_all;
 use revm::primitives::KECCAK_EMPTY;
 use triehash_ethereum::ordered_trie_root;
 
@@ -201,9 +201,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .rpc
             .get_block_receipts(tag)
             .await?
-            .ok_or(eyre::eyre!("missing block receipt"))?;
+            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 
-        let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(N::encode_receipt).collect();
+        let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
         let expected_receipt_root = ordered_trie_root(receipts_encoded.clone());
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
@@ -240,10 +240,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .rpc
             .get_block_receipts(tag)
             .await?
-            .ok_or(eyre::eyre!("block receipts not found"))?;
+            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 
-        let receipts_encoded: Vec<Vec<u8>> = receipts.iter().map(N::encode_receipt).collect();
-
+        let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
@@ -327,39 +326,40 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
-        // Collect all (unique) tx hashes
-        let txs_hash = logs
+        // Collect all (unique) block numbers
+        let block_nums = logs
             .iter()
             .map(|log| {
-                log.transaction_hash
-                    .ok_or(eyre::eyre!("tx hash not found in log"))
+                log.block_number
+                    .ok_or_else(|| eyre::eyre!("block num not found in log"))
             })
             .collect::<Result<HashSet<_>, _>>()?;
 
-        // Collect all (proven) tx receipts as a map of tx hash to receipt
-        // TODO: use get_block_receipts instead to reduce the number of RPC calls?
-        let receipts_fut = txs_hash.iter().map(|&tx_hash| async move {
-            let receipt = self.get_transaction_receipt(tx_hash).await;
-            receipt?.map(|r| (tx_hash, r)).ok_or(eyre::eyre!(
-                ExecutionError::NoReceiptForTransaction(tx_hash)
-            ))
+        // Collect all (proven) tx receipts for all block numbers
+        let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
+            let tag = BlockTag::Number(block_num);
+            let receipts = self.get_block_receipts(tag).await;
+            receipts?.ok_or_else(|| eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))
         });
-        let receipts = join_all(receipts_fut).await;
-        let receipts: HashMap<_, _> = receipts.into_iter().collect::<Result<_, _>>()?;
+        let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
+        let receipts = blocks_receipts.into_iter().flatten().collect::<Vec<_>>();
 
         // Map tx hashes to encoded logs
-        let receipts_logs_encoded: HashMap<_, _> = receipts
-            .iter()
-            .map(|(tx_hash, receipt)| {
-                let encoded_logs = N::receipt_logs(&receipt)
-                    .iter()
-                    .map(|l| encode(&l.inner))
-                    .collect::<Vec<_>>();
-                (tx_hash, encoded_logs)
+        let receipts_logs_encoded = receipts
+            .into_iter()
+            .filter_map(|receipt| {
+                let logs = N::receipt_logs(&receipt);
+                if logs.is_empty() {
+                    None
+                } else {
+                    let tx_hash = logs[0].transaction_hash.unwrap();
+                    let encoded_logs = logs.iter().map(|l| encode(&l.inner)).collect::<Vec<_>>();
+                    Some((tx_hash, encoded_logs))
+                }
             })
-            .collect();
+            .collect::<HashMap<_, _>>();
 
-        for log in logs.iter() {
+        for log in logs {
             // Check if the receipt contains the desired log
             // Encoding logs for comparison
             let tx_hash = log.transaction_hash.unwrap();
