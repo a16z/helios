@@ -7,6 +7,7 @@ use alloy::rpc::types::{Filter, Log};
 use eyre::Result;
 use futures::future::try_join_all;
 use revm::primitives::KECCAK_EMPTY;
+use tracing::warn;
 use triehash_ethereum::ordered_trie_root;
 
 use crate::network_spec::NetworkSpec;
@@ -134,36 +135,38 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         &self,
         tag: BlockTag,
         full_tx: bool,
-    ) -> Result<Block<N::TransactionResponse>> {
-        let mut block = self
-            .state
-            .get_block(tag)
-            .await
-            .ok_or(ExecutionError::BlockNotFound(tag))?;
+    ) -> Option<Block<N::TransactionResponse>> {
+        let block = self.state.get_block(tag).await;
+        if block.is_none() {
+            warn!(target: "helios::execution", "requested block not found in state: {}", tag);
+            return None;
+        }
+        let mut block = block.unwrap();
 
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());
         }
 
-        Ok(block)
+        Some(block)
     }
 
     pub async fn get_block_by_hash(
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Block<N::TransactionResponse>> {
-        let mut block = self
-            .state
-            .get_block_by_hash(hash)
-            .await
-            .ok_or(eyre::eyre!("block not found"))?;
+    ) -> Option<Block<N::TransactionResponse>> {
+        let block = self.state.get_block_by_hash(hash).await;
+        if block.is_none() {
+            warn!(target: "helios::execution", "requested block not found in state: {}", hash);
+            return None;
+        }
+        let mut block = block.unwrap();
 
         if !full_tx {
             block.transactions = Transactions::Hashes(block.transactions.hashes());
         }
 
-        Ok(block)
+        Some(block)
     }
 
     pub async fn get_transaction_by_block_hash_and_index(

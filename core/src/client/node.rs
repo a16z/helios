@@ -70,18 +70,17 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         Ok(account.nonce)
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<u64> {
-        let block = self.execution.get_block_by_hash(hash, false).await?;
-        let transaction_count = block.transactions.hashes().len();
-
-        Ok(transaction_count as u64)
+    pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<Option<u64>> {
+        let block = self.execution.get_block_by_hash(hash, false).await;
+        Ok(block.map(|block| block.transactions.hashes().len() as u64))
     }
 
-    pub async fn get_block_transaction_count_by_number(&self, tag: BlockTag) -> Result<u64> {
-        let block = self.execution.get_block(tag, false).await?;
-        let transaction_count = block.transactions.hashes().len();
-
-        Ok(transaction_count as u64)
+    pub async fn get_block_transaction_count_by_number(
+        &self,
+        tag: BlockTag,
+    ) -> Result<Option<u64>> {
+        let block = self.execution.get_block(tag, false).await;
+        Ok(block.map(|block| block.transactions.hashes().len() as u64))
     }
 
     pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
@@ -178,7 +177,11 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
     pub async fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age().await?;
 
-        let block = self.execution.get_block(BlockTag::Latest, false).await?;
+        let block = self
+            .execution
+            .get_block(BlockTag::Latest, false)
+            .await
+            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
         let base_fee = block.base_fee_per_gas;
         let tip = U256::from(10_u64.pow(9));
         Ok(base_fee + tip)
@@ -193,7 +196,11 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
     pub async fn get_block_number(&self) -> Result<U256> {
         self.check_head_age().await?;
 
-        let block = self.execution.get_block(BlockTag::Latest, false).await?;
+        let block = self
+            .execution
+            .get_block(BlockTag::Latest, false)
+            .await
+            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
         Ok(block.number.to())
     }
 
@@ -204,10 +211,8 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
     ) -> Result<Option<Block<N::TransactionResponse>>> {
         self.check_blocktag_age(&tag).await?;
 
-        match self.execution.get_block(tag, full_tx).await {
-            Ok(block) => Ok(Some(block)),
-            Err(_) => Ok(None),
-        }
+        let block = self.execution.get_block(tag, full_tx).await;
+        Ok(block)
     }
 
     pub async fn get_block_by_hash(
@@ -216,11 +221,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         full_tx: bool,
     ) -> Result<Option<Block<N::TransactionResponse>>> {
         let block = self.execution.get_block_by_hash(hash, full_tx).await;
-
-        match block {
-            Ok(block) => Ok(Some(block)),
-            Err(_) => Ok(None),
-        }
+        Ok(block)
     }
 
     pub fn chain_id(&self) -> u64 {
@@ -246,7 +247,12 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
     pub async fn get_coinbase(&self) -> Result<Address> {
         self.check_head_age().await?;
 
-        let block = self.execution.get_block(BlockTag::Latest, false).await?;
+        let block = self
+            .execution
+            .get_block(BlockTag::Latest, false)
+            .await
+            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+
         Ok(block.miner)
     }
 
@@ -260,7 +266,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .execution
             .get_block(BlockTag::Latest, false)
             .await
-            .map_err(|_| ClientError::OutOfSync(timestamp))?
+            .ok_or_else(|| ClientError::OutOfSync(timestamp))?
             .timestamp
             .to();
 

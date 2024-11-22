@@ -13,7 +13,10 @@ use revm::{
 use tracing::trace;
 
 use crate::execution::{
-    constants::PARALLEL_QUERY_BATCH_SIZE, errors::EvmError, rpc::ExecutionRpc, ExecutionClient,
+    constants::PARALLEL_QUERY_BATCH_SIZE,
+    errors::{EvmError, ExecutionError},
+    rpc::ExecutionRpc,
+    ExecutionClient,
 };
 use crate::network_spec::NetworkSpec;
 use crate::types::BlockTag;
@@ -88,7 +91,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
         let mut env = Env::default();
         env.tx = N::tx_env(tx);
 
-        let block = self.execution.get_block(tag, false).await.unwrap();
+        let block = self
+            .execution
+            .get_block(tag, false)
+            .await
+            .ok_or(ExecutionError::BlockNotFound(tag))
+            .unwrap();
         env.block = N::block_env(&block);
 
         env.cfg.chain_id = self.chain_id;
@@ -169,10 +177,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
                     storage.insert(*slot, value);
                 }
                 StateAccess::BlockHash(number) => {
+                    let tag = BlockTag::Number(*number);
                     let block = self
                         .execution
-                        .get_block(BlockTag::Number(*number), false)
-                        .await?;
+                        .get_block(tag, false)
+                        .await
+                        .ok_or(ExecutionError::BlockNotFound(tag))?;
 
                     self.block_hash.insert(*number, block.hash);
                 }
@@ -233,7 +243,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
             storage_keys: Vec::default(),
         };
 
-        let coinbase = self.execution.get_block(self.block, false).await?.miner;
+        let coinbase = self
+            .execution
+            .get_block(self.block, false)
+            .await
+            .ok_or(ExecutionError::BlockNotFound(self.block))?
+            .miner;
         let producer_access_entry = AccessListItem {
             address: coinbase,
             storage_keys: Vec::default(),

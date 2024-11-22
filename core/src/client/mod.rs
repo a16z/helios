@@ -81,11 +81,14 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         self.node.get_nonce(address, block).await
     }
 
-    pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<u64> {
+    pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<Option<u64>> {
         self.node.get_block_transaction_count_by_hash(hash).await
     }
 
-    pub async fn get_block_transaction_count_by_number(&self, block: BlockTag) -> Result<u64> {
+    pub async fn get_block_transaction_count_by_number(
+        &self,
+        block: BlockTag,
+    ) -> Result<Option<u64>> {
         self.node.get_block_transaction_count_by_number(block).await
     }
 
