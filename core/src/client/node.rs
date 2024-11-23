@@ -157,6 +157,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         self.execution.get_filter_changes(filter_id).await
     }
 
+    pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
+        self.execution.get_filter_logs(filter_id).await
+    }
+
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         self.execution.uninstall_filter(filter_id).await
     }

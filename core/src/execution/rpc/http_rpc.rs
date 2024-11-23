@@ -158,6 +158,14 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("get_filter_changes", e))?)
     }
 
+    async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
+        Ok(self
+            .provider
+            .raw_request("eth_getFilterLogs".into(), (filter_id,))
+            .await
+            .map_err(|e| RpcError::new("get_filter_logs", e))?)
+    }
+
     async fn uninstall_filter(&self, _filter_id: U256) -> Result<bool> {
         // TODO: support uninstalling
         Ok(true)
