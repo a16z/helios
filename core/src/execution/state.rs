@@ -3,10 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use alloy::{
-    primitives::{Address, B256, U256},
-    signers::k256::elliptic_curve::rand_core::block,
-};
+use alloy::primitives::{Address, B256, U256};
 use eyre::{eyre, Result};
 use tokio::{
     select,
