@@ -161,7 +161,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         Ok(self
             .provider
-            .raw_request::<_, bool>("eth_uninstallFilter".into(), (filter_id,))
+            .raw_request("eth_uninstallFilter".into(), (filter_id,))
             .await
             .map_err(|e| RpcError::new("uninstall_filter", e))?)
     }
