@@ -42,6 +42,7 @@ pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub block_recv: Option<Receiver<Block<Transaction>>>,
     pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
+    shutdown_send: watch::Sender<bool>,
     genesis_time: u64,
     config: Arc<Config>,
     phantom: PhantomData<(S, R, DB)>,
@@ -79,6 +80,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Transaction>
     }
 
     fn shutdown(&self) -> Result<()> {
+        self.shutdown_send.send(true)?;
         Ok(())
     }
 }
@@ -88,6 +90,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
+        let (shutdown_send, shutdown_recv) = watch::channel(false);
 
         let config_clone = config.clone();
         let rpc = rpc.to_string();
@@ -102,6 +105,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
 
         #[cfg(target_arch = "wasm32")]
         let run = wasm_bindgen_futures::spawn_local;
+
+        let mut shutdown_rx = shutdown_recv.clone();
 
         run(async move {
             let mut inner = Inner::<S, R>::new(
@@ -138,28 +143,42 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
             let mut interval = interval_at(start, std::time::Duration::from_secs(12));
 
             loop {
-                interval.tick().await;
+                tokio::select! {
+                    _ = shutdown_rx.changed() => {
+                        if *shutdown_rx.borrow() {
+                            info!(target: "helios::consensus", "shutting down consensus client");
+                            break;
+                        }
+                    }
+                    _ = interval.tick() => {
+                        let res = inner.advance().await;
+                        if let Err(err) = res {
+                            warn!(target: "helios::consensus", "advance error: {}", err);
+                            continue;
+                        }
 
-                let res = inner.advance().await;
-                if let Err(err) = res {
-                    warn!(target: "helios::consensus", "advance error: {}", err);
-                    continue;
-                }
-
-                let res = inner.send_blocks().await;
-                if let Err(err) = res {
-                    warn!(target: "helios::consensus", "send error: {}", err);
-                    continue;
+                        let res = inner.send_blocks().await;
+                        if let Err(err) = res {
+                            warn!(target: "helios::consensus", "send error: {}", err);
+                            continue;
+                        }
+                    }
                 }
             }
         });
 
-        save_new_checkpoints(checkpoint_recv.clone(), db.clone(), initial_checkpoint);
+        save_new_checkpoints(
+            checkpoint_recv.clone(),
+            db.clone(),
+            initial_checkpoint,
+            shutdown_recv,
+        );
 
         Ok(ConsensusClient {
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalized_block_recv),
             checkpoint_recv,
+            shutdown_send,
             genesis_time,
             config: config_clone,
             phantom: PhantomData,
@@ -177,6 +196,7 @@ fn save_new_checkpoints<DB: Database>(
     mut checkpoint_recv: watch::Receiver<Option<B256>>,
     db: Arc<DB>,
     initial_checkpoint: B256,
+    mut shutdown_recv: watch::Receiver<bool>,
 ) {
     #[cfg(not(target_arch = "wasm32"))]
     let run = tokio::spawn;
@@ -187,20 +207,28 @@ fn save_new_checkpoints<DB: Database>(
     run(async move {
         let mut last_saved_checkpoint = initial_checkpoint;
         loop {
-            let new_checkpoint = *checkpoint_recv.borrow_and_update();
-            if let Some(new_checkpoint) = new_checkpoint.as_ref() {
-                if *new_checkpoint != last_saved_checkpoint {
-                    // There is a more recent checkpoint to save
-                    if db.save_checkpoint(*new_checkpoint).is_err() {
-                        warn!(target: "helios::consensus", "failed to save checkpoint");
-                    } else {
-                        info!(target: "helios::consensus", "saved checkpoint to DB: 0x{}", hex::encode(*new_checkpoint));
-                        last_saved_checkpoint = *new_checkpoint;
+            tokio::select! {
+                _ = shutdown_recv.changed() => {
+                    if *shutdown_recv.borrow() {
+                        break;
                     }
                 }
-            }
-            if checkpoint_recv.changed().await.is_err() {
-                break;
+                checkpoint_result = checkpoint_recv.changed() => {
+                    if checkpoint_result.is_err() {
+                        break;
+                    }
+                    let new_checkpoint = *checkpoint_recv.borrow_and_update();
+                    if let Some(new_checkpoint) = new_checkpoint.as_ref() {
+                        if *new_checkpoint != last_saved_checkpoint {
+                            if db.save_checkpoint(*new_checkpoint).is_err() {
+                                warn!(target: "helios::consensus", "failed to save checkpoint");
+                            } else {
+                                info!(target: "helios::consensus", "saved checkpoint to DB: 0x{}", hex::encode(*new_checkpoint));
+                                last_saved_checkpoint = *new_checkpoint;
+                            }
+                        }
+                    }
+                }
             }
         }
     });

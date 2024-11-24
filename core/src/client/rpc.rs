@@ -113,6 +113,12 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
         hash: B256,
         index: U64,
     ) -> Result<Option<TX>, ErrorObjectOwned>;
+    #[method(name = "getTransactionByBlockNumberAndIndex")]
+    async fn get_transaction_by_block_number_and_index(
+        &self,
+        block: BlockTag,
+        index: U64,
+    ) -> Result<Option<TX>, ErrorObjectOwned>;
     #[method(name = "getLogs")]
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, ErrorObjectOwned>;
     #[method(name = "getFilterChanges")]
@@ -293,6 +299,18 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
             .node
             .get_transaction_by_block_hash_and_index(hash, index.to())
             .await)
+    }
+
+    async fn get_transaction_by_block_number_and_index(
+        &self,
+        block: BlockTag,
+        index: U64,
+    ) -> Result<Option<N::TransactionResponse>, ErrorObjectOwned> {
+        convert_err(
+            self.node
+                .get_transaction_by_block_number_and_index(block, index.to())
+                .await,
+        )
     }
 
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned> {

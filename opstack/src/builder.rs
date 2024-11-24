@@ -1,11 +1,11 @@
 use std::net::SocketAddr;
 
-use alloy::primitives::Address;
 use eyre::Result;
 use reqwest::{IntoUrl, Url};
 
 use crate::{
-    config::{ChainConfig, Config},
+    config::Network,
+    config::{Config, NetworkConfig},
     consensus::ConsensusClient,
     OpStackClient,
 };
@@ -13,8 +13,7 @@ use crate::{
 #[derive(Default)]
 pub struct OpStackClientBuilder {
     config: Option<Config>,
-    chain_id: Option<u64>,
-    unsafe_signer: Option<Address>,
+    network: Option<Network>,
     consensus_rpc: Option<Url>,
     execution_rpc: Option<Url>,
     rpc_socket: Option<SocketAddr>,
@@ -27,16 +26,6 @@ impl OpStackClientBuilder {
 
     pub fn config(mut self, config: Config) -> Self {
         self.config = Some(config);
-        self
-    }
-
-    pub fn chain_id(mut self, chain_id: u64) -> Self {
-        self.chain_id = Some(chain_id);
-        self
-    }
-
-    pub fn unsafe_signer(mut self, signer: Address) -> Self {
-        self.unsafe_signer = Some(signer);
         self
     }
 
@@ -55,16 +44,17 @@ impl OpStackClientBuilder {
         self
     }
 
+    pub fn network(mut self, network: Network) -> Self {
+        self.network = Some(network);
+        self
+    }
+
     pub fn build(self) -> Result<OpStackClient> {
         let config = if let Some(config) = self.config {
             config
         } else {
-            let Some(chain_id) = self.chain_id else {
-                eyre::bail!("chain id required");
-            };
-
-            let Some(unsafe_signer) = self.unsafe_signer else {
-                eyre::bail!("unsafe signer required");
+            let Some(network) = self.network else {
+                eyre::bail!("network required");
             };
 
             let Some(consensus_rpc) = self.consensus_rpc else {
@@ -79,13 +69,11 @@ impl OpStackClientBuilder {
                 consensus_rpc,
                 execution_rpc,
                 rpc_socket: self.rpc_socket,
-                chain: ChainConfig {
-                    chain_id,
-                    unsafe_signer,
-                },
+                chain: NetworkConfig::from(network).chain,
+                load_external_fallback: None,
+                checkpoint: None,
             }
         };
-
         let consensus = ConsensusClient::new(&config);
         OpStackClient::new(
             &config.execution_rpc.to_string(),

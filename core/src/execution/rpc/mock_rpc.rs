@@ -1,7 +1,9 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log};
+use alloy::rpc::types::{
+    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log,
+};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
@@ -26,7 +28,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         &self,
         _address: Address,
         _slots: &[B256],
-        _block: u64,
+        _block: BlockId,
     ) -> Result<EIP1186AccountProofResponse> {
         let proof = read_to_string(self.path.join("proof.json"))?;
         Ok(serde_json::from_str(&proof)?)

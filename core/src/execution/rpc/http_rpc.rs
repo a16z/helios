@@ -54,12 +54,12 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         &self,
         address: Address,
         slots: &[B256],
-        block: u64,
+        block: BlockId,
     ) -> Result<EIP1186AccountProofResponse> {
         let proof_response = self
             .provider
             .get_proof(address, slots.to_vec())
-            .block_id(block.into())
+            .block_id(block)
             .await
             .map_err(|e| RpcError::new("get_proof", e))?;
 
@@ -158,9 +158,12 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("get_filter_changes", e))?)
     }
 
-    async fn uninstall_filter(&self, _filter_id: U256) -> Result<bool> {
-        // TODO: support uninstalling
-        Ok(true)
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
+        Ok(self
+            .provider
+            .raw_request("eth_uninstallFilter".into(), (filter_id,))
+            .await
+            .map_err(|e| RpcError::new("uninstall_filter", e))?)
     }
 
     async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {

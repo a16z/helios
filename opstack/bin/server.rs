@@ -21,16 +21,20 @@ async fn main() -> Result<()> {
 
     let chain_id = config.chain.chain_id;
     let unsafe_signer = config.chain.unsafe_signer;
+    let system_config_contract = config.chain.system_config_contract;
     let server_addr = cli.server_address;
     let gossip_addr = cli.gossip_address;
     let replica_urls = cli.replica_urls.unwrap_or_default();
+    let execution_rpc = cli.execution_rpc;
 
     start_server(
         server_addr,
         gossip_addr,
         chain_id,
         unsafe_signer,
+        system_config_contract,
         replica_urls,
+        execution_rpc,
     )
     .await?;
 
@@ -67,4 +71,6 @@ struct Cli {
     gossip_address: SocketAddr,
     #[clap(short, long, value_delimiter = ',')]
     replica_urls: Option<Vec<Url>>,
+    #[clap(short, long)]
+    execution_rpc: Url,
 }

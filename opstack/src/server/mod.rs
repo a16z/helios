@@ -1,7 +1,15 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use alloy::primitives::Address;
-use axum::{extract::State, routing::get, Json, Router};
+use alloy::{
+    primitives::{Address, FixedBytes, B256},
+    rpc::types::EIP1186AccountProofResponse,
+};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
 use eyre::Result;
 use tokio::{
     sync::{
@@ -15,22 +23,33 @@ use url::Url;
 use crate::{types::ExecutionPayload, SequencerCommitment};
 
 use self::net::{block_handler::BlockHandler, gossip::GossipService};
+use helios_core::execution::rpc::{http_rpc::HttpRpc, ExecutionRpc};
+use helios_ethereum::spec::Ethereum;
+use std::str::FromStr;
 
 pub mod net;
 mod poller;
+
+// Storage slot containing the unsafe signer address in all superchain system config contracts
+const UNSAFE_SIGNER_SLOT: &str =
+    "0x65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08";
 
 pub async fn start_server(
     server_addr: SocketAddr,
     gossip_addr: SocketAddr,
     chain_id: u64,
     signer: Address,
+    system_config_contract: Address,
     replica_urls: Vec<Url>,
+    execution_rpc: Url,
 ) -> Result<()> {
     let state = Arc::new(RwLock::new(ServerState::new(
         gossip_addr,
         chain_id,
         signer,
+        system_config_contract,
         replica_urls,
+        execution_rpc,
     )?));
 
     let state_copy = state.clone();
@@ -44,6 +63,10 @@ pub async fn start_server(
     let router = Router::new()
         .route("/latest", get(latest_handler))
         .route("/chain_id", get(chain_id_handler))
+        .route(
+            "/unsafe_signer_proof/:block_hash",
+            get(unsafe_signer_proof_handler),
+        )
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(server_addr).await?;
@@ -62,10 +85,30 @@ async fn chain_id_handler(State(state): State<Arc<RwLock<ServerState>>>) -> Json
     Json(state.read().await.chain_id)
 }
 
+async fn unsafe_signer_proof_handler(
+    State(state): State<Arc<RwLock<ServerState>>>,
+    Path(block_hash): Path<FixedBytes<32>>,
+) -> Result<Json<EIP1186AccountProofResponse>, StatusCode> {
+    let rpc = HttpRpc::<Ethereum>::new(&state.read().await.execution_rpc.to_string())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let signer_slot =
+        B256::from_str(UNSAFE_SIGNER_SLOT).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let proof = rpc
+        .get_proof(
+            state.read().await.system_config_contract,
+            &[signer_slot],
+            block_hash.into(),
+        )
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(proof))
+}
 struct ServerState {
     chain_id: u64,
     commitment_recv: Receiver<SequencerCommitment>,
     latest_commitment: Option<(SequencerCommitment, u64)>,
+    execution_rpc: Url,
+    system_config_contract: Address,
 }
 
 impl ServerState {
@@ -73,7 +116,9 @@ impl ServerState {
         addr: SocketAddr,
         chain_id: u64,
         signer: Address,
+        system_config_contract: Address,
         replica_urls: Vec<Url>,
+        execution_rpc: Url,
     ) -> Result<Self> {
         let (send, commitment_recv) = channel(256);
         poller::start(replica_urls, signer, chain_id, send.clone());
@@ -85,6 +130,8 @@ impl ServerState {
             chain_id,
             commitment_recv,
             latest_commitment: None,
+            execution_rpc,
+            system_config_contract,
         })
     }
 

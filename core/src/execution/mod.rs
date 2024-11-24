@@ -23,11 +23,10 @@ use self::types::Account;
 pub mod constants;
 pub mod errors;
 pub mod evm;
+pub mod proof;
 pub mod rpc;
 pub mod state;
 pub mod types;
-
-mod proof;
 
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
@@ -64,7 +63,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let proof = self
             .rpc
-            .get_proof(address, slots, block.number.to())
+            .get_proof(address, slots, block.number.into())
             .await?;
 
         let account_path = keccak256(address).to_vec();
@@ -175,7 +174,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         index: u64,
     ) -> Option<N::TransactionResponse> {
         self.state
-            .get_transaction_by_block_and_index(block_hash, index)
+            .get_transaction_by_block_hash_and_index(block_hash, index)
+            .await
+    }
+
+    pub async fn get_transaction_by_block_number_and_index(
+        &self,
+        tag: BlockTag,
+        index: u64,
+    ) -> Option<N::TransactionResponse> {
+        self.state
+            .get_transaction_by_block_and_index(tag, index)
             .await
     }
 

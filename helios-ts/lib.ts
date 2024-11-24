@@ -110,6 +110,12 @@ export class HeliosProvider {
           req.params[1]
         );
       }
+      case "eth_getTransactionByBlockNumberAndIndex": {
+        return this.#client.get_transaction_by_block_number_and_index(
+          req.params[0],
+          req.params[1]
+        );
+      }
       case "eth_getBlockReceipts": {
         return this.#client.get_block_receipts(req.params[0]);
       }
