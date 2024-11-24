@@ -54,12 +54,12 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         &self,
         address: Address,
         slots: &[B256],
-        block: u64,
+        block: BlockId,
     ) -> Result<EIP1186AccountProofResponse> {
         let proof_response = self
             .provider
             .get_proof(address, slots.to_vec())
-            .block_id(block.into())
+            .block_id(block)
             .await
             .map_err(|e| RpcError::new("get_proof", e))?;
 

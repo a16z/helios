@@ -23,11 +23,10 @@ use self::types::Account;
 pub mod constants;
 pub mod errors;
 pub mod evm;
+pub mod proof;
 pub mod rpc;
 pub mod state;
 pub mod types;
-
-mod proof;
 
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
@@ -64,7 +63,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let proof = self
             .rpc
-            .get_proof(address, slots, block.number.to())
+            .get_proof(address, slots, block.number.into())
             .await?;
 
         let account_path = keccak256(address).to_vec();

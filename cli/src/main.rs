@@ -7,6 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alloy::primitives::hex;
 use alloy::primitives::B256;
 use clap::{Args, Parser, Subcommand};
 use dirs::home_dir;
@@ -14,10 +15,6 @@ use eyre::Result;
 use figment::providers::Serialized;
 use figment::value::Value;
 use futures::executor::block_on;
-use tracing::{error, info};
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
-
 use helios_core::client::Client;
 use helios_core::consensus::Consensus;
 use helios_core::network_spec::NetworkSpec;
@@ -25,6 +22,9 @@ use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
 use helios_ethereum::database::FileDB;
 use helios_ethereum::{EthereumClient, EthereumClientBuilder};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
+use tracing::{error, info};
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -191,6 +191,20 @@ struct OpStackArgs {
     execution_rpc: Option<String>,
     #[clap(short, long, env)]
     consensus_rpc: Option<String>,
+    #[clap(
+        short = 'w',
+        long = "ethereum-checkpoint",
+        env = "ETHEREUM_CHECKPOINT",
+        help = "Set custom weak subjectivity checkpoint for chosen Ethereum network. Helios uses this to sync and trustlessly fetch the correct unsafe signer address used by <NETWORK>"
+    )]
+    checkpoint: Option<B256>,
+    #[clap(
+        short = 'l',
+        long = "ethereum-load-external-fallback",
+        env = "ETHEREUM_LOAD_EXTERNAL_FALLBACK",
+        help = "Enable fallback for weak subjectivity checkpoint. Use if --ethereum-checkpoint fails."
+    )]
+    load_external_fallback: bool,
 }
 
 impl OpStackArgs {
@@ -230,6 +244,14 @@ impl OpStackArgs {
 
         if let Some(port) = self.rpc_port {
             user_dict.insert("rpc_port", Value::from(port));
+        }
+
+        if self.load_external_fallback {
+            user_dict.insert("load_external_fallback", Value::from(true));
+        }
+
+        if let Some(checkpoint) = self.checkpoint {
+            user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
         }
 
         Serialized::from(user_dict, &self.network)
