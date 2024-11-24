@@ -25,6 +25,7 @@ pub struct Block<T: TransactionResponse> {
     pub size: U64,
     pub state_root: B256,
     pub timestamp: U64,
+    #[serde(default)]
     pub total_difficulty: U64,
     pub transactions: Transactions<T>,
     pub transactions_root: B256,

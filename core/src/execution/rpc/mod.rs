@@ -1,5 +1,7 @@
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{AccessList, EIP1186AccountProofResponse, FeeHistory, Filter, Log};
+use alloy::rpc::types::{
+    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log,
+};
 use async_trait::async_trait;
 use eyre::Result;
 
@@ -20,7 +22,7 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
         &self,
         address: Address,
         slots: &[B256],
-        block: u64,
+        block: BlockId,
     ) -> Result<EIP1186AccountProofResponse>;
 
     async fn create_access_list(

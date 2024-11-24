@@ -21,6 +21,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getTransactionReceipt` | `get_transaction_receipt` | Returns the receipt of a transaction by transaction hash. | `client.get_transaction_receipt(&self, hash: &str)` |
 | `eth_getTransactionByHash` | `get_transaction_by_hash` | Returns the information about a transaction requested by transaction hash. | `client.get_transaction_by_hash(&self, hash: &str)`
 | `eth_getTransactionByBlockHashAndIndex` | `get_transaction_by_block_hash_and_index` | Returns information about a transaction by block hash and transaction index position. | `client.get_transaction_by_block_hash_and_index(&self, hash: &str, index: u64)`
+| `eth_getTransactionByBlockNumberAndIndex` | `get_transaction_by_block_number_and_index` | Returns information about a transaction by block number and transaction index position. | `client.get_transaction_by_block_number_and_index(&self, block: BlockTag, index: u64)`
 | `eth_getBlockReceipts` | `get_block_receipts` | Returns all transaction receipts of a block by number. | `client.get_block_receipts(&self, block: BlockTag)` |
 | `eth_getLogs` | `get_logs` | Returns an array of logs matching the filter. | `client.get_logs(&self, filter: Filter)` |
 | `eth_getFilterChanges` | `get_filter_changes` | Polling method for a filter, which returns an array of logs which occurred since last poll. | `client.get_filter_changes(&self, filter_id: H256)` |

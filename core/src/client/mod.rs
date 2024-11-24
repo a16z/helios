@@ -197,6 +197,16 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
             .await
     }
 
+    pub async fn get_transaction_by_block_number_and_index(
+        &self,
+        block: BlockTag,
+        index: u64,
+    ) -> Result<Option<N::TransactionResponse>> {
+        self.node
+            .get_transaction_by_block_number_and_index(block, index)
+            .await
+    }
+
     pub async fn chain_id(&self) -> u64 {
         self.node.chain_id()
     }
