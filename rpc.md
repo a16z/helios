@@ -26,7 +26,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getBlockTransactionCountByHash` | `get_block_transaction_count_by_hash` | Returns the number of transactions in a block from a block matching the transaction hash. | `client.get_block_transaction_count_by_hash(&self, hash: &str)` |
 | `eth_getBlockTransactionCountByNumber` | `get_block_transaction_count_by_number` | Returns the number of transactions in a block from a block matching the block number. | `client.get_block_transaction_count_by_number(&self, block: BlockTag)` |
 | `eth_getLogs` | `get_logs` | Returns an array of logs matching the filter. | `client.get_logs(&self, filter: Filter)` |
-| `eth_getFilterChanges` | `get_filter_changes` | Polling method for a filter, which returns an array of logs which occurred since last poll. | `client.get_filter_changes(&self, filter_id: H256)` |
+| `eth_getFilterChanges` | `get_filter_changes` | Polling method for a filter, which returns an array of logs or transaction hashes or block hashes (depending on type of filter) which occurred since last poll. | `client.get_filter_changes(&self, filter_id: H256)` |
 | `eth_getFilterLogs` | `get_filter_logs` | Returns an array of all logs matching filter with given id. | `client.get_filter_logs(&self, filter_id: H256)` |
 | `eth_newFilter` | `new_filter` | Creates a filter object, based on filter options, to notify when the state changes (logs). | `client.new_filter(&self, filter: Filter)` |
 | `eth_newBlockFilter` | `new_block_filter` | Creates a filter in the node, to notify when a new block arrives. | `client.new_block_filter(&self)` |
