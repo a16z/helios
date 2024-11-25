@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, path::PathBuf};
+use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
@@ -88,16 +88,19 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_new_filter(&self, _filter: &Filter) -> Result<U256> {
-        Err(eyre!("not implemented"))
+    async fn new_filter(&self, _filter: &Filter) -> Result<U256> {
+        let id = read_to_string(self.path.join("filter_id.txt"))?;
+        Ok(U256::from_str(&id)?)
     }
 
-    async fn get_new_block_filter(&self) -> Result<U256> {
-        Err(eyre!("not implemented"))
+    async fn new_block_filter(&self) -> Result<U256> {
+        let id = read_to_string(self.path.join("filter_id.txt"))?;
+        Ok(U256::from_str(&id)?)
     }
 
-    async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
-        Err(eyre!("not implemented"))
+    async fn new_pending_transaction_filter(&self) -> Result<U256> {
+        let id = read_to_string(self.path.join("filter_id.txt"))?;
+        Ok(U256::from_str(&id)?)
     }
 
     async fn chain_id(&self) -> Result<u64> {

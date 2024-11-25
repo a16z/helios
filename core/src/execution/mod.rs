@@ -322,7 +322,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         self.rpc.uninstall_filter(filter_id).await
     }
 
-    pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
+    pub async fn new_filter(&self, filter: &Filter) -> Result<U256> {
         let filter = filter.clone();
 
         // avoid submitting a filter for logs for a block helios hasn't seen yet
@@ -337,15 +337,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         } else {
             filter
         };
-        self.rpc.get_new_filter(&filter).await
+        self.rpc.new_filter(&filter).await
     }
 
-    pub async fn get_new_block_filter(&self) -> Result<U256> {
-        self.rpc.get_new_block_filter().await
+    pub async fn new_block_filter(&self) -> Result<U256> {
+        self.rpc.new_block_filter().await
     }
 
-    pub async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
-        self.rpc.get_new_pending_transaction_filter().await
+    pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
+        self.rpc.new_pending_transaction_filter().await
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
