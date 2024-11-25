@@ -2,15 +2,12 @@ extern crate console_error_panic_hook;
 extern crate web_sys;
 
 use std::str::FromStr;
-
 use alloy::primitives::{Address, B256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use wasm_bindgen::prelude::*;
-
 use helios_core::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
 use helios_opstack::OpStackClientBuilder;
-
 use crate::map_err;
 
 #[wasm_bindgen]
@@ -22,7 +19,7 @@ pub struct OpStackClient {
 #[wasm_bindgen]
 impl OpStackClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(execution_rpc: String, network: String) -> Result<OpStackClient, JsError> {
+    pub fn new(execution_rpc: String, network: String) -> Result<Self, JsError> {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
@@ -33,14 +30,9 @@ impl OpStackClient {
             other => Err(JsError::new(&format!("invalid network: {}", other)))?,
         };
 
-        let chain_id = network_config.chain.chain_id;
-        let consensus_rpc = network_config
-            .consensus_rpc
-            .ok_or(JsError::new("consensus rpc not found"))?;
-
         let config = Config {
             execution_rpc: execution_rpc.parse()?,
-            consensus_rpc,
+            consensus_rpc: network_config.consensus_rpc.ok_or(JsError::new("consensus rpc not found"))?,
             chain: network_config.chain,
             rpc_socket: None,
             load_external_fallback: None,
@@ -48,8 +40,7 @@ impl OpStackClient {
         };
 
         let inner = map_err(OpStackClientBuilder::new().config(config).build())?;
-
-        Ok(Self { inner, chain_id })
+        Ok(Self { inner, chain_id: network_config.chain.chain_id })
     }
 
     #[wasm_bindgen]
@@ -76,8 +67,7 @@ impl OpStackClient {
     pub async fn get_balance(&self, addr: JsValue, block: JsValue) -> Result<String, JsError> {
         let addr: Address = serde_wasm_bindgen::from_value(addr)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
-        let res = map_err(self.inner.get_balance(addr, block).await);
-        res.map(|v| v.to_string())
+        map_err(self.inner.get_balance(addr, block).await).map(|v| v.to_string())
     }
 
     #[wasm_bindgen]
@@ -88,77 +78,41 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
-    pub async fn get_transaction_by_block_hash_and_index(
-        &self,
-        hash: JsValue,
-        index: JsValue,
-    ) -> Result<JsValue, JsError> {
-        let hash: B256 = serde_wasm_bindgen::from_value(hash)?;
-        let index: u64 = serde_wasm_bindgen::from_value(index)?;
-        let tx = self
-            .inner
-            .get_transaction_by_block_hash_and_index(hash, index)
-            .await;
+    pub async fn get_transaction_by_block_hash_and_index(&self, hash: JsValue, index: JsValue) -> Result<JsValue, JsError> {
+        let (hash, index): (B256, u64) = (serde_wasm_bindgen::from_value(hash)?, serde_wasm_bindgen::from_value(index)?);
+        let tx = self.inner.get_transaction_by_block_hash_and_index(hash, index).await;
         Ok(serde_wasm_bindgen::to_value(&tx)?)
     }
 
     #[wasm_bindgen]
-    pub async fn get_transaction_by_block_number_and_index(
-        &self,
-        block: JsValue,
-        index: JsValue,
-    ) -> Result<JsValue, JsError> {
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
-        let index: u64 = serde_wasm_bindgen::from_value(index)?;
-        let tx = map_err(
-            self.inner
-                .get_transaction_by_block_number_and_index(block, index)
-                .await,
-        )?;
+    pub async fn get_transaction_by_block_number_and_index(&self, block: JsValue, index: JsValue) -> Result<JsValue, JsError> {
+        let (block, index): (BlockTag, u64) = (serde_wasm_bindgen::from_value(block)?, serde_wasm_bindgen::from_value(index)?);
+        let tx = map_err(self.inner.get_transaction_by_block_number_and_index(block, index).await)?;
         Ok(serde_wasm_bindgen::to_value(&tx)?)
     }
 
     #[wasm_bindgen]
-    pub async fn get_transaction_count(
-        &self,
-        addr: JsValue,
-        block: JsValue,
-    ) -> Result<u32, JsError> {
-        let addr: Address = serde_wasm_bindgen::from_value(addr)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+    pub async fn get_transaction_count(&self, addr: JsValue, block: JsValue) -> Result<u32, JsError> {
+        let (addr, block): (Address, BlockTag) = (serde_wasm_bindgen::from_value(addr)?, serde_wasm_bindgen::from_value(block)?);
         Ok(map_err(self.inner.get_nonce(addr, block).await)? as u32)
     }
 
     #[wasm_bindgen]
-    pub async fn get_block_transaction_count_by_hash(
-        &self,
-        hash: JsValue,
-    ) -> Result<Option<u32>, JsError> {
+    pub async fn get_block_transaction_count_by_hash(&self, hash: JsValue) -> Result<Option<u32>, JsError> {
         let hash: B256 = serde_wasm_bindgen::from_value(hash)?;
         let count = map_err(self.inner.get_block_transaction_count_by_hash(hash).await)?;
         Ok(count.map(|v| v as u32))
     }
 
     #[wasm_bindgen]
-    pub async fn get_block_transaction_count_by_number(
-        &self,
-        block: JsValue,
-    ) -> Result<Option<u32>, JsError> {
+    pub async fn get_block_transaction_count_by_number(&self, block: JsValue) -> Result<Option<u32>, JsError> {
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
-        let count = map_err(
-            self.inner
-                .get_block_transaction_count_by_number(block)
-                .await,
-        )?;
+        let count = map_err(self.inner.get_block_transaction_count_by_number(block).await)?;
         Ok(count.map(|v| v as u32))
     }
 
     #[wasm_bindgen]
-    pub async fn get_block_by_number(
-        &self,
-        block: JsValue,
-        full_tx: bool,
-    ) -> Result<JsValue, JsError> {
+    pub async fn get_block_by_number(&self, block: JsValue, full_tx: bool) -> Result<JsValue, JsError> {
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
         let block = map_err(self.inner.get_block_by_number(block, full_tx).await)?;
         Ok(serde_wasm_bindgen::to_value(&block)?)
@@ -166,18 +120,15 @@ impl OpStackClient {
 
     #[wasm_bindgen]
     pub async fn get_code(&self, addr: JsValue, block: JsValue) -> Result<String, JsError> {
-        let addr: Address = serde_wasm_bindgen::from_value(addr)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let (addr, block): (Address, BlockTag) = (serde_wasm_bindgen::from_value(addr)?, serde_wasm_bindgen::from_value(block)?);
         let code = map_err(self.inner.get_code(addr, block).await)?;
         Ok(format!("0x{}", hex::encode(code)))
     }
 
     #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
-        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
-        let res = map_err(self.inner.call(&opts, block).await)?;
-        Ok(format!("0x{}", hex::encode(res)))
+        let (opts, block): (TransactionRequest, BlockTag) = (serde_wasm_bindgen::from_value(opts)?, serde_wasm_bindgen::from_value(block)?);
+        map_err(self.inner.call(&opts, block).await).map(|res| format!("0x{}", hex::encode(res)))
     }
 
     #[wasm_bindgen]
