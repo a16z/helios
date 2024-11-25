@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use alloy::network::ReceiptResponse;
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
-use alloy::rpc::types::{Filter, Log};
+use alloy::rpc::types::{Filter, FilterChanges, Log};
 use eyre::Result;
 use futures::future::try_join_all;
 use revm::primitives::KECCAK_EMPTY;
@@ -296,15 +296,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Ok(logs)
     }
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_filter_changes(filter_id).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
+        let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
+
+        if let FilterChanges::Logs(logs) = &filter_changes {
+            if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                return Err(ExecutionError::TooManyLogsToProve(
+                    logs.len(),
+                    MAX_SUPPORTED_LOGS_NUMBER,
+                )
+                .into());
+            }
+            self.verify_logs(logs).await?;
         }
-        self.verify_logs(&logs).await?;
-        Ok(logs)
+
+        Ok(filter_changes)
     }
 
     pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {

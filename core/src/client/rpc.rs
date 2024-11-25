@@ -3,7 +3,7 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{Filter, Log, SyncStatus};
+use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods},
@@ -122,7 +122,7 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     #[method(name = "getLogs")]
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, ErrorObjectOwned>;
     #[method(name = "getFilterChanges")]
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned>;
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges, ErrorObjectOwned>;
     #[method(name = "getFilterLogs")]
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned>;
     #[method(name = "uninstallFilter")]
@@ -327,7 +327,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
         convert_err(self.node.get_logs(&filter).await)
     }
 
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned> {
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges, ErrorObjectOwned> {
         convert_err(self.node.get_filter_changes(filter_id).await)
     }
 

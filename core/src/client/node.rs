@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{Filter, Log, SyncInfo, SyncStatus};
+use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 
 use crate::consensus::Consensus;
@@ -166,7 +166,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         format!("helios-{}", helios_version)
     }
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
         self.execution.get_filter_changes(filter_id).await
     }
 

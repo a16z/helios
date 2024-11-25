@@ -24,7 +24,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getTransactionByBlockNumberAndIndex` | `get_transaction_by_block_number_and_index` | Returns information about a transaction by block number and transaction index position. | `client.get_transaction_by_block_number_and_index(&self, block: BlockTag, index: u64)`
 | `eth_getBlockReceipts` | `get_block_receipts` | Returns all transaction receipts of a block by number. | `client.get_block_receipts(&self, block: BlockTag)` |
 | `eth_getLogs` | `get_logs` | Returns an array of logs matching the filter. | `client.get_logs(&self, filter: Filter)` |
-| `eth_getFilterChanges` | `get_filter_changes` | Polling method for a filter, which returns an array of logs which occurred since last poll. | `client.get_filter_changes(&self, filter_id: H256)` |
+| `eth_getFilterChanges` | `get_filter_changes` | Polling method for a filter, which returns an array of logs or transaction hashes or block hashes (depending on type of filter) which occurred since last poll. | `client.get_filter_changes(&self, filter_id: H256)` |
 | `eth_getFilterLogs` | `get_filter_logs` | Returns an array of all logs matching filter with given id. | `client.get_filter_logs(&self, filter_id: H256)` |
 | `eth_getStorageAt` | `get_storage_at` | Returns the value from a storage position at a given address. | `client.get_storage_at(&self, address: &str, slot: H256, block: BlockTag)` |
 | `eth_getBlockTransactionCountByHash` | `get_block_transaction_count_by_hash` | Returns the number of transactions in a block from a block matching the transaction hash. | `client.get_block_transaction_count_by_hash(&self, hash: &str)` |
