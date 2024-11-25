@@ -123,6 +123,8 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, ErrorObjectOwned>;
     #[method(name = "getFilterChanges")]
     async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned>;
+    #[method(name = "getFilterLogs")]
+    async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned>;
     #[method(name = "uninstallFilter")]
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool, ErrorObjectOwned>;
     #[method(name = "getNewFilter")]
@@ -327,6 +329,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
 
     async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned> {
         convert_err(self.node.get_filter_changes(filter_id).await)
+    }
+
+    async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned> {
+        convert_err(self.node.get_filter_logs(filter_id).await)
     }
 
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool, ErrorObjectOwned> {

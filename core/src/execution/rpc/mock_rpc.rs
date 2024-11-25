@@ -79,6 +79,11 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&logs)?)
     }
 
+    async fn get_filter_logs(&self, _filter_id: U256) -> Result<Vec<Log>> {
+        let logs = read_to_string(self.path.join("logs.json"))?;
+        Ok(serde_json::from_str(&logs)?)
+    }
+
     async fn uninstall_filter(&self, _filter_id: U256) -> Result<bool> {
         Err(eyre!("not implemented"))
     }

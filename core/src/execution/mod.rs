@@ -307,6 +307,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Ok(logs)
     }
 
+    pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
+        let logs = self.rpc.get_filter_logs(filter_id).await?;
+        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+            return Err(
+                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+            );
+        }
+        self.verify_logs(&logs).await?;
+        Ok(logs)
+    }
+
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         self.rpc.uninstall_filter(filter_id).await
     }
