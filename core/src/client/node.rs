@@ -204,6 +204,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         Ok(base_fee + tip)
     }
 
+    pub async fn get_blob_base_fee(&self, block:BlockTag)->Result<U256>{
+        Ok(self.execution.get_blob_base_fee(block).await)
+    }
+
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub fn get_priority_fee(&self) -> Result<U256> {
         let tip = U256::from(10_u64.pow(9));

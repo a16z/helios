@@ -163,6 +163,10 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         self.node.get_priority_fee()
     }
 
+    pub async fn get_blob_base_fee(&self,block: BlockTag,)->Result<U256>{
+        self.node.get_blob_base_fee(block).await
+    }
+
     pub async fn get_block_number(&self) -> Result<U256> {
         self.node.get_block_number().await
     }
