@@ -6,7 +6,7 @@ Helios is a trustless, efficient, and portable multichain light client written i
 
 Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
 
-Helios has a small binary size and compiles into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
+Helios has a small binary size and compiles into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.README.md
 
 ## Installing
 
@@ -144,7 +144,7 @@ cp .env.example .env
 To run all tests, use the following command:
 
 ```sh
-cargo test-all
+cargo test --all
 ```
 
 To run tests for an individual package, use this command, replacing <package-name> with the package you want to test:
@@ -159,7 +159,7 @@ All contributions to Helios are welcome. Before opening a PR, please submit an i
 
 ## Telegram
 
-If you are having trouble with Helios or are considering contributing, feel free to join our telegram [here](https://t.me/+IntDY_gZJSRkNTJj).
+If you are having trouble with Helios or are considering contributing, feel free to join our Telegram [here](https://t.me/+IntDY_gZJSRkNTJj).
 
 ## Disclaimer
 
