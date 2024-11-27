@@ -40,9 +40,9 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>>;
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool>;
-    async fn get_new_filter(&self, filter: &Filter) -> Result<U256>;
-    async fn get_new_block_filter(&self) -> Result<U256>;
-    async fn get_new_pending_transaction_filter(&self) -> Result<U256>;
+    async fn new_filter(&self, filter: &Filter) -> Result<U256>;
+    async fn new_block_filter(&self) -> Result<U256>;
+    async fn new_pending_transaction_filter(&self) -> Result<U256>;
     async fn chain_id(&self) -> Result<u64>;
     async fn get_block(&self, hash: B256) -> Result<Block<N::TransactionResponse>>;
 
