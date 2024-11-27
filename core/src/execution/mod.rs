@@ -150,7 +150,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Some(block)
     }
 
-    pub async fn get_blob_base_fee(&self, block: BlockTag) -> U256 {
+    pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {
         let block = self.state.get_block(block).await;
         if block.is_none() {
             warn!(target: "helios::execution", "requested block not found");

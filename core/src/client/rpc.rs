@@ -85,7 +85,7 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     #[method(name = "maxPriorityFeePerGas")]
     async fn max_priority_fee_per_gas(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "getBlobBaseFee")]
-    async fn get_blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned>;
+    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "blockNumber")]
     async fn block_number(&self) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockByNumber")]
@@ -249,8 +249,8 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
         convert_err(self.node.get_priority_fee())
     }
 
-    async fn get_blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned> {
-        convert_err(self.node.get_blob_base_fee(block).await)
+    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned> {
+        convert_err(self.node.blob_base_fee(block).await)
     }
 
     async fn block_number(&self) -> Result<U64, ErrorObjectOwned> {
