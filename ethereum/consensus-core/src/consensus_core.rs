@@ -31,17 +31,19 @@ pub fn verify_bootstrap<S: ConsensusSpec>(
     checkpoint: B256,
     forks: &Forks,
 ) -> Result<()> {
-    if !is_valid_header::<S>(&bootstrap.header, forks) {
+    if !is_valid_header::<S>(&bootstrap.header(), forks) {
         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
     }
 
     let committee_valid = is_current_committee_proof_valid(
-        &bootstrap.header.beacon(),
-        &bootstrap.current_sync_committee,
-        &bootstrap.current_sync_committee_branch,
+        bootstrap.header().beacon(),
+        bootstrap.current_sync_committee(),
+        bootstrap.current_sync_committee_branch(),
+        bootstrap.header().beacon().slot / S::slots_per_epoch(),
+        forks,
     );
 
-    let header_hash = bootstrap.header.beacon().tree_hash_root();
+    let header_hash = bootstrap.header().beacon().tree_hash_root();
     let header_valid = header_hash == checkpoint;
 
     if !header_valid {
@@ -93,10 +95,10 @@ pub fn apply_bootstrap<S: ConsensusSpec>(
     bootstrap: &Bootstrap<S>,
 ) {
     *store = LightClientStore {
-        finalized_header: bootstrap.header.clone(),
-        current_sync_committee: bootstrap.current_sync_committee.clone(),
+        finalized_header: bootstrap.header().clone(),
+        current_sync_committee: bootstrap.current_sync_committee().clone(),
         next_sync_committee: None,
-        optimistic_header: bootstrap.header.clone(),
+        optimistic_header: bootstrap.header().clone(),
         previous_max_active_participants: 0,
         current_max_active_participants: 0,
         best_valid_update: None,
@@ -296,9 +298,11 @@ pub fn verify_generic_update<S: ConsensusSpec>(
             }
 
             let is_valid = is_finality_proof_valid(
-                &update.attested_header.beacon(),
-                &finalized_header.beacon(),
+                update.attested_header.beacon(),
+                finalized_header.beacon(),
                 finality_branch,
+                update.attested_header.beacon().slot / S::slots_per_epoch(),
+                forks,
             );
 
             if !is_valid {
@@ -312,9 +316,11 @@ pub fn verify_generic_update<S: ConsensusSpec>(
     if let Some(next_sync_committee) = &update.next_sync_committee {
         if let Some(next_sync_committee_branch) = &update.next_sync_committee_branch {
             let is_valid = is_next_committee_proof_valid(
-                &update.attested_header.beacon(),
+                update.attested_header.beacon(),
                 next_sync_committee,
                 next_sync_committee_branch,
+                update.attested_header.beacon().slot / S::slots_per_epoch(),
+                forks,
             );
 
             if !is_valid {
@@ -488,6 +494,7 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
         let execution_branch = header.execution_branch().unwrap();
 
         let valid_execution_type = match execution {
+            ExecutionPayloadHeader::Electra(_) => epoch >= forks.electra.epoch,
             ExecutionPayloadHeader::Deneb(_) => epoch >= forks.deneb.epoch,
             ExecutionPayloadHeader::Capella(_) => {
                 epoch >= forks.capella.epoch && epoch < forks.deneb.epoch
@@ -498,7 +505,7 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
         };
 
         let proof_valid =
-            is_execution_payload_proof_valid(&header.beacon(), execution, execution_branch);
+            is_execution_payload_proof_valid(header.beacon(), execution, execution_branch);
 
         proof_valid && valid_execution_type
     } else {
