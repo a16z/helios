@@ -13,7 +13,7 @@
 //!
 //! The entire size of Helios's binary is 13Mb and compiles into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 //!
-//! Examples on how you can use helios can be found in the [`examples` directory of the repository](https://github.com/a16z/helios/tree/master/examples) and in the `tests/` directories of each crate.
+//! Examples of using Helios can be found in the [`examples` directory of the repository](https://github.com/a16z/helios/tree/master/examples) and in the `tests/` directories of each crate.
 //!
 
 pub mod core {
