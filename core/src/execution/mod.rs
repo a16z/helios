@@ -299,15 +299,29 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
         let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
 
-        if let FilterChanges::Logs(logs) = &filter_changes {
-            if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-                return Err(ExecutionError::TooManyLogsToProve(
-                    logs.len(),
-                    MAX_SUPPORTED_LOGS_NUMBER,
-                )
-                .into());
+        match &filter_changes {
+            FilterChanges::Empty => {}
+            FilterChanges::Logs(logs) => {
+                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                    return Err(ExecutionError::TooManyLogsToProve(
+                        logs.len(),
+                        MAX_SUPPORTED_LOGS_NUMBER,
+                    )
+                    .into());
+                }
+                self.verify_logs(logs).await?;
             }
-            self.verify_logs(logs).await?;
+            FilterChanges::Hashes(_) => {
+                // TODO: validate block or tx hashes
+                // Blockers:
+                // - can't distinguish b/w block and tx hashes
+                // - can't validate hashes for txs in mempool
+            }
+            FilterChanges::Transactions(_) => {
+                // TODO: validate txs
+                // Blockers:
+                // - this response type doesn't seem to be part of the official JSON-RPC spec
+            }
         }
 
         Ok(filter_changes)
@@ -328,7 +342,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         self.rpc.uninstall_filter(filter_id).await
     }
 
-    pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
+    pub async fn new_filter(&self, filter: &Filter) -> Result<U256> {
         let filter = filter.clone();
 
         // avoid submitting a filter for logs for a block helios hasn't seen yet
@@ -343,15 +357,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         } else {
             filter
         };
-        self.rpc.get_new_filter(&filter).await
+        self.rpc.new_filter(&filter).await
     }
 
-    pub async fn get_new_block_filter(&self) -> Result<U256> {
-        self.rpc.get_new_block_filter().await
+    pub async fn new_block_filter(&self) -> Result<U256> {
+        self.rpc.new_block_filter().await
     }
 
-    pub async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
-        self.rpc.get_new_pending_transaction_filter().await
+    pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
+        self.rpc.new_pending_transaction_filter().await
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {

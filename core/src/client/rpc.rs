@@ -127,12 +127,12 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned>;
     #[method(name = "uninstallFilter")]
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool, ErrorObjectOwned>;
-    #[method(name = "getNewFilter")]
-    async fn get_new_filter(&self, filter: Filter) -> Result<U256, ErrorObjectOwned>;
-    #[method(name = "getNewBlockFilter")]
-    async fn get_new_block_filter(&self) -> Result<U256, ErrorObjectOwned>;
-    #[method(name = "getNewPendingTransactionFilter")]
-    async fn get_new_pending_transaction_filter(&self) -> Result<U256, ErrorObjectOwned>;
+    #[method(name = "newFilter")]
+    async fn new_filter(&self, filter: Filter) -> Result<U256, ErrorObjectOwned>;
+    #[method(name = "newBlockFilter")]
+    async fn new_block_filter(&self) -> Result<U256, ErrorObjectOwned>;
+    #[method(name = "newPendingTransactionFilter")]
+    async fn new_pending_transaction_filter(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "getStorageAt")]
     async fn get_storage_at(
         &self,
@@ -339,16 +339,16 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
         convert_err(self.node.uninstall_filter(filter_id).await)
     }
 
-    async fn get_new_filter(&self, filter: Filter) -> Result<U256, ErrorObjectOwned> {
-        convert_err(self.node.get_new_filter(&filter).await)
+    async fn new_filter(&self, filter: Filter) -> Result<U256, ErrorObjectOwned> {
+        convert_err(self.node.new_filter(&filter).await)
     }
 
-    async fn get_new_block_filter(&self) -> Result<U256, ErrorObjectOwned> {
-        convert_err(self.node.get_new_block_filter().await)
+    async fn new_block_filter(&self) -> Result<U256, ErrorObjectOwned> {
+        convert_err(self.node.new_block_filter().await)
     }
 
-    async fn get_new_pending_transaction_filter(&self) -> Result<U256, ErrorObjectOwned> {
-        convert_err(self.node.get_new_pending_transaction_filter().await)
+    async fn new_pending_transaction_filter(&self) -> Result<U256, ErrorObjectOwned> {
+        convert_err(self.node.new_pending_transaction_filter().await)
     }
 
     async fn get_storage_at(

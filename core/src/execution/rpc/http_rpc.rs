@@ -176,28 +176,28 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("uninstall_filter", e))?)
     }
 
-    async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
+    async fn new_filter(&self, filter: &Filter) -> Result<U256> {
         Ok(self
             .provider
             .new_filter(filter)
             .await
-            .map_err(|e| RpcError::new("get_new_filter", e))?)
+            .map_err(|e| RpcError::new("new_filter", e))?)
     }
 
-    async fn get_new_block_filter(&self) -> Result<U256> {
+    async fn new_block_filter(&self) -> Result<U256> {
         Ok(self
             .provider
             .new_block_filter()
             .await
-            .map_err(|e| RpcError::new("get_new_block_filter", e))?)
+            .map_err(|e| RpcError::new("new_block_filter", e))?)
     }
 
-    async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
+    async fn new_pending_transaction_filter(&self) -> Result<U256> {
         Ok(self
             .provider
             .new_pending_transactions_filter(true)
             .await
-            .map_err(|e| RpcError::new("get_new_pending_transactions", e))?)
+            .map_err(|e| RpcError::new("new_pending_transaction_filter", e))?)
     }
 
     async fn chain_id(&self) -> Result<u64> {

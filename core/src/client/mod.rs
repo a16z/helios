@@ -143,16 +143,16 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         self.node.uninstall_filter(filter_id).await
     }
 
-    pub async fn get_new_filter(&self, filter: &Filter) -> Result<U256> {
-        self.node.get_new_filter(filter).await
+    pub async fn new_filter(&self, filter: &Filter) -> Result<U256> {
+        self.node.new_filter(filter).await
     }
 
-    pub async fn get_new_block_filter(&self) -> Result<U256> {
-        self.node.get_new_block_filter().await
+    pub async fn new_block_filter(&self) -> Result<U256> {
+        self.node.new_block_filter().await
     }
 
-    pub async fn get_new_pending_transaction_filter(&self) -> Result<U256> {
-        self.node.get_new_pending_transaction_filter().await
+    pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
+        self.node.new_pending_transaction_filter().await
     }
 
     pub async fn get_gas_price(&self) -> Result<U256> {
