@@ -204,7 +204,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         Ok(base_fee + tip)
     }
 
-    pub async fn blob_base_fee(&self, block:BlockTag)->Result<U256>{
+    pub async fn blob_base_fee(&self, block: BlockTag) -> Result<U256> {
         Ok(self.execution.blob_base_fee(block).await)
     }
 

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use alloy::network::ReceiptResponse;
-use alloy::primitives::{keccak256, Address, B256, U256, U64};
+use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
 use alloy::rpc::types::{Filter, Log};
 use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
