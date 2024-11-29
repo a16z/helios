@@ -351,6 +351,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         Ok(payloads)
     }
 
+    // Gnosis: entry point
     pub async fn sync(&mut self, checkpoint: B256) -> Result<()> {
         self.store = LightClientStore::default();
         self.last_checkpoint = None;
@@ -559,7 +560,9 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
-        slot * 12 + self.config.chain.genesis_time
+        // slot * 12 + self.config.chain.genesis_time
+        // Gnosis: replace with 5 s per slot in Gnosis
+        slot * 5 + self.config.chain.genesis_time
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old

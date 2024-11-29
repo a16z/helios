@@ -37,6 +37,23 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
 pub struct MainnetConsensusSpec;
 
+// Here is the original value of the consensus spec for mainnet
+// impl ConsensusSpec for MainnetConsensusSpec {
+//     type MaxProposerSlashings = typenum::U16;
+//     type MaxAttesterSlashings = typenum::U2;
+//     type MaxAttestations = typenum::U128;
+//     type MaxDeposits = typenum::U16;
+//     type MaxVoluntaryExits = typenum::U16;
+//     type MaxBlsToExecutionChanged = typenum::U16;
+//     type MaxBlobKzgCommitments = typenum::U4096;
+//     type MaxWithdrawals = typenum::U16;
+//     type MaxValidatorsPerCommitee = typenum::U2048;
+//     type SlotsPerEpoch = typenum::U32;
+//     type EpochsPerSyncCommiteePeriod = typenum::U256;
+//     type SyncCommitteeSize = typenum::U512;
+// }
+
+// Here is the modified version for Gnosis Chain
 impl ConsensusSpec for MainnetConsensusSpec {
     type MaxProposerSlashings = typenum::U16;
     type MaxAttesterSlashings = typenum::U2;
@@ -45,10 +62,10 @@ impl ConsensusSpec for MainnetConsensusSpec {
     type MaxVoluntaryExits = typenum::U16;
     type MaxBlsToExecutionChanged = typenum::U16;
     type MaxBlobKzgCommitments = typenum::U4096;
-    type MaxWithdrawals = typenum::U16;
+    type MaxWithdrawals = typenum::U8;
     type MaxValidatorsPerCommitee = typenum::U2048;
-    type SlotsPerEpoch = typenum::U32;
-    type EpochsPerSyncCommiteePeriod = typenum::U256;
+    type SlotsPerEpoch = typenum::U12;
+    type EpochsPerSyncCommiteePeriod = typenum::U512;
     type SyncCommitteeSize = typenum::U512;
 }
 

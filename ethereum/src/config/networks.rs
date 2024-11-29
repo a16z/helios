@@ -23,6 +23,7 @@ pub enum Network {
     GOERLI,
     SEPOLIA,
     HOLESKY,
+    GNOSIS,
 }
 
 impl FromStr for Network {
@@ -34,6 +35,7 @@ impl FromStr for Network {
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
             "holesky" => Ok(Self::HOLESKY),
+            "gnosis" => Ok(Self::GNOSIS),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -46,6 +48,7 @@ impl Display for Network {
             Self::GOERLI => "goerli",
             Self::SEPOLIA => "sepolia",
             Self::HOLESKY => "holesky",
+            Self::GNOSIS => "gnosis",
         };
 
         f.write_str(str)
@@ -59,6 +62,7 @@ impl Network {
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
             Self::HOLESKY => holesky(),
+            Self::GNOSIS => gnosis(),
         }
     }
 
@@ -68,6 +72,7 @@ impl Network {
             5 => Ok(Network::GOERLI),
             11155111 => Ok(Network::SEPOLIA),
             17000 => Ok(Network::HOLESKY),
+            100 => Ok(Network::GNOSIS),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -233,6 +238,47 @@ pub fn holesky() -> BaseConfig {
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::HOLESKY)),
+        ..std::default::Default::default()
+    }
+}
+
+pub fn gnosis() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "7a80b3b9e776265dab881abf3c4b039121e0416a2263bf980047cc546c76e043" // block root from slot 18777712 https://checkpoint.gnosischain.com/
+        ),
+        rpc_port: 8545,
+        consensus_rpc: None,
+        chain: ChainConfig {
+            chain_id: 100,
+            genesis_time: 1638968400,
+            genesis_root: b256!("f5dcb5564e829aab27264b9becd5dfaa017085611224cb3036f573368dbb9d47"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("00000064"),
+            },
+            altair: Fork {
+                epoch: 512,
+                fork_version: fixed_bytes!("01000064"),
+            },
+            bellatrix: Fork {
+                epoch: 385536,
+                fork_version: fixed_bytes!("02000064"),
+            },
+            capella: Fork {
+                epoch: 648704,
+                fork_version: fixed_bytes!("03000064"),
+            },
+            deneb: Fork {
+                epoch: 889856,
+                fork_version: fixed_bytes!("04000064"),
+            },
+        },
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::GNOSIS)),
         ..std::default::Default::default()
     }
 }
