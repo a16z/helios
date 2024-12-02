@@ -18,9 +18,10 @@ use futures::executor::block_on;
 use helios_core::client::Client;
 use helios_core::consensus::Consensus;
 use helios_core::network_spec::NetworkSpec;
+use helios_ethereum::builder::GnosisClientBuilder;
 use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
 use helios_ethereum::database::FileDB;
-use helios_ethereum::{EthereumClient, EthereumClientBuilder};
+use helios_ethereum::{EthereumClient, EthereumClientBuilder, GnosisClient};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -39,6 +40,11 @@ async fn main() -> Result<()> {
         }
         Command::OpStack(opstack) => {
             let mut client = opstack.make_client();
+            start_client(&mut client).await;
+            register_shutdown_handler(client);
+        }
+        Command::Gnosis(gnosis) => {
+            let mut client = gnosis.make_client();
             start_client(&mut client).await;
             register_shutdown_handler(client);
         }
@@ -117,6 +123,8 @@ enum Command {
     Ethereum(EthereumArgs),
     #[clap(name = "opstack")]
     OpStack(OpStackArgs),
+    #[clap(name = "gnosis")]
+    Gnosis(GnosisArgs),
 }
 
 #[derive(Args)]
@@ -255,6 +263,64 @@ impl OpStackArgs {
         }
 
         Serialized::from(user_dict, &self.network)
+    }
+}
+
+#[derive(Args)]
+struct GnosisArgs {
+    #[clap(short, long, default_value = "gnosis")]
+    network: String,
+    #[clap(short = 'b', long, env)]
+    rpc_bind_ip: Option<IpAddr>,
+    #[clap(short = 'p', long, env)]
+    rpc_port: Option<u16>,
+    #[clap(short = 'w', long, env)]
+    checkpoint: Option<B256>,
+    #[clap(short, long, env)]
+    execution_rpc: Option<String>,
+    #[clap(short, long, env)]
+    consensus_rpc: Option<String>,
+    #[clap(short, long, env)]
+    data_dir: Option<String>,
+    #[clap(short = 'f', long, env)]
+    fallback: Option<String>,
+    #[clap(short = 'l', long, env)]
+    load_external_fallback: bool,
+    #[clap(short = 's', long, env)]
+    strict_checkpoint_age: bool,
+}
+
+impl GnosisArgs {
+    fn make_client(&self) -> GnosisClient<FileDB> {
+        let config_path = home_dir().unwrap().join(".helios/helios.toml");
+        let cli_config = self.as_cli_config();
+        // reuse the EthereumConfig struct
+        let config = EthereumConfig::from_file(&config_path, &self.network, &cli_config);
+
+        match GnosisClientBuilder::new().config(config).build::<FileDB>() {
+            Ok(client) => client,
+            Err(err) => {
+                error!(target: "helios::runner", error = %err);
+                exit(1);
+            }
+        }
+    }
+
+    fn as_cli_config(&self) -> CliConfig {
+        CliConfig {
+            checkpoint: self.checkpoint,
+            execution_rpc: self.execution_rpc.clone(),
+            consensus_rpc: self.consensus_rpc.clone(),
+            data_dir: self
+                .data_dir
+                .as_ref()
+                .map(|s| PathBuf::from_str(s).expect("cannot find data dir")),
+            rpc_bind_ip: self.rpc_bind_ip,
+            rpc_port: self.rpc_port,
+            fallback: self.fallback.clone(),
+            load_external_fallback: true_or_none(self.load_external_fallback),
+            strict_checkpoint_age: true_or_none(self.strict_checkpoint_age),
+        }
     }
 }
 

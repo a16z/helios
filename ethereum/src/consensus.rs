@@ -359,6 +359,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.bootstrap(checkpoint).await?;
 
         let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
+
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -560,9 +561,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
-        // slot * 12 + self.config.chain.genesis_time
-        // Gnosis: replace with 5 s per slot in Gnosis
-        slot * 5 + self.config.chain.genesis_time
+        slot * self.config.chain.block_time + self.config.chain.genesis_time
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old

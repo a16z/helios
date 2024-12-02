@@ -89,6 +89,7 @@ pub fn mainnet() -> BaseConfig {
             chain_id: 1,
             genesis_time: 1606824023,
             genesis_root: b256!("4b363db94e286120d76eb905340fdd4e54bfe9f06bf33ff6cf5ad27f511bfe95"),
+            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -130,6 +131,7 @@ pub fn goerli() -> BaseConfig {
             chain_id: 5,
             genesis_time: 1616508000,
             genesis_root: b256!("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb"),
+            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -171,6 +173,7 @@ pub fn sepolia() -> BaseConfig {
             chain_id: 11155111,
             genesis_time: 1655733600,
             genesis_root: b256!("d8ea171f3c94aea21ebc42a1ed61052acf3f9209c00e4efbaaddac09ed9b8078"),
+            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -212,6 +215,7 @@ pub fn holesky() -> BaseConfig {
             chain_id: 17000,
             genesis_time: 1695902400,
             genesis_root: b256!("9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1"),
+            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -245,7 +249,7 @@ pub fn holesky() -> BaseConfig {
 pub fn gnosis() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "7a80b3b9e776265dab881abf3c4b039121e0416a2263bf980047cc546c76e043" // block root from slot 18777712 https://checkpoint.gnosischain.com/
+            "535cfeb9ffb0796cf39647cae4b84c44af087cd7c2bd347148d5de9454101515" // https://checkpoint.gnosischain.com/
         ),
         rpc_port: 8545,
         consensus_rpc: None,
@@ -253,6 +257,7 @@ pub fn gnosis() -> BaseConfig {
             chain_id: 100,
             genesis_time: 1638968400,
             genesis_root: b256!("f5dcb5564e829aab27264b9becd5dfaa017085611224cb3036f573368dbb9d47"),
+            block_time: 5,
         },
         forks: Forks {
             genesis: Fork {
