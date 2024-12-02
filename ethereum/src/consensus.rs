@@ -188,7 +188,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
     pub fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
 
-        expected_current_slot(now, self.genesis_time)
+        expected_current_slot(now, self.genesis_time, self.config.chain.block_time)
     }
 }
 
@@ -359,7 +359,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.bootstrap(checkpoint).await?;
 
         let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
-
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -557,7 +556,11 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     pub fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
 
-        expected_current_slot(now, self.config.chain.genesis_time)
+        expected_current_slot(
+            now,
+            self.config.chain.genesis_time,
+            self.config.chain.block_time,
+        )
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
