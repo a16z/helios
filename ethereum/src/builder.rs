@@ -119,7 +119,6 @@ impl EthereumClientBuilder {
                 .clone()
         });
 
-        println!("execution build is claled");
         let execution_rpc = self.execution_rpc.unwrap_or_else(|| {
             self.config
                 .as_ref()

@@ -349,121 +349,6 @@ pub fn verify_generic_update<S: ConsensusSpec>(
     Ok(())
 }
 
-// implements checks from validate_light_client_update and process_light_client_update in the
-// specification
-// pub fn verify_generic_update<S: ConsensusSpec>(
-//     update: &GenericUpdate<S>,
-//     expected_current_slot: u64,
-//     store: &LightClientStore<S>,
-//     genesis_root: B256,
-//     forks: &Forks,
-// ) -> Result<()> {
-//     let bits = get_bits::<S>(&update.sync_aggregate.sync_committee_bits);
-//     if bits == 0 {
-//         return Err(ConsensusError::InsufficientParticipation.into());
-//     }
-
-//     if !is_valid_header::<S>(&update.attested_header, forks) {
-//         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
-//     }
-
-//     let update_finalized_slot = update
-//         .finalized_header
-//         .clone()
-//         .map(|v| v.beacon().slot)
-//         .unwrap_or_default();
-
-//     let valid_time: bool = expected_current_slot >= update.signature_slot
-//         && update.signature_slot > update.attested_header.beacon().slot
-//         && update.attested_header.beacon().slot >= update_finalized_slot;
-
-//     if !valid_time {
-//         return Err(ConsensusError::InvalidTimestamp.into());
-//     }
-
-//     let store_period = calc_sync_period::<S>(store.finalized_header.beacon().slot);
-//     let update_sig_period = calc_sync_period::<S>(update.signature_slot);
-//     let valid_period = if store.next_sync_committee.is_some() {
-//         update_sig_period == store_period || update_sig_period == store_period + 1
-//     } else {
-//         update_sig_period == store_period
-//     };
-
-//     if !valid_period {
-//         return Err(ConsensusError::InvalidPeriod.into());
-//     }
-
-//     let update_attested_period = calc_sync_period::<S>(update.attested_header.beacon().slot);
-//     let update_has_next_committee = store.next_sync_committee.is_none()
-//         && update.next_sync_committee.is_some()
-//         && update_attested_period == store_period;
-
-//     if update.attested_header.beacon().slot <= store.finalized_header.beacon().slot
-//         && !update_has_next_committee
-//     {
-//         return Err(ConsensusError::NotRelevant.into());
-//     }
-
-//     if let Some(finalized_header) = &update.finalized_header {
-//         if let Some(finality_branch) = &update.finality_branch {
-//             if !is_valid_header::<S>(finalized_header, forks) {
-//                 return Err(ConsensusError::InvalidExecutionPayloadProof.into());
-//             }
-
-//             let is_valid = is_finality_proof_valid(
-//                 &update.attested_header.beacon(),
-//                 &finalized_header.beacon(),
-//                 finality_branch,
-//             );
-
-//             if !is_valid {
-//                 return Err(ConsensusError::InvalidFinalityProof.into());
-//             }
-//         } else {
-//             return Err(ConsensusError::InvalidFinalityProof.into());
-//         }
-//     }
-
-//     if let Some(next_sync_committee) = &update.next_sync_committee {
-//         if let Some(next_sync_committee_branch) = &update.next_sync_committee_branch {
-//             let is_valid = is_next_committee_proof_valid(
-//                 &update.attested_header.beacon(),
-//                 next_sync_committee,
-//                 next_sync_committee_branch,
-//             );
-
-//             if !is_valid {
-//                 return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
-//             }
-//         } else {
-//             return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
-//         }
-//     }
-
-//     let sync_committee = if update_sig_period == store_period {
-//         &store.current_sync_committee
-//     } else {
-//         store.next_sync_committee.as_ref().unwrap()
-//     };
-
-//     let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
-
-//     let fork_version = calculate_fork_version::<S>(forks, update.signature_slot.saturating_sub(1));
-//     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
-//     let is_valid_sig = verify_sync_committee_signture(
-//         &pks,
-//         &update.attested_header.beacon(),
-//         &update.sync_aggregate.sync_committee_signature,
-//         fork_data_root,
-//     );
-
-//     if !is_valid_sig {
-//         return Err(ConsensusError::InvalidSignature.into());
-//     }
-
-//     Ok(())
-// }
-
 /// WARNING: `force_update` allows Helios to accept a header with less than a quorum of signaures.
 /// Use with caution only in cases where it is not possible that valid updates are being censored.
 pub fn force_update<S: ConsensusSpec>(store: &mut LightClientStore<S>, current_slot: u64) {
@@ -596,47 +481,15 @@ fn safety_threshold<S: ConsensusSpec>(store: &LightClientStore<S>) -> u64 {
     ) / 2
 }
 
-// fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> bool {
-//     let epoch = header.beacon().slot / S::slots_per_epoch();
-
-//     if epoch < forks.capella.epoch {
-//         header.execution().is_err() && header.execution_branch().is_err()
-//     } else if header.execution().is_ok() && header.execution_branch().is_ok() {
-//         let execution = header.execution().unwrap();
-//         let execution_branch = header.execution_branch().unwrap();
-
-//         let valid_execution_type = match execution {
-//             ExecutionPayloadHeader::Deneb(_) => epoch >= forks.deneb.epoch,
-//             ExecutionPayloadHeader::Capella(_) => {
-//                 epoch >= forks.capella.epoch && epoch < forks.deneb.epoch
-//             }
-//             ExecutionPayloadHeader::Bellatrix(_) => {
-//                 epoch >= forks.bellatrix.epoch && epoch < forks.altair.epoch
-//             }
-//         };
-
-//         let proof_valid =
-//             is_execution_payload_proof_valid(&header.beacon(), execution, execution_branch);
-
-//         proof_valid && valid_execution_type
-//     } else {
-//         false
-//     }
-// }
-
 fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> bool {
-    // Calculate epoch
     let epoch = header.beacon().slot / S::slots_per_epoch();
 
-    // Check if epoch is less than the fork's capella epoch
     if epoch < forks.capella.epoch {
         header.execution().is_err() && header.execution_branch().is_err()
     } else if header.execution().is_ok() && header.execution_branch().is_ok() {
-        // Unwrap the execution and execution branch
         let execution = header.execution().unwrap();
         let execution_branch = header.execution_branch().unwrap();
 
-        // Check the execution type validity
         let valid_execution_type = match execution {
             ExecutionPayloadHeader::Deneb(_) => epoch >= forks.deneb.epoch,
             ExecutionPayloadHeader::Capella(_) => {
@@ -647,7 +500,6 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
             }
         };
 
-        // Check proof validity
         let proof_valid =
             is_execution_payload_proof_valid(&header.beacon(), execution, execution_branch);
 
