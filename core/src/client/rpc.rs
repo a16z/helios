@@ -84,7 +84,7 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
     async fn gas_price(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "maxPriorityFeePerGas")]
     async fn max_priority_fee_per_gas(&self) -> Result<U256, ErrorObjectOwned>;
-    #[method(name = "getBlobBaseFee")]
+    #[method(name = "blobBaseFee")]
     async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "blockNumber")]
     async fn block_number(&self) -> Result<U64, ErrorObjectOwned>;
