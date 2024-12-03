@@ -102,7 +102,7 @@ Examples of running Helios as a rust library can be seen in the [examples](./exa
 
 ### Supported Ethereum Checkpoints <a id="supported-checkpoints"></a>
 
-A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks
+A checkpoint is a Beacon Chain Consensus Layer block hash rather than an Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks
 
 Checkpoints may be obtained from the following links:
 * Ethereum Mainnet https://beaconcha.in
