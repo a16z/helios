@@ -102,7 +102,7 @@ Examples of running Helios as a rust library can be seen in the [examples](./exa
 
 ### Supported Ethereum Checkpoints <a id="supported-checkpoints"></a>
 
-A checkpoint is a Beacon Chain Consensus Layer block hash rather than a Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks
+A checkpoint is a Beacon Chain Consensus Layer block hash rather than an Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks
 
 Checkpoints may be obtained from the following links:
 * Ethereum Mainnet https://beaconcha.in
@@ -110,7 +110,7 @@ Checkpoints may be obtained from the following links:
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
-For example, to obtain a recent checkpoint for Holesky Testnet go to https://holesky.beaconcha.in/ and get the block hash of the first block in any finalised epoch. At the time of writing, the [first block hash in epoch 78425](https://holesky.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://holesky.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
+For example, to obtain a recent checkpoint for Holesky Testnet go to https://holesky.beaconcha.in/ and get the block hash of the first block in any finalized epoch. At the time of writing, the [first block hash in epoch 78425](https://holesky.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://holesky.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
 
 This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Holesky Testnet:
 ```bash
@@ -121,7 +121,7 @@ helios ethereum \
     --checkpoint 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6
 ```
 
-For example, to obtain a recent checkpoint for Ethereum Mainnet go to https://beaconcha.in and get the block hash of the first block in any finalised epoch. At the time of writing the [first block hash in epoch 222705](https://beaconcha.in/epoch/222705) is the [oldest slot 7126560](https://beaconcha.in/slot/7126560) that has a Block Root of 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2 and is the latest checkpoint value to use.
+For example, to obtain a recent checkpoint for Ethereum Mainnet go to https://beaconcha.in and get the block hash of the first block in any finalized epoch. At the time of writing the [first block hash in epoch 222705](https://beaconcha.in/epoch/222705) is the [oldest slot 7126560](https://beaconcha.in/slot/7126560) that has a Block Root of 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2 and is the latest checkpoint value to use.
 
 This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Mainnet:
 ```bash

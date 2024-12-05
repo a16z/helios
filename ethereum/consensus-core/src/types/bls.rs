@@ -88,7 +88,7 @@ impl Signature {
     }
 }
 
-/// Aggregates multiple keys into one aggragate key
+/// Aggregates multiple keys into one aggregate key
 fn aggregate(pks: &[PublicKey]) -> Result<G1Affine> {
     if pks.is_empty() {
         return Err(eyre!("no keys to aggregate"));
