@@ -195,7 +195,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     async fn new_pending_transaction_filter(&self) -> Result<U256> {
         Ok(self
             .provider
-            .new_pending_transactions_filter(true)
+            .new_pending_transactions_filter(false)
             .await
             .map_err(|e| RpcError::new("new_pending_transaction_filter", e))?)
     }
