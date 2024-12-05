@@ -1,6 +1,6 @@
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
-    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log,
+    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -37,7 +37,7 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_block_receipts(&self, block: BlockTag) -> Result<Option<Vec<N::ReceiptResponse>>>;
     async fn get_transaction(&self, tx_hash: B256) -> Result<Option<N::TransactionResponse>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>>;
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>>;
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool>;
     async fn new_filter(&self, filter: &Filter) -> Result<U256>;

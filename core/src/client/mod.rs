@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{Filter, Log, SyncStatus};
+use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use tracing::{info, warn};
 
@@ -131,7 +131,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         self.node.get_logs(filter).await
     }
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
         self.node.get_filter_changes(filter_id).await
     }
 

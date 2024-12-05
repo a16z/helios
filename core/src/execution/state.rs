@@ -89,6 +89,23 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
             .cloned()
     }
 
+    pub async fn get_blocks_after(&self, tag: BlockTag) -> Vec<Block<N::TransactionResponse>> {
+        let start_block = self.get_block(tag).await;
+        if start_block.is_none() {
+            return vec![];
+        }
+        let start_block_num = start_block.unwrap().number.to::<u64>();
+        let blocks = self
+            .inner
+            .read()
+            .await
+            .blocks
+            .range((start_block_num + 1)..)
+            .map(|(_, v)| v.clone())
+            .collect();
+        blocks
+    }
+
     // transaction fetch
 
     pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {
@@ -157,6 +174,20 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
         self.get_block(tag).await.map(|block| block.miner)
     }
 
+    // filter
+
+    pub async fn push_filter(&self, id: U256, filter: FilterType) {
+        self.inner.write().await.filters.insert(id, filter);
+    }
+
+    pub async fn remove_filter(&self, id: &U256) -> bool {
+        self.inner.write().await.filters.remove(id).is_some()
+    }
+
+    pub async fn get_filter(&self, id: &U256) -> Option<FilterType> {
+        self.inner.read().await.filters.get(id).cloned()
+    }
+
     // misc
 
     pub async fn latest_block_number(&self) -> Option<u64> {
@@ -175,6 +206,7 @@ struct Inner<N: NetworkSpec, R: ExecutionRpc<N>> {
     finalized_block: Option<Block<N::TransactionResponse>>,
     hashes: HashMap<B256, u64>,
     txs: HashMap<B256, TransactionLocation>,
+    filters: HashMap<U256, FilterType>,
     history_length: u64,
     rpc: R,
 }
@@ -187,6 +219,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
             finalized_block: None,
             hashes: HashMap::default(),
             txs: HashMap::default(),
+            filters: HashMap::default(),
             rpc,
         }
     }
@@ -319,4 +352,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
 struct TransactionLocation {
     block: u64,
     index: usize,
+}
+
+#[derive(Clone)]
+pub enum FilterType {
+    Logs,
+    // block number when the filter was created or last queried
+    NewBlock(u64),
+    PendingTransactions,
 }
