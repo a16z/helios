@@ -144,7 +144,7 @@ cp .env.example .env
 To run all tests, use the following command:
 
 ```sh
-cargo test-all
+cargo test --all
 ```
 
 To run tests for an individual package, use this command, replacing <package-name> with the package you want to test:
