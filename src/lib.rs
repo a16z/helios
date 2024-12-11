@@ -23,3 +23,7 @@ pub mod core {
 pub mod ethereum {
     pub use helios_ethereum::*;
 }
+
+pub mod opstack {
+    pub use helios_opstack::*;
+}

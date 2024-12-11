@@ -84,6 +84,7 @@ typenum = "1.17.0"
 [dependencies]
 helios-core = { path = "./core" }
 helios-ethereum = { path = "./ethereum" }
+helios-opstack = { path = "./opstack" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
