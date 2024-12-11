@@ -52,7 +52,9 @@ impl ConsensusClient {
             finalized_block_send,
         };
 
-        verify_unsafe_signer(config.clone(), inner.unsafe_signer.clone());
+        if config.verify_unsafe_signer {
+            verify_unsafe_signer(config.clone(), inner.unsafe_signer.clone());
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         let run = tokio::spawn;
@@ -164,76 +166,91 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
     let run = wasm_bindgen_futures::spawn_local;
 
     run(async move {
-        let mut eth_config = config.chain.eth_network.to_base_config();
-        eth_config.load_external_fallback = config.load_external_fallback.unwrap_or(false);
-        if let Some(checkpoint) = config.checkpoint {
-            eth_config.default_checkpoint = checkpoint;
-        }
-        let mut eth_consensus = EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
-            &eth_config
-                .consensus_rpc
-                .clone()
-                .ok_or_else(|| eyre!("missing consensus rpc"))?,
-            Arc::new(eth_config.into()),
-        )?;
-        let block = eth_consensus
-            .block_recv()
-            .unwrap()
-            .recv()
-            .await
-            .ok_or_eyre("failed to receive block")?;
-        // Query proof from op consensus server
-        let req = format!("{}unsafe_signer_proof/{}", config.consensus_rpc, block.hash);
-        let proof = reqwest::get(req)
-            .await?
-            .json::<EIP1186AccountProofResponse>()
-            .await?;
+        let fut = async move {
+            let mut eth_config = config.chain.eth_network.to_base_config();
+            eth_config.load_external_fallback = config.load_external_fallback.unwrap_or(false);
 
-        // Verify unsafe signer
-        // with account proof
-        let account_path = keccak256(proof.address).to_vec();
-        let account_encoded = encode_account(&proof);
-        let is_valid = verify_proof(
-            &proof.account_proof,
-            block.state_root.as_slice(),
-            &account_path,
-            &account_encoded,
-        );
-        if !is_valid {
-            warn!(target: "helios::opstack", "account proof invalid");
-            return Err(eyre!("account proof invalid"));
-        }
-        // with storage proof
-        let storage_proof = proof.storage_proof[0].clone();
-        let key = storage_proof.key.0;
-        if key != B256::from_str(UNSAFE_SIGNER_SLOT)? {
-            warn!(target: "helios::opstack", "account proof invalid");
-            return Err(eyre!("account proof invalid"));
-        }
-        let key_hash = keccak256(key);
-        let value = encode(storage_proof.value);
-        let is_valid = verify_proof(
-            &storage_proof.proof,
-            proof.storage_hash.as_slice(),
-            key_hash.as_slice(),
-            &value,
-        );
-        if !is_valid {
-            warn!(target: "helios::opstack", "storage proof invalid");
-            return Err(eyre!("storage proof invalid"));
-        }
-        // Replace unsafe signer if different
-        let verified_signer = Address::from_slice(&storage_proof.value.to_be_bytes::<32>()[12..32]);
-        {
-            let mut curr_signer = signer.lock().map_err(|_| eyre!("failed to lock signer"))?;
-            if verified_signer != *curr_signer {
-                info!(target: "helios::opstack", "unsafe signer updated: {}", verified_signer);
-                *curr_signer = verified_signer;
+            if let Some(checkpoint) = config.checkpoint {
+                eth_config.default_checkpoint = checkpoint;
             }
-        }
-        // Shutdown eth consensus client
-        eth_consensus.shutdown()?;
-        Ok(())
+
+            let mut eth_consensus = EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
+                &eth_config
+                    .consensus_rpc
+                    .clone()
+                    .ok_or_else(|| eyre!("missing consensus rpc"))?,
+                Arc::new(eth_config.into()),
+            )?;
+
+            let block = eth_consensus
+                .block_recv()
+                .unwrap()
+                .recv()
+                .await
+                .ok_or_eyre("failed to receive block")?;
+
+            // Query proof from op consensus server
+            let req = format!("{}unsafe_signer_proof/{}", config.consensus_rpc, block.hash);
+            let proof = reqwest::get(req)
+                .await?
+                .json::<EIP1186AccountProofResponse>()
+                .await?;
+
+            // Verify unsafe signer
+            // with account proof
+            let account_path = keccak256(proof.address).to_vec();
+            let account_encoded = encode_account(&proof);
+            let is_valid = verify_proof(
+                &proof.account_proof,
+                block.state_root.as_slice(),
+                &account_path,
+                &account_encoded,
+            );
+
+            if !is_valid {
+                warn!(target: "helios::opstack", "account proof invalid");
+                return Err(eyre!("account proof invalid"));
+            }
+
+            // with storage proof
+            let storage_proof = proof.storage_proof[0].clone();
+            let key = storage_proof.key.0;
+            if key != B256::from_str(UNSAFE_SIGNER_SLOT)? {
+                warn!(target: "helios::opstack", "account proof invalid");
+                return Err(eyre!("account proof invalid"));
+            }
+
+            let key_hash = keccak256(key);
+            let value = encode(storage_proof.value);
+            let is_valid = verify_proof(
+                &storage_proof.proof,
+                proof.storage_hash.as_slice(),
+                key_hash.as_slice(),
+                &value,
+            );
+
+            if !is_valid {
+                warn!(target: "helios::opstack", "storage proof invalid");
+                return Err(eyre!("storage proof invalid"));
+            }
+
+            // Replace unsafe signer if different
+            let verified_signer = Address::from_slice(&storage_proof.value.to_be_bytes::<32>()[12..32]);
+            {
+                let mut curr_signer = signer.lock().map_err(|_| eyre!("failed to lock signer"))?;
+                if verified_signer != *curr_signer {
+                    info!(target: "helios::opstack", "unsafe signer updated: {}", verified_signer);
+                    *curr_signer = verified_signer;
+                }
+            }
+
+            // Shutdown eth consensus client
+            eth_consensus.shutdown()?;
+
+            Ok(())
+        };
+
+        _ = fut.await;
     });
 }
 
