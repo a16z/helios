@@ -21,6 +21,7 @@ pub struct Config {
     pub chain: ChainConfig,
     pub load_external_fallback: Option<bool>,
     pub checkpoint: Option<B256>,
+    pub verify_unsafe_signer: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -35,6 +36,7 @@ pub struct ChainConfig {
 pub struct NetworkConfig {
     pub consensus_rpc: Option<Url>,
     pub chain: ChainConfig,
+    pub verify_unsafe_signer: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -85,6 +87,7 @@ impl From<Network> for NetworkConfig {
                     system_config_contract: address!("229047fed2591dbec1eF1118d64F7aF3dB9EB290"),
                     eth_network: EthNetwork::MAINNET,
                 },
+                verify_unsafe_signer: false,
             },
             Network::Base => NetworkConfig {
                 consensus_rpc: Some("https://base.operationsolarstorm.org".parse().unwrap()),
@@ -94,6 +97,7 @@ impl From<Network> for NetworkConfig {
                     system_config_contract: address!("73a79Fab69143498Ed3712e519A88a918e1f4072"),
                     eth_network: EthNetwork::MAINNET,
                 },
+                verify_unsafe_signer: false,
             },
             Network::Worldchain => NetworkConfig {
                 consensus_rpc: Some(
@@ -107,6 +111,7 @@ impl From<Network> for NetworkConfig {
                     system_config_contract: address!("6ab0777fD0e609CE58F939a7F70Fe41F5Aa6300A"),
                     eth_network: EthNetwork::MAINNET,
                 },
+                verify_unsafe_signer: false,
             },
             Network::Zora => NetworkConfig {
                 consensus_rpc: Some("https://zora.operationsolarstorm.org".parse().unwrap()),
@@ -116,6 +121,7 @@ impl From<Network> for NetworkConfig {
                     system_config_contract: address!("A3cAB0126d5F504B071b81a3e8A2BBBF17930d86"),
                     eth_network: EthNetwork::MAINNET,
                 },
+                verify_unsafe_signer: false,
             },
         }
     }
