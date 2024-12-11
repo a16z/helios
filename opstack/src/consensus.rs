@@ -174,13 +174,14 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 eth_config.default_checkpoint = checkpoint;
             }
 
-            let mut eth_consensus = EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
-                &eth_config
-                    .consensus_rpc
-                    .clone()
-                    .ok_or_else(|| eyre!("missing consensus rpc"))?,
-                Arc::new(eth_config.into()),
-            )?;
+            let mut eth_consensus =
+                EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
+                    &eth_config
+                        .consensus_rpc
+                        .clone()
+                        .ok_or_else(|| eyre!("missing consensus rpc"))?,
+                    Arc::new(eth_config.into()),
+                )?;
 
             let block = eth_consensus
                 .block_recv()
@@ -235,7 +236,8 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
             }
 
             // Replace unsafe signer if different
-            let verified_signer = Address::from_slice(&storage_proof.value.to_be_bytes::<32>()[12..32]);
+            let verified_signer =
+                Address::from_slice(&storage_proof.value.to_be_bytes::<32>()[12..32]);
             {
                 let mut curr_signer = signer.lock().map_err(|_| eyre!("failed to lock signer"))?;
                 if verified_signer != *curr_signer {
