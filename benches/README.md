@@ -7,7 +7,7 @@ Benchmarks are defined in the [benches](./) subdirectory and can be run using th
 
 #### Flamegraphs
 
-[Flamegraph](https://github.com/brendangregg/FlameGraph) is a powerful rust crate for generating profile visualizations, that is graphing the time a program spends in each function. Functions called during execution are displayed as horizontal rectangles with the width proportional to the time spent in that function. As the call stack grows (think nested function invocations), the rectangles are stacked vertically. This provides a powerful visualization for quickly understanding which parts of a codebase take up disproportionate amounts of time.
+[Flamegraph](https://github.com/brendangregg/FlameGraph) is a powerful rust crate for generating profile visualizations, graphing the time a program spends in each function. Functions called during execution are displayed as horizontal rectangles with the width proportional to the time spent in that function. As the call stack grows (think nested function invocations), the rectangles are stacked vertically. This provides a powerful visualization for quickly understanding which parts of a codebase take up disproportionate amounts of time.
 
 Check out Brendan Gregg's [Flame Graphs](http://www.brendangregg.com/flamegraphs.html) blog post if you're interested in learning more about flamegraphs and performance visualizations in general.
 
