@@ -31,7 +31,7 @@ helios ethereum --execution-rpc $ETH_RPC_URL
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
-Helios also provides documentation of its supported RPC methods in the [rpc.md](./rpc.md) file.
+Helios also provides documentation for its supported RPC methods in the [rpc.md](./rpc.md) file.
 
 
 ### OP Stack
@@ -60,7 +60,7 @@ Currently supported network values are `op-mainnet` and `base`, with more to com
 
 `--fallback` or `-f` sets the checkpoint fallback url (a string). This is only used if the checkpoint provided by the `--checkpoint` flag is too outdated for Helios to use to sync.
 If none is provided and the `--load-external-fallback` flag is not set, Helios will error.
-For example, you can specify the fallback like so: `helios --fallback "https://sync-mainnet.beaconcha.in"` (or using shorthand like so: `helios -f "https://sync-mainnet.beaconcha.in"`)
+For example, you can specify the fallback as follows: `helios --fallback "https://sync-mainnet.beaconcha.in"` (or using shorthand as follows: `helios -f "https://sync-mainnet.beaconcha.in"`)
 
 `--load-external-fallback` or `-l` enables weak subjectivity checkpoint fallback (no value needed).
 For example, say you set a checkpoint value that is too outdated and Helios cannot sync to it.
@@ -69,7 +69,7 @@ at [ethpandaops/checkpoint-sync-health-checks](https://github.com/ethpandaops/ch
 The list of slots is filtered for healthy apis and the most frequent checkpoint occurring in the latest epoch will be returned.
 Note: this is a community-maintained list and thus no security guarantees are provided. Use this as a last resort if your checkpoint passed into `--checkpoint` fails.
 This is not recommended as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
-This can be run like so: `helios --load-external-fallback` (or `helios -l` with the shorthand).
+This can be run as follows: `helios --load-external-fallback` (or `helios -l` with the shorthand).
 
 `--strict-checkpoint-age` or `-s` enables strict checkpoint age checking. If the checkpoint is over two weeks old and this flag is enabled, Helios will error. Without this flag, Helios will instead surface a warning to the user and continue. If the checkpoint is greater than two weeks old, there are theoretical attacks that can cause Helios and over light clients to sync incorrectly. These attacks are complex and expensive, so Helios disables this by default.
 
