@@ -6,7 +6,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 
 | RPC Method | Client Function | Description | Example |
 | ---------- | --------------- | ----------- | ------- |
-| `eth_getBalance` | `get_balance` | Returns the balance of the account given an address. | `client.get_balance(&self, address: &str, block: BlockTag)` |
+| `eth_getBalance` | `get_balance` | Returns the balance of the account given an address. | `client.get_balance(address: &str, block: BlockTag)` |
 | `eth_getTransactionCount` | `get_nonce` | Returns the number of transactions sent from the given address. | `client.get_nonce(&self, address: &str, block: BlockTag)` |
 | `eth_getCode` | `get_code` | Returns the code at a given address. | `client.get_code(&self, address: &str, block: BlockTag)` |
 | `eth_call` | `call` | Executes a new message call immediately without creating a transaction on the blockchain. | `client.call(&self, opts: CallOpts, block: BlockTag)` |
