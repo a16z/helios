@@ -2,7 +2,7 @@ use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
-    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log,
+    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
@@ -74,7 +74,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&logs)?)
     }
 
-    async fn get_filter_changes(&self, _filter_id: U256) -> Result<Vec<Log>> {
+    async fn get_filter_changes(&self, _filter_id: U256) -> Result<FilterChanges> {
         let logs = read_to_string(self.path.join("logs.json"))?;
         Ok(serde_json::from_str(&logs)?)
     }

@@ -2,7 +2,9 @@ use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
-use alloy::rpc::types::{BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, Log};
+use alloy::rpc::types::{
+    BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
+};
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
@@ -150,10 +152,10 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("get_logs", e))?)
     }
 
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
         Ok(self
             .provider
-            .get_filter_changes(filter_id)
+            .get_filter_changes_dyn(filter_id)
             .await
             .map_err(|e| RpcError::new("get_filter_changes", e))?)
     }
@@ -193,7 +195,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     async fn new_pending_transaction_filter(&self) -> Result<U256> {
         Ok(self
             .provider
-            .new_pending_transactions_filter(true)
+            .new_pending_transactions_filter(false)
             .await
             .map_err(|e| RpcError::new("new_pending_transaction_filter", e))?)
     }

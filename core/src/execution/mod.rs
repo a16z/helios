@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use alloy::network::ReceiptResponse;
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
-use alloy::rpc::types::{Filter, Log};
+use alloy::rpc::types::{Filter, FilterChanges, Log};
 use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
 use eyre::Result;
 use futures::future::try_join_all;
@@ -18,7 +18,7 @@ use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
 use self::proof::{encode_account, verify_proof};
 use self::rpc::ExecutionRpc;
-use self::state::State;
+use self::state::{FilterType, State};
 use self::types::Account;
 
 pub mod constants;
@@ -337,15 +337,53 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Ok(logs)
     }
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_filter_changes(filter_id).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
-        self.verify_logs(&logs).await?;
-        Ok(logs)
+    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
+        let filter_type = self.state.get_filter(&filter_id).await;
+
+        Ok(match &filter_type {
+            None => {
+                // only concerned with filters created via helios
+                return Err(ExecutionError::FilterNotFound(filter_id).into());
+            }
+            Some(FilterType::Logs) => {
+                // underlying RPC takes care of keeping track of changes
+                let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
+                let logs = filter_changes.as_logs().unwrap_or(&[]);
+                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                    return Err(ExecutionError::TooManyLogsToProve(
+                        logs.len(),
+                        MAX_SUPPORTED_LOGS_NUMBER,
+                    )
+                    .into());
+                }
+                self.verify_logs(logs).await?;
+                FilterChanges::Logs(logs.to_vec())
+            }
+            Some(FilterType::NewBlock(last_block_num)) => {
+                let blocks = self
+                    .state
+                    .get_blocks_after(BlockTag::Number(*last_block_num))
+                    .await;
+                if !blocks.is_empty() {
+                    // keep track of the last block number in state
+                    // so next call can filter starting from the prev call's (last block number + 1)
+                    self.state
+                        .push_filter(
+                            filter_id,
+                            FilterType::NewBlock(blocks.last().unwrap().number.to()),
+                        )
+                        .await;
+                }
+                let block_hashes = blocks.into_iter().map(|b| b.hash).collect();
+                FilterChanges::Hashes(block_hashes)
+            }
+            Some(FilterType::PendingTransactions) => {
+                // underlying RPC takes care of keeping track of changes
+                let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
+                let tx_hashes = filter_changes.as_hashes().unwrap_or(&[]);
+                FilterChanges::Hashes(tx_hashes.to_vec())
+            }
+        })
     }
 
     pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
@@ -360,6 +398,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     }
 
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
+        // remove the filter from the state
+        self.state.remove_filter(&filter_id).await;
         self.rpc.uninstall_filter(filter_id).await
     }
 
@@ -378,15 +418,35 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         } else {
             filter
         };
-        self.rpc.new_filter(&filter).await
+        let filter_id = self.rpc.new_filter(&filter).await?;
+
+        // record the filter in the state
+        self.state.push_filter(filter_id, FilterType::Logs).await;
+
+        Ok(filter_id)
     }
 
     pub async fn new_block_filter(&self) -> Result<U256> {
-        self.rpc.new_block_filter().await
+        let filter_id = self.rpc.new_block_filter().await?;
+
+        // record the filter in the state
+        let latest_block_num = self.state.latest_block_number().await.unwrap_or(1);
+        self.state
+            .push_filter(filter_id, FilterType::NewBlock(latest_block_num))
+            .await;
+
+        Ok(filter_id)
     }
 
     pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
-        self.rpc.new_pending_transaction_filter().await
+        let filter_id = self.rpc.new_pending_transaction_filter().await?;
+
+        // record the filter in the state
+        self.state
+            .push_filter(filter_id, FilterType::PendingTransactions)
+            .await;
+
+        Ok(filter_id)
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
