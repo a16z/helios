@@ -11,7 +11,7 @@ use std::{path::PathBuf, str::FromStr};
 /// Fetches the latest mainnet checkpoint from the fallback service.
 ///
 /// Uses the [CheckpointFallback](config::CheckpointFallback).
-/// The `build` method will fetch a list of [CheckpointFallbackService](config::CheckpointFallbackService)s from a community-mainained list by ethPandaOps.
+/// The `build` method will fetch a list of [CheckpointFallbackService](config::CheckpointFallbackService)s from a community-maintained list by ethPandaOps.
 /// This list is NOT guaranteed to be secure, but is provided in good faith.
 /// The raw list can be found here: https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml
 pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {

@@ -6,7 +6,7 @@ use helios::ethereum::config::{checkpoints, networks};
 #[tokio::main]
 async fn main() -> Result<()> {
     // Construct the checkpoint fallback services.
-    // The `build` method will fetch a list of [CheckpointFallbackService]s from a community-mainained list by ethPandaOps.
+    // The `build` method will fetch a list of [CheckpointFallbackService]s from a community-maintained list by ethPandaOps.
     // This list is NOT guaranteed to be secure, but is provided in good faith.
     // The raw list can be found here: https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml
     let cf = checkpoints::CheckpointFallback::new()
