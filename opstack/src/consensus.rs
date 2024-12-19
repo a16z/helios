@@ -41,7 +41,7 @@ pub struct ConsensusClient {
 impl ConsensusClient {
     pub fn new(config: &Config) -> Self {
         let (block_send, block_recv) = channel(256);
-        let (finalized_block_send, finalied_block_recv) = watch::channel(None);
+        let (finalized_block_send, finalized_block_recv) = watch::channel(None);
 
         let mut inner = Inner {
             server_url: config.consensus_rpc.to_string(),
@@ -74,7 +74,7 @@ impl ConsensusClient {
 
         Self {
             block_recv: Some(block_recv),
-            finalized_block_recv: Some(finalied_block_recv),
+            finalized_block_recv: Some(finalized_block_recv),
             chain_id: config.chain.chain_id,
         }
     }
