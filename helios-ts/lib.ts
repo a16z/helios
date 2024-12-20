@@ -6,7 +6,7 @@ export async function init() {
 }
 
 /// An EIP-1193 compliant Ethereum provider. Treat this the same as you
-/// would window.ethereum when constructing an ethers or web3 provider.
+/// would window.ethereum when constructing an ether or web3 provider.
 export class HeliosProvider {
   #client;
   #chainId;
