@@ -122,6 +122,24 @@ export class HeliosProvider {
       case "eth_getLogs": {
         return this.#client.get_logs(req.params[0]);
       }
+      case "eth_getFilterChanges": {
+        return this.#client.get_filter_changes(req.params[0]);
+      }
+      case "eth_getFilterLogs": {
+        return this.#client.get_filter_logs(req.params[0]);
+      }
+      case "eth_uninstallFilter": {
+        return this.#client.uninstall_filter(req.params[0]);
+      }
+      case "eth_newFilter": {
+        return this.#client.new_filter(req.params[0]);
+      }
+      case "eth_newBlockFilter": {
+        return this.#client.new_block_filter();
+      }
+      case "eth_newPendingTransactionFilter": {
+        return this.#client.new_pending_transaction_filter();
+      }
       case "net_version": {
         return this.#chainId;
       }
