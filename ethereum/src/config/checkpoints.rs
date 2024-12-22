@@ -11,7 +11,7 @@ use serde::{
 
 use crate::config::networks;
 
-/// The location where the list of checkpoint services are stored.
+/// The location where the list of checkpoint services is stored.
 pub const CHECKPOINT_SYNC_SERVICES_LIST: &str = "https://raw.githubusercontent.com/ethpandaops/checkpoint-sync-health-checks/master/_data/endpoints.yaml";
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,7 +127,7 @@ impl CheckpointFallback {
         // Construct the services mapping from network <> list of services
         let mut services = HashMap::new();
         for network in &self.networks {
-            // Try to parse list of checkpoint fallback services
+            // Try to parse the list of checkpoint fallback services
             let service_list = list
                 .get(network.to_string().to_lowercase())
                 .ok_or_else(|| {
