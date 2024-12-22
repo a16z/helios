@@ -53,13 +53,13 @@ function init(evt) {
                 svg.attributes.viewBox.value = "0 0 " + svg.width.baseVal.value + " " + svg.height.baseVal.value;
             }
 
-            // Keep consistent padding on left and right of frames container.
+            // Keep consistent padding on the left and right of frames container.
             frames.attributes.width.value = svg.width.baseVal.value - xpad * 2;
 
             // Text truncation needs to be adjusted for the current width.
             update_text_for_elements(frames.children);
 
-            // Keep search elements at a fixed distance from right edge.
+            // Keep search elements at a fixed distance from the right edge.
             var svgWidth = svg.width.baseVal.value;
             searchbtn.attributes.x.value = svgWidth - xpad;
             matchedtxt.attributes.x.value = svgWidth - xpad;
@@ -225,7 +225,7 @@ function update_text_for_elements(elements) {
             continue;
         }
 
-        // Fit in full text width
+        // Fit in full-text width
         if (txt.length * known_font_width < w) {
             textElemNewAttributes.push([newX, txt]);
             continue;
@@ -245,7 +245,7 @@ function update_text_for_elements(elements) {
 
     console.assert(textElemNewAttributes.length === elements.length, "Resize failed, please file a bug at https://github.com/jonhoo/inferno/");
 
-    // Now that we know new textContent, set it all in one go so we don't refresh a bazillion times.
+    // Now that we know the new textContent, set it all in one go so we don't refresh a bazillion times.
     for (var i = 0; i < elements.length; i++) {
         var e = elements[i];
         var values = textElemNewAttributes[i];
@@ -268,7 +268,7 @@ function update_text(e) {
         return;
     }
     t.textContent = txt;
-    // Fit in full text width
+    // Fit in full-text width
     if (t.getComputedTextLength() < w)
         return;
     if (truncate_text_right) {
@@ -355,7 +355,7 @@ function zoom(node) {
                 zoom_parent(e);
                 to_update_text.push(e);
             }
-            // not in current path
+            // not in the current path
             else
                 e.classList.add("hide");
         }
