@@ -261,10 +261,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
         if expected_receipt_root != block.receipts_root
-            // Note: Some RPC providers return different response in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
+            // Note: Some RPC providers return different responses in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
             // Primarily due to https://github.com/ethereum/execution-apis/issues/295 not finalized
-            // Which means that the basic equality check in N::receipt_contains can be flaky
-            // So as a fallback do equality check on encoded receipts as well
+            //This means that the basic equality check in N::receipt_contains can be flaky
+            // So as a fallback do an equality check on encoded receipts as well
             || !(
                 N::receipt_contains(&receipts, &receipt)
                 || receipts_encoded.contains(&N::encode_receipt(&receipt))
@@ -365,8 +365,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     .get_blocks_after(BlockTag::Number(*last_block_num))
                     .await;
                 if !blocks.is_empty() {
-                    // keep track of the last block number in state
-                    // so next call can filter starting from the prev call's (last block number + 1)
+                    // keep track of the last block number in the state
+                    // so the next call can filter starting from the prev call's (last block number + 1)
                     self.state
                         .push_filter(
                             filter_id,
