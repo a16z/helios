@@ -263,7 +263,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         if expected_receipt_root != block.receipts_root
             // Note: Some RPC providers return different responses in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
             // Primarily due to https://github.com/ethereum/execution-apis/issues/295 not finalized
-            //This means that the basic equality check in N::receipt_contains can be flaky
+            // This means that the basic equality check in N::receipt_contains can be flaky
             // So as a fallback do an equality check on encoded receipts as well
             || !(
                 N::receipt_contains(&receipts, &receipt)
