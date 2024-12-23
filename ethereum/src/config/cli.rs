@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 use std::{collections::HashMap, path::PathBuf};
+use url::Url;
 
 use alloy::primitives::B256;
 use figment::{providers::Serialized, value::Value};
@@ -8,8 +9,8 @@ use serde::{Deserialize, Serialize};
 /// Cli Config
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CliConfig {
-    pub execution_rpc: Option<String>,
-    pub consensus_rpc: Option<String>,
+    pub execution_rpc: Option<Url>,
+    pub consensus_rpc: Option<Url>,
     pub checkpoint: Option<B256>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
@@ -24,11 +25,11 @@ impl CliConfig {
         let mut user_dict = HashMap::new();
 
         if let Some(rpc) = &self.execution_rpc {
-            user_dict.insert("execution_rpc", Value::from(rpc.clone()));
+            user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
         }
 
         if let Some(rpc) = &self.consensus_rpc {
-            user_dict.insert("consensus_rpc", Value::from(rpc.clone()));
+            user_dict.insert("consensus_rpc", Value::from(rpc.to_string()));
         }
 
         if let Some(checkpoint) = &self.checkpoint {

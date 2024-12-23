@@ -19,6 +19,7 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 dirs = "5.0.1"
 ctrlc = "3.2.3"
+url = "2.5.0"
 
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
