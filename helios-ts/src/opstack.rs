@@ -3,7 +3,7 @@ extern crate web_sys;
 
 use std::str::FromStr;
 
-use alloy::primitives::{Address, B256};
+use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use wasm_bindgen::prelude::*;
 
@@ -225,6 +225,46 @@ impl OpStackClient {
         let filter: Filter = serde_wasm_bindgen::from_value(filter)?;
         let logs = map_err(self.inner.get_logs(&filter).await)?;
         Ok(serde_wasm_bindgen::to_value(&logs)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_filter_changes(&self, filter_id: JsValue) -> Result<JsValue, JsError> {
+        let filter_id: U256 = serde_wasm_bindgen::from_value(filter_id)?;
+        let filter_changes = map_err(self.inner.get_filter_changes(filter_id).await)?;
+        Ok(serde_wasm_bindgen::to_value(&filter_changes)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_filter_logs(&self, filter_id: JsValue) -> Result<JsValue, JsError> {
+        let filter_id: U256 = serde_wasm_bindgen::from_value(filter_id)?;
+        let logs = map_err(self.inner.get_filter_logs(filter_id).await)?;
+        Ok(serde_wasm_bindgen::to_value(&logs)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn uninstall_filter(&self, filter_id: JsValue) -> Result<bool, JsError> {
+        let filter_id: U256 = serde_wasm_bindgen::from_value(filter_id)?;
+        let uninstalled = map_err(self.inner.uninstall_filter(filter_id).await)?;
+        Ok(uninstalled)
+    }
+
+    #[wasm_bindgen]
+    pub async fn new_filter(&self, filter: JsValue) -> Result<JsValue, JsError> {
+        let filter: Filter = serde_wasm_bindgen::from_value(filter)?;
+        let filter_id = map_err(self.inner.new_filter(&filter).await)?;
+        Ok(serde_wasm_bindgen::to_value(&filter_id)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn new_block_filter(&self) -> Result<JsValue, JsError> {
+        let filter_id = map_err(self.inner.new_block_filter().await)?;
+        Ok(serde_wasm_bindgen::to_value(&filter_id)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn new_pending_transaction_filter(&self) -> Result<JsValue, JsError> {
+        let filter_id = map_err(self.inner.new_pending_transaction_filter().await)?;
+        Ok(serde_wasm_bindgen::to_value(&filter_id)?)
     }
 
     #[wasm_bindgen]
