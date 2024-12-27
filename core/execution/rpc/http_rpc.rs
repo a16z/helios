@@ -1,51 +1,52 @@
 use std::time::Duration;
 use wasmtimer::tokio::sleep;
 
-// Adding a structure for retry configuration
-#[derive(Clone)]
-struct RetryConfig {
-    max_attempts: u32,
-    initial_backoff: Duration,
-    max_backoff: Duration,
-}
-
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_attempts: 3,
-            initial_backoff: Duration::from_millis(100),
-            max_backoff: Duration::from_secs(5),
-        }
-    }
+/// Retry mechanism configuration
+#[derive(Clone, Debug)]
+pub struct RetryConfig {
+    /// Maximum number of attempts to execute the request
+    pub max_attempts: u32,
+    /// Initial delay between retry attempts
+    pub initial_backoff: Duration,
+    /// Maximum delay between retry attempts
+    pub max_backoff: Duration,
 }
 
 impl HttpProvider {
-    // Adding a new method to perform a request with retries
+    // Add the ability to configure retry settings
+    pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = config;
+        self
+    }
+
     async fn execute_with_retry<T>(&self, request: Request<T>) -> Result<Response<T>, Error> 
     where 
         T: serde::Serialize + Send + Sync,
     {
-        let config = RetryConfig::default();
         let mut attempts = 0;
-        let mut backoff = config.initial_backoff;
+        let mut backoff = self.retry_config.initial_backoff;
 
         loop {
             attempts += 1;
-            match self.execute(request.clone()).await {
+            match self.execute_internal(request.clone()).await {
                 Ok(response) => return Ok(response),
                 Err(err) => {
-                    // Check if a retry should be attempted
-                    if !should_retry(&err) || attempts >= config.max_attempts {
-                        return Err(err);
+                    if !should_retry(&err) || attempts >= self.retry_config.max_attempts {
+                        return Err(err.into());
                     }
 
-                    // Wait before the next attempt
+                    tracing::debug!(
+                        "Request failed with error: {:?}. Retrying ({}/{})",
+                        err,
+                        attempts,
+                        self.retry_config.max_attempts
+                    );
+
                     sleep(backoff).await;
                     
-                    // Increase the backoff time exponentially
                     backoff = std::cmp::min(
                         backoff * 2,
-                        config.max_backoff
+                        self.retry_config.max_backoff
                     );
                 }
             }
@@ -53,17 +54,18 @@ impl HttpProvider {
     }
 }
 
-// Helper function to determine if a retry should be attempted
+// Extend the list of errors that can trigger a retry
 fn should_retry(error: &Error) -> bool {
-    matches!(
-        error,
-        Error::RateLimitExceeded(_) |
-        Error::ConnectionError(_) |
-        Error::TimeoutError
-    )
+    match error {
+        Error::RateLimitExceeded(_) => true,
+        Error::ConnectionError(_) => true,
+        Error::TimeoutError => true,
+        Error::ServerError(status) => status.as_u16() >= 500,
+        _ => false,
+    }
 }
 
-// Updating the existing execute method to use the retry mechanism
+// Update the existing execute method to use the retry mechanism
 impl Provider for HttpProvider {
     async fn execute<T>(&self, request: Request<T>) -> Result<Response<T>, Error>
     where
