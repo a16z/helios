@@ -1,8 +1,8 @@
 #[tokio::test]
 async fn test_retry_mechanism() {
-    // Тест успешного повтора после временной ошибки
+    // Test successful retry after a temporary error
     
-    // Тест максимального количества попыток
+    // Test the maximum number of attempts
     
-    // Тест для ошибок, которые не должны повторяться
-} 
+    // Test for errors that should not be retried
+}
