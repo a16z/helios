@@ -90,6 +90,8 @@ helios-opstack = { path = "./opstack" }
 tokio = { version = "1", features = ["full"] }
 dotenv = "0.15.0"
 serde = { version = "1.0.154", features = ["derive"] }
+mockito = "0.31"
+tracing = "0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 alloy = { version = "0.2.1", features = ["full"] }
