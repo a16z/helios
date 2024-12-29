@@ -72,7 +72,7 @@ impl Signature {
 
         let generator_g1_negative = G1Affine::from(-G1Projective::generator());
 
-        // Faster ate2 evaualtion checks e(S, -G1) * e(H, PK) == 1
+        // Faster ate2 evaluation checks e(S, -G1) * e(H, PK) == 1
         ate2_evaluation(&sig_point, &generator_g1_negative, &msg_hash, &key_point)
     }
 
