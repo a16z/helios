@@ -3,6 +3,16 @@ use alloy::primitives::{b256, keccak256, Bytes, B256, U256};
 use alloy::rlp::{encode, Decodable};
 use alloy::rpc::types::EIP1186AccountProofResponse;
 
+/// Verifies a Merkle-Patricia trie proof.
+/// 
+/// # Arguments
+/// * `proof` - The proof as a sequence of RLP-encoded nodes
+/// * `root` - The expected root hash
+/// * `path` - The path to verify
+/// * `value` - The expected value at the path
+/// 
+/// # Returns
+/// `true` if the proof is valid, `false` otherwise
 pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> bool {
     let mut expected_hash = root.to_vec();
     let mut path_offset = 0;
@@ -67,6 +77,13 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
     false
 }
 
+/// Checks if two paths match, taking into account skip lengths
+/// 
+/// # Arguments
+/// * `p1` - First path
+/// * `s1` - Skip length for first path
+/// * `p2` - Second path
+/// * `s2` - Skip length for second path
 fn paths_match(p1: &[u8], s1: usize, p2: &[u8], s2: usize) -> bool {
     let len1 = p1.len() * 2 - s1;
     let len2 = p2.len() * 2 - s2;
@@ -97,6 +114,13 @@ fn get_rest_path(p: &[u8], s: usize) -> String {
     ret
 }
 
+/// Checks if the provided value represents an empty account or storage slot
+/// 
+/// # Arguments
+/// * `value` - The value to check
+/// 
+/// # Returns
+/// `true` if the value represents an empty account or storage slot
 fn is_empty_value(value: &[u8]) -> bool {
     let empty_account = Account {
         nonce: 0,
@@ -158,7 +182,18 @@ fn skip_length(node: &[u8]) -> usize {
     }
 }
 
+/// Gets a nibble (4-bit value) from a byte array at the specified offset
+/// 
+/// # Arguments
+/// * `path` - Byte array containing the nibbles
+/// * `offset` - Offset of the nibble to get
+/// 
+/// # Returns
+/// The nibble value, or 0 if the offset is out of bounds
 fn get_nibble(path: &[u8], offset: usize) -> u8 {
+    if offset / 2 >= path.len() {
+        return 0;
+    }
     let byte = path[offset / 2];
     if offset % 2 == 0 {
         byte >> 4
@@ -200,5 +235,35 @@ mod tests {
         let node_path: Vec<u8> = vec![0x14, 0x6f, 0x6c, 0x64, 0x11];
         let shared_len = shared_prefix_length(&path, path_offset, &node_path);
         assert_eq!(shared_len, 7);
+    }
+
+    #[test]
+    fn test_get_nibble() {
+        let path = vec![0x12, 0x34];
+        assert_eq!(get_nibble(&path, 0), 0x1);
+        assert_eq!(get_nibble(&path, 1), 0x2);
+        assert_eq!(get_nibble(&path, 2), 0x3);
+        assert_eq!(get_nibble(&path, 3), 0x4);
+        // Test out of bounds
+        assert_eq!(get_nibble(&path, 4), 0);
+    }
+
+    #[test]
+    fn test_paths_match() {
+        let p1 = vec![0x12, 0x34];
+        let p2 = vec![0x12, 0x34];
+        assert!(paths_match(&p1, 0, &p2, 0));
+        
+        let p3 = vec![0x12, 0x35];
+        assert!(!paths_match(&p1, 0, &p3, 0));
+    }
+
+    #[test]
+    fn test_is_empty_value() {
+        let empty_slot = vec![0x80];
+        assert!(is_empty_value(&empty_slot));
+        
+        let non_empty = vec![0x81];
+        assert!(!is_empty_value(&non_empty));
     }
 }
