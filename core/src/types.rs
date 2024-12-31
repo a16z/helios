@@ -58,8 +58,8 @@ impl<T: TransactionResponse> Block<T> {
             blob_gas_used: self.blob_gas_used.map(|v| v.to()),
             excess_blob_gas: self.excess_blob_gas.map(|v| v.to()),
             parent_beacon_block_root: self.parent_beacon_block_root,
-            requests_root: None,
             extra_data: self.extra_data.clone(),
+            requests_hash: None,
         };
 
         header.hash_slow() == self.hash

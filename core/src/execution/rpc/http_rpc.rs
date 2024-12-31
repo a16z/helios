@@ -127,9 +127,10 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             BlockTag::Number(num) => BlockNumberOrTag::Number(num),
         };
 
+        let block_id = BlockId::from(block);
         let receipts = self
             .provider
-            .get_block_receipts(block)
+            .get_block_receipts(block_id)
             .await
             .map_err(|e| RpcError::new("get_block_receipts", e))?;
 

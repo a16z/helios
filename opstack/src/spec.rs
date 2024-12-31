@@ -1,18 +1,18 @@
 use alloy::{
-    consensus::{
-        BlobTransactionSidecar, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
-    },
-    network::Network,
+    consensus::{Receipt, ReceiptWithBloom, Transaction as TxTrait, TxReceipt, TxType},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
+
 use helios_core::{network_spec::NetworkSpec, types::Block};
 use op_alloy_consensus::{
-    OpDepositReceipt, OpDepositReceiptWithBloom, OpReceiptEnvelope, OpTxType,
+    OpDepositReceipt, OpDepositReceiptWithBloom, OpReceiptEnvelope, OpTxEnvelope, OpTxType,
+    OpTypedTransaction,
 };
 use op_alloy_network::{
-    BuildResult, Ethereum, NetworkWallet, TransactionBuilder, TransactionBuilderError,
+    BuildResult, Ethereum, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError,
 };
+use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
 use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
 #[derive(Clone, Copy, Debug)]
@@ -33,9 +33,9 @@ impl NetworkSpec for OpStack {
             OpReceiptEnvelope::Legacy(inner)
             | OpReceiptEnvelope::Eip2930(inner)
             | OpReceiptEnvelope::Eip1559(inner)
-            | OpReceiptEnvelope::Eip4844(inner) => {
+            | OpReceiptEnvelope::Eip7702(inner) => {
                 let r = Receipt {
-                    status: *inner.status_or_post_state(),
+                    status: inner.status_or_post_state(),
                     cumulative_gas_used: inner.cumulative_gas_used(),
                     logs,
                 };
@@ -83,30 +83,36 @@ impl NetworkSpec for OpStack {
 
     fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
         let mut tx_env = TxEnv::default();
-        tx_env.caller = tx.from.unwrap_or_default();
-        tx_env.gas_limit = <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
+        tx_env.caller =
+            <OpTransactionRequest as TransactionBuilder<Self>>::from(tx).unwrap_or_default();
+        tx_env.gas_limit = <OpTransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
             .map(|v| v as u64)
             .unwrap_or(u64::MAX);
-        tx_env.gas_price = <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
+        tx_env.gas_price = <OpTransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
             .map(U256::from)
             .unwrap_or_default();
-        tx_env.transact_to = tx.to.unwrap_or_default();
-        tx_env.value = tx.value.unwrap_or_default();
-        tx_env.data = <TransactionRequest as TransactionBuilder<Self>>::input(tx)
+        tx_env.transact_to =
+            <OpTransactionRequest as TransactionBuilder<Self>>::kind(tx).unwrap_or_default();
+        tx_env.value =
+            <OpTransactionRequest as TransactionBuilder<Self>>::value(tx).unwrap_or_default();
+        tx_env.data = <OpTransactionRequest as TransactionBuilder<Self>>::input(tx)
             .unwrap_or_default()
             .clone();
-        tx_env.nonce = <TransactionRequest as TransactionBuilder<Self>>::nonce(tx);
-        tx_env.chain_id = <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx);
-        tx_env.access_list = <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
+        tx_env.nonce = <OpTransactionRequest as TransactionBuilder<Self>>::nonce(tx);
+        tx_env.chain_id = <OpTransactionRequest as TransactionBuilder<Self>>::chain_id(tx);
+        tx_env.access_list = <OpTransactionRequest as TransactionBuilder<Self>>::access_list(tx)
             .map(|v| v.to_vec())
             .unwrap_or_default();
         tx_env.gas_priority_fee =
-            <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
+            <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
                 .map(U256::from);
         tx_env.max_fee_per_blob_gas =
-            <TransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
+            <OpTransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
         tx_env.blob_hashes = tx
-            .blob_versioned_hashes
+            .clone()
+            .build_typed_tx()
+            .unwrap()
+            .blob_versioned_hashes()
             .as_ref()
             .map(|v| v.to_vec())
             .unwrap_or_default();
@@ -133,123 +139,125 @@ impl NetworkSpec for OpStack {
 
 impl Network for OpStack {
     type TxType = op_alloy_consensus::OpTxType;
-    type TxEnvelope = alloy::consensus::TxEnvelope;
-    type UnsignedTx = alloy::consensus::TypedTransaction;
+    type TxEnvelope = OpTxEnvelope;
+    type UnsignedTx = OpTypedTransaction;
     type ReceiptEnvelope = op_alloy_consensus::OpReceiptEnvelope;
     type Header = alloy::consensus::Header;
-    type TransactionRequest = TransactionRequest;
-    type TransactionResponse = alloy::rpc::types::Transaction;
+    type TransactionRequest = OpTransactionRequest;
+    type TransactionResponse = Transaction;
     type ReceiptResponse = op_alloy_rpc_types::OpTransactionReceipt;
     type HeaderResponse = alloy::rpc::types::Header;
+    type BlockResponse = alloy::rpc::types::Block<Self::TransactionResponse, Self::HeaderResponse>;
 }
 
-impl TransactionBuilder<OpStack> for TransactionRequest {
+impl TransactionBuilder<OpStack> for OpTransactionRequest {
     fn chain_id(&self) -> Option<ChainId> {
-        self.chain_id
+        <TransactionRequest as TransactionBuilder<Ethereum>>::chain_id(self.as_ref())
     }
 
     fn set_chain_id(&mut self, chain_id: ChainId) {
-        self.chain_id = Some(chain_id);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_chain_id(self.as_mut(), chain_id);
     }
 
     fn nonce(&self) -> Option<u64> {
-        self.nonce
+        <TransactionRequest as TransactionBuilder<Ethereum>>::nonce(self.as_ref())
     }
 
     fn set_nonce(&mut self, nonce: u64) {
-        self.nonce = Some(nonce);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_nonce(self.as_mut(), nonce);
     }
 
     fn input(&self) -> Option<&Bytes> {
-        self.input.input()
+        <TransactionRequest as TransactionBuilder<Ethereum>>::input(self.as_ref())
     }
 
     fn set_input<T: Into<Bytes>>(&mut self, input: T) {
-        self.input.input = Some(input.into());
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_input(self.as_mut(), input);
     }
 
     fn from(&self) -> Option<Address> {
-        self.from
+        <TransactionRequest as TransactionBuilder<Ethereum>>::from(self.as_ref())
     }
 
     fn set_from(&mut self, from: Address) {
-        self.from = Some(from);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_from(self.as_mut(), from);
     }
 
     fn kind(&self) -> Option<TxKind> {
-        self.to
+        <TransactionRequest as TransactionBuilder<Ethereum>>::kind(self.as_ref())
     }
 
     fn clear_kind(&mut self) {
-        self.to = None;
+        <TransactionRequest as TransactionBuilder<Ethereum>>::clear_kind(self.as_mut());
     }
 
     fn set_kind(&mut self, kind: TxKind) {
-        self.to = Some(kind);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_kind(self.as_mut(), kind);
     }
 
     fn value(&self) -> Option<U256> {
-        self.value
+        <TransactionRequest as TransactionBuilder<Ethereum>>::value(self.as_ref())
     }
 
     fn set_value(&mut self, value: U256) {
-        self.value = Some(value)
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_value(self.as_mut(), value);
     }
 
     fn gas_price(&self) -> Option<u128> {
-        self.gas_price
+        <TransactionRequest as TransactionBuilder<Ethereum>>::gas_price(self.as_ref())
     }
 
     fn set_gas_price(&mut self, gas_price: u128) {
-        self.gas_price = Some(gas_price);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_gas_price(
+            self.as_mut(),
+            gas_price,
+        );
     }
 
     fn max_fee_per_gas(&self) -> Option<u128> {
-        self.max_fee_per_gas
+        <TransactionRequest as TransactionBuilder<Ethereum>>::max_fee_per_gas(self.as_ref())
     }
 
     fn set_max_fee_per_gas(&mut self, max_fee_per_gas: u128) {
-        self.max_fee_per_gas = Some(max_fee_per_gas);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_max_fee_per_gas(
+            self.as_mut(),
+            max_fee_per_gas,
+        );
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<u128> {
-        self.max_priority_fee_per_gas
+        <TransactionRequest as TransactionBuilder<Ethereum>>::max_priority_fee_per_gas(
+            self.as_ref(),
+        )
     }
 
     fn set_max_priority_fee_per_gas(&mut self, max_priority_fee_per_gas: u128) {
-        self.max_priority_fee_per_gas = Some(max_priority_fee_per_gas);
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_max_priority_fee_per_gas(
+            self.as_mut(),
+            max_priority_fee_per_gas,
+        );
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<u128> {
-        self.max_fee_per_blob_gas
+    fn gas_limit(&self) -> Option<u64> {
+        <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(self.as_ref())
     }
 
-    fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128) {
-        self.max_fee_per_blob_gas = Some(max_fee_per_blob_gas)
-    }
-
-    fn gas_limit(&self) -> Option<u128> {
-        self.gas
-    }
-
-    fn set_gas_limit(&mut self, gas_limit: u128) {
-        self.gas = Some(gas_limit);
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_gas_limit(
+            self.as_mut(),
+            gas_limit,
+        );
     }
 
     fn access_list(&self) -> Option<&AccessList> {
-        self.access_list.as_ref()
+        <TransactionRequest as TransactionBuilder<Ethereum>>::access_list(self.as_ref())
     }
 
     fn set_access_list(&mut self, access_list: AccessList) {
-        self.access_list = Some(access_list);
-    }
-
-    fn blob_sidecar(&self) -> Option<&BlobTransactionSidecar> {
-        self.sidecar.as_ref()
-    }
-
-    fn set_blob_sidecar(&mut self, sidecar: BlobTransactionSidecar) {
-        TransactionBuilder::<Ethereum>::set_blob_sidecar(self, sidecar)
+        <TransactionRequest as TransactionBuilder<Ethereum>>::set_access_list(
+            self.as_mut(),
+            access_list,
+        );
     }
 
     fn complete_type(&self, ty: OpTxType) -> Result<(), Vec<&'static str>> {
@@ -257,38 +265,48 @@ impl TransactionBuilder<OpStack> for TransactionRequest {
             OpTxType::Deposit => Err(vec!["not implemented for deposit tx"]),
             _ => {
                 let ty = TxType::try_from(ty as u8).unwrap();
-                TransactionBuilder::<Ethereum>::complete_type(self, ty)
+                <TransactionRequest as TransactionBuilder<Ethereum>>::complete_type(
+                    self.as_ref(),
+                    ty,
+                )
             }
         }
     }
 
     fn can_submit(&self) -> bool {
-        TransactionBuilder::<Ethereum>::can_submit(self)
+        <TransactionRequest as TransactionBuilder<Ethereum>>::can_submit(self.as_ref())
     }
 
     fn can_build(&self) -> bool {
-        TransactionBuilder::<Ethereum>::can_build(self)
+        <TransactionRequest as TransactionBuilder<Ethereum>>::can_build(self.as_ref())
     }
 
     #[doc(alias = "output_transaction_type")]
     fn output_tx_type(&self) -> OpTxType {
-        OpTxType::try_from(self.preferred_type() as u8).unwrap()
+        match self.as_ref().preferred_type() {
+            TxType::Eip1559 | TxType::Eip4844 => OpTxType::Eip1559,
+            TxType::Eip2930 => OpTxType::Eip2930,
+            TxType::Eip7702 => OpTxType::Eip7702,
+            TxType::Legacy => OpTxType::Legacy,
+        }
     }
 
     #[doc(alias = "output_transaction_type_checked")]
     fn output_tx_type_checked(&self) -> Option<OpTxType> {
-        self.buildable_type()
-            .map(|tx_ty| OpTxType::try_from(tx_ty as u8).unwrap())
+        self.as_ref().buildable_type().map(|tx_ty| match tx_ty {
+            TxType::Eip1559 | TxType::Eip4844 => OpTxType::Eip1559,
+            TxType::Eip2930 => OpTxType::Eip2930,
+            TxType::Eip7702 => OpTxType::Eip7702,
+            TxType::Legacy => OpTxType::Legacy,
+        })
     }
 
     fn prep_for_submission(&mut self) {
-        self.transaction_type = Some(self.preferred_type() as u8);
-        self.trim_conflicting_keys();
-        self.populate_blob_hashes();
+        <TransactionRequest as TransactionBuilder<Ethereum>>::prep_for_submission(self.as_mut());
     }
 
-    fn build_unsigned(self) -> BuildResult<TypedTransaction, OpStack> {
-        if let Err((tx_type, missing)) = self.missing_keys() {
+    fn build_unsigned(self) -> BuildResult<OpTypedTransaction, OpStack> {
+        if let Err((tx_type, missing)) = self.as_ref().missing_keys() {
             let tx_type = OpTxType::try_from(tx_type as u8).unwrap();
             return Err(
                 TransactionBuilderError::InvalidTransactionRequest(tx_type, missing)

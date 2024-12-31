@@ -4,8 +4,10 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{Filter, TransactionRequest};
+use alloy::rpc::types::Filter;
 use wasm_bindgen::prelude::*;
+
+use op_alloy_rpc_types::OpTransactionRequest;
 
 use helios_core::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
@@ -175,7 +177,7 @@ impl OpStackClient {
 
     #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
-        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
+        let opts: OpTransactionRequest = serde_wasm_bindgen::from_value(opts)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
         let res = map_err(self.inner.call(&opts, block).await)?;
         Ok(format!("0x{}", hex::encode(res)))
@@ -183,7 +185,7 @@ impl OpStackClient {
 
     #[wasm_bindgen]
     pub async fn estimate_gas(&self, opts: JsValue) -> Result<u32, JsError> {
-        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
+        let opts: OpTransactionRequest = serde_wasm_bindgen::from_value(opts)?;
         Ok(map_err(self.inner.estimate_gas(&opts).await)? as u32)
     }
 

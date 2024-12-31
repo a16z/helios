@@ -28,9 +28,9 @@ ethereum_ssz.workspace = true
 ssz_types.workspace = true
 triehash-ethereum.workspace = true
 alloy-rlp = "0.3.0"
-op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
-op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
-op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.1.5" }
+op-alloy-network = "0.9.0"
+op-alloy-consensus = "0.9.0"
+op-alloy-rpc-types.workspace = true
 snap = "1"
 
 # config
