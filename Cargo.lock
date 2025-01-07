@@ -3075,6 +3075,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
@@ -3160,6 +3161,7 @@ dependencies = [
  "tree_hash",
  "triehash-ethereum",
  "typenum",
+ "url",
  "wasm-bindgen-futures",
 ]
 

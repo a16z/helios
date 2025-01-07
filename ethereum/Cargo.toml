@@ -13,6 +13,7 @@ triehash-ethereum.workspace = true
 figment = { version = "0.10.7", features = ["toml", "env"] }
 serde_yaml = "0.9.14"
 strum = { version = "0.26.2", features = ["derive"] }
+url = "2.5.0"
 
 # async/futures
 tokio.workspace = true

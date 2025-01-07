@@ -1,0 +1,23 @@
+name: Codespell Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  codespell:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install codespell
+        run: |
+          pip install codespell
+
+      - name: Run codespell
+        run: |
+          codespell --config .codespellrc
