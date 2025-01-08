@@ -5,7 +5,7 @@ use std::sync::Arc;
 use alloy::consensus::{Transaction as TxTrait, TxEnvelope};
 use alloy::primitives::{b256, fixed_bytes, B256, U256, U64};
 use alloy::rlp::{encode, Decodable};
-use alloy::rpc::types::{Parity, Signature, Transaction};
+use alloy::rpc::types::Transaction;
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
@@ -590,89 +590,16 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
             let mut tx_bytes_slice = tx_bytes.as_slice();
             let tx_envelope = TxEnvelope::decode(&mut tx_bytes_slice).unwrap();
 
-            let mut tx = Transaction {
-                hash: *tx_envelope.tx_hash(),
-                nonce: tx_envelope.nonce(),
+            let base_fee = Some(value.base_fee_per_gas().to());
+
+            Transaction {
                 block_hash: Some(*value.block_hash()),
                 block_number: Some(*value.block_number()),
                 transaction_index: Some(i as u64),
-                to: tx_envelope.to().to().cloned(),
-                value: tx_envelope.value(),
-                gas_price: tx_envelope.gas_price(),
-                gas: tx_envelope.gas_limit(),
-                input: tx_envelope.input().to_vec().into(),
-                chain_id: tx_envelope.chain_id(),
-                transaction_type: Some(tx_envelope.tx_type().into()),
-                ..Default::default()
-            };
-
-            match tx_envelope {
-                TxEnvelope::Legacy(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: None,
-                    });
-                }
-                TxEnvelope::Eip2930(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-                    tx.access_list = Some(inner.tx().access_list.clone());
-                }
-                TxEnvelope::Eip1559(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-
-                    let tx_inner = inner.tx();
-                    tx.access_list = Some(tx_inner.access_list.clone());
-                    tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
-                    tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
-
-                    tx.gas_price = Some(gas_price(
-                        tx_inner.max_fee_per_gas,
-                        tx_inner.max_priority_fee_per_gas,
-                        value.base_fee_per_gas().to(),
-                    ));
-                }
-                TxEnvelope::Eip4844(inner) => {
-                    tx.from = inner.recover_signer().unwrap();
-                    tx.signature = Some(Signature {
-                        r: inner.signature().r(),
-                        s: inner.signature().s(),
-                        v: U256::from(inner.signature().v().to_u64()),
-                        y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                    });
-
-                    let tx_inner = inner.tx().tx();
-                    tx.access_list = Some(tx_inner.access_list.clone());
-                    tx.max_fee_per_gas = Some(tx_inner.max_fee_per_gas);
-                    tx.max_priority_fee_per_gas = Some(tx_inner.max_priority_fee_per_gas);
-                    tx.max_fee_per_blob_gas = Some(tx_inner.max_fee_per_blob_gas);
-                    tx.gas_price = Some(tx_inner.max_fee_per_gas);
-                    tx.blob_versioned_hashes = Some(tx_inner.blob_versioned_hashes.clone());
-
-                    tx.gas_price = Some(gas_price(
-                        tx_inner.max_fee_per_gas,
-                        tx_inner.max_priority_fee_per_gas,
-                        value.base_fee_per_gas().to(),
-                    ));
-                }
-                _ => todo!(),
+                from: tx_envelope.recover_signer().unwrap().clone(),
+                effective_gas_price: Some(tx_envelope.effective_gas_price(base_fee)),
+                inner: tx_envelope,
             }
-
-            tx
         })
         .collect::<Vec<Transaction>>();
 
@@ -709,10 +636,6 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
         parent_beacon_block_root: Some(*value.parent_hash()),
     }
-}
-
-fn gas_price(max_fee: u128, max_prio_fee: u128, base_fee: u128) -> u128 {
-    u128::min(max_fee, max_prio_fee + base_fee)
 }
 
 #[cfg(test)]

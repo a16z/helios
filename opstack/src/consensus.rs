@@ -1,10 +1,12 @@
 use alloy::consensus::Transaction as TxTrait;
 use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
 use alloy::rlp::Decodable;
-use alloy::rpc::types::{EIP1186AccountProofResponse, Parity, Signature, Transaction};
+use alloy::rpc::types::EIP1186AccountProofResponse;
+use alloy::rpc::types::Transaction as EthTransaction;
 use alloy_rlp::encode;
 use eyre::{eyre, OptionExt, Result};
 use op_alloy_consensus::OpTxEnvelope;
+use op_alloy_rpc_types::Transaction;
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
@@ -215,7 +217,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
 
             // with storage proof
             let storage_proof = proof.storage_proof[0].clone();
-            let key = storage_proof.key.0;
+            let key = storage_proof.key.as_b256();
             if key != B256::from_str(UNSAFE_SIGNER_SLOT)? {
                 warn!(target: "helios::opstack", "account proof invalid");
                 return Err(eyre!("account proof invalid"));
@@ -268,140 +270,65 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         .map(|(i, tx_bytes)| {
             let tx_bytes = tx_bytes.to_vec();
             let mut tx_bytes_slice = tx_bytes.as_slice();
-            let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice)?;
-            let transaction_type = Some(tx_envelope.tx_type().into());
+            let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice).unwrap();
+
+            let base_fee = tx_envelope.effective_gas_price(Some(value.base_fee_per_gas.to()));
+
+            let mut inner_tx = EthTransaction {
+                inner: tx_envelope.clone(),
+                block_hash: Some(value.block_hash),
+                block_number: Some(value.block_number),
+                transaction_index: Some(i as u64),
+                effective_gas_price: Some(base_fee),
+                from: Address::ZERO,
+            };
 
             Ok(match tx_envelope {
                 OpTxEnvelope::Legacy(inner) => {
-                    let inner_tx = inner.tx();
+                    inner_tx.from = inner.recover_signer()?;
+
                     Transaction {
-                        hash: *inner.hash(),
-                        nonce: inner_tx.nonce,
-                        block_hash: Some(value.block_hash),
-                        block_number: Some(value.block_number),
-                        transaction_index: Some(i as u64),
-                        to: inner_tx.to.to().cloned(),
-                        value: inner_tx.value,
-                        gas_price: Some(inner_tx.gas_price),
-                        gas: inner_tx.gas_limit,
-                        input: inner_tx.input.to_vec().into(),
-                        chain_id: inner_tx.chain_id,
-                        transaction_type,
-                        from: inner.recover_signer()?,
-                        signature: Some(Signature {
-                            r: inner.signature().r(),
-                            s: inner.signature().s(),
-                            v: U256::from(inner.signature().v().to_u64()),
-                            y_parity: None,
-                        }),
-                        ..Default::default()
+                        inner: inner_tx,
+                        deposit_nonce: None,
+                        deposit_receipt_version: None,
                     }
                 }
                 OpTxEnvelope::Eip2930(inner) => {
-                    let inner_tx = inner.tx();
+                    inner_tx.from = inner.recover_signer()?;
+
                     Transaction {
-                        hash: *inner.hash(),
-                        nonce: inner_tx.nonce,
-                        block_hash: Some(value.block_hash),
-                        block_number: Some(value.block_number),
-                        transaction_index: Some(i as u64),
-                        to: inner_tx.to.to().cloned(),
-                        value: inner_tx.value,
-                        gas_price: Some(inner_tx.gas_price),
-                        gas: inner_tx.gas_limit,
-                        input: inner_tx.input.to_vec().into(),
-                        chain_id: Some(inner_tx.chain_id),
-                        transaction_type,
-                        from: inner.recover_signer()?,
-                        signature: Some(Signature {
-                            r: inner.signature().r(),
-                            s: inner.signature().s(),
-                            v: U256::from(inner.signature().v().to_u64()),
-                            y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                        }),
-                        access_list: Some(inner.tx().access_list.clone()),
-                        ..Default::default()
+                        inner: inner_tx,
+                        deposit_nonce: None,
+                        deposit_receipt_version: None,
                     }
                 }
                 OpTxEnvelope::Eip1559(inner) => {
-                    let inner_tx = inner.tx();
+                    inner_tx.from = inner.recover_signer()?;
+
                     Transaction {
-                        hash: *inner.hash(),
-                        nonce: inner_tx.nonce,
-                        block_hash: Some(value.block_hash),
-                        block_number: Some(value.block_number),
-                        transaction_index: Some(i as u64),
-                        to: inner_tx.to.to().cloned(),
-                        value: inner_tx.value,
-                        gas_price: inner_tx.gas_price(),
-                        gas: inner_tx.gas_limit,
-                        input: inner_tx.input.to_vec().into(),
-                        chain_id: Some(inner_tx.chain_id),
-                        transaction_type,
-                        from: inner.recover_signer()?,
-                        signature: Some(Signature {
-                            r: inner.signature().r(),
-                            s: inner.signature().s(),
-                            v: U256::from(inner.signature().v().to_u64()),
-                            y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                        }),
-                        access_list: Some(inner_tx.access_list.clone()),
-                        max_fee_per_gas: Some(inner_tx.max_fee_per_gas),
-                        max_priority_fee_per_gas: Some(inner_tx.max_priority_fee_per_gas),
-                        ..Default::default()
+                        inner: inner_tx,
+                        deposit_nonce: None,
+                        deposit_receipt_version: None,
                     }
                 }
-                OpTxEnvelope::Eip4844(inner) => {
-                    let inner_tx = inner.tx();
+                OpTxEnvelope::Eip7702(inner) => {
+                    inner_tx.from = inner.recover_signer()?;
+
                     Transaction {
-                        hash: *inner.hash(),
-                        nonce: inner_tx.nonce(),
-                        block_hash: Some(value.block_hash),
-                        block_number: Some(value.block_number),
-                        transaction_index: Some(i as u64),
-                        to: inner_tx.to().to().cloned(),
-                        value: inner_tx.value(),
-                        gas_price: inner_tx.gas_price(),
-                        gas: inner_tx.gas_limit(),
-                        input: inner_tx.input().to_vec().into(),
-                        chain_id: inner_tx.chain_id(),
-                        transaction_type,
-                        from: inner.recover_signer()?,
-                        signature: Some(Signature {
-                            r: inner.signature().r(),
-                            s: inner.signature().s(),
-                            v: U256::from(inner.signature().v().to_u64()),
-                            y_parity: Some(Parity(inner.signature().v().to_u64() == 1)),
-                        }),
-                        access_list: Some(inner_tx.tx().access_list.clone()),
-                        max_fee_per_gas: Some(inner_tx.tx().max_fee_per_gas),
-                        max_priority_fee_per_gas: Some(inner_tx.tx().max_priority_fee_per_gas),
-                        max_fee_per_blob_gas: Some(inner_tx.tx().max_fee_per_blob_gas),
-                        blob_versioned_hashes: Some(inner_tx.tx().blob_versioned_hashes.clone()),
-                        ..Default::default()
+                        inner: inner_tx,
+                        deposit_nonce: None,
+                        deposit_receipt_version: None,
                     }
                 }
                 OpTxEnvelope::Deposit(inner) => {
-                    let hash =
-                        keccak256([&[0x7Eu8], alloy::rlp::encode(&inner).as_slice()].concat());
+                    inner_tx.from = inner.inner().from;
+                    let deposit_nonce = Some(inner.inner().nonce());
 
-                    let tx = Transaction {
-                        hash,
-                        nonce: inner.nonce(),
-                        block_hash: Some(value.block_hash),
-                        block_number: Some(value.block_number),
-                        transaction_index: Some(i as u64),
-                        to: inner.to().to().cloned(),
-                        value: inner.value(),
-                        gas_price: inner.gas_price(),
-                        gas: inner.gas_limit(),
-                        input: inner.input().to_vec().into(),
-                        chain_id: inner.chain_id(),
-                        transaction_type,
-                        ..Default::default()
-                    };
-
-                    tx
+                    Transaction {
+                        inner: inner_tx,
+                        deposit_nonce,
+                        deposit_receipt_version: None,
+                    }
                 }
                 _ => unreachable!("new tx type"),
             })

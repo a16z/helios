@@ -1,7 +1,5 @@
 use alloy::{
-    consensus::{
-        BlobTransactionSidecar, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
-    },
+    consensus::{Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction},
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
@@ -25,7 +23,7 @@ impl NetworkSpec for Ethereum {
 
         let consensus_receipt = Receipt {
             cumulative_gas_used: receipt.cumulative_gas_used(),
-            status: *receipt.status_or_post_state(),
+            status: receipt.status_or_post_state(),
             logs,
         };
 
@@ -112,6 +110,7 @@ impl Network for Ethereum {
     type TransactionResponse = alloy::rpc::types::Transaction;
     type ReceiptResponse = alloy::rpc::types::TransactionReceipt;
     type HeaderResponse = alloy::rpc::types::Header;
+    type BlockResponse = alloy::rpc::types::Block<Self::TransactionResponse, Self::HeaderResponse>;
 }
 
 impl TransactionBuilder<Ethereum> for TransactionRequest {
@@ -191,19 +190,11 @@ impl TransactionBuilder<Ethereum> for TransactionRequest {
         self.max_priority_fee_per_gas = Some(max_priority_fee_per_gas);
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<u128> {
-        self.max_fee_per_blob_gas
-    }
-
-    fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128) {
-        self.max_fee_per_blob_gas = Some(max_fee_per_blob_gas)
-    }
-
-    fn gas_limit(&self) -> Option<u128> {
+    fn gas_limit(&self) -> Option<u64> {
         self.gas
     }
 
-    fn set_gas_limit(&mut self, gas_limit: u128) {
+    fn set_gas_limit(&mut self, gas_limit: u64) {
         self.gas = Some(gas_limit);
     }
 
@@ -215,21 +206,13 @@ impl TransactionBuilder<Ethereum> for TransactionRequest {
         self.access_list = Some(access_list);
     }
 
-    fn blob_sidecar(&self) -> Option<&BlobTransactionSidecar> {
-        self.sidecar.as_ref()
-    }
-
-    fn set_blob_sidecar(&mut self, sidecar: BlobTransactionSidecar) {
-        self.sidecar = Some(sidecar);
-        self.populate_blob_hashes();
-    }
-
     fn complete_type(&self, ty: TxType) -> Result<(), Vec<&'static str>> {
         match ty {
             TxType::Legacy => self.complete_legacy(),
             TxType::Eip2930 => self.complete_2930(),
             TxType::Eip1559 => self.complete_1559(),
             TxType::Eip4844 => self.complete_4844(),
+            TxType::Eip7702 => self.complete_7702(),
         }
     }
 

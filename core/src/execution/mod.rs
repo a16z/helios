@@ -84,7 +84,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let mut slot_map = HashMap::new();
 
         for storage_proof in proof.storage_proof {
-            let key = storage_proof.key.0;
+            let key = storage_proof.key.as_b256();
             let key_hash = keccak256(key);
             let value = encode(storage_proof.value);
 
