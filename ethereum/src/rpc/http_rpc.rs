@@ -66,7 +66,7 @@ async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
 impl<S: ConsensusSpec> ConsensusRpc<S> for HttpRpc {
     fn new(rpc: &str) -> Self {
         HttpRpc {
-            rpc: rpc.to_string(),
+            rpc: rpc.trim_end_matches('/').to_string(),
         }
     }
 
