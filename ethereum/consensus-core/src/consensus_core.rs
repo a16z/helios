@@ -169,7 +169,7 @@ pub fn apply_generic_update<S: ConsensusSpec>(
         && update_finalized_period == update_attested_period;
 
     let should_apply_update = {
-        let has_majority = committee_bits * 3 >= S::sync_commitee_size() * 2;
+        let has_majority = committee_bits * 3 >= S::sync_committee_size() * 2;
         if !has_majority {
             warn!("skipping block with low vote count");
         }
@@ -352,7 +352,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 /// WARNING: `force_update` allows Helios to accept a header with less than a quorum of signatures.
 /// Use with caution only in cases where it is not possible that valid updates are being censored.
 pub fn force_update<S: ConsensusSpec>(store: &mut LightClientStore<S>, current_slot: u64) {
-    if current_slot > store.finalized_header.beacon().slot + S::slots_per_sync_commitee_period() {
+    if current_slot > store.finalized_header.beacon().slot + S::slots_per_sync_committee_period() {
         if let Some(mut best_valid_update) = store.best_valid_update.clone() {
             if best_valid_update
                 .finalized_header
@@ -384,7 +384,7 @@ pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
 
 pub fn calc_sync_period<S: ConsensusSpec>(slot: u64) -> u64 {
     let epoch = slot / S::slots_per_epoch();
-    epoch / S::epochs_per_sync_commitee_period()
+    epoch / S::epochs_per_sync_committee_period()
 }
 
 pub fn get_bits<S: ConsensusSpec>(bitfield: &BitVector<S::SyncCommitteeSize>) -> u64 {
