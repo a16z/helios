@@ -505,7 +505,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate<S>) {
-        let size = S::sync_commitee_size() as f32;
+        let size = S::sync_committee_size() as f32;
         let participation =
             get_bits::<S>(&update.sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -524,7 +524,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn log_optimistic_update(&self, update: &FinalityUpdate<S>) {
-        let size = S::sync_commitee_size() as f32;
+        let size = S::sync_committee_size() as f32;
         let participation =
             get_bits::<S>(&update.sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
