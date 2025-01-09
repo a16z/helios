@@ -17,6 +17,7 @@ console_error_panic_hook = "0.1.7"
 
 eyre.workspace = true
 alloy.workspace = true
+op-alloy-rpc-types.workspace = true
 
 hex = "0.4.3"
 serde = { version = "1.0.143", features = ["derive"] }
