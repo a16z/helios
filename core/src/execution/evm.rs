@@ -1,6 +1,9 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
-use alloy::network::TransactionBuilder;
+use alloy::{
+    consensus::BlockHeader,
+    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
+};
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
@@ -184,7 +187,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
                         .await
                         .ok_or(ExecutionError::BlockNotFound(tag))?;
 
-                    self.block_hash.insert(*number, block.hash);
+                    self.block_hash.insert(*number, block.header().hash());
                 }
             }
         }
@@ -248,7 +251,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
             .get_block(self.block, false)
             .await
             .ok_or(ExecutionError::BlockNotFound(self.block))?
-            .miner;
+            .header()
+            .beneficiary();
         let producer_access_entry = AccessListItem {
             address: coinbase,
             storage_keys: Vec::default(),

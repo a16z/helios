@@ -9,7 +9,7 @@ use eyre::{eyre, Result};
 
 use super::ExecutionRpc;
 use crate::network_spec::NetworkSpec;
-use crate::types::{Block, BlockTag};
+use crate::types::BlockTag;
 
 #[derive(Clone)]
 pub struct MockRpc {
@@ -107,7 +107,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_block(&self, _hash: B256) -> Result<Block<N::TransactionResponse>> {
+    async fn get_block(&self, _hash: B256) -> Result<N::BlockResponse> {
         Err(eyre!("not implemented"))
     }
 

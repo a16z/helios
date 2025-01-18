@@ -1,8 +1,9 @@
-use alloy::consensus::Transaction as TxTrait;
+use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
 use alloy::rlp::Decodable;
-use alloy::rpc::types::EIP1186AccountProofResponse;
-use alloy::rpc::types::Transaction as EthTransaction;
+use alloy::rpc::types::{
+    Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
+};
 use alloy_rlp::encode;
 use eyre::{eyre, OptionExt, Result};
 use op_alloy_consensus::OpTxEnvelope;
@@ -19,7 +20,6 @@ use triehash_ethereum::ordered_trie_root;
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::Consensus;
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
-use helios_core::types::{Block, Transactions};
 use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
 use std::sync::{Arc, Mutex};
 
@@ -341,31 +341,35 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
     let withdrawals = value.withdrawals.iter().map(|v| encode(v));
     let withdrawals_root = ordered_trie_root(withdrawals);
 
-    Ok(Block {
-        number: U64::from(value.block_number),
-        base_fee_per_gas: value.base_fee_per_gas,
-        difficulty: U256::ZERO,
-        extra_data: value.extra_data.to_vec().into(),
-        gas_limit: U64::from(value.gas_limit),
-        gas_used: U64::from(value.gas_used),
-        hash: value.block_hash,
-        logs_bloom: value.logs_bloom.to_vec().into(),
-        miner: value.fee_recipient,
-        parent_hash: value.parent_hash,
-        receipts_root: value.receipts_root,
-        state_root: value.state_root,
-        timestamp: U64::from(value.timestamp),
-        total_difficulty: U64::ZERO,
-        transactions: Transactions::Full(txs),
-        mix_hash: value.prev_randao,
-        nonce: empty_nonce,
-        sha3_uncles: empty_uncle_hash,
-        size: U64::ZERO,
+    let consensus_header = ConsensusHeader {
+        parent_hash: *value.block_hash(),
+        ommers_hash: empty_uncle_hash,
+        beneficiary: *value.fee_recipient(),
+        state_root: *value.state_root(),
         transactions_root: B256::from_slice(txs_root.as_bytes()),
-        withdrawals_root: B256::from_slice(withdrawals_root.as_bytes()),
-        uncles: vec![],
-        blob_gas_used: Some(U64::from(value.blob_gas_used)),
-        excess_blob_gas: Some(U64::from(value.excess_blob_gas)),
-        parent_beacon_block_root: None,
-    })
+        receipts_root: *value.receipts_root(),
+        withdrawals_root: Some(B256::from_slice(withdrawals_root.as_bytes())),
+        logs_bloom: value.logs_bloom().inner.to_vec().into(),
+        difficulty: U256::ZERO,
+        number: *value.block_number(),
+        gas_limit: *value.gas_limit(),
+        gas_used: *value.gas_used(),
+        timestamp: *value.timestamp(),
+        mix_hash: *value.prev_randao(),
+        nonce: empty_nonce,
+        base_fee_per_gas: Some(*value.base_fee_per_gas().into()),
+        blob_gas_used: value.blob_gas_used().cloned().ok(),
+        excess_blob_gas: value.excess_blob_gas().cloned().ok(),
+        parent_beacon_block_root: Some(*value.parent_hash()),
+        extra_data: value.extra_data().inner.to_vec().into(),
+        requests_hash: None,
+    };
+
+    let header = Header::from_consensus(
+        Sealed::new(consensus_header),
+        Some(U256::ZERO),
+        Some(U256::ZERO),
+    );
+
+    Ok(Block::new(header, BlockTransactions::Full(txs)))
 }

@@ -6,7 +6,7 @@ use alloy::{
 };
 use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
-use helios_core::{network_spec::NetworkSpec, types::Block};
+use helios_core::network_spec::NetworkSpec;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ethereum;
@@ -83,17 +83,18 @@ impl NetworkSpec for Ethereum {
         tx_env
     }
 
-    fn block_env(block: &Block<Self::TransactionResponse>) -> BlockEnv {
+    fn block_env(block: &Self::BlockResponse) -> BlockEnv {
         let mut block_env = BlockEnv::default();
-        block_env.number = block.number.to();
-        block_env.coinbase = block.miner;
-        block_env.timestamp = block.timestamp.to();
-        block_env.gas_limit = block.gas_limit.to();
-        block_env.basefee = block.base_fee_per_gas;
-        block_env.difficulty = block.difficulty;
-        block_env.prevrandao = Some(block.mix_hash);
+        block_env.number = block.header.number();
+        block_env.coinbase = block.header.beneficiary();
+        block_env.timestamp = block.header.timestamp();
+        block_env.gas_limit = block.header.gas_limit();
+        block_env.basefee = block.header.base_fee_per_gas();
+        block_env.difficulty = block.header.difficulty();
+        block_env.prevrandao = Some(block.header.mix_hash());
         block_env.blob_excess_gas_and_price = block
-            .excess_blob_gas
+            .header
+            .excess_blob_gas()
             .map(|v| BlobExcessGasAndPrice::new(v.to()));
 
         block_env

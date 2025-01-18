@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use alloy::consensus::BlockHeader;
+use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
@@ -12,15 +14,15 @@ use crate::execution::state::State;
 use crate::execution::ExecutionClient;
 use crate::network_spec::NetworkSpec;
 use crate::time::{SystemTime, UNIX_EPOCH};
-use crate::types::{Block, BlockTag};
+use crate::types::BlockTag;
 
-pub struct Node<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
     pub execution: Arc<ExecutionClient<N, HttpRpc<N>>>,
     pub history_size: usize,
 }
 
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub fn new(execution_rpc: &str, mut consensus: C) -> Result<Self, ClientError> {
         let block_recv = consensus.block_recv().take().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
@@ -72,7 +74,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
 
     pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<Option<u64>> {
         let block = self.execution.get_block_by_hash(hash, false).await;
-        Ok(block.map(|block| block.transactions.hashes().len() as u64))
+        Ok(block.map(|block| block.transactions().hashes().len() as u64))
     }
 
     pub async fn get_block_transaction_count_by_number(
@@ -80,7 +82,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         tag: BlockTag,
     ) -> Result<Option<u64>> {
         let block = self.execution.get_block(tag, false).await;
-        Ok(block.map(|block| block.transactions.hashes().len() as u64))
+        Ok(block.map(|block| block.transactions().hashes().len() as u64))
     }
 
     pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
@@ -199,9 +201,9 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .get_block(BlockTag::Latest, false)
             .await
             .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
-        let base_fee = block.base_fee_per_gas;
-        let tip = U256::from(10_u64.pow(9));
-        Ok(base_fee + tip)
+        let base_fee = block.header().base_fee_per_gas().unwrap_or(0_u64);
+        let tip = 10_u64.pow(9);
+        Ok(U256::from(base_fee + tip))
     }
 
     pub async fn blob_base_fee(&self, block: BlockTag) -> Result<U256> {
@@ -222,14 +224,14 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .get_block(BlockTag::Latest, false)
             .await
             .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
-        Ok(block.number.to())
+        Ok(U256::from(block.header().number()))
     }
 
     pub async fn get_block_by_number(
         &self,
         tag: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<N::TransactionResponse>>> {
+    ) -> Result<Option<N::BlockResponse>> {
         self.check_blocktag_age(&tag).await?;
 
         let block = self.execution.get_block(tag, full_tx).await;
@@ -240,7 +242,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<N::TransactionResponse>>> {
+    ) -> Result<Option<N::BlockResponse>> {
         let block = self.execution.get_block_by_hash(hash, full_tx).await;
         Ok(block)
     }
@@ -274,7 +276,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .await
             .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
 
-        Ok(block.miner)
+        Ok(block.header().beneficiary())
     }
 
     async fn check_head_age(&self) -> Result<(), ClientError> {
@@ -288,8 +290,8 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Node<N, C> {
             .get_block(BlockTag::Latest, false)
             .await
             .ok_or_else(|| ClientError::OutOfSync(timestamp))?
-            .timestamp
-            .to();
+            .header()
+            .timestamp();
 
         let delay = timestamp.checked_sub(block_timestamp).unwrap_or_default();
         if delay > 60 {

@@ -14,7 +14,7 @@ use revm::primitives::AccessList;
 
 use crate::errors::RpcError;
 use crate::network_spec::NetworkSpec;
-use crate::types::{Block, BlockTag};
+use crate::types::BlockTag;
 
 use super::ExecutionRpc;
 
@@ -222,12 +222,9 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("fee_history", e))?)
     }
 
-    async fn get_block(&self, hash: B256) -> Result<Block<N::TransactionResponse>> {
+    async fn get_block(&self, hash: B256) -> Result<N::BlockResponse> {
         self.provider
-            .raw_request::<_, Option<Block<N::TransactionResponse>>>(
-                "eth_getBlockByHash".into(),
-                (hash, true),
-            )
+            .raw_request::<_, Option<N::BlockResponse>>("eth_getBlockByHash".into(), (hash, true))
             .await?
             .ok_or(eyre!("block not found"))
     }
