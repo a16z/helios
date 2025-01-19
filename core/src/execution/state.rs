@@ -327,7 +327,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
             if self.blocks.get(&prev).is_none() {
                 let backfilled = self.rpc.get_block(block.header().parent_hash()).await?;
 
-                if backfilled.is_hash_valid()
+                if N::hash_block(&backfilled) == backfilled.header().hash()
                     && block.header().parent_hash() == backfilled.header().hash()
                 {
                     info!("backfilled: block={}", backfilled.header().number());

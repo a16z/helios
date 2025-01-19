@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 use std::process;
 use std::sync::Arc;
 
-use alloy::consensus::{Header as ConsensusHeader, Sealed, Transaction as TxTrait, TxEnvelope};
-use alloy::primitives::{b256, fixed_bytes, B256, U256, U64};
+use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
+use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
 use alloy::rlp::{encode, Decodable};
 use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
 use chrono::Duration;
@@ -59,7 +59,7 @@ pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
     phantom: PhantomData<S>,
 }
 
-impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Transaction>
+impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
     for ConsensusClient<S, R, DB>
 {
     fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
@@ -607,16 +607,18 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
 
     let withdrawals = value.withdrawals().unwrap().iter().map(encode);
     let withdrawals_root = ordered_trie_root(withdrawals);
+    let logs_bloom: Bloom =
+        Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner.to_vec()));
 
     let consensus_header = ConsensusHeader {
-        parent_hash: *value.block_hash(),
+        parent_hash: *value.parent_hash(),
         ommers_hash: empty_uncle_hash,
         beneficiary: *value.fee_recipient(),
         state_root: *value.state_root(),
         transactions_root: B256::from_slice(txs_root.as_bytes()),
         receipts_root: *value.receipts_root(),
         withdrawals_root: Some(B256::from_slice(withdrawals_root.as_bytes())),
-        logs_bloom: value.logs_bloom().inner.to_vec().into(),
+        logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
         number: *value.block_number(),
         gas_limit: *value.gas_limit(),
@@ -624,19 +626,21 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         timestamp: *value.timestamp(),
         mix_hash: *value.prev_randao(),
         nonce: empty_nonce,
-        base_fee_per_gas: Some(*value.base_fee_per_gas().into()),
+        base_fee_per_gas: Some(value.base_fee_per_gas().to::<u64>()),
         blob_gas_used: value.blob_gas_used().cloned().ok(),
         excess_blob_gas: value.excess_blob_gas().cloned().ok(),
-        parent_beacon_block_root: Some(*value.parent_hash()),
+        parent_beacon_block_root: None,
         extra_data: value.extra_data().inner.to_vec().into(),
         requests_hash: None,
     };
 
-    let header = Header::from_consensus(
-        Sealed::new(consensus_header),
-        Some(U256::ZERO),
-        Some(U256::ZERO),
-    );
+    let header = Header {
+        hash: *value.block_hash(),
+        inner: consensus_header,
+        total_difficulty: Some(U256::ZERO),
+        size: Some(U256::ZERO),
+    };
+
     Block::new(header, BlockTransactions::Full(txs))
 }
 

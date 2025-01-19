@@ -1,5 +1,5 @@
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
-use alloy::primitives::{b256, fixed_bytes, keccak256, Address, B256, U256, U64};
+use alloy::primitives::{b256, fixed_bytes, keccak256, Address, Bloom, BloomInput, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{
     Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
@@ -7,6 +7,7 @@ use alloy::rpc::types::{
 use alloy_rlp::encode;
 use eyre::{eyre, OptionExt, Result};
 use op_alloy_consensus::OpTxEnvelope;
+use op_alloy_network::primitives::BlockTransactions;
 use op_alloy_rpc_types::Transaction;
 use std::str::FromStr;
 use std::time::Duration;
@@ -82,7 +83,7 @@ impl ConsensusClient {
     }
 }
 
-impl Consensus<Transaction> for ConsensusClient {
+impl Consensus<Block<Transaction>> for ConsensusClient {
     fn chain_id(&self) -> u64 {
         self.chain_id
     }
@@ -142,7 +143,7 @@ impl Inner {
                 let number = payload.block_number;
 
                 if let Ok(block) = payload_to_block(payload) {
-                    self.latest_block = Some(block.number.to());
+                    self.latest_block = Some(block.header.number);
                     _ = self.block_send.send(block).await;
 
                     tracing::info!(
@@ -193,7 +194,10 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 .ok_or_eyre("failed to receive block")?;
 
             // Query proof from op consensus server
-            let req = format!("{}unsafe_signer_proof/{}", config.consensus_rpc, block.hash);
+            let req = format!(
+                "{}unsafe_signer_proof/{}",
+                config.consensus_rpc, block.header.hash
+            );
             let proof = reqwest::get(req)
                 .await?
                 .json::<EIP1186AccountProofResponse>()
@@ -205,7 +209,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
             let account_encoded = encode_account(&proof);
             let is_valid = verify_proof(
                 &proof.account_proof,
-                block.state_root.as_slice(),
+                block.header.state_root.as_slice(),
                 &account_path,
                 &account_encoded,
             );
@@ -340,36 +344,38 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
 
     let withdrawals = value.withdrawals.iter().map(|v| encode(v));
     let withdrawals_root = ordered_trie_root(withdrawals);
+    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom.to_vec()));
 
     let consensus_header = ConsensusHeader {
-        parent_hash: *value.block_hash(),
+        parent_hash: value.parent_hash.into(),
         ommers_hash: empty_uncle_hash,
-        beneficiary: *value.fee_recipient(),
-        state_root: *value.state_root(),
+        beneficiary: Address::from(*value.fee_recipient),
+        state_root: value.state_root.into(),
         transactions_root: B256::from_slice(txs_root.as_bytes()),
-        receipts_root: *value.receipts_root(),
+        receipts_root: value.receipts_root.into(),
         withdrawals_root: Some(B256::from_slice(withdrawals_root.as_bytes())),
-        logs_bloom: value.logs_bloom().inner.to_vec().into(),
+        logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
-        number: *value.block_number(),
-        gas_limit: *value.gas_limit(),
-        gas_used: *value.gas_used(),
-        timestamp: *value.timestamp(),
-        mix_hash: *value.prev_randao(),
+        number: value.block_number,
+        gas_limit: value.gas_limit,
+        gas_used: value.gas_used,
+        timestamp: value.timestamp,
+        mix_hash: value.prev_randao.into(),
         nonce: empty_nonce,
-        base_fee_per_gas: Some(*value.base_fee_per_gas().into()),
-        blob_gas_used: value.blob_gas_used().cloned().ok(),
-        excess_blob_gas: value.excess_blob_gas().cloned().ok(),
-        parent_beacon_block_root: Some(*value.parent_hash()),
-        extra_data: value.extra_data().inner.to_vec().into(),
+        base_fee_per_gas: Some(value.base_fee_per_gas.to::<u64>()),
+        blob_gas_used: Some(value.blob_gas_used),
+        excess_blob_gas: Some(value.excess_blob_gas),
+        parent_beacon_block_root: None,
+        extra_data: value.extra_data.to_vec().into(),
         requests_hash: None,
     };
 
-    let header = Header::from_consensus(
-        Sealed::new(consensus_header),
-        Some(U256::ZERO),
-        Some(U256::ZERO),
-    );
+    let header = Header {
+        hash: value.block_hash,
+        inner: consensus_header,
+        total_difficulty: Some(U256::ZERO),
+        size: Some(U256::ZERO),
+    };
 
     Ok(Block::new(header, BlockTransactions::Full(txs)))
 }

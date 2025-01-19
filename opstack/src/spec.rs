@@ -1,5 +1,7 @@
 use alloy::{
-    consensus::{Receipt, ReceiptWithBloom, Transaction as TxTrait, TxReceipt, TxType},
+    consensus::{
+        BlockHeader, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxReceipt, TxType,
+    },
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
@@ -67,6 +69,10 @@ impl NetworkSpec for OpStack {
         }
     }
 
+    fn hash_block(block: &Self::BlockResponse) -> revm::primitives::B256 {
+        block.header.hash_slow()
+    }
+
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool {
         for receipt in list {
             if receipt == elem {
@@ -122,17 +128,17 @@ impl NetworkSpec for OpStack {
 
     fn block_env(block: &Self::BlockResponse) -> BlockEnv {
         let mut block_env = BlockEnv::default();
-        block_env.number = block.header.number();
+        block_env.number = U256::from(block.header.number());
         block_env.coinbase = block.header.beneficiary();
-        block_env.timestamp = block.header.timestamp();
-        block_env.gas_limit = block.header.gas_limit();
-        block_env.basefee = block.header.base_fee_per_gas();
+        block_env.timestamp = U256::from(block.header.timestamp());
+        block_env.gas_limit = U256::from(block.header.gas_limit());
+        block_env.basefee = U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64));
         block_env.difficulty = block.header.difficulty();
-        block_env.prevrandao = Some(block.header.mix_hash());
+        block_env.prevrandao = block.header.mix_hash();
         block_env.blob_excess_gas_and_price = block
             .header
             .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v.to()));
+            .map(|v| BlobExcessGasAndPrice::new(v.into()));
 
         block_env
     }

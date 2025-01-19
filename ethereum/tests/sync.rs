@@ -27,5 +27,5 @@ async fn test_sync() {
     let client = setup().await;
 
     let block = client.block_recv.unwrap().recv().await.unwrap();
-    assert_eq!(block.number.to::<u64>(), 17923112);
+    assert_eq!(block.header.number, 17923112_u64);
 }
