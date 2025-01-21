@@ -231,3 +231,67 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .ok_or(eyre!("block not found"))
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+use std::time::Duration;
+#[cfg(target_arch = "wasm32")]
+use wasmtimer::tokio::sleep;
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Debug)]
+struct RetryConfig {
+    max_attempts: u32,
+    initial_backoff: Duration,
+    max_backoff: Duration,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: 3,
+            initial_backoff: Duration::from_millis(100),
+            max_backoff: Duration::from_secs(5),
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl<N: NetworkSpec> HttpRpc<N> {
+    async fn execute_with_retry<T, F, Fut>(&self, operation: F) -> Result<T>
+    where
+        F: Fn() -> Fut + Clone,
+        Fut: std::future::Future<Output = Result<T>>,
+    {
+        let config = RetryConfig::default();
+        let mut attempts = 0;
+        let mut backoff = config.initial_backoff;
+
+        loop {
+            attempts += 1;
+            match operation().await {
+                Ok(response) => return Ok(response),
+                Err(err) => {
+                    if !Self::should_retry(&err) || attempts >= config.max_attempts {
+                        return Err(err);
+                    }
+
+                    sleep(backoff).await;
+                    backoff = std::cmp::min(backoff * 2, config.max_backoff);
+                }
+            }
+        }
+    }
+
+    fn should_retry(err: &RpcError) -> bool {
+        if let Some(source) = &err.source {
+            let error_str = source.to_string().to_lowercase();
+            error_str.contains("rate limit") ||
+            error_str.contains("timeout") ||
+            error_str.contains("connection") ||
+            (error_str.contains("server") && error_str.contains("50"))
+        } else {
+            false
+        }
+    }
+}
