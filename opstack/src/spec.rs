@@ -1,5 +1,6 @@
 use alloy::{
     consensus::{
+        proofs::{calculate_transaction_root, calculate_withdrawals_root},
         BlockHeader, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxReceipt, TxType,
     },
     primitives::{Address, Bytes, ChainId, TxKind, U256},
@@ -69,8 +70,32 @@ impl NetworkSpec for OpStack {
         }
     }
 
-    fn hash_block(block: &Self::BlockResponse) -> revm::primitives::B256 {
-        block.header.hash_slow()
+    fn is_hash_valid(block: &Self::BlockResponse) -> bool {
+        if block.header.hash_slow() != block.header.hash {
+            return false;
+        }
+
+        if let Some(txs) = block.transactions.as_transactions() {
+            let txs_root = calculate_transaction_root(
+                &txs.iter()
+                    .map(|t| t.clone().inner.inner)
+                    .collect::<Vec<_>>(),
+            );
+            if txs_root != block.header.transactions_root {
+                return false;
+            }
+        }
+
+        if let Some(withdrawals) = &block.withdrawals {
+            let withdrawals_root = calculate_withdrawals_root(
+                &withdrawals.iter().map(|w| w.clone()).collect::<Vec<_>>(),
+            );
+            if Some(withdrawals_root) != block.header.withdrawals_root {
+                return false;
+            }
+        }
+
+        true
     }
 
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool {

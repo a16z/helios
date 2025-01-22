@@ -2,7 +2,8 @@ use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::primitives::{b256, fixed_bytes, keccak256, Address, Bloom, BloomInput, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{
-    Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
+    Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction, Withdrawal,
+    Withdrawals,
 };
 use alloy_rlp::encode;
 use eyre::{eyre, OptionExt, Result};
@@ -339,11 +340,19 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         })
         .collect::<Result<Vec<Transaction>>>()?;
 
+    let withdrawals: Vec<Withdrawal> = value
+        .withdrawals
+        .clone()
+        .into_iter()
+        .map(|w| w.clone().into())
+        .collect();
+
     let raw_txs = value.transactions.iter().map(|tx| tx.to_vec());
     let txs_root = ordered_trie_root(raw_txs);
 
-    let withdrawals = value.withdrawals.iter().map(|v| encode(v));
-    let withdrawals_root = ordered_trie_root(withdrawals);
+    let raw_withdrawals = value.withdrawals.iter().map(|v| encode(v));
+    let withdrawals_root = ordered_trie_root(raw_withdrawals);
+
     let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom.to_vec()));
 
     let consensus_header = ConsensusHeader {
@@ -377,5 +386,6 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         size: Some(U256::ZERO),
     };
 
-    Ok(Block::new(header, BlockTransactions::Full(txs)))
+    Ok(Block::new(header, BlockTransactions::Full(txs))
+        .with_withdrawals(Some(Withdrawals::new(withdrawals))))
 }

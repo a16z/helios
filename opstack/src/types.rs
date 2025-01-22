@@ -35,3 +35,14 @@ pub struct Withdrawal {
     address: Address,
     amount: u64,
 }
+
+impl Into<alloy::eips::eip4895::Withdrawal> for Withdrawal {
+    fn into(self) -> alloy::eips::eip4895::Withdrawal {
+        alloy::eips::eip4895::Withdrawal {
+            index: self.index,
+            validator_index: self.validator_index,
+            address: self.address,
+            amount: self.amount,
+        }
+    }
+}

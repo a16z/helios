@@ -3,6 +3,7 @@ use std::process;
 use std::sync::Arc;
 
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
+use alloy::eips::eip4895::{Withdrawal, Withdrawals};
 use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
 use alloy::rlp::{encode, Decodable};
 use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
@@ -602,11 +603,19 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         })
         .collect::<Vec<Transaction>>();
 
+    let withdrawals: Vec<Withdrawal> = value
+        .withdrawals()
+        .unwrap()
+        .into_iter()
+        .map(|w| w.clone().into())
+        .collect();
+
     let raw_txs = value.transactions().iter().map(|tx| tx.inner.to_vec());
     let txs_root = ordered_trie_root(raw_txs);
 
-    let withdrawals = value.withdrawals().unwrap().iter().map(encode);
-    let withdrawals_root = ordered_trie_root(withdrawals);
+    let raw_withdrawals = value.withdrawals().unwrap().iter().map(encode);
+    let withdrawals_root = ordered_trie_root(raw_withdrawals);
+
     let logs_bloom: Bloom =
         Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner.to_vec()));
 
@@ -642,6 +651,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
     };
 
     Block::new(header, BlockTransactions::Full(txs))
+        .with_withdrawals(Some(Withdrawals::new(withdrawals)))
 }
 
 #[cfg(test)]
