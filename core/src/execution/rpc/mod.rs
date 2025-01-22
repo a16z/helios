@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use eyre::Result;
 
 use crate::network_spec::NetworkSpec;
-use crate::types::{Block, BlockTag};
+use crate::types::BlockTag;
 
 pub mod http_rpc;
 pub mod mock_rpc;
@@ -44,7 +44,7 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn new_block_filter(&self) -> Result<U256>;
     async fn new_pending_transaction_filter(&self) -> Result<U256>;
     async fn chain_id(&self) -> Result<u64>;
-    async fn get_block(&self, hash: B256) -> Result<Block<N::TransactionResponse>>;
+    async fn get_block(&self, hash: B256) -> Result<N::BlockResponse>;
 
     async fn get_fee_history(
         &self,

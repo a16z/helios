@@ -61,18 +61,14 @@ fn enable_tracer() {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 }
 
-async fn start_client<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
-    client: &mut Client<N, C>,
-) {
+async fn start_client<N: NetworkSpec, C: Consensus<N::BlockResponse>>(client: &mut Client<N, C>) {
     if let Err(err) = client.start().await {
         error!(target: "helios::runner", error = %err);
         exit(1);
     }
 }
 
-fn register_shutdown_handler<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
-    client: Client<N, C>,
-) {
+fn register_shutdown_handler<N: NetworkSpec, C: Consensus<N::BlockResponse>>(client: Client<N, C>) {
     let client = Arc::new(client);
     let shutdown_counter = Arc::new(Mutex::new(0));
 

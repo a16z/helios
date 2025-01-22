@@ -1,10 +1,13 @@
 use alloy::{
-    consensus::{Receipt, ReceiptWithBloom, Transaction as TxTrait, TxReceipt, TxType},
+    consensus::{
+        proofs::{calculate_transaction_root, calculate_withdrawals_root},
+        BlockHeader, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxReceipt, TxType,
+    },
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
 
-use helios_core::{network_spec::NetworkSpec, types::Block};
+use helios_core::network_spec::NetworkSpec;
 use op_alloy_consensus::{
     OpDepositReceipt, OpDepositReceiptWithBloom, OpReceiptEnvelope, OpTxEnvelope, OpTxType,
     OpTypedTransaction,
@@ -67,6 +70,34 @@ impl NetworkSpec for OpStack {
         }
     }
 
+    fn is_hash_valid(block: &Self::BlockResponse) -> bool {
+        if block.header.hash_slow() != block.header.hash {
+            return false;
+        }
+
+        if let Some(txs) = block.transactions.as_transactions() {
+            let txs_root = calculate_transaction_root(
+                &txs.iter()
+                    .map(|t| t.clone().inner.inner)
+                    .collect::<Vec<_>>(),
+            );
+            if txs_root != block.header.transactions_root {
+                return false;
+            }
+        }
+
+        if let Some(withdrawals) = &block.withdrawals {
+            let withdrawals_root = calculate_withdrawals_root(
+                &withdrawals.iter().map(|w| w.clone()).collect::<Vec<_>>(),
+            );
+            if Some(withdrawals_root) != block.header.withdrawals_root {
+                return false;
+            }
+        }
+
+        true
+    }
+
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool {
         for receipt in list {
             if receipt == elem {
@@ -120,18 +151,19 @@ impl NetworkSpec for OpStack {
         tx_env
     }
 
-    fn block_env(block: &Block<Self::TransactionResponse>) -> BlockEnv {
+    fn block_env(block: &Self::BlockResponse) -> BlockEnv {
         let mut block_env = BlockEnv::default();
-        block_env.number = block.number.to();
-        block_env.coinbase = block.miner;
-        block_env.timestamp = block.timestamp.to();
-        block_env.gas_limit = block.gas_limit.to();
-        block_env.basefee = block.base_fee_per_gas;
-        block_env.difficulty = block.difficulty;
-        block_env.prevrandao = Some(block.mix_hash);
+        block_env.number = U256::from(block.header.number());
+        block_env.coinbase = block.header.beneficiary();
+        block_env.timestamp = U256::from(block.header.timestamp());
+        block_env.gas_limit = U256::from(block.header.gas_limit());
+        block_env.basefee = U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64));
+        block_env.difficulty = block.header.difficulty();
+        block_env.prevrandao = block.header.mix_hash();
         block_env.blob_excess_gas_and_price = block
-            .excess_blob_gas
-            .map(|v| BlobExcessGasAndPrice::new(v.to()));
+            .header
+            .excess_blob_gas()
+            .map(|v| BlobExcessGasAndPrice::new(v.into()));
 
         block_env
     }

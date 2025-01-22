@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use alloy::network::ReceiptResponse;
+use alloy::consensus::BlockHeader;
+use alloy::network::primitives::HeaderResponse;
+use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp::encode;
-use alloy::rpc::types::{Filter, FilterChanges, Log};
+use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
 use eyre::Result;
 use futures::future::try_join_all;
@@ -12,7 +14,7 @@ use tracing::warn;
 use triehash_ethereum::ordered_trie_root;
 
 use crate::network_spec::NetworkSpec;
-use crate::types::{Block, BlockTag, Transactions};
+use crate::types::BlockTag;
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
@@ -64,7 +66,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let proof = self
             .rpc
-            .get_proof(address, slots, block.number.into())
+            .get_proof(address, slots, block.header().number().into())
             .await?;
 
         let account_path = keccak256(address).to_vec();
@@ -72,7 +74,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         let is_valid = verify_proof(
             &proof.account_proof,
-            block.state_root.as_slice(),
+            block.header().state_root().as_slice(),
             &account_path,
             &account_encoded,
         );
@@ -105,7 +107,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
             Vec::new()
         } else {
-            let code = self.rpc.get_code(address, block.number.to()).await?;
+            let code = self
+                .rpc
+                .get_code(address, block.header().number().into())
+                .await?;
             let code_hash = keccak256(&code);
 
             if proof.code_hash != code_hash {
@@ -131,11 +136,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
-    pub async fn get_block(
-        &self,
-        tag: BlockTag,
-        full_tx: bool,
-    ) -> Option<Block<N::TransactionResponse>> {
+    pub async fn get_block(&self, tag: BlockTag, full_tx: bool) -> Option<N::BlockResponse> {
         let block = self.state.get_block(tag).await;
         if block.is_none() {
             warn!(target: "helios::execution", "requested block not found in state: {}", tag);
@@ -144,7 +145,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let mut block = block.unwrap();
 
         if !full_tx {
-            block.transactions = Transactions::Hashes(block.transactions.hashes());
+            *block.transactions_mut() =
+                BlockTransactions::Hashes(block.transactions().hashes().collect());
         }
 
         Some(block)
@@ -156,7 +158,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             warn!(target: "helios::execution", "requested block not found");
             return U256::from(0);
         }
-        let parent_hash = block.unwrap().parent_hash;
+        let parent_hash = block.unwrap().header().parent_hash();
         let parent_block = self.get_block_by_hash(parent_hash, false).await;
         if parent_block.is_none() {
             warn!(target: "helios::execution", "requested parent block not foundß");
@@ -164,7 +166,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         };
 
         let blob_base_fee = Self::calculate_base_fee_per_blob_gas(
-            parent_block.unwrap().excess_blob_gas.unwrap().to::<u64>(),
+            parent_block.unwrap().header().excess_blob_gas().unwrap(),
         );
 
         U256::from(blob_base_fee)
@@ -190,11 +192,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         output / denominator
     }
 
-    pub async fn get_block_by_hash(
-        &self,
-        hash: B256,
-        full_tx: bool,
-    ) -> Option<Block<N::TransactionResponse>> {
+    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Option<N::BlockResponse> {
         let block = self.state.get_block_by_hash(hash).await;
         if block.is_none() {
             warn!(target: "helios::execution", "requested block not found in state: {}", hash);
@@ -203,7 +201,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let mut block = block.unwrap();
 
         if !full_tx {
-            block.transactions = Transactions::Hashes(block.transactions.hashes());
+            *block.transactions_mut() =
+                BlockTransactions::Hashes(block.transactions().hashes().collect());
         }
 
         Some(block)
@@ -260,7 +259,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let expected_receipt_root = ordered_trie_root(receipts_encoded.clone());
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
-        if expected_receipt_root != block.receipts_root
+        if expected_receipt_root != block.header().receipts_root()
             // Note: Some RPC providers return different response in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
             // Primarily due to https://github.com/ethereum/execution-apis/issues/295 not finalized
             // Which means that the basic equality check in N::receipt_contains can be flaky
@@ -287,7 +286,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             return Ok(None);
         };
 
-        let tag = BlockTag::Number(block.number.to());
+        let tag = BlockTag::Number(block.header().number().into());
 
         let receipts = self
             .rpc
@@ -299,7 +298,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let expected_receipt_root = ordered_trie_root(receipts_encoded);
         let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
 
-        if expected_receipt_root != block.receipts_root {
+        if expected_receipt_root != block.header().receipts_root() {
             return Err(ExecutionError::BlockReceiptsRootMismatch(tag).into());
         }
 
@@ -370,11 +369,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     self.state
                         .push_filter(
                             filter_id,
-                            FilterType::NewBlock(blocks.last().unwrap().number.to()),
+                            FilterType::NewBlock(blocks.last().unwrap().header().number().into()),
                         )
                         .await;
                 }
-                let block_hashes = blocks.into_iter().map(|b| b.hash).collect();
+                let block_hashes = blocks.into_iter().map(|b| b.header().hash()).collect();
                 FilterChanges::Hashes(block_hashes)
             }
             Some(FilterType::PendingTransactions) => {

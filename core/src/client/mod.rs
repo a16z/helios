@@ -13,19 +13,19 @@ use crate::client::rpc::Rpc;
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
 use crate::time::interval;
-use crate::types::{Block, BlockTag};
+use crate::types::BlockTag;
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rpc;
 
-pub struct Client<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+pub struct Client<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc<N, C>>,
 }
 
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     pub fn new(
         execution_rpc: &str,
         consensus: C,
@@ -179,7 +179,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<N::TransactionResponse>>> {
+    ) -> Result<Option<N::BlockResponse>> {
         self.node.get_block_by_number(block, full_tx).await
     }
 
@@ -187,7 +187,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Client<N, C> {
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<N::TransactionResponse>>> {
+    ) -> Result<Option<N::BlockResponse>> {
         self.node.get_block_by_hash(hash, full_tx).await
     }
 

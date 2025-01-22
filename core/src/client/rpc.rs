@@ -1,6 +1,6 @@
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
-use alloy::network::{ReceiptResponse, TransactionResponse};
+use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
 use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
@@ -16,15 +16,15 @@ use tracing::info;
 use crate::client::node::Node;
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
-use crate::types::{Block, BlockTag};
+use crate::types::BlockTag;
 
-pub struct Rpc<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+pub struct Rpc<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,
     handle: Option<ServerHandle>,
     address: SocketAddr,
 }
 
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Rpc<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Rpc<N, C> {
     pub fn new(node: Arc<Node<N, C>>, address: SocketAddr) -> Self {
         Rpc {
             node,
@@ -49,7 +49,13 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Rpc<N, C> {
 }
 
 #[rpc(server, namespace = "eth")]
-trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResponse + RpcObject> {
+trait EthRpc<
+    TX: TransactionResponse + RpcObject,
+    TXR: RpcObject,
+    R: ReceiptResponse + RpcObject,
+    B: BlockResponse + RpcObject,
+>
+{
     #[method(name = "getBalance")]
     async fn get_balance(
         &self,
@@ -93,13 +99,13 @@ trait EthRpc<TX: TransactionResponse + RpcObject, TXR: RpcObject, R: ReceiptResp
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<TX>>, ErrorObjectOwned>;
+    ) -> Result<Option<B>, ErrorObjectOwned>;
     #[method(name = "getBlockByHash")]
     async fn get_block_by_hash(
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<TX>>, ErrorObjectOwned>;
+    ) -> Result<Option<B>, ErrorObjectOwned>;
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "getTransactionReceipt")]
@@ -160,12 +166,12 @@ trait Web3Rpc {
     async fn client_version(&self) -> Result<String, ErrorObjectOwned>;
 }
 
-struct RpcInner<N: NetworkSpec, C: Consensus<N::TransactionResponse>> {
+struct RpcInner<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,
     address: SocketAddr,
 }
 
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Clone for RpcInner<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Clone for RpcInner<N, C> {
     fn clone(&self) -> Self {
         Self {
             node: self.node.clone(),
@@ -175,9 +181,13 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Clone for RpcInner<N,
 }
 
 #[async_trait]
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
-    EthRpcServer<N::TransactionResponse, N::TransactionRequest, N::ReceiptResponse>
-    for RpcInner<N, C>
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
+    EthRpcServer<
+        N::TransactionResponse,
+        N::TransactionRequest,
+        N::ReceiptResponse,
+        N::BlockResponse,
+    > for RpcInner<N, C>
 {
     async fn get_balance(
         &self,
@@ -261,7 +271,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
         &self,
         block: BlockTag,
         full_tx: bool,
-    ) -> Result<Option<Block<N::TransactionResponse>>, ErrorObjectOwned> {
+    ) -> Result<Option<N::BlockResponse>, ErrorObjectOwned> {
         convert_err(self.node.get_block_by_number(block, full_tx).await)
     }
 
@@ -269,7 +279,7 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
         &self,
         hash: B256,
         full_tx: bool,
-    ) -> Result<Option<Block<N::TransactionResponse>>, ErrorObjectOwned> {
+    ) -> Result<Option<N::BlockResponse>, ErrorObjectOwned> {
         convert_err(self.node.get_block_by_hash(hash, full_tx).await)
     }
 
@@ -368,20 +378,20 @@ impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>>
 }
 
 #[async_trait]
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> NetRpcServer for RpcInner<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> NetRpcServer for RpcInner<N, C> {
     async fn version(&self) -> Result<u64, ErrorObjectOwned> {
         Ok(self.node.chain_id())
     }
 }
 
 #[async_trait]
-impl<N: NetworkSpec, C: Consensus<N::TransactionResponse>> Web3RpcServer for RpcInner<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Web3RpcServer for RpcInner<N, C> {
     async fn client_version(&self) -> Result<String, ErrorObjectOwned> {
         Ok(self.node.client_version().await)
     }
 }
 
-async fn start<N: NetworkSpec, C: Consensus<N::TransactionResponse>>(
+async fn start<N: NetworkSpec, C: Consensus<N::BlockResponse>>(
     rpc: RpcInner<N, C>,
 ) -> Result<(ServerHandle, SocketAddr)> {
     let server = ServerBuilder::default().build(rpc.address).await?;
