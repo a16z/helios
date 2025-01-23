@@ -144,7 +144,8 @@ export class HeliosProvider {
         return this.#chainId;
       }
       case "eth_getBlockByNumber": {
-        return this.#client.get_block_by_number(req.params[0], req.params[1]);
+        const block = await this.#client.get_block_by_number(req.params[0], req.params[1]);
+        return mapToObj(block);
       }
       case "web3_clientVersion": {
         return this.#client.client_version();
