@@ -8,6 +8,35 @@ Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable 
 
 Helios has a small binary size and compiles into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
+## Table of Contents
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installing](#installing)
+- [Usage](#usage)
+  - [Ethereum](#ethereum)
+  - [OP Stack](#op-stack)
+  - [Additional CLI Options](#additional-cli-options)
+  - [Configuration Files](#configuration-files)
+- [Architecture](#architecture)
+- [Development](#development)
+  - [Testing](#testing)
+  - [Contributing](#contributing)
+- [Community](#telegram)
+- [Disclaimer](#disclaimer)
+
+## Features
+- 🚀 Fast sync in seconds
+- 💡 No storage requirements
+- 📱 Lightweight - perfect for mobile devices
+- 🔒 Trustless and secure
+- 🌐 WebAssembly support
+- ⚡ Multiple chain support (Ethereum, OP Stack)
+
+## Prerequisites
+- Rust toolchain (latest stable version)
+- For building WebAssembly: wasm-pack
+- Unix-like operating system (Linux, macOS) or Windows
+
 ## Installing
 
 First install `heliosup`, Helios's installer:
@@ -134,7 +163,14 @@ helios ethereum \
 
 If you wish to use a [Configuration File](#configuration-files) instead of CLI arguments then you should replace the example checkpoints in the configuration file with the latest checkpoints obtained above.
 
-## Testing
+## Architecture
+Helios works by:
+1. Using the Beacon Chain Consensus Layer for light client sync
+2. Verifying execution layer data against consensus layer
+3. Providing a local RPC that ensures data integrity
+
+## Development
+### Testing
 
 To ensure that Helios works as expected, we have a comprehensive test suite that you can run. Before running the tests, make sure to create a `.env` file in the root of the project directory. You can copy the contents of the `.env.example` file and fill in your own secrets.
 ```sh
