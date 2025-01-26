@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
 
     // Let's get a list of all the fallback service endpoints for mainnet
     let endpoints = cf.get_all_fallback_endpoints(&networks::Network::MAINNET);
-    println!("Fetched all mainnet fallback endpoints: {endpoints:?}");
+    println!("Fetched all mainnet fallback endpoints: {:?}", endpoints);
 
     // Since we built the checkpoint fallback services, we can also just get the raw checkpoint fallback services.
     // The `get_fallback_services` method returns a reference to the internal list of CheckpointFallbackService objects
