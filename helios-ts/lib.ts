@@ -50,7 +50,7 @@ export class HeliosProvider {
     try {
       return await this.#req(req);
     } catch (err) {
-      throw new Error(err.toString());
+      throw new Error(String(err));
     }
   }
 
