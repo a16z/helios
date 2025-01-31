@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
     consensus::BlockHeader,
@@ -7,12 +7,11 @@ use alloy::{
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
-    db,
     primitives::{
         address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult,
         ResultAndState, B256, U256,
     },
-    Database, Evm as Revm,
+    Database,
 };
 use tracing::trace;
 
@@ -67,7 +66,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
         _ = db.state.prefetch_state(tx).await;
 
         let env = Box::new(self.get_env(tx, self.tag).await);
-        let mut evm = N::get_evm(db, env);
+        let mut evm = N::evm(db, env);
 
         let tx_res = loop {
             let db = evm.db_mut();

@@ -16,12 +16,28 @@ use op_alloy_network::{
     BuildResult, Ethereum, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError,
 };
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
-use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
+use revm::{
+    primitives::{BlobExcessGasAndPrice, BlockEnv, HandlerCfg, TxEnv},
+    EvmBuilder,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct OpStack;
 
 impl NetworkSpec for OpStack {
+    type EvmExt = ();
+
+    fn evm<DB: revm::Database>(
+        db: DB,
+        env: Box<revm::primitives::Env>,
+    ) -> revm::Evm<'static, Self::EvmExt, DB> {
+        EvmBuilder::default()
+            .with_db(db)
+            .with_env(env)
+            .with_handler_cfg(HandlerCfg::new(SpecId::LATEST))
+            .build()
+    }
+
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
         let receipt = &receipt.inner.inner;
         let bloom = receipt.bloom();

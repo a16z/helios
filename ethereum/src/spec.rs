@@ -7,7 +7,10 @@ use alloy::{
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
-use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
+use revm::{
+    primitives::{BlobExcessGasAndPrice, BlockEnv, EnvWithHandlerCfg, HandlerCfg, SpecId, TxEnv},
+    EvmBuilder,
+};
 
 use helios_core::network_spec::NetworkSpec;
 
@@ -15,6 +18,19 @@ use helios_core::network_spec::NetworkSpec;
 pub struct Ethereum;
 
 impl NetworkSpec for Ethereum {
+    type EvmExt = ();
+
+    fn evm<DB: revm::Database>(
+        db: DB,
+        env: Box<revm::primitives::Env>,
+    ) -> revm::Evm<'static, Self::EvmExt, DB> {
+        EvmBuilder::default()
+            .with_db(db)
+            .with_env(env)
+            .with_handler_cfg(HandlerCfg::new(SpecId::LATEST))
+            .build()
+    }
+
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
         let tx_type = receipt.transaction_type();
         let receipt = receipt.inner.as_receipt_with_bloom().unwrap();
