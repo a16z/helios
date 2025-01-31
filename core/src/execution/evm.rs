@@ -7,6 +7,7 @@ use alloy::{
 use eyre::{Report, Result};
 use futures::future::join_all;
 use revm::{
+    db,
     primitives::{
         address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult,
         ResultAndState, B256, U256,
@@ -66,20 +67,16 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
         _ = db.state.prefetch_state(tx).await;
 
         let env = Box::new(self.get_env(tx, self.tag).await);
-        let evm = Revm::builder().with_db(db).with_env(env).build();
-        let mut ctx = evm.into_context_with_handler_cfg();
+        let mut evm = N::get_evm(db, env);
 
         let tx_res = loop {
-            let db = ctx.context.evm.db.borrow_mut();
+            let db = evm.db_mut();
             if db.state.needs_update() {
                 db.state.update_state().await.unwrap();
             }
 
-            let mut evm = Revm::builder().with_context_with_handler_cfg(ctx).build();
             let res = evm.transact();
-            ctx = evm.into_context_with_handler_cfg();
-
-            let db = ctx.context.evm.db.borrow_mut();
+            let db = evm.db_mut();
             let needs_update = db.state.needs_update();
 
             if res.is_ok() || !needs_update {
