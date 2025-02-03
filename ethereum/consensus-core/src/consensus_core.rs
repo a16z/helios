@@ -436,11 +436,23 @@ fn is_better_update<S: ConsensusSpec>(
     // compare sync committee finality
     if new_has_finality {
         let new_has_sync_committee_finality =
-            calc_sync_period::<S>(new_update.finalized_header.as_ref().unwrap().beacon().slot)
-                == calc_sync_period::<S>(new_update.attested_header.beacon().slot);
+            calc_sync_period::<S>(
+                new_update
+                    .finalized_header
+                    .clone()
+                    .unwrap_or_default()
+                    .beacon()
+                    .slot,
+            ) == calc_sync_period::<S>(new_update.attested_header.beacon().slot);
         let old_has_sync_committee_finality =
-            calc_sync_period::<S>(old_update.finalized_header.as_ref().unwrap().beacon().slot)
-                == calc_sync_period::<S>(old_update.attested_header.beacon().slot);
+            calc_sync_period::<S>(
+                old_update
+                    .finalized_header
+                    .clone()
+                    .unwrap_or_default()
+                    .beacon()
+                    .slot,
+            ) == calc_sync_period::<S>(old_update.attested_header.beacon().slot);
         if new_has_sync_committee_finality != old_has_sync_committee_finality {
             return new_has_sync_committee_finality;
         }
@@ -463,7 +475,7 @@ fn has_sync_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
 }
 
 fn has_finality_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
-    update.finalized_header.is_some() && update.finality_branch.is_some()
+    update.finality_branch.is_some()
 }
 
 fn verify_sync_committee_signture(

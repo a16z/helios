@@ -210,39 +210,39 @@ pub fn holesky() -> BaseConfig {
 pub fn pectra_devnet() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "4fd68b5777c1369adc2ddc7faf53a8ba8482390f8e0239fbd60b1bf1a66f0c5a"
+            "f52e8522f1abc34fa91f4a0c6560cce6f9d557cfec083f1bc325a74c6060df84"
         ),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
-            chain_id: 1,
-            genesis_time: 1729268862,
-            genesis_root: b256!("e3218d56569ba80b24d8c5d442b7a13c5fbf5d5e740dd986272f67b525e0e1e7"),
+            chain_id: 7072151312,
+            genesis_time: 1738603860,
+            genesis_root: b256!("5c074f81fbc78dc7ba47460572a4286fffe989e9921abfd50791e01e4044d274"),
         },
         forks: Forks {
             genesis: Fork {
                 epoch: 0,
-                fork_version: fixed_bytes!("10357071"),
+                fork_version: fixed_bytes!("10585557"),
             },
             altair: Fork {
                 epoch: 0,
-                fork_version: fixed_bytes!("20357071"),
+                fork_version: fixed_bytes!("20585557"),
             },
             bellatrix: Fork {
                 epoch: 0,
-                fork_version: fixed_bytes!("30357071"),
+                fork_version: fixed_bytes!("30585557"),
             },
             capella: Fork {
                 epoch: 0,
-                fork_version: fixed_bytes!("40357071"),
+                fork_version: fixed_bytes!("40585557"),
             },
             deneb: Fork {
                 epoch: 0,
-                fork_version: fixed_bytes!("50357071"),
+                fork_version: fixed_bytes!("50585557"),
             },
             electra: Fork {
-                epoch: 5,
-                fork_version: fixed_bytes!("60357071"),
+                epoch: 10,
+                fork_version: fixed_bytes!("60585557"),
             },
         },
         max_checkpoint_age: 1_209_600, // 14 days

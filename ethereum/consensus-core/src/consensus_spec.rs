@@ -63,7 +63,7 @@ impl ConsensusSpec for MainnetConsensusSpec {
     type SyncCommitteeSize = typenum::U512;
     type MaxDepositRequests = typenum::U8192;
     type MaxWithdrawalRequests = typenum::U16;
-    type MaxConsolidationRequests = typenum::U1;
+    type MaxConsolidationRequests = typenum::U2;
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
