@@ -30,14 +30,14 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Self {
-        self.consensus_rpc = Some(consensus_rpc.into_url().unwrap());
-        self
+    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Result<Self> {
+        self.consensus_rpc = Some(consensus_rpc.into_url()?);
+        Ok(self)
     }
 
-    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
-        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
-        self
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Result<Self> {
+        self.execution_rpc = Some(execution_rpc.into_url()?);
+        Ok(self)
     }
 
     pub fn rpc_socket(mut self, socket: SocketAddr) -> Self {
