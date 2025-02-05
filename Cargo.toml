@@ -13,6 +13,7 @@ members = [
     "ethereum/consensus-core",
     "opstack",
     "helios-ts",
+    "verifiable-api",
 ]
 
 default-members = ["cli"]
@@ -43,7 +44,7 @@ alloy = { version = "0.9.1", features = [
     "ssz",
     "json-rpc",
     "signers",
-]}
+] }
 op-alloy-rpc-types = "0.9.0"
 revm = { version = "18.0.0", default-features = false, features = [
     "std",
@@ -51,7 +52,7 @@ revm = { version = "18.0.0", default-features = false, features = [
     "optional_block_gas_limit",
     "optional_eip3607",
     "optional_no_base_fee",
-]}
+] }
 triehash-ethereum = { git = "https://github.com/openethereum/parity-ethereum", rev = "55c90d4016505317034e3e98f699af07f5404b63" }
 
 # async/futures

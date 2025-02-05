@@ -1,6 +1,8 @@
+use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
-    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
+    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
+    FilterChanges, Log,
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -45,6 +47,12 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn new_pending_transaction_filter(&self) -> Result<U256>;
     async fn chain_id(&self) -> Result<u64>;
     async fn get_block(&self, hash: B256) -> Result<N::BlockResponse>;
+    async fn get_block_by_number(
+        &self,
+        block: BlockNumberOrTag,
+        txs_kind: BlockTransactionsKind,
+    ) -> Result<Option<N::BlockResponse>>;
+    async fn get_storage_at(&self, address: Address, key: U256, block: BlockId) -> Result<B256>;
 
     async fn get_fee_history(
         &self,
