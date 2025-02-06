@@ -2,10 +2,11 @@ use std::marker::PhantomData;
 use std::process;
 use std::sync::Arc;
 
+use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
 use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
-use alloy::rlp::{encode, Decodable};
+use alloy::rlp::Decodable;
 use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
 use chrono::Duration;
 use eyre::eyre;
@@ -13,7 +14,6 @@ use eyre::Result;
 use futures::future::join_all;
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
-use triehash_ethereum::ordered_trie_root;
 
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
@@ -601,7 +601,9 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
                 inner: tx_envelope,
             }
         })
-        .collect::<Vec<Transaction>>();
+        .collect::<Vec<_>>();
+    let tx_envelopes = txs.iter().map(|tx| tx.inner.clone()).collect::<Vec<_>>();
+    let txs_root = calculate_transaction_root(&tx_envelopes);
 
     let withdrawals: Vec<Withdrawal> = value
         .withdrawals()
@@ -609,12 +611,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .into_iter()
         .map(|w| w.clone().into())
         .collect();
-
-    let raw_txs = value.transactions().iter().map(|tx| tx.inner.to_vec());
-    let txs_root = ordered_trie_root(raw_txs);
-
-    let raw_withdrawals = value.withdrawals().unwrap().iter().map(encode);
-    let withdrawals_root = ordered_trie_root(raw_withdrawals);
+    let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
     let logs_bloom: Bloom =
         Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner.to_vec()));
@@ -624,9 +621,9 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         ommers_hash: empty_uncle_hash,
         beneficiary: *value.fee_recipient(),
         state_root: *value.state_root(),
-        transactions_root: B256::from_slice(txs_root.as_bytes()),
+        transactions_root: txs_root,
         receipts_root: *value.receipts_root(),
-        withdrawals_root: Some(B256::from_slice(withdrawals_root.as_bytes())),
+        withdrawals_root: Some(withdrawals_root),
         logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
         number: *value.block_number(),
