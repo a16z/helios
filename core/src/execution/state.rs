@@ -7,7 +7,7 @@ use alloy::{
     consensus::BlockHeader,
     network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256, U256},
-    rpc::types::BlockTransactions,
+    rpc::types::{BlockTransactions, Filter},
 };
 use eyre::{eyre, Result};
 use tokio::{
@@ -373,7 +373,8 @@ struct TransactionLocation {
 
 #[derive(Clone)]
 pub enum FilterType {
-    Logs,
+    // filter content
+    Logs(Filter),
     // block number when the filter was created or last queried
     NewBlock(u64),
     PendingTransactions,
