@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 # consensus
+alloy-trie.workspace = true
 tree_hash.workspace = true
 revm.workspace = true
-triehash-ethereum.workspace = true
 
 # config
 figment = { version = "0.10.7", features = ["toml", "env"] }

@@ -21,12 +21,12 @@ futures.workspace = true
 
 # consensus
 alloy.workspace = true
+alloy-trie.workspace = true
 revm.workspace = true
 sha2.workspace = true
 ethereum_ssz_derive.workspace = true
 ethereum_ssz.workspace = true
 ssz_types.workspace = true
-triehash-ethereum.workspace = true
 alloy-rlp = "0.3.0"
 op-alloy-network = "0.9.0"
 op-alloy-consensus = "0.9.0"
