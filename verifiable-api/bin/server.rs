@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, str::FromStr};
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
 use clap::Parser;
 use helios_core::{
@@ -18,7 +18,7 @@ mod router;
 
 #[derive(Clone)]
 pub struct ApiState<N: NetworkSpec, R: ExecutionRpc<N>> {
-    pub execution_client: ExecutionClient<N, R>,
+    pub execution_client: Arc<ExecutionClient<N, R>>,
 }
 
 #[tokio::main]
@@ -48,7 +48,7 @@ async fn main() {
 
     // build the router for our server
     let state = ApiState {
-        execution_client: rpc,
+        execution_client: Arc::new(rpc),
     };
     let app = build_router().with_state(state);
 
