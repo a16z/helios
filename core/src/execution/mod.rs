@@ -113,10 +113,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
             Vec::new()
         } else {
-            let code = self
-                .rpc
-                .get_code(address, block.header().number().into())
-                .await?;
+            let code = self.rpc.get_code(address, block.header().number()).await?;
             let code_hash = keccak256(&code);
 
             if proof.code_hash != code_hash {
@@ -291,7 +288,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             return Ok(None);
         };
 
-        let tag = BlockTag::Number(block.header().number().into());
+        let tag = BlockTag::Number(block.header().number());
 
         let receipts = self
             .rpc
@@ -373,7 +370,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     self.state
                         .push_filter(
                             filter_id,
-                            FilterType::NewBlock(blocks.last().unwrap().header().number().into()),
+                            FilterType::NewBlock(blocks.last().unwrap().header().number()),
                         )
                         .await;
                 }
