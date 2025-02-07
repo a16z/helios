@@ -17,13 +17,17 @@ use axum::{
 };
 use eyre::{OptionExt, Report, Result};
 use futures::future::try_join_all;
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 
 use helios_core::{execution::rpc::ExecutionRpc, network_spec::NetworkSpec, types::BlockTag};
 use helios_verifiable_api::{proof::create_receipt_proof, rpc_client::ExecutionClient, types::*};
 
 use crate::ApiState;
+
+#[allow(type_alias_bounds)]
+type Response<T: Serialize + DeserializeOwned> =
+    Result<Json<T>, (StatusCode, Json<serde_json::Value>)>;
 
 fn json_err(error: &str) -> Json<serde_json::Value> {
     Json(json!({ "error": error }))
@@ -46,7 +50,7 @@ pub async fn get_balance<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(BlockQuery { block }): Query<BlockQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Result<Json<GetBalanceResponse>, (StatusCode, Json<serde_json::Value>)> {
+) -> Response<GetBalanceResponse> {
     let block = block.unwrap_or(BlockId::latest());
 
     let proof = execution_client
@@ -74,7 +78,7 @@ pub async fn get_transaction_count<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(BlockQuery { block }): Query<BlockQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Result<Json<GetTransactionCountResponse>, (StatusCode, Json<serde_json::Value>)> {
+) -> Response<GetTransactionCountResponse> {
     let block = block.unwrap_or(BlockId::latest());
 
     let proof = execution_client
@@ -102,7 +106,7 @@ pub async fn get_code<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(BlockQuery { block }): Query<BlockQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Result<Json<GetCodeResponse>, (StatusCode, Json<serde_json::Value>)> {
+) -> Response<GetCodeResponse> {
     // Ensure that BlockId is of block number variant
     let block = block.unwrap_or(BlockId::latest());
     let block_num = match block {
@@ -163,7 +167,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path((address, key)): Path<(Address, U256)>,
     Query(BlockQuery { block }): Query<BlockQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Result<Json<GetStorageAtResponse>, (StatusCode, Json<serde_json::Value>)> {
+) -> Response<GetStorageAtResponse> {
     let block = block.unwrap_or(BlockId::latest());
 
     let storage_slot = execution_client
@@ -206,7 +210,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(tx_hash): Path<B256>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Result<Json<GetTransactionReceiptResponse<N>>, (StatusCode, Json<serde_json::Value>)> {
+) -> Response<GetTransactionReceiptResponse<N>> {
     let receipt = execution_client
         .rpc
         .get_transaction_receipt(tx_hash)
@@ -247,7 +251,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Result<Json<GetFilterLogsResponse<N>>, (StatusCode, Json<serde_json::Value>)> {
+) -> Response<GetFilterLogsResponse<N>> {
     // Fetch the filter logs from RPC
     let logs = execution_client
         .rpc

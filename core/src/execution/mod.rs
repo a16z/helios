@@ -4,21 +4,21 @@ use alloy::consensus::BlockHeader;
 use alloy::network::primitives::HeaderResponse;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
-use alloy::rlp::encode;
+use alloy::rlp;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
+use alloy_trie::root::ordered_trie_root_with_encoder;
 use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
 use eyre::Result;
 use futures::future::try_join_all;
+use proof::{verify_account_proof, verify_storage_proof};
 use revm::primitives::KECCAK_EMPTY;
 use tracing::warn;
-use triehash_ethereum::ordered_trie_root;
 
 use crate::network_spec::NetworkSpec;
 use crate::types::BlockTag;
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
-use self::proof::{encode_account, verify_proof};
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
 use self::types::Account;
@@ -69,48 +69,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .get_proof(address, slots, block.header().number().into())
             .await?;
 
-        let account_path = keccak256(address).to_vec();
-        let account_encoded = encode_account(&proof);
-
-        let is_valid = verify_proof(
-            &proof.account_proof,
-            block.header().state_root().as_slice(),
-            &account_path,
-            &account_encoded,
-        );
-
-        if !is_valid {
-            return Err(ExecutionError::InvalidAccountProof(address).into());
-        }
-
-        let mut slot_map = HashMap::new();
-
-        for storage_proof in proof.storage_proof {
-            let key = storage_proof.key.as_b256();
-            let key_hash = keccak256(key);
-            let value = encode(storage_proof.value);
-
-            let is_valid = verify_proof(
-                &storage_proof.proof,
-                proof.storage_hash.as_slice(),
-                key_hash.as_slice(),
-                &value,
-            );
-
-            if !is_valid {
-                return Err(ExecutionError::InvalidStorageProof(address, key).into());
-            }
-
-            slot_map.insert(key, storage_proof.value);
-        }
-
+        // Verify the account proof
+        verify_account_proof(&proof, block.header().state_root())?;
+        // Verify the storage proofs, collecting the slot values
+        let slot_map = verify_storage_proof(&proof)?;
+        // Verify the code hash
         let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
             Vec::new()
         } else {
-            let code = self
-                .rpc
-                .get_code(address, block.header().number().into())
-                .await?;
+            let code = self.rpc.get_code(address, block.header().number()).await?;
             let code_hash = keccak256(&code);
 
             if proof.code_hash != code_hash {
@@ -256,8 +223,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 
         let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
-        let expected_receipt_root = ordered_trie_root(receipts_encoded.clone());
-        let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
+        let expected_receipt_root = ordered_trie_root(&receipts_encoded);
 
         if expected_receipt_root != block.header().receipts_root()
             // Note: Some RPC providers return different response in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
@@ -286,7 +252,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             return Ok(None);
         };
 
-        let tag = BlockTag::Number(block.header().number().into());
+        let tag = BlockTag::Number(block.header().number());
 
         let receipts = self
             .rpc
@@ -295,8 +261,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 
         let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
-        let expected_receipt_root = ordered_trie_root(receipts_encoded);
-        let expected_receipt_root = B256::from_slice(&expected_receipt_root.to_fixed_bytes());
+        let expected_receipt_root = ordered_trie_root(&receipts_encoded);
 
         if expected_receipt_root != block.header().receipts_root() {
             return Err(ExecutionError::BlockReceiptsRootMismatch(tag).into());
@@ -369,7 +334,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     self.state
                         .push_filter(
                             filter_id,
-                            FilterType::NewBlock(blocks.last().unwrap().header().number().into()),
+                            FilterType::NewBlock(blocks.last().unwrap().header().number()),
                         )
                         .await;
                 }
@@ -476,7 +441,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     None
                 } else {
                     let tx_hash = logs[0].transaction_hash.unwrap();
-                    let encoded_logs = logs.iter().map(|l| encode(&l.inner)).collect::<Vec<_>>();
+                    let encoded_logs = logs
+                        .iter()
+                        .map(|l| rlp::encode(&l.inner))
+                        .collect::<Vec<_>>();
                     Some((tx_hash, encoded_logs))
                 }
             })
@@ -486,7 +454,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             // Check if the receipt contains the desired log
             // Encoding logs for comparison
             let tx_hash = log.transaction_hash.unwrap();
-            let log_encoded = encode(&log.inner);
+            let log_encoded = rlp::encode(&log.inner);
             let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
 
             if !receipt_logs_encoded.contains(&log_encoded) {
@@ -499,4 +467,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         }
         Ok(())
     }
+}
+
+/// Compute a trie root of a collection of encoded items.
+/// Ref: https://github.com/alloy-rs/trie/blob/main/src/root.rs.
+fn ordered_trie_root(items: &[Vec<u8>]) -> B256 {
+    fn noop_encoder(item: &Vec<u8>, buffer: &mut Vec<u8>) {
+        buffer.extend_from_slice(item);
+    }
+
+    ordered_trie_root_with_encoder(items, noop_encoder)
 }

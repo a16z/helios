@@ -1,36 +1,36 @@
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
-use alloy::primitives::{b256, fixed_bytes, keccak256, Address, Bloom, BloomInput, B256, U256};
+use alloy::eips::eip4895::{Withdrawal, Withdrawals};
+use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{
-    Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction, Withdrawal,
-    Withdrawals,
+    Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
 };
-use alloy_rlp::encode;
 use eyre::{eyre, OptionExt, Result};
 use op_alloy_consensus::OpTxEnvelope;
 use op_alloy_network::primitives::BlockTransactions;
 use op_alloy_rpc_types::Transaction;
-use std::str::FromStr;
-use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{
     mpsc::{channel, Receiver},
     watch,
 };
-use triehash_ethereum::ordered_trie_root;
+use tracing::{error, info, warn};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::Consensus;
+use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
-use std::sync::{Arc, Mutex};
 
-use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
-
-use helios_core::execution::proof::{encode_account, verify_proof};
 use helios_ethereum::database::ConfigDB;
 use helios_ethereum::rpc::http_rpc::HttpRpc;
-use tracing::{error, info, warn};
+
+use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
 
 // Storage slot containing the unsafe signer address in all superchain system config contracts
 const UNSAFE_SIGNER_SLOT: &str =
@@ -206,16 +206,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
 
             // Verify unsafe signer
             // with account proof
-            let account_path = keccak256(proof.address).to_vec();
-            let account_encoded = encode_account(&proof);
-            let is_valid = verify_proof(
-                &proof.account_proof,
-                block.header.state_root.as_slice(),
-                &account_path,
-                &account_encoded,
-            );
-
-            if !is_valid {
+            if verify_account_proof(&proof, block.header.state_root).is_err() {
                 warn!(target: "helios::opstack", "account proof invalid");
                 return Err(eyre!("account proof invalid"));
             }
@@ -228,16 +219,14 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 return Err(eyre!("account proof invalid"));
             }
 
-            let key_hash = keccak256(key);
-            let value = encode(storage_proof.value);
-            let is_valid = verify_proof(
+            if verify_mpt_proof(
+                proof.storage_hash,
+                key,
+                storage_proof.value,
                 &storage_proof.proof,
-                proof.storage_hash.as_slice(),
-                key_hash.as_slice(),
-                &value,
-            );
-
-            if !is_valid {
+            )
+            .is_err()
+            {
                 warn!(target: "helios::opstack", "storage proof invalid");
                 return Err(eyre!("storage proof invalid"));
             }
@@ -339,19 +328,14 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
             })
         })
         .collect::<Result<Vec<Transaction>>>()?;
+    let tx_envelopes = txs
+        .iter()
+        .map(|tx| tx.inner.inner.clone())
+        .collect::<Vec<_>>();
+    let txs_root = calculate_transaction_root(&tx_envelopes);
 
-    let withdrawals: Vec<Withdrawal> = value
-        .withdrawals
-        .clone()
-        .into_iter()
-        .map(|w| w.clone().into())
-        .collect();
-
-    let raw_txs = value.transactions.iter().map(|tx| tx.to_vec());
-    let txs_root = ordered_trie_root(raw_txs);
-
-    let raw_withdrawals = value.withdrawals.iter().map(|v| encode(v));
-    let withdrawals_root = ordered_trie_root(raw_withdrawals);
+    let withdrawals: Vec<Withdrawal> = value.withdrawals.into_iter().map(|w| w.into()).collect();
+    let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
     let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom.to_vec()));
 
@@ -360,9 +344,9 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         ommers_hash: empty_uncle_hash,
         beneficiary: Address::from(*value.fee_recipient),
         state_root: value.state_root.into(),
-        transactions_root: B256::from_slice(txs_root.as_bytes()),
+        transactions_root: txs_root,
         receipts_root: value.receipts_root.into(),
-        withdrawals_root: Some(B256::from_slice(withdrawals_root.as_bytes())),
+        withdrawals_root: Some(withdrawals_root),
         logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
         number: value.block_number,

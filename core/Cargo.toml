@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 # execution
 alloy.workspace = true
+alloy-trie.workspace = true
 revm.workspace = true
-triehash-ethereum.workspace = true
 
 # async/futures
 futures.workspace = true
