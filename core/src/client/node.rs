@@ -46,16 +46,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<Bytes, ClientError> {
         self.check_blocktag_age(&block).await?;
 
-        let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
-        evm.call(tx).await.map_err(ClientError::EvmError)
+        N::call(tx, self.execution.clone(), self.chain_id(), block)
+            .await
+            .map_err(ClientError::EvmError)
     }
 
     pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64, ClientError> {
         self.check_head_age().await?;
 
-        let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
-
-        evm.estimate_gas(tx).await.map_err(ClientError::EvmError)
+        N::estimate_gas(
+            tx,
+            self.execution.clone(),
+            self.chain_id(),
+            BlockTag::Latest,
+        )
+        .await
+        .map_err(ClientError::EvmError)
     }
 
     pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
