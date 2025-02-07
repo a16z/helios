@@ -8,7 +8,7 @@ use alloy::{
     eips::BlockNumberOrTag,
     network::{BlockResponse, ReceiptResponse},
     primitives::{Address, B256, U256},
-    rpc::types::{BlockId, BlockTransactionsKind, Log},
+    rpc::types::{BlockId, BlockTransactionsKind, FilterChanges, Log},
 };
 use axum::{
     extract::{Path, Query, State},
@@ -20,7 +20,7 @@ use futures::future::try_join_all;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 
-use helios_core::{execution::rpc::ExecutionRpc, network_spec::NetworkSpec, types::BlockTag};
+use helios_core::{execution::rpc::ExecutionRpc, network_spec::NetworkSpec};
 use helios_verifiable_api::{proof::create_receipt_proof, rpc_client::ExecutionClient, types::*};
 
 use crate::ApiState;
@@ -40,6 +40,36 @@ fn map_server_err(e: Report) -> (StatusCode, Json<serde_json::Value>) {
 #[derive(Deserialize)]
 pub struct BlockQuery {
     block: Option<BlockId>,
+}
+
+#[derive(Deserialize)]
+pub struct AccountProofQuery {
+    // Todo(@eshaan7): make this accept CSV
+    pub storage_keys: Option<Vec<B256>>,
+    pub block: Option<BlockId>,
+}
+
+/// This method returns the account proof for a given address.
+///
+/// Replaces the `eth_getProof` RPC method.
+pub async fn get_account_proof<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Path(address): Path<Address>,
+    Query(AccountProofQuery {
+        storage_keys,
+        block,
+    }): Query<AccountProofQuery>,
+    State(ApiState { execution_client }): State<ApiState<N, R>>,
+) -> Response<GetAccountProofResponse> {
+    let storage_keys = storage_keys.unwrap_or(vec![]);
+    let block = block.unwrap_or(BlockId::latest());
+
+    let proof = execution_client
+        .rpc
+        .get_proof(address, &storage_keys, block)
+        .await
+        .map_err(map_server_err)?;
+
+    Ok(Json(proof))
 }
 
 /// This method returns the balance of an account for a given address,
@@ -178,7 +208,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
 
     let proof = execution_client
         .rpc
-        .get_proof(address, &[storage_slot.into()], block)
+        .get_proof(address, &[storage_slot], block)
         .await
         .map_err(map_server_err)?;
 
@@ -204,6 +234,25 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
     }))
 }
 
+/// This method returns all transaction receipts for a given block.
+///
+/// Replaces the `eth_getBlockReceipts` RPC method.
+pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Path(block): Path<Option<BlockId>>,
+    State(ApiState { execution_client }): State<ApiState<N, R>>,
+) -> Response<GetBlockReceiptsResponse<N>> {
+    let block = block.unwrap_or(BlockId::latest());
+
+    let receipts = execution_client
+        .rpc
+        .get_block_receipts(block)
+        .await
+        .map_err(map_server_err)?
+        .unwrap_or(vec![]);
+
+    Ok(Json(receipts))
+}
+
 /// This method returns the receipt of a transaction along with a Merkle proof of its inclusion.
 ///
 /// Replaces the `eth_getTransactionReceipt` RPC method.
@@ -225,7 +274,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
 
     let receipts = execution_client
         .rpc
-        .get_block_receipts(BlockTag::Number(receipt.block_number().unwrap()))
+        .get_block_receipts(BlockId::from(receipt.block_number().unwrap()))
         .await
         .map_err(map_server_err)?
         .ok_or_else(|| {
@@ -270,6 +319,41 @@ pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     }))
 }
 
+/// This method returns the changes since the last poll for a given filter id.
+/// If filter is of logs type, then corresponding to each log,
+/// it also returns the transaction receipt and a Merkle proof of its inclusion..
+///
+/// Replaces the `eth_getFilterChanges` RPC method.
+pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Path(filter_id): Path<U256>,
+    State(ApiState { execution_client }): State<ApiState<N, R>>,
+) -> Response<GetFilterChangesResponse<N>> {
+    let filter_changes = execution_client
+        .rpc
+        .get_filter_changes(filter_id)
+        .await
+        .map_err(map_server_err)?;
+
+    Ok(Json(match filter_changes {
+        FilterChanges::Logs(logs) => {
+            // Create receipt proofs for each log
+            let receipt_proofs = create_receipt_proofs_for_logs(&logs, execution_client)
+                .await
+                .map_err(map_server_err)?;
+
+            GetFilterChangesResponse::Logs(GetFilterLogsResponse {
+                logs,
+                receipt_proofs,
+            })
+        }
+        FilterChanges::Hashes(hashes) => GetFilterChangesResponse::Hashes(hashes),
+        FilterChanges::Empty => GetFilterChangesResponse::Hashes(vec![]),
+        FilterChanges::Transactions(txs) => GetFilterChangesResponse::Hashes(
+            txs.into_iter().map(|t| t.inner.tx_hash().clone()).collect(),
+        ),
+    }))
+}
+
 async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     logs: &[Log],
     execution_client: Arc<ExecutionClient<N, R>>,
@@ -284,8 +368,8 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     let blocks_receipts_fut = block_nums.into_iter().map(|block_num| {
         let execution_client = Arc::clone(&execution_client);
         async move {
-            let tag = BlockTag::Number(block_num);
-            let receipts = execution_client.rpc.get_block_receipts(tag).await?;
+            let block_id = BlockId::from(block_num);
+            let receipts = execution_client.rpc.get_block_receipts(block_id).await?;
             receipts
                 .ok_or_eyre("No receipts found for the block")
                 .map(|receipts| (block_num, receipts))

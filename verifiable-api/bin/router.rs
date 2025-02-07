@@ -8,6 +8,7 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
     Router::new().nest(
         "/eth/v1/proof",
         Router::new()
+            .route("/account/{address}", get(handlers::get_account_proof))
             .route("/balance/{address}", get(handlers::get_balance))
             .route(
                 "/transaction_count/{address}",
@@ -15,10 +16,15 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
             )
             .route("/code/{address}", get(handlers::get_code))
             .route("/storage/{address}/{slot}", get(handlers::get_storage_at))
+            .route("/block_receipts/{block}", get(handlers::get_block_receipts))
             .route(
                 "/tx_receipt/{tx_hash}",
                 get(handlers::get_transaction_receipt),
             )
-            .route("/filter_logs/{filter_id}", get(handlers::get_filter_logs)),
+            .route("/filter_logs/{filter_id}", get(handlers::get_filter_logs))
+            .route(
+                "/filter_changes/{filter_id}",
+                get(handlers::get_filter_changes),
+            ),
     )
 }

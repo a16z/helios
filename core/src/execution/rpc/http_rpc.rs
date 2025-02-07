@@ -121,17 +121,10 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(receipt)
     }
 
-    async fn get_block_receipts(&self, block: BlockTag) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let block = match block {
-            BlockTag::Latest => BlockNumberOrTag::Latest,
-            BlockTag::Finalized => BlockNumberOrTag::Finalized,
-            BlockTag::Number(num) => BlockNumberOrTag::Number(num),
-        };
-
-        let block_id = BlockId::from(block);
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = self
             .provider
-            .get_block_receipts(block_id)
+            .get_block_receipts(block)
             .await
             .map_err(|e| RpcError::new("get_block_receipts", e))?;
 

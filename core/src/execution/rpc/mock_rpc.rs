@@ -58,10 +58,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&receipt)?)
     }
 
-    async fn get_block_receipts(
-        &self,
-        _block: BlockTag,
-    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+    async fn get_block_receipts(&self, _block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = read_to_string(self.path.join("receipts.json"))?;
         Ok(serde_json::from_str(&receipts)?)
     }
