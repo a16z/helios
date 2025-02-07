@@ -6,14 +6,11 @@ use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
-use alloy_trie::{
-    proof::verify_proof as mpt_verify_proof,
-    root::ordered_trie_root_with_encoder,
-    {Nibbles, TrieAccount},
-};
+use alloy_trie::root::ordered_trie_root_with_encoder;
 use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
 use eyre::Result;
 use futures::future::try_join_all;
+use proof::{verify_account_proof, verify_storage_proof};
 use revm::primitives::KECCAK_EMPTY;
 use tracing::warn;
 
@@ -29,6 +26,7 @@ use self::types::Account;
 pub mod constants;
 pub mod errors;
 pub mod evm;
+pub mod proof;
 pub mod rpc;
 pub mod state;
 pub mod types;
@@ -72,43 +70,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .await?;
 
         // Verify the account proof
-        let account_key = Nibbles::unpack(keccak256(proof.address));
-        let account = TrieAccount {
-            nonce: proof.nonce,
-            balance: proof.balance,
-            storage_root: proof.storage_hash,
-            code_hash: proof.code_hash,
-        };
-        let account_encoded = rlp::encode(account);
-
-        mpt_verify_proof(
-            block.header().state_root(),
-            account_key,
-            account_encoded.into(),
-            &proof.account_proof,
-        )
-        .map_err(|_| ExecutionError::InvalidAccountProof(address))?;
-
+        verify_account_proof(&proof, block.header().state_root())?;
         // Verify the storage proofs, collecting the slot values
-        let mut slot_map = HashMap::new();
-
-        for storage_proof in proof.storage_proof {
-            let key = storage_proof.key.as_b256();
-            let key_hash = keccak256(key);
-            let key_nibbles = Nibbles::unpack(key_hash);
-            let encoded_value = rlp::encode(storage_proof.value);
-
-            mpt_verify_proof(
-                proof.storage_hash,
-                key_nibbles,
-                encoded_value.into(),
-                &storage_proof.proof,
-            )
-            .map_err(|_| ExecutionError::InvalidStorageProof(address, key))?;
-
-            slot_map.insert(key, storage_proof.value);
-        }
-
+        let slot_map = verify_storage_proof(&proof)?;
         // Verify the code hash
         let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
             Vec::new()

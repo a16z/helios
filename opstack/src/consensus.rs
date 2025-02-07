@@ -1,16 +1,14 @@
 use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, keccak256, Address, Bloom, BloomInput, B256, U256};
-use alloy::rlp::{self, Decodable};
+use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
+use alloy::rlp::Decodable;
 use alloy::rpc::types::{
     Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
 };
-use alloy_trie::{
-    proof::verify_proof as mpt_verify_proof,
-    {Nibbles, TrieAccount},
-};
+
 use eyre::{eyre, OptionExt, Result};
+use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
 use op_alloy_consensus::OpTxEnvelope;
 use op_alloy_network::primitives::BlockTransactions;
 use op_alloy_rpc_types::Transaction;
@@ -208,24 +206,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
 
             // Verify unsafe signer
             // with account proof
-            let account_key = Nibbles::unpack(keccak256(proof.address));
-            let account = TrieAccount {
-                nonce: proof.nonce,
-                balance: proof.balance,
-                storage_root: proof.storage_hash,
-                code_hash: proof.code_hash,
-            };
-            let account_encoded = rlp::encode(account);
-
-            let is_valid = mpt_verify_proof(
-                block.header.state_root,
-                account_key,
-                account_encoded.into(),
-                &proof.account_proof,
-            )
-            .is_ok();
-
-            if !is_valid {
+            if !verify_account_proof(&proof, block.header.state_root).is_ok() {
                 warn!(target: "helios::opstack", "account proof invalid");
                 return Err(eyre!("account proof invalid"));
             }
@@ -238,18 +219,14 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 return Err(eyre!("account proof invalid"));
             }
 
-            let key_hash = keccak256(key);
-            let key_nibbles = Nibbles::unpack(key_hash);
-            let encoded_value = rlp::encode(storage_proof.value);
-            let is_valid = mpt_verify_proof(
+            if !verify_mpt_proof(
                 proof.storage_hash,
-                key_nibbles,
-                encoded_value.into(),
+                key,
+                storage_proof.value,
                 &storage_proof.proof,
             )
-            .is_ok();
-
-            if !is_valid {
+            .is_ok()
+            {
                 warn!(target: "helios::opstack", "storage proof invalid");
                 return Err(eyre!("storage proof invalid"));
             }
