@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use alloy::{
     consensus::{
@@ -97,7 +97,7 @@ impl Ethereum {
 
     async fn call_inner(
         tx: &<Self as alloy::providers::Network>::TransactionRequest,
-        execution: std::sync::Arc<helios_core::execution::ExecutionClient<Self, HttpRpc<Self>>>,
+        execution: Arc<ExecutionClient<Self, HttpRpc<Self>>>,
         chain_id: u64,
         tag: helios_core::types::BlockTag,
     ) -> Result<ResultAndState, EvmError> {
@@ -130,7 +130,7 @@ impl Ethereum {
 
     async fn get_env(
         tx: &<Self as alloy::providers::Network>::TransactionRequest,
-        execution: std::sync::Arc<helios_core::execution::ExecutionClient<Self, HttpRpc<Self>>>,
+        execution: Arc<ExecutionClient<Self, HttpRpc<Self>>>,
         chain_id: u64,
         tag: BlockTag,
     ) -> Env {
@@ -159,7 +159,7 @@ impl NetworkSpec for Ethereum {
         execution: Arc<ExecutionClient<Self, HttpRpc<Self>>>,
         chain_id: u64,
         tag: BlockTag,
-    ) -> impl std::future::Future<Output = Result<Bytes, EvmError>> + Send {
+    ) -> impl Future<Output = Result<Bytes, EvmError>> + Send {
         async move {
             let tx = Self::call_inner(tx, execution, chain_id, tag).await?;
 
@@ -178,7 +178,7 @@ impl NetworkSpec for Ethereum {
         execution: Arc<ExecutionClient<Self, HttpRpc<Self>>>,
         chain_id: u64,
         tag: BlockTag,
-    ) -> impl std::future::Future<Output = Result<u64, EvmError>> + Send {
+    ) -> impl Future<Output = Result<u64, EvmError>> + Send {
         async move {
             let tx = Self::call_inner(tx, execution, chain_id, tag).await?;
 
