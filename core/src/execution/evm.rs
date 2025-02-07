@@ -39,76 +39,23 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
         }
     }
 
-    pub async fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
-        let tx = self.call_inner(tx).await?;
+    // pub fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
+    //     // N::call(tx, self.execution.clone(), self.chain_id, self.tag)
+    // }
 
-        match tx.result {
-            ExecutionResult::Success { output, .. } => Ok(output.into_data()),
-            ExecutionResult::Revert { output, .. } => {
-                Err(EvmError::Revert(Some(output.to_vec().into())))
-            }
-            ExecutionResult::Halt { .. } => Err(EvmError::Revert(None)),
-        }
-    }
+    // pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
+    //     // N::estimate_gas(tx, self.execution.clone(), self.chain_id, self.tag)
 
-    pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
-        let tx = self.call_inner(tx).await?;
-
-        match tx.result {
-            ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
-            ExecutionResult::Revert { gas_used, .. } => Ok(gas_used),
-            ExecutionResult::Halt { gas_used, .. } => Ok(gas_used),
-        }
-    }
-
-    async fn call_inner(&mut self, tx: &N::TransactionRequest) -> Result<ResultAndState, EvmError> {
-        let mut db = ProofDB::new(self.tag, self.execution.clone());
-        _ = db.state.prefetch_state(tx).await;
-
-        let env = Box::new(self.get_env(tx, self.tag).await);
-        let mut evm = N::evm(db, env);
-
-        let tx_res = loop {
-            let db = evm.db_mut();
-            if db.state.needs_update() {
-                db.state.update_state().await.unwrap();
-            }
-
-            let res = evm.transact();
-            let db = evm.db_mut();
-            let needs_update = db.state.needs_update();
-
-            if res.is_ok() || !needs_update {
-                break res;
-            }
-        };
-
-        tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
-    }
-
-    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
-        let mut env = Env::default();
-        env.tx = N::tx_env(tx);
-
-        let block = self
-            .execution
-            .get_block(tag, false)
-            .await
-            .ok_or(ExecutionError::BlockNotFound(tag))
-            .unwrap();
-        env.block = N::block_env(&block);
-
-        env.cfg.chain_id = self.chain_id;
-        env.cfg.disable_block_gas_limit = true;
-        env.cfg.disable_eip3607 = true;
-        env.cfg.disable_base_fee = true;
-
-        env
-    }
+    //     // match tx.result {
+    //     //     ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
+    //     //     ExecutionResult::Revert { gas_used, .. } => Ok(gas_used),
+    //     //     ExecutionResult::Halt { gas_used, .. } => Ok(gas_used),
+    //     // }
+    // }
 }
 
-struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
-    state: EvmState<N, R>,
+pub struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
+    pub state: EvmState<N, R>,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ProofDB<N, R> {

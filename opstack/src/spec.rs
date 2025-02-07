@@ -24,18 +24,164 @@ use revm::{
 #[derive(Clone, Copy, Debug)]
 pub struct OpStack;
 
-impl NetworkSpec for OpStack {
-    type EvmExt = ();
-
+impl OpStack {
     fn evm<DB: revm::Database>(
         db: DB,
         env: Box<revm::primitives::Env>,
-    ) -> revm::Evm<'static, Self::EvmExt, DB> {
+    ) -> revm::Evm<'static, (), DB> {
         EvmBuilder::default()
             .with_db(db)
             .with_env(env)
             .with_handler_cfg(HandlerCfg::new(SpecId::LATEST))
             .build()
+    }
+
+    fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
+        let mut tx_env = TxEnv::default();
+        tx_env.caller =
+            <OpTransactionRequest as TransactionBuilder<Self>>::from(tx).unwrap_or_default();
+        tx_env.gas_limit = <OpTransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
+            .map(|v| v as u64)
+            .unwrap_or(u64::MAX);
+        tx_env.gas_price = <OpTransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
+            .map(U256::from)
+            .unwrap_or_default();
+        tx_env.transact_to =
+            <OpTransactionRequest as TransactionBuilder<Self>>::kind(tx).unwrap_or_default();
+        tx_env.value =
+            <OpTransactionRequest as TransactionBuilder<Self>>::value(tx).unwrap_or_default();
+        tx_env.data = <OpTransactionRequest as TransactionBuilder<Self>>::input(tx)
+            .unwrap_or_default()
+            .clone();
+        tx_env.nonce = <OpTransactionRequest as TransactionBuilder<Self>>::nonce(tx);
+        tx_env.chain_id = <OpTransactionRequest as TransactionBuilder<Self>>::chain_id(tx);
+        tx_env.access_list = <OpTransactionRequest as TransactionBuilder<Self>>::access_list(tx)
+            .map(|v| v.to_vec())
+            .unwrap_or_default();
+        tx_env.gas_priority_fee =
+            <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
+                .map(U256::from);
+        tx_env.max_fee_per_blob_gas =
+            <OpTransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
+        tx_env.blob_hashes = tx
+            .clone()
+            .build_typed_tx()
+            .unwrap()
+            .blob_versioned_hashes()
+            .as_ref()
+            .map(|v| v.to_vec())
+            .unwrap_or_default();
+
+        tx_env
+    }
+
+    fn block_env(block: &Self::BlockResponse) -> BlockEnv {
+        let mut block_env = BlockEnv::default();
+        block_env.number = U256::from(block.header.number());
+        block_env.coinbase = block.header.beneficiary();
+        block_env.timestamp = U256::from(block.header.timestamp());
+        block_env.gas_limit = U256::from(block.header.gas_limit());
+        block_env.basefee = U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64));
+        block_env.difficulty = block.header.difficulty();
+        block_env.prevrandao = block.header.mix_hash();
+        block_env.blob_excess_gas_and_price = block
+            .header
+            .excess_blob_gas()
+            .map(|v| BlobExcessGasAndPrice::new(v.into()));
+
+        block_env
+    }
+
+    async fn call_inner(
+        tx: &<Self as alloy::providers::Network>::TransactionRequest,
+        execution: std::sync::Arc<helios_core::execution::ExecutionClient<Self, HttpRpc<Self>>>,
+        chain_id: u64,
+        tag: helios_core::types::BlockTag,
+    ) -> Result<ResultAndState, EvmError> {
+        let mut db = ProofDB::new(tag, execution.clone());
+        _ = db.state.prefetch_state(tx).await;
+
+        let env = Box::new(Self::get_env(tx, execution, chain_id, tag).await);
+        let mut evm = Self::evm(db, env);
+
+        let tx_res = loop {
+            let db = evm.db_mut();
+            if db.state.needs_update() {
+                db.state.update_state().await.unwrap();
+            }
+
+            let res = evm.transact();
+            let db = evm.db_mut();
+            let needs_update = db.state.needs_update();
+
+            if res.is_ok() || !needs_update {
+                break res;
+            }
+        };
+
+        tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
+    }
+
+    async fn get_env(
+        tx: &<Self as alloy::providers::Network>::TransactionRequest,
+        execution: std::sync::Arc<helios_core::execution::ExecutionClient<Self, HttpRpc<Self>>>,
+        chain_id: u64,
+        tag: BlockTag,
+    ) -> Env {
+        let mut env = Env::default();
+        env.tx = Self::tx_env(tx);
+
+        let block = execution
+            .get_block(tag, false)
+            .await
+            .ok_or(ExecutionError::BlockNotFound(tag))
+            .unwrap();
+        env.block = Self::block_env(&block);
+
+        env.cfg.chain_id = chain_id;
+        env.cfg.disable_block_gas_limit = true;
+        env.cfg.disable_eip3607 = true;
+        env.cfg.disable_base_fee = true;
+
+        env
+    }
+}
+
+impl NetworkSpec for OpStack {
+    fn call(
+        tx: &Self::TransactionRequest,
+        execution: Arc<ExecutionClient<Self, HttpRpc<Self>>>,
+        chain_id: u64,
+        tag: BlockTag,
+    ) -> impl std::future::Future<Output = Result<Bytes, EvmError>> + Send {
+        async move {
+            let tx = Self::call_inner(tx, execution, chain_id, tag).await?;
+
+            match tx.result {
+                ExecutionResult::Success { output, .. } => Ok(output.into_data()),
+                ExecutionResult::Revert { output, .. } => {
+                    Err(EvmError::Revert(Some(output.to_vec().into())))
+                }
+                ExecutionResult::Halt { .. } => Err(EvmError::Revert(None)),
+            }
+        }
+    }
+
+    fn estimate_gas(
+        tx: &Self::TransactionRequest,
+        execution: Arc<ExecutionClient<Self, HttpRpc<Self>>>,
+        chain_id: u64,
+        tag: BlockTag,
+    ) -> impl std::future::Future<Output = Result<u64, EvmError>> + Send {
+        async move {
+            let tx = Self::call_inner(tx, execution, chain_id, tag).await?;
+
+            match tx.result {
+                ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
+                ExecutionResult::Revert { gas_used, .. } => Ok(gas_used),
+                ExecutionResult::Halt { gas_used, .. } => Ok(gas_used),
+            }
+        }
     }
 
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
@@ -126,62 +272,6 @@ impl NetworkSpec for OpStack {
 
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log> {
         receipt.inner.inner.logs().to_vec()
-    }
-
-    fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
-        let mut tx_env = TxEnv::default();
-        tx_env.caller =
-            <OpTransactionRequest as TransactionBuilder<Self>>::from(tx).unwrap_or_default();
-        tx_env.gas_limit = <OpTransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
-            .map(|v| v as u64)
-            .unwrap_or(u64::MAX);
-        tx_env.gas_price = <OpTransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-            .map(U256::from)
-            .unwrap_or_default();
-        tx_env.transact_to =
-            <OpTransactionRequest as TransactionBuilder<Self>>::kind(tx).unwrap_or_default();
-        tx_env.value =
-            <OpTransactionRequest as TransactionBuilder<Self>>::value(tx).unwrap_or_default();
-        tx_env.data = <OpTransactionRequest as TransactionBuilder<Self>>::input(tx)
-            .unwrap_or_default()
-            .clone();
-        tx_env.nonce = <OpTransactionRequest as TransactionBuilder<Self>>::nonce(tx);
-        tx_env.chain_id = <OpTransactionRequest as TransactionBuilder<Self>>::chain_id(tx);
-        tx_env.access_list = <OpTransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-            .map(|v| v.to_vec())
-            .unwrap_or_default();
-        tx_env.gas_priority_fee =
-            <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
-                .map(U256::from);
-        tx_env.max_fee_per_blob_gas =
-            <OpTransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
-        tx_env.blob_hashes = tx
-            .clone()
-            .build_typed_tx()
-            .unwrap()
-            .blob_versioned_hashes()
-            .as_ref()
-            .map(|v| v.to_vec())
-            .unwrap_or_default();
-
-        tx_env
-    }
-
-    fn block_env(block: &Self::BlockResponse) -> BlockEnv {
-        let mut block_env = BlockEnv::default();
-        block_env.number = U256::from(block.header.number());
-        block_env.coinbase = block.header.beneficiary();
-        block_env.timestamp = U256::from(block.header.timestamp());
-        block_env.gas_limit = U256::from(block.header.gas_limit());
-        block_env.basefee = U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64));
-        block_env.difficulty = block.header.difficulty();
-        block_env.prevrandao = block.header.mix_hash();
-        block_env.blob_excess_gas_and_price = block
-            .header
-            .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v.into()));
-
-        block_env
     }
 }
 
