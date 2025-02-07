@@ -1,3 +1,7 @@
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
 use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
@@ -6,31 +10,27 @@ use alloy::rlp::Decodable;
 use alloy::rpc::types::{
     Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
 };
-
 use eyre::{eyre, OptionExt, Result};
-use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
 use op_alloy_consensus::OpTxEnvelope;
 use op_alloy_network::primitives::BlockTransactions;
 use op_alloy_rpc_types::Transaction;
-use std::str::FromStr;
-use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{
     mpsc::{channel, Receiver},
     watch,
 };
+use tracing::{error, info, warn};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::Consensus;
+use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
-use std::sync::{Arc, Mutex};
-
-use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
 
 use helios_ethereum::database::ConfigDB;
 use helios_ethereum::rpc::http_rpc::HttpRpc;
-use tracing::{error, info, warn};
+
+use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
 
 // Storage slot containing the unsafe signer address in all superchain system config contracts
 const UNSAFE_SIGNER_SLOT: &str =
@@ -206,7 +206,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
 
             // Verify unsafe signer
             // with account proof
-            if !verify_account_proof(&proof, block.header.state_root).is_ok() {
+            if verify_account_proof(&proof, block.header.state_root).is_err() {
                 warn!(target: "helios::opstack", "account proof invalid");
                 return Err(eyre!("account proof invalid"));
             }
@@ -219,13 +219,13 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 return Err(eyre!("account proof invalid"));
             }
 
-            if !verify_mpt_proof(
+            if verify_mpt_proof(
                 proof.storage_hash,
                 key,
                 storage_proof.value,
                 &storage_proof.proof,
             )
-            .is_ok()
+            .is_err()
             {
                 warn!(target: "helios::opstack", "storage proof invalid");
                 return Err(eyre!("storage proof invalid"));

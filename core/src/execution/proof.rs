@@ -51,7 +51,7 @@ pub fn verify_storage_proof(proof: &EIP1186AccountProofResponse) -> Result<HashM
 /// - `root`: The root hash of the MPT.
 /// - `raw_key`: The key to be verified, which will be hashed using `keccak256`.
 /// - `raw_value`: The value associated with the key, which will be RLP encoded.
-/// - `proof`: A vector of bytes representing the MPT proof.
+/// - `proof`: A slice of bytes representing the MPT proof.
 pub fn verify_mpt_proof<K: AsRef<[u8]>, V: rlp::Encodable>(
     root: B256,
     raw_key: K,
