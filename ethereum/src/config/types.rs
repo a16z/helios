@@ -6,4 +6,5 @@ pub struct ChainConfig {
     pub chain_id: u64,
     pub genesis_time: u64,
     pub genesis_root: B256,
+    pub block_time: u64,
 }
