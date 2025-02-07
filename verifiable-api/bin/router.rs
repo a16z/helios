@@ -21,6 +21,7 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
                 "/tx_receipt/{tx_hash}",
                 get(handlers::get_transaction_receipt),
             )
+            .route("/logs", get(handlers::get_logs))
             .route("/filter_logs/{filter_id}", get(handlers::get_filter_logs))
             .route(
                 "/filter_changes/{filter_id}",

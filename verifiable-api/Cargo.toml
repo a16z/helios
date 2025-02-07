@@ -23,6 +23,7 @@ async-trait.workspace = true
 
 # server
 axum = "0.8.1"
+axum-extra = { version = "0.10.0", features = ["query"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 alloy-trie = "0.7.8"
 

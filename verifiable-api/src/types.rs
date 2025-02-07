@@ -12,18 +12,21 @@ use helios_core::{execution::types::Account, network_spec::NetworkSpec};
 pub type GetAccountProofResponse = EIP1186AccountProofResponse;
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetBalanceResponse {
     pub account: TrieAccount,
     pub account_proof: Vec<Bytes>,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetTransactionCountResponse {
     pub account: TrieAccount,
     pub account_proof: Vec<Bytes>,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetCodeResponse {
     pub code: Bytes,
     pub account: TrieAccount, // ToDo(@eshaan7): Remove `code_hash` from account here
@@ -31,6 +34,7 @@ pub struct GetCodeResponse {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetStorageAtResponse {
     pub storage: EIP1186StorageProof,
     pub account: TrieAccount,
@@ -41,18 +45,21 @@ pub struct GetStorageAtResponse {
 pub type GetBlockReceiptsResponse<N: NetworkSpec> = Vec<N::ReceiptResponse>;
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetTransactionReceiptResponse<N: NetworkSpec> {
     pub receipt: N::ReceiptResponse,
     pub receipt_proof: Vec<Bytes>,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[serde(bound = "N: NetworkSpec")]
 pub struct GetLogsResponse<N: NetworkSpec> {
-    pub receipt_proofs: HashMap<B256, GetTransactionReceiptResponse<N>>, // tx_hash -> receipt & proof
+    pub receipts: Vec<GetTransactionReceiptResponse<N>>,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[serde(bound = "N: NetworkSpec")]
 pub struct GetFilterLogsResponse<N: NetworkSpec> {
     pub logs: Vec<Log>,
@@ -60,6 +67,7 @@ pub struct GetFilterLogsResponse<N: NetworkSpec> {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[serde(bound = "N: NetworkSpec")]
 #[serde(untagged)]
 
@@ -69,6 +77,7 @@ pub enum GetFilterChangesResponse<N: NetworkSpec> {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CallResponse {
     pub accounts: HashMap<Address, Account>,
 }

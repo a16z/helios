@@ -1,9 +1,10 @@
 use alloy::{
     eips::BlockId,
     primitives::{Address, B256, U256},
+    rpc::types::Filter,
 };
 use async_trait::async_trait;
-use eyre::{Error, Result};
+use eyre::Result;
 use reqwest::Client;
 
 use helios_core::network_spec::NetworkSpec;
@@ -17,41 +18,32 @@ pub trait VerifiableApi<N: NetworkSpec> {
         address: Address,
         storage_keys: Vec<B256>,
         block: Option<BlockId>,
-    ) -> Result<GetAccountProofResponse, Error>;
+    ) -> Result<GetAccountProofResponse>;
     async fn get_balance(
         &self,
         address: Address,
         block: Option<BlockId>,
-    ) -> Result<GetBalanceResponse, Error>;
+    ) -> Result<GetBalanceResponse>;
     async fn get_transaction_count(
         &self,
         address: Address,
         block: Option<BlockId>,
-    ) -> Result<GetTransactionCountResponse, Error>;
-    async fn get_code(
-        &self,
-        address: Address,
-        block: Option<BlockId>,
-    ) -> Result<GetCodeResponse, Error>;
+    ) -> Result<GetTransactionCountResponse>;
+    async fn get_code(&self, address: Address, block: Option<BlockId>) -> Result<GetCodeResponse>;
     async fn get_storage_at(
         &self,
         address: Address,
         key: U256,
         block: Option<BlockId>,
-    ) -> Result<GetStorageAtResponse, Error>;
-    async fn get_block_receipts(
-        &self,
-        block: BlockId,
-    ) -> Result<GetBlockReceiptsResponse<N>, Error>;
+    ) -> Result<GetStorageAtResponse>;
+    async fn get_block_receipts(&self, block: BlockId) -> Result<GetBlockReceiptsResponse<N>>;
     async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<GetTransactionReceiptResponse<N>, Error>;
-    async fn get_filter_logs(&self, filter_id: U256) -> Result<GetFilterLogsResponse<N>, Error>;
-    async fn get_filter_changes(
-        &self,
-        filter_id: U256,
-    ) -> Result<GetFilterChangesResponse<N>, Error>;
+    ) -> Result<GetTransactionReceiptResponse<N>>;
+    async fn get_logs(&self, filter: Filter) -> Result<GetLogsResponse<N>>;
+    async fn get_filter_logs(&self, filter_id: U256) -> Result<GetFilterLogsResponse<N>>;
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<GetFilterChangesResponse<N>>;
 }
 
 pub struct VerifiableApiClient {
@@ -75,13 +67,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         address: Address,
         storage_keys: Vec<B256>,
         block: Option<BlockId>,
-    ) -> Result<GetAccountProofResponse, Error> {
+    ) -> Result<GetAccountProofResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
         let response = self
             .client
             .get(&url)
             .query(&[("block", block)])
-            .query(&[("storage_keys", &storage_keys)])
+            .query(&[("storageKeys", &storage_keys)])
             .send()
             .await?;
         let response = response.json::<GetAccountProofResponse>().await?;
@@ -92,7 +84,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         &self,
         address: Address,
         block: Option<BlockId>,
-    ) -> Result<GetBalanceResponse, Error> {
+    ) -> Result<GetBalanceResponse> {
         let url = format!("{}/eth/v1/proof/balance/{}", self.base_url, address);
         let response = self
             .client
@@ -108,7 +100,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         &self,
         address: Address,
         block: Option<BlockId>,
-    ) -> Result<GetTransactionCountResponse, Error> {
+    ) -> Result<GetTransactionCountResponse> {
         let url = format!(
             "{}/eth/v1/proof/transaction_count/{}",
             self.base_url, address
@@ -123,11 +115,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         Ok(response)
     }
 
-    async fn get_code(
-        &self,
-        address: Address,
-        block: Option<BlockId>,
-    ) -> Result<GetCodeResponse, Error> {
+    async fn get_code(&self, address: Address, block: Option<BlockId>) -> Result<GetCodeResponse> {
         let url = format!("{}/eth/v1/proof/code/{}", self.base_url, address);
         let response = self
             .client
@@ -144,7 +132,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         address: Address,
         key: U256,
         block: Option<BlockId>,
-    ) -> Result<GetStorageAtResponse, Error> {
+    ) -> Result<GetStorageAtResponse> {
         let url = format!("{}/eth/v1/proof/storage/{}/{}", self.base_url, address, key);
         let response = self
             .client
@@ -156,10 +144,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         Ok(response)
     }
 
-    async fn get_block_receipts(
-        &self,
-        block: BlockId,
-    ) -> Result<GetBlockReceiptsResponse<N>, Error> {
+    async fn get_block_receipts(&self, block: BlockId) -> Result<GetBlockReceiptsResponse<N>> {
         let url = format!("{}/eth/v1/proof/block_receipts/{}", self.base_url, block);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<GetBlockReceiptsResponse<N>>().await?;
@@ -169,24 +154,51 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<GetTransactionReceiptResponse<N>, Error> {
+    ) -> Result<GetTransactionReceiptResponse<N>> {
         let url = format!("{}/eth/v1/proof/tx_receipt/{}", self.base_url, tx_hash);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<GetTransactionReceiptResponse<N>>().await?;
         Ok(response)
     }
 
-    async fn get_filter_logs(&self, filter_id: U256) -> Result<GetFilterLogsResponse<N>, Error> {
+    async fn get_logs(&self, filter: Filter) -> Result<GetLogsResponse<N>> {
+        let url = format!("{}/eth/v1/proof/logs", self.base_url);
+
+        let mut request = self.client.get(&url);
+        if let Some(from_block) = filter.get_from_block() {
+            request = request.query(&[("fromBlock", from_block)]);
+        }
+        if let Some(to_block) = filter.get_to_block() {
+            request = request.query(&[("toBlock", to_block)]);
+        }
+        if let Some(block_hash) = filter.get_block_hash() {
+            request = request.query(&[("blockHash", block_hash)]);
+        }
+        if let Some(address) = filter.address.to_value_or_array() {
+            request = request.query(&[("address", address)]);
+        }
+        let topics = filter
+            .topics
+            .into_iter()
+            .filter_map(|t| t.to_value_or_array())
+            .collect::<Vec<_>>();
+        if topics.len() > 0 {
+            request = request.query(&[("topics", topics)]);
+        }
+
+        let response = request.send().await?;
+        let response = response.json::<GetLogsResponse<N>>().await?;
+        Ok(response)
+    }
+
+    async fn get_filter_logs(&self, filter_id: U256) -> Result<GetFilterLogsResponse<N>> {
         let url = format!("{}/eth/v1/proof/filter_logs/{}", self.base_url, filter_id);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<GetFilterLogsResponse<N>>().await?;
         Ok(response)
     }
 
-    async fn get_filter_changes(
-        &self,
-        filter_id: U256,
-    ) -> Result<GetFilterChangesResponse<N>, Error> {
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<GetFilterChangesResponse<N>> {
         let url = format!(
             "{}/eth/v1/proof/filter_changes/{}",
             self.base_url, filter_id

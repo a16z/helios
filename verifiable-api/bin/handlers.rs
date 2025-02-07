@@ -8,14 +8,16 @@ use alloy::{
     eips::BlockNumberOrTag,
     network::{BlockResponse, ReceiptResponse},
     primitives::{Address, B256, U256},
-    rpc::types::{BlockId, BlockTransactionsKind, FilterChanges, Log},
+    rpc::types::{BlockId, BlockTransactionsKind, Filter, FilterChanges, Log},
 };
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::Json,
 };
-use eyre::{OptionExt, Report, Result};
+use axum_extra::extract::Query;
+
+use eyre::{eyre, OptionExt, Report, Result};
 use futures::future::try_join_all;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
@@ -43,13 +45,73 @@ pub struct BlockQuery {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountProofQuery {
-    // Todo(@eshaan7): make this accept CSV
-    pub storage_keys: Option<Vec<B256>>,
+    #[serde(default)]
+    pub storage_keys: Vec<B256>,
     pub block: Option<BlockId>,
 }
 
-/// This method returns the account proof for a given address.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogsQuery {
+    pub from_block: Option<BlockNumberOrTag>,
+    pub to_block: Option<BlockNumberOrTag>,
+    pub block_hash: Option<B256>,
+    #[serde(default)]
+    pub address: Vec<Address>,
+    #[serde(default)]
+    pub topics: Vec<B256>,
+}
+
+impl TryInto<Filter> for LogsQuery {
+    type Error = Report;
+
+    fn try_into(self) -> Result<Filter, Self::Error> {
+        // Validate the filter
+        // We don't need extensive validation here since the RPC will do it for us
+        if self.from_block.is_some() && self.to_block.is_some() && self.block_hash.is_some() {
+            return Err(eyre!(
+                "cannot specify both blockHash and fromBlock/toBlock, choose one or the other"
+            ));
+        }
+        if self.topics.len() > 4 {
+            return Err(eyre!("too many topics, max 4 allowed"));
+        }
+
+        let mut filter = Filter::new();
+        if let Some(from_block) = self.from_block {
+            filter = filter.from_block(from_block);
+        }
+        if let Some(to_block) = self.to_block {
+            filter = filter.to_block(to_block);
+        }
+        if let Some(block_hash) = self.block_hash {
+            filter = filter.at_block_hash(block_hash);
+        }
+        if !self.address.is_empty() {
+            filter = filter.address(self.address);
+        }
+        if !self.topics.is_empty() {
+            if let Some(topic0) = self.topics.get(0) {
+                filter = filter.event_signature(*topic0);
+            }
+            if let Some(topic1) = self.topics.get(1) {
+                filter = filter.topic1(*topic1);
+            }
+            if let Some(topic2) = self.topics.get(2) {
+                filter = filter.topic2(*topic2);
+            }
+            if let Some(topic3) = self.topics.get(3) {
+                filter = filter.topic3(*topic3);
+            }
+        }
+
+        Ok(filter)
+    }
+}
+
+/// This method returns the EIP-1186 account proof for a given address.
 ///
 /// Replaces the `eth_getProof` RPC method.
 pub async fn get_account_proof<N: NetworkSpec, R: ExecutionRpc<N>>(
@@ -60,7 +122,6 @@ pub async fn get_account_proof<N: NetworkSpec, R: ExecutionRpc<N>>(
     }): Query<AccountProofQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
 ) -> Response<GetAccountProofResponse> {
-    let storage_keys = storage_keys.unwrap_or(vec![]);
     let block = block.unwrap_or(BlockId::latest());
 
     let proof = execution_client
@@ -238,11 +299,9 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
 ///
 /// Replaces the `eth_getBlockReceipts` RPC method.
 pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
-    Path(block): Path<Option<BlockId>>,
+    Path(block): Path<BlockId>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
 ) -> Response<GetBlockReceiptsResponse<N>> {
-    let block = block.unwrap_or(BlockId::latest());
-
     let receipts = execution_client
         .rpc
         .get_block_receipts(block)
@@ -290,6 +349,33 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Ok(Json(GetTransactionReceiptResponse {
         receipt,
         receipt_proof,
+    }))
+}
+
+/// This method returns an array of all logs matching the given filter.
+/// Corresponding to each log, it also returns the transaction receipt and a Merkle proof of its inclusion.
+///
+/// Replaces the `eth_getLogs` RPC method.
+pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Query(logs_filter_query): Query<LogsQuery>,
+    State(ApiState { execution_client }): State<ApiState<N, R>>,
+) -> Response<GetLogsResponse<N>> {
+    let filter: Filter = logs_filter_query.try_into().map_err(map_server_err)?;
+
+    // Fetch the filter logs from RPC
+    let logs = execution_client
+        .rpc
+        .get_logs(&filter)
+        .await
+        .map_err(map_server_err)?;
+
+    // Create receipt proofs for each log
+    let receipt_proofs = create_receipt_proofs_for_logs(&logs, execution_client)
+        .await
+        .map_err(map_server_err)?;
+
+    Ok(Json(GetLogsResponse {
+        receipts: receipt_proofs.into_values().collect(),
     }))
 }
 
