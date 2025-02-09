@@ -334,7 +334,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
                 continue;
             }
             let payload = result.unwrap().body.execution_payload().clone();
-            if payload.block_hash() != &prev_parent_hash {
+            if payload.parent_hash() != &prev_parent_hash {
                 warn!(
                     target: "helios::consensus",
                     error = %ConsensusError::InvalidHeaderHash(
