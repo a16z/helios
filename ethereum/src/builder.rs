@@ -206,6 +206,7 @@ impl EthereumClientBuilder {
             data_dir: None,
             chain: base_config.chain,
             forks: base_config.forks,
+            execution_forks: base_config.execution_forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
             fallback,
             load_external_fallback,
@@ -226,6 +227,7 @@ impl EthereumClientBuilder {
         Client::<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>>::new(
             &config.execution_rpc.clone(),
             consensus,
+            config.execution_forks.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             socket,
         )

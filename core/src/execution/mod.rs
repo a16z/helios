@@ -7,18 +7,18 @@ use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
-use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
 use eyre::Result;
 use futures::future::try_join_all;
-use proof::{verify_account_proof, verify_storage_proof};
-use revm::primitives::KECCAK_EMPTY;
+use revm::primitives::{BlobExcessGasAndPrice, KECCAK_EMPTY};
 use tracing::warn;
 
+use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::types::BlockTag;
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
+use self::proof::{verify_account_proof, verify_storage_proof};
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
 use self::types::Account;
@@ -35,12 +35,17 @@ pub mod types;
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     pub rpc: R,
     state: State<N, R>,
+    fork_schedule: ForkSchedule,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
-    pub fn new(rpc: &str, state: State<N, R>) -> Result<Self> {
+    pub fn new(rpc: &str, state: State<N, R>, fork_schedule: ForkSchedule) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(rpc)?;
-        Ok(ExecutionClient::<N, R> { rpc, state })
+        Ok(ExecutionClient::<N, R> {
+            rpc,
+            state,
+            fork_schedule,
+        })
     }
 
     pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
@@ -121,42 +126,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
     pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {
         let block = self.state.get_block(block).await;
-        if block.is_none() {
+        let Some(block) = block else {
             warn!(target: "helios::execution", "requested block not found");
             return U256::from(0);
-        }
-        let parent_hash = block.unwrap().header().parent_hash();
+        };
+
+        let parent_hash = block.header().parent_hash();
         let parent_block = self.get_block_by_hash(parent_hash, false).await;
         if parent_block.is_none() {
             warn!(target: "helios::execution", "requested parent block not foundß");
             return U256::from(0);
         };
 
-        let blob_base_fee = Self::calculate_base_fee_per_blob_gas(
-            parent_block.unwrap().header().excess_blob_gas().unwrap(),
-        );
-
-        U256::from(blob_base_fee)
-    }
-
-    fn calculate_base_fee_per_blob_gas(parent_excess_blob_gas: u64) -> u64 {
-        Self::fake_exponential(
-            MIN_BASE_FEE_PER_BLOB_GAS,
-            parent_excess_blob_gas,
-            BLOB_BASE_FEE_UPDATE_FRACTION,
-        )
-    }
-    //https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md#helpers
-    fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
-        let mut i = 1;
-        let mut output = 0;
-        let mut numerator_accum = factor * denominator;
-        while numerator_accum > 0 {
-            output += numerator_accum;
-            numerator_accum = numerator_accum * numerator / (denominator * i);
-            i += 1;
-        }
-        output / denominator
+        let excess_blob_gas = parent_block.unwrap().header().excess_blob_gas().unwrap();
+        let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
+        U256::from(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice)
     }
 
     pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Option<N::BlockResponse> {

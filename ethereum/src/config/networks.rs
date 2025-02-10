@@ -7,6 +7,7 @@ use alloy::primitives::{b256, fixed_bytes};
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
+use helios_core::fork_schedule::ForkSchedule;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
@@ -110,6 +111,9 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: fixed_bytes!("05000000"),
             },
         },
+        execution_forks: ForkSchedule {
+            prague_timestamp: u64::MAX,
+        },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Mainnet)),
@@ -151,9 +155,12 @@ pub fn sepolia() -> BaseConfig {
                 fork_version: fixed_bytes!("90000073"),
             },
             electra: Fork {
-                epoch: u64::MAX,
+                epoch: 222464,
                 fork_version: fixed_bytes!("90000074"),
             },
+        },
+        execution_forks: ForkSchedule {
+            prague_timestamp: 1741159776,
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
@@ -196,9 +203,12 @@ pub fn holesky() -> BaseConfig {
                 fork_version: fixed_bytes!("05017000"),
             },
             electra: Fork {
-                epoch: u64::MAX,
+                epoch: 115968,
                 fork_version: fixed_bytes!("06017000"),
             },
+        },
+        execution_forks: ForkSchedule {
+            prague_timestamp: 1740434112,
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
@@ -244,6 +254,9 @@ pub fn pectra_devnet() -> BaseConfig {
                 epoch: 10,
                 fork_version: fixed_bytes!("60585557"),
             },
+        },
+        execution_forks: ForkSchedule {
+            prague_timestamp: 1738607700,
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]

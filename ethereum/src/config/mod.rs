@@ -7,6 +7,7 @@ use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
+use helios_core::fork_schedule::ForkSchedule;
 use serde::Deserialize;
 
 use helios_consensus_core::types::Forks;
@@ -34,6 +35,7 @@ pub struct Config {
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,
+    pub execution_forks: ForkSchedule,
     pub max_checkpoint_age: u64,
     pub fallback: Option<String>,
     pub load_external_fallback: bool,
@@ -84,6 +86,7 @@ impl Config {
             default_checkpoint: self.default_checkpoint,
             chain: self.chain.clone(),
             forks: self.forks.clone(),
+            execution_forks: self.execution_forks,
             max_checkpoint_age: self.max_checkpoint_age,
             data_dir: self.data_dir.clone(),
             load_external_fallback: self.load_external_fallback,
@@ -103,6 +106,7 @@ impl From<BaseConfig> for Config {
             default_checkpoint: base.default_checkpoint,
             chain: base.chain,
             forks: base.forks,
+            execution_forks: base.execution_forks,
             max_checkpoint_age: base.max_checkpoint_age,
             data_dir: base.data_dir,
             fallback: None,
