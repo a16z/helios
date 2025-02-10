@@ -35,7 +35,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let state = State::new(block_recv, finalized_block_recv, 256, execution_rpc);
         let execution = Arc::new(
-            ExecutionClient::new(execution_rpc, state, fork_schedule.clone())
+            ExecutionClient::new(execution_rpc, state, fork_schedule)
                 .map_err(ClientError::InternalError)?,
         );
 
@@ -57,7 +57,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         let mut evm = Evm::new(
             self.execution.clone(),
             self.chain_id(),
-            self.fork_schedule.clone(),
+            self.fork_schedule,
             block,
         );
         evm.call(tx).await.map_err(ClientError::EvmError)
@@ -69,7 +69,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         let mut evm = Evm::new(
             self.execution.clone(),
             self.chain_id(),
-            self.fork_schedule.clone(),
+            self.fork_schedule,
             BlockTag::Latest,
         );
 
