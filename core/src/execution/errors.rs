@@ -32,7 +32,7 @@ pub enum ExecutionError {
     #[error("filter not found: 0x{0:x}")]
     FilterNotFound(U256),
     #[error("log does not match filter")]
-    LogDoesNotMatchFilter(),
+    LogFilterMismatch(),
 }
 
 /// Errors that can occur during evm.rs calls

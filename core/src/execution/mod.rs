@@ -491,13 +491,16 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     if !topic.matches(log_topic) {
                         return false;
                     }
+                } else {
+                    // if filter topic is not present in log, it's a mismatch
+                    return false;
                 }
             }
             true
         }
         for log in logs {
             if !log_matches_filter(log, filter) {
-                return Err(ExecutionError::LogDoesNotMatchFilter().into());
+                return Err(ExecutionError::LogFilterMismatch().into());
             }
         }
         Ok(())
