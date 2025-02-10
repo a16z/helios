@@ -121,7 +121,7 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
         block,
     }): Query<AccountProofQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetAccountResponse> {
+) -> Response<AccountResponse> {
     // Ensure that BlockId is of block number variant
     let block = block.unwrap_or(BlockId::latest());
     let block_num = match block {
@@ -161,7 +161,7 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
         .await
         .map_err(map_server_err)?;
 
-    Ok(Json(GetAccountResponse {
+    Ok(Json(AccountResponse {
         account: Account {
             balance: proof.balance,
             nonce: proof.nonce,
@@ -183,7 +183,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path((address, key)): Path<(Address, U256)>,
     Query(BlockQuery { block }): Query<BlockQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetStorageAtResponse> {
+) -> Response<StorageAtResponse> {
     let block = block.unwrap_or(BlockId::latest());
 
     let storage_slot = execution_client
@@ -208,7 +208,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
         }
     };
 
-    Ok(Json(GetStorageAtResponse {
+    Ok(Json(StorageAtResponse {
         storage,
         account: Account {
             balance: proof.balance,
@@ -226,7 +226,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(block): Path<BlockId>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetBlockReceiptsResponse<N>> {
+) -> Response<BlockReceiptsResponse<N>> {
     let receipts = execution_client
         .rpc
         .get_block_receipts(block)
@@ -243,7 +243,7 @@ pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(tx_hash): Path<B256>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetTransactionReceiptResponse<N>> {
+) -> Response<TransactionReceiptResponse<N>> {
     let receipt = execution_client
         .rpc
         .get_transaction_receipt(tx_hash)
@@ -271,7 +271,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     let receipt_proof =
         create_receipt_proof::<N>(receipts, receipt.transaction_index().unwrap() as usize);
 
-    Ok(Json(GetTransactionReceiptResponse {
+    Ok(Json(TransactionReceiptResponse {
         receipt,
         receipt_proof,
     }))
@@ -284,7 +284,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Query(logs_filter_query): Query<LogsQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetLogsResponse<N>> {
+) -> Response<LogsResponse<N>> {
     let filter: Filter = logs_filter_query.try_into().map_err(map_server_err)?;
 
     // Fetch the filter logs from RPC
@@ -299,7 +299,7 @@ pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
         .await
         .map_err(map_server_err)?;
 
-    Ok(Json(GetLogsResponse {
+    Ok(Json(LogsResponse {
         logs,
         receipt_proofs,
     }))
@@ -312,7 +312,7 @@ pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetFilterLogsResponse<N>> {
+) -> Response<FilterLogsResponse<N>> {
     // Fetch the filter logs from RPC
     let logs = execution_client
         .rpc
@@ -325,7 +325,7 @@ pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
         .await
         .map_err(map_server_err)?;
 
-    Ok(Json(GetFilterLogsResponse {
+    Ok(Json(FilterLogsResponse {
         logs,
         receipt_proofs,
     }))
@@ -339,7 +339,7 @@ pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetFilterChangesResponse<N>> {
+) -> Response<FilterChangesResponse<N>> {
     let filter_changes = execution_client
         .rpc
         .get_filter_changes(filter_id)
@@ -353,14 +353,14 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
                 .await
                 .map_err(map_server_err)?;
 
-            GetFilterChangesResponse::Logs(GetFilterLogsResponse {
+            FilterChangesResponse::Logs(FilterLogsResponse {
                 logs,
                 receipt_proofs,
             })
         }
-        FilterChanges::Hashes(hashes) => GetFilterChangesResponse::Hashes(hashes),
-        FilterChanges::Empty => GetFilterChangesResponse::Hashes(vec![]),
-        FilterChanges::Transactions(txs) => GetFilterChangesResponse::Hashes(
+        FilterChanges::Hashes(hashes) => FilterChangesResponse::Hashes(hashes),
+        FilterChanges::Empty => FilterChangesResponse::Hashes(vec![]),
+        FilterChanges::Transactions(txs) => FilterChangesResponse::Hashes(
             txs.into_iter().map(|t| t.inner.tx_hash().clone()).collect(),
         ),
     }))
@@ -369,7 +369,7 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
 async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     logs: &[Log],
     execution_client: Arc<ExecutionClient<N, R>>,
-) -> Result<HashMap<B256, GetTransactionReceiptResponse<N>>> {
+) -> Result<HashMap<B256, TransactionReceiptResponse<N>>> {
     // Collect all (unique) block numbers
     let block_nums = logs
         .iter()
@@ -391,7 +391,7 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     let blocks_receipts = blocks_receipts.into_iter().collect::<HashMap<_, _>>();
 
     // Create a map of transaction hashes to their receipt and proof
-    let mut receipt_proofs: HashMap<B256, GetTransactionReceiptResponse<N>> = HashMap::new();
+    let mut receipt_proofs: HashMap<B256, TransactionReceiptResponse<N>> = HashMap::new();
 
     for log in logs {
         let tx_hash = log.transaction_hash.unwrap();
@@ -412,7 +412,7 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 
         receipt_proofs.insert(
             tx_hash,
-            GetTransactionReceiptResponse {
+            TransactionReceiptResponse {
                 receipt: receipt.clone(),
                 receipt_proof,
             },
