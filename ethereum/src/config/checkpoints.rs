@@ -105,10 +105,9 @@ impl CheckpointFallback {
         Self {
             services: Default::default(),
             networks: vec![
-                networks::Network::MAINNET,
-                networks::Network::GOERLI,
-                networks::Network::SEPOLIA,
-                networks::Network::HOLESKY,
+                networks::Network::Mainnet,
+                networks::Network::Sepolia,
+                networks::Network::Holesky,
             ],
         }
     }

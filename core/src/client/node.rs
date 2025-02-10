@@ -12,6 +12,7 @@ use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::state::State;
 use crate::execution::ExecutionClient;
+use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::time::{SystemTime, UNIX_EPOCH};
 use crate::types::BlockTag;
@@ -20,22 +21,29 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
     pub execution: Arc<ExecutionClient<N, HttpRpc<N>>>,
     pub history_size: usize,
+    fork_schedule: ForkSchedule,
 }
 
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
-    pub fn new(execution_rpc: &str, mut consensus: C) -> Result<Self, ClientError> {
+    pub fn new(
+        execution_rpc: &str,
+        mut consensus: C,
+        fork_schedule: ForkSchedule,
+    ) -> Result<Self, ClientError> {
         let block_recv = consensus.block_recv().take().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
 
         let state = State::new(block_recv, finalized_block_recv, 256, execution_rpc);
         let execution = Arc::new(
-            ExecutionClient::new(execution_rpc, state).map_err(ClientError::InternalError)?,
+            ExecutionClient::new(execution_rpc, state, fork_schedule)
+                .map_err(ClientError::InternalError)?,
         );
 
         Ok(Node {
             consensus,
             execution,
             history_size: 64,
+            fork_schedule,
         })
     }
 
@@ -46,14 +54,24 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<Bytes, ClientError> {
         self.check_blocktag_age(&block).await?;
 
-        let mut evm = Evm::new(self.execution.clone(), self.chain_id(), block);
+        let mut evm = Evm::new(
+            self.execution.clone(),
+            self.chain_id(),
+            self.fork_schedule,
+            block,
+        );
         evm.call(tx).await.map_err(ClientError::EvmError)
     }
 
     pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64, ClientError> {
         self.check_head_age().await?;
 
-        let mut evm = Evm::new(self.execution.clone(), self.chain_id(), BlockTag::Latest);
+        let mut evm = Evm::new(
+            self.execution.clone(),
+            self.chain_id(),
+            self.fork_schedule,
+            BlockTag::Latest,
+        );
 
         evm.estimate_gas(tx).await.map_err(ClientError::EvmError)
     }
