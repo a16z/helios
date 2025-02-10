@@ -10,6 +10,7 @@ alloy = { version = "0.9.1", features = [
     "ssz",
     "rlp",
     "k256",
+    "eips",
 ] }
 alloy-rlp = "0.3.10"
 bls12_381.workspace = true

@@ -3,6 +3,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 
 use alloy::primitives::B256;
+use helios_core::fork_schedule::ForkSchedule;
 use serde::Serialize;
 
 use helios_consensus_core::types::Forks;
@@ -18,6 +19,7 @@ pub struct BaseConfig {
     pub default_checkpoint: B256,
     pub chain: ChainConfig,
     pub forks: Forks,
+    pub execution_forks: ForkSchedule,
     pub max_checkpoint_age: u64,
     pub data_dir: Option<PathBuf>,
     pub load_external_fallback: bool,
@@ -35,6 +37,7 @@ impl Default for BaseConfig {
             forks: Default::default(),
             max_checkpoint_age: 0,
             data_dir: None,
+            execution_forks: ForkSchedule::default(),
             load_external_fallback: false,
             strict_checkpoint_age: false,
         }
