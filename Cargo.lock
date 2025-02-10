@@ -3271,7 +3271,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "helios-verifiable-api"
+name = "helios-verifiable-api-client"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-trie",
+ "async-trait",
+ "eyre",
+ "helios-core",
+ "helios-verifiable-api-types",
+ "reqwest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "helios-verifiable-api-server"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -3285,14 +3300,23 @@ dependencies = [
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
- "hex",
- "reqwest",
+ "helios-verifiable-api-types",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "url",
+]
+
+[[package]]
+name = "helios-verifiable-api-types"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "helios-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

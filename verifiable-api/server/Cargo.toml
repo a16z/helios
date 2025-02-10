@@ -1,5 +1,5 @@
 [package]
-name = "helios-verifiable-api"
+name = "helios-verifiable-api-server"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,26 +8,24 @@ name = "server"
 path = "./bin/server.rs"
 
 [dependencies]
+alloy.workspace = true
+alloy-trie.workspace = true
 tokio.workspace = true
 eyre.workspace = true
-tracing.workspace = true
-hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-alloy.workspace = true
+tracing.workspace = true
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-reqwest.workspace = true
 url.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 
-# server
+# self crates
+helios-verifiable-api-types = { path = "../types" }
+helios-core = { path = "../../core" }
+helios-ethereum = { path = "../../ethereum" }
+helios-opstack = { path = "../../opstack" }
+
 axum = "0.8.1"
 axum-extra = { version = "0.10.0", features = ["query"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
-alloy-trie = "0.7.8"
-
-# crate
-helios-core = { path = "../core" }
-helios-ethereum = { path = "../ethereum" }
-helios-opstack = { path = "../opstack" }

@@ -16,16 +16,18 @@ use axum::{
     response::Json,
 };
 use axum_extra::extract::Query;
-
 use eyre::{eyre, OptionExt, Report, Result};
 use futures::future::try_join_all;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 
-use helios_core::{execution::rpc::ExecutionRpc, network_spec::NetworkSpec};
-use helios_verifiable_api::{proof::create_receipt_proof, rpc_client::ExecutionClient, types::*};
+use helios_core::{
+    execution::{proof::create_receipt_proof, rpc::ExecutionRpc},
+    network_spec::NetworkSpec,
+};
+use helios_verifiable_api_types::*;
 
-use crate::ApiState;
+use crate::{ApiState, ExecutionClient};
 
 #[allow(type_alias_bounds)]
 type Response<T: Serialize + DeserializeOwned> =
@@ -243,18 +245,16 @@ pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(tx_hash): Path<B256>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<TransactionReceiptResponse<N>> {
+) -> Response<Option<TransactionReceiptResponse<N>>> {
     let receipt = execution_client
         .rpc
         .get_transaction_receipt(tx_hash)
         .await
-        .map_err(map_server_err)?
-        .ok_or_else(|| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                json_err("Transaction not found"),
-            )
-        })?;
+        .map_err(map_server_err)?;
+    if receipt.is_none() {
+        return Ok(Json(None));
+    }
+    let receipt = receipt.unwrap();
 
     let receipts = execution_client
         .rpc
@@ -271,10 +271,10 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     let receipt_proof =
         create_receipt_proof::<N>(receipts, receipt.transaction_index().unwrap() as usize);
 
-    Ok(Json(TransactionReceiptResponse {
+    Ok(Json(Some(TransactionReceiptResponse {
         receipt,
         receipt_proof,
-    }))
+    })))
 }
 
 /// This method returns an array of all logs matching the given filter.

@@ -24,6 +24,7 @@ use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
 use self::types::Account;
 
+pub mod client;
 pub mod constants;
 pub mod errors;
 pub mod evm;

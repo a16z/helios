@@ -1,25 +1,19 @@
 use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
 use clap::Parser;
-use helios_core::{
-    execution::rpc::{http_rpc::HttpRpc, ExecutionRpc},
-    network_spec::NetworkSpec,
-};
+use helios_core::execution::rpc::http_rpc::HttpRpc;
 use router::build_router;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use url::Url;
 
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 // use helios_opstack::spec::OpStack as OpStackSpec;
-use helios_verifiable_api::rpc_client::ExecutionClient;
+
+use crate::state::{ApiState, ExecutionClient};
 
 mod handlers;
 mod router;
-
-#[derive(Clone)]
-pub struct ApiState<N: NetworkSpec, R: ExecutionRpc<N>> {
-    pub execution_client: Arc<ExecutionClient<N, R>>,
-}
+mod state;
 
 #[tokio::main]
 async fn main() {

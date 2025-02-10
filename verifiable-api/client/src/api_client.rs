@@ -8,15 +8,14 @@ use eyre::Result;
 use reqwest::Client;
 
 use helios_core::network_spec::NetworkSpec;
-
-use crate::types::*;
+use helios_verifiable_api_types::*;
 
 #[async_trait]
-pub trait VerifiableApi<N: NetworkSpec> {
+pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_account(
         &self,
         address: Address,
-        storage_keys: Vec<B256>,
+        storage_keys: &[B256],
         block: Option<BlockId>,
     ) -> Result<AccountResponse>;
     async fn get_storage_at(
@@ -26,13 +25,16 @@ pub trait VerifiableApi<N: NetworkSpec> {
         block: Option<BlockId>,
     ) -> Result<StorageAtResponse>;
     async fn get_block_receipts(&self, block: BlockId) -> Result<BlockReceiptsResponse<N>>;
-    async fn get_transaction_receipt(&self, tx_hash: B256)
-        -> Result<TransactionReceiptResponse<N>>;
-    async fn get_logs(&self, filter: Filter) -> Result<LogsResponse<N>>;
+    async fn get_transaction_receipt(
+        &self,
+        tx_hash: B256,
+    ) -> Result<Option<TransactionReceiptResponse<N>>>;
+    async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>>;
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>>;
 }
 
+#[derive(Clone)]
 pub struct VerifiableApiClient {
     client: Client,
     base_url: String,
@@ -52,7 +54,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     async fn get_account(
         &self,
         address: Address,
-        storage_keys: Vec<B256>,
+        storage_keys: &[B256],
         block: Option<BlockId>,
     ) -> Result<AccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
@@ -60,7 +62,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             .client
             .get(&url)
             .query(&[("block", block)])
-            .query(&[("storageKeys", &storage_keys)])
+            .query(&[("storageKeys", storage_keys)])
             .send()
             .await?;
         let response = response.json::<AccountResponse>().await?;
@@ -94,14 +96,16 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<TransactionReceiptResponse<N>> {
+    ) -> Result<Option<TransactionReceiptResponse<N>>> {
         let url = format!("{}/eth/v1/proof/tx_receipt/{}", self.base_url, tx_hash);
         let response = self.client.get(&url).send().await?;
-        let response = response.json::<TransactionReceiptResponse<N>>().await?;
+        let response = response
+            .json::<Option<TransactionReceiptResponse<N>>>()
+            .await?;
         Ok(response)
     }
 
-    async fn get_logs(&self, filter: Filter) -> Result<LogsResponse<N>> {
+    async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
         let url = format!("{}/eth/v1/proof/logs", self.base_url);
 
         let mut request = self.client.get(&url);
@@ -119,7 +123,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         }
         let topics = filter
             .topics
-            .into_iter()
+            .iter()
             .filter_map(|t| t.to_value_or_array())
             .collect::<Vec<_>>();
         if topics.len() > 0 {

@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use eyre::Result;
 
-use helios_core::execution::errors::ExecutionError;
 use helios_core::execution::rpc::ExecutionRpc;
 use helios_core::network_spec::NetworkSpec;
 
@@ -18,12 +18,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             _marker: PhantomData::default(),
         })
     }
+}
 
-    pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
-        if self.rpc.chain_id().await? != chain_id {
-            Err(ExecutionError::IncorrectRpcNetwork().into())
-        } else {
-            Ok(())
-        }
-    }
+#[derive(Clone)]
+pub struct ApiState<N: NetworkSpec, R: ExecutionRpc<N>> {
+    pub execution_client: Arc<ExecutionClient<N, R>>,
 }
