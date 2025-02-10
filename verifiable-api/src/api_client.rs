@@ -18,18 +18,7 @@ pub trait VerifiableApi<N: NetworkSpec> {
         address: Address,
         storage_keys: Vec<B256>,
         block: Option<BlockId>,
-    ) -> Result<GetAccountProofResponse>;
-    async fn get_balance(
-        &self,
-        address: Address,
-        block: Option<BlockId>,
-    ) -> Result<GetBalanceResponse>;
-    async fn get_transaction_count(
-        &self,
-        address: Address,
-        block: Option<BlockId>,
-    ) -> Result<GetTransactionCountResponse>;
-    async fn get_code(&self, address: Address, block: Option<BlockId>) -> Result<GetCodeResponse>;
+    ) -> Result<GetAccountResponse>;
     async fn get_storage_at(
         &self,
         address: Address,
@@ -67,7 +56,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         address: Address,
         storage_keys: Vec<B256>,
         block: Option<BlockId>,
-    ) -> Result<GetAccountProofResponse> {
+    ) -> Result<GetAccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
         let response = self
             .client
@@ -76,54 +65,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             .query(&[("storageKeys", &storage_keys)])
             .send()
             .await?;
-        let response = response.json::<GetAccountProofResponse>().await?;
-        Ok(response)
-    }
-
-    async fn get_balance(
-        &self,
-        address: Address,
-        block: Option<BlockId>,
-    ) -> Result<GetBalanceResponse> {
-        let url = format!("{}/eth/v1/proof/balance/{}", self.base_url, address);
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("block", block)])
-            .send()
-            .await?;
-        let response = response.json::<GetBalanceResponse>().await?;
-        Ok(response)
-    }
-
-    async fn get_transaction_count(
-        &self,
-        address: Address,
-        block: Option<BlockId>,
-    ) -> Result<GetTransactionCountResponse> {
-        let url = format!(
-            "{}/eth/v1/proof/transaction_count/{}",
-            self.base_url, address
-        );
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("block", block)])
-            .send()
-            .await?;
-        let response = response.json::<GetTransactionCountResponse>().await?;
-        Ok(response)
-    }
-
-    async fn get_code(&self, address: Address, block: Option<BlockId>) -> Result<GetCodeResponse> {
-        let url = format!("{}/eth/v1/proof/code/{}", self.base_url, address);
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("block", block)])
-            .send()
-            .await?;
-        let response = response.json::<GetCodeResponse>().await?;
+        let response = response.json::<GetAccountResponse>().await?;
         Ok(response)
     }
 

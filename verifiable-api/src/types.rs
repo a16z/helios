@@ -3,34 +3,19 @@ use std::collections::HashMap;
 use alloy::{
     consensus::Account as TrieAccount,
     primitives::{Address, Bytes, B256},
-    rpc::types::{EIP1186AccountProofResponse, EIP1186StorageProof, Log},
+    rpc::types::{EIP1186StorageProof, Log},
 };
 use serde::{Deserialize, Serialize};
 
 use helios_core::{execution::types::Account, network_spec::NetworkSpec};
 
-pub type GetAccountProofResponse = EIP1186AccountProofResponse;
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetBalanceResponse {
+pub struct GetAccountResponse {
     pub account: TrieAccount,
-    pub account_proof: Vec<Bytes>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetTransactionCountResponse {
-    pub account: TrieAccount,
-    pub account_proof: Vec<Bytes>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetCodeResponse {
     pub code: Bytes,
-    pub account: TrieAccount, // ToDo(@eshaan7): Remove `code_hash` from account here
     pub account_proof: Vec<Bytes>,
+    pub storage_proof: Vec<EIP1186StorageProof>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -55,7 +40,8 @@ pub struct GetTransactionReceiptResponse<N: NetworkSpec> {
 #[serde(rename_all = "camelCase")]
 #[serde(bound = "N: NetworkSpec")]
 pub struct GetLogsResponse<N: NetworkSpec> {
-    pub receipts: Vec<GetTransactionReceiptResponse<N>>,
+    pub logs: Vec<Log>,
+    pub receipt_proofs: HashMap<B256, GetTransactionReceiptResponse<N>>, // tx_hash -> receipt & proof
 }
 
 #[derive(Serialize, Deserialize)]

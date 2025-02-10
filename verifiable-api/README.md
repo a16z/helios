@@ -5,9 +5,9 @@
 | Ethereum JSON-RPC Method       | Helios Verifiable API Endpoint                                                 |
 |--------------------------------|-------------------------------------------------------------------------------|
 | `eth_getProof`                 | `/eth/v1/proof/account/{address}?storageKeys={}&block={}`                     |
-| `eth_getBalance`               | `/eth/v1/proof/balance/{address}?block={}`                                    |
-| `eth_getTransactionCount`      | `/eth/v1/proof/transaction_count/{address}?block={}`                          |
-| `eth_getCode`                  | `/eth/v1/proof/code/{address}?block={}`                                       |
+| `eth_getBalance`               | `/eth/v1/proof/account/{address}?storageKeys={}&block={}`                      |
+| `eth_getTransactionCount`      | `/eth/v1/proof/account/{address}?storageKeys={}&block={}`                     |
+| `eth_getCode`                  | `/eth/v1/proof/account/{address}?storageKeys={}&block={}`                     |
 | `eth_getStorageAt`             | `/eth/v1/proof/storage/{address}/{slot}?block={}`                             |
 | `eth_getBlockReceipts`         | `/eth/v1/proof/block_receipts/{block}`                                        |
 | `eth_getTransactionReceipt`    | `/eth/v1/proof/tx_receipt/{tx_hash}`                                          |

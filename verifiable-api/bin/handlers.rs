@@ -113,91 +113,15 @@ impl TryInto<Filter> for LogsQuery {
 
 /// This method returns the EIP-1186 account proof for a given address.
 ///
-/// Replaces the `eth_getProof` RPC method.
-pub async fn get_account_proof<N: NetworkSpec, R: ExecutionRpc<N>>(
+/// Replaces the `eth_getProof`, `eth_getTransactionCount`, `eth_getBalance` and `eth_getCode` RPC methods.
+pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(AccountProofQuery {
         storage_keys,
         block,
     }): Query<AccountProofQuery>,
     State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetAccountProofResponse> {
-    let block = block.unwrap_or(BlockId::latest());
-
-    let proof = execution_client
-        .rpc
-        .get_proof(address, &storage_keys, block)
-        .await
-        .map_err(map_server_err)?;
-
-    Ok(Json(proof))
-}
-
-/// This method returns the balance of an account for a given address,
-/// along with the Merkle proof of the account's inclusion in the state trie.
-///
-/// Replaces the `eth_getBalance` RPC method.
-pub async fn get_balance<N: NetworkSpec, R: ExecutionRpc<N>>(
-    Path(address): Path<Address>,
-    Query(BlockQuery { block }): Query<BlockQuery>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetBalanceResponse> {
-    let block = block.unwrap_or(BlockId::latest());
-
-    let proof = execution_client
-        .rpc
-        .get_proof(address, &[], block)
-        .await
-        .map_err(map_server_err)?;
-
-    Ok(Json(GetBalanceResponse {
-        account: Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code_hash: proof.code_hash,
-            storage_root: proof.storage_hash,
-        },
-        account_proof: proof.account_proof,
-    }))
-}
-
-/// This method returns the number of transactions sent from an address,
-/// along with the Merkle proof of the account's inclusion in the state trie.
-///
-/// Replaces the `eth_getTransactionCount` RPC method.
-pub async fn get_transaction_count<N: NetworkSpec, R: ExecutionRpc<N>>(
-    Path(address): Path<Address>,
-    Query(BlockQuery { block }): Query<BlockQuery>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetTransactionCountResponse> {
-    let block = block.unwrap_or(BlockId::latest());
-
-    let proof = execution_client
-        .rpc
-        .get_proof(address, &[], block)
-        .await
-        .map_err(map_server_err)?;
-
-    Ok(Json(GetTransactionCountResponse {
-        account: Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code_hash: proof.code_hash,
-            storage_root: proof.storage_hash,
-        },
-        account_proof: proof.account_proof,
-    }))
-}
-
-/// This method returns the code stored at a given address,
-/// along with the Merkle proof of the account's inclusion in the state trie.
-///
-/// Replaces the `eth_getCode` RPC method.
-pub async fn get_code<N: NetworkSpec, R: ExecutionRpc<N>>(
-    Path(address): Path<Address>,
-    Query(BlockQuery { block }): Query<BlockQuery>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
-) -> Response<GetCodeResponse> {
+) -> Response<GetAccountResponse> {
     // Ensure that BlockId is of block number variant
     let block = block.unwrap_or(BlockId::latest());
     let block_num = match block {
@@ -227,7 +151,7 @@ pub async fn get_code<N: NetworkSpec, R: ExecutionRpc<N>>(
 
     let proof = execution_client
         .rpc
-        .get_proof(address, &[], block)
+        .get_proof(address, &storage_keys, block)
         .await
         .map_err(map_server_err)?;
 
@@ -237,15 +161,16 @@ pub async fn get_code<N: NetworkSpec, R: ExecutionRpc<N>>(
         .await
         .map_err(map_server_err)?;
 
-    Ok(Json(GetCodeResponse {
-        code: code.into(),
+    Ok(Json(GetAccountResponse {
         account: Account {
             balance: proof.balance,
             nonce: proof.nonce,
             code_hash: proof.code_hash,
             storage_root: proof.storage_hash,
         },
+        code: code.into(),
         account_proof: proof.account_proof,
+        storage_proof: proof.storage_proof,
     }))
 }
 
@@ -375,7 +300,8 @@ pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)?;
 
     Ok(Json(GetLogsResponse {
-        receipts: receipt_proofs.into_values().collect(),
+        logs,
+        receipt_proofs,
     }))
 }
 
