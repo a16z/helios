@@ -296,7 +296,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                 ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
             );
         }
-
+        self.ensure_logs_match_filter(&logs, &filter).await?;
         self.verify_logs(&logs).await?;
         Ok(logs)
     }
@@ -309,7 +309,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                 // only concerned with filters created via helios
                 return Err(ExecutionError::FilterNotFound(filter_id).into());
             }
-            Some(FilterType::Logs) => {
+            Some(FilterType::Logs(filter)) => {
                 // underlying RPC takes care of keeping track of changes
                 let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
                 let logs = filter_changes.as_logs().unwrap_or(&[]);
@@ -320,6 +320,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     )
                     .into());
                 }
+                self.ensure_logs_match_filter(logs, filter).await?;
                 self.verify_logs(logs).await?;
                 FilterChanges::Logs(logs.to_vec())
             }
@@ -351,14 +352,27 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     }
 
     pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_filter_logs(filter_id).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
+        let filter_type = self.state.get_filter(&filter_id).await;
+
+        match &filter_type {
+            Some(FilterType::Logs(filter)) => {
+                let logs = self.rpc.get_filter_logs(filter_id).await?;
+                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                    return Err(ExecutionError::TooManyLogsToProve(
+                        logs.len(),
+                        MAX_SUPPORTED_LOGS_NUMBER,
+                    )
+                    .into());
+                }
+                self.ensure_logs_match_filter(&logs, filter).await?;
+                self.verify_logs(&logs).await?;
+                Ok(logs)
+            }
+            _ => {
+                // only concerned with filters created via helios
+                return Err(ExecutionError::FilterNotFound(filter_id).into());
+            }
         }
-        self.verify_logs(&logs).await?;
-        Ok(logs)
     }
 
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
@@ -385,7 +399,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let filter_id = self.rpc.new_filter(&filter).await?;
 
         // record the filter in the state
-        self.state.push_filter(filter_id, FilterType::Logs).await;
+        self.state
+            .push_filter(filter_id, FilterType::Logs(filter))
+            .await;
 
         Ok(filter_id)
     }
@@ -413,6 +429,50 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Ok(filter_id)
     }
 
+    /// Ensure that each log entry in the given array of logs match the given filter.
+    async fn ensure_logs_match_filter(&self, logs: &[Log], filter: &Filter) -> Result<()> {
+        fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+            if let Some(block_hash) = filter.get_block_hash() {
+                if log.block_hash.unwrap() != block_hash {
+                    return false;
+                }
+            }
+            if let Some(from_block) = filter.get_from_block() {
+                if log.block_number.unwrap() < from_block {
+                    return false;
+                }
+            }
+            if let Some(to_block) = filter.get_to_block() {
+                if log.block_number.unwrap() > to_block {
+                    return false;
+                }
+            }
+            if !filter.address.matches(&log.address()) {
+                return false;
+            }
+            for (i, topic) in filter.topics.iter().enumerate() {
+                if let Some(log_topic) = log.topics().get(i) {
+                    if !topic.matches(log_topic) {
+                        return false;
+                    }
+                } else {
+                    // if filter topic is not present in log, it's a mismatch
+                    return false;
+                }
+            }
+            true
+        }
+        for log in logs {
+            if !log_matches_filter(log, filter) {
+                return Err(ExecutionError::LogFilterMismatch().into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Verify the integrity of each log entry in the given array of logs by
+    /// checking its inclusion in the corresponding transaction receipt
+    /// and verifying the transaction receipt itself against the block's receipt root.
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
         // Collect all (unique) block numbers
         let block_nums = logs
