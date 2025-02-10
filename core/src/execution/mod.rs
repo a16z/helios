@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use alloy::consensus::BlockHeader;
+use alloy::eips::BlockId;
 use alloy::network::primitives::HeaderResponse;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
@@ -206,6 +207,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let receipt = receipt.unwrap();
 
         let block_number = receipt.block_number().unwrap();
+        let block_id = BlockId::from(block_number);
         let tag = BlockTag::Number(block_number);
 
         let block = self.state.get_block(tag).await;
@@ -218,7 +220,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         // Fetch all receipts in block, check root and inclusion
         let receipts = self
             .rpc
-            .get_block_receipts(tag)
+            .get_block_receipts(block_id)
             .await?
             .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 
@@ -251,12 +253,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         } else {
             return Ok(None);
         };
-
-        let tag = BlockTag::Number(block.header().number());
+        let block_id = BlockId::from(block.header().number());
 
         let receipts = self
             .rpc
-            .get_block_receipts(tag)
+            .get_block_receipts(block_id)
             .await?
             .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 

@@ -1,8 +1,10 @@
 use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
+use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
-    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
+    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
+    FilterChanges, Log,
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
@@ -56,10 +58,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&receipt)?)
     }
 
-    async fn get_block_receipts(
-        &self,
-        _block: BlockTag,
-    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+    async fn get_block_receipts(&self, _block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = read_to_string(self.path.join("receipts.json"))?;
         Ok(serde_json::from_str(&receipts)?)
     }
@@ -108,6 +107,18 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
     }
 
     async fn get_block(&self, _hash: B256) -> Result<N::BlockResponse> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_block_by_number(
+        &self,
+        _block: BlockNumberOrTag,
+        _txs_kind: BlockTransactionsKind,
+    ) -> Result<Option<N::BlockResponse>> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_storage_at(&self, _address: Address, _key: U256, _block: BlockId) -> Result<B256> {
         Err(eyre!("not implemented"))
     }
 

@@ -13,6 +13,7 @@ members = [
     "ethereum/consensus-core",
     "opstack",
     "helios-ts",
+    "verifiable-api",
 ]
 
 default-members = ["cli"]

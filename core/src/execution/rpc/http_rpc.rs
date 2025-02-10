@@ -3,7 +3,8 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
 use alloy::rpc::types::{
-    BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
+    BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges,
+    Log,
 };
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
@@ -120,17 +121,10 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(receipt)
     }
 
-    async fn get_block_receipts(&self, block: BlockTag) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let block = match block {
-            BlockTag::Latest => BlockNumberOrTag::Latest,
-            BlockTag::Finalized => BlockNumberOrTag::Finalized,
-            BlockTag::Number(num) => BlockNumberOrTag::Number(num),
-        };
-
-        let block_id = BlockId::from(block);
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = self
             .provider
-            .get_block_receipts(block_id)
+            .get_block_receipts(block)
             .await
             .map_err(|e| RpcError::new("get_block_receipts", e))?;
 
@@ -227,5 +221,25 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .raw_request::<_, Option<N::BlockResponse>>("eth_getBlockByHash".into(), (hash, true))
             .await?
             .ok_or(eyre!("block not found"))
+    }
+
+    async fn get_block_by_number(
+        &self,
+        block: BlockNumberOrTag,
+        txs_kind: BlockTransactionsKind,
+    ) -> Result<Option<N::BlockResponse>> {
+        Ok(self
+            .provider
+            .get_block_by_number(block, txs_kind)
+            .await
+            .map_err(|e| RpcError::new("get_block_by_number", e))?)
+    }
+
+    async fn get_storage_at(&self, address: Address, key: U256, block: BlockId) -> Result<B256> {
+        Ok(self
+            .provider
+            .raw_request("eth_getStorageAt".into(), (address, key, block))
+            .await
+            .map_err(|e| RpcError::new("get_storage_at", e))?)
     }
 }
