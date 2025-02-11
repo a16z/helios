@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, str::FromStr, sync::Arc};
+use std::{net::SocketAddr, str::FromStr};
 
 use clap::Parser;
 use helios_core::execution::rpc::http_rpc::HttpRpc;
@@ -9,7 +9,7 @@ use url::Url;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 // use helios_opstack::spec::OpStack as OpStackSpec;
 
-use crate::state::{ApiState, ExecutionClient};
+use crate::state::ApiState;
 
 mod handlers;
 mod router;
@@ -26,24 +26,20 @@ async fn main() {
     let server_addr = cli.server_address;
     let execution_rpc = cli.execution_rpc;
 
-    // construct execution RPC client
-    let rpc = match network {
+    // construct API state/context
+    let state = match network {
         Network::Ethereum => {
-            ExecutionClient::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str())
-                .unwrap()
+            ApiState::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str()).unwrap()
         }
         Network::Opstack => {
             // ToDo(@eshaan7): make this generic work
             unimplemented!()
-            // ExecutionClient::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str())
+            // ApiState::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str())
             //     .unwrap()
         }
     };
 
     // build the router for our server
-    let state = ApiState {
-        execution_client: Arc::new(rpc),
-    };
     let app = build_router().with_state(state);
 
     // run the server

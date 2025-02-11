@@ -14,7 +14,10 @@ use helios_verifiable_api_types::*;
 pub use helios_verifiable_api_types as types;
 
 #[async_trait]
-pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
+pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync {
+    fn new(base_url: &str) -> Self
+    where
+        Self: Sized;
     async fn get_account(
         &self,
         address: Address,
@@ -37,23 +40,29 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>>;
 }
 
-#[derive(Clone)]
 pub struct VerifiableApiClient {
     client: Client,
     base_url: String,
 }
 
-impl VerifiableApiClient {
-    pub fn new(base_url: String) -> Self {
+impl Clone for VerifiableApiClient {
+    fn clone(&self) -> Self {
         Self {
             client: Client::new(),
-            base_url,
+            base_url: self.base_url.to_string(),
         }
     }
 }
 
 #[async_trait]
 impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
+    fn new(base_url: &str) -> Self {
+        Self {
+            client: Client::new(),
+            base_url: base_url.to_string(),
+        }
+    }
+
     async fn get_account(
         &self,
         address: Address,
@@ -61,13 +70,14 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         block: Option<BlockId>,
     ) -> Result<AccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("block", block)])
-            .query(&[("storageKeys", storage_keys)])
-            .send()
-            .await?;
+        let mut request = self.client.get(&url);
+        if let Some(block) = block {
+            request = request.query(&[("block", block.to_string())]);
+        }
+        for storage_key in storage_keys {
+            request = request.query(&[("storageKeys", storage_key)]);
+        }
+        let response = request.send().await?;
         let response = response.json::<AccountResponse>().await?;
         Ok(response)
     }
@@ -79,12 +89,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         block: Option<BlockId>,
     ) -> Result<StorageAtResponse> {
         let url = format!("{}/eth/v1/proof/storage/{}/{}", self.base_url, address, key);
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("block", block)])
-            .send()
-            .await?;
+        let mut request = self.client.get(&url);
+        if let Some(block) = block {
+            request = request.query(&[("block", block.to_string())]);
+        }
+        let response = request.send().await?;
         let response = response.json::<StorageAtResponse>().await?;
         Ok(response)
     }
@@ -113,10 +122,10 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
 
         let mut request = self.client.get(&url);
         if let Some(from_block) = filter.get_from_block() {
-            request = request.query(&[("fromBlock", from_block)]);
+            request = request.query(&[("fromBlock", U256::from(from_block))]);
         }
         if let Some(to_block) = filter.get_to_block() {
-            request = request.query(&[("toBlock", to_block)]);
+            request = request.query(&[("toBlock", U256::from(to_block))]);
         }
         if let Some(block_hash) = filter.get_block_hash() {
             request = request.query(&[("blockHash", block_hash)]);
@@ -129,8 +138,8 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             .iter()
             .filter_map(|t| t.to_value_or_array())
             .collect::<Vec<_>>();
-        if topics.len() > 0 {
-            request = request.query(&[("topics", topics)]);
+        for topic in topics {
+            request = request.query(&[("topics", topic)]);
         }
 
         let response = request.send().await?;

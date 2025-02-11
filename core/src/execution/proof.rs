@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use alloy::network::ReceiptResponse;
+use alloy::consensus::BlockHeader;
+use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
-use alloy::rpc::types::EIP1186AccountProofResponse;
+use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, Log};
+use alloy_trie::root::ordered_trie_root_with_encoder;
 use alloy_trie::{
     proof::{verify_proof, ProofRetainer},
     root::adjust_index_for_rlp,
@@ -12,6 +14,7 @@ use alloy_trie::{
 use eyre::{eyre, Result};
 
 use helios_common::network_spec::NetworkSpec;
+use helios_common::types::BlockTag;
 
 use super::errors::ExecutionError;
 
@@ -141,4 +144,79 @@ pub fn verify_receipt_proof<N: NetworkSpec>(
     let expected_value = Some(N::encode_receipt(receipt));
 
     verify_proof(root, key, expected_value, proof).map_err(|e| eyre!(e))
+}
+
+/// Calculate the receipts root hash from given list of receipts
+/// and verify it against the given block's receipts root.
+pub fn verify_block_receipts<N: NetworkSpec>(
+    receipts: &[N::ReceiptResponse],
+    block: &N::BlockResponse,
+) -> Result<()> {
+    let receipts_encoded = receipts
+        .into_iter()
+        .map(N::encode_receipt)
+        .collect::<Vec<_>>();
+    let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
+
+    if expected_receipt_root != block.header().receipts_root() {
+        return Err(ExecutionError::BlockReceiptsRootMismatch(BlockTag::Number(
+            block.header().number(),
+        ))
+        .into());
+    }
+
+    Ok(())
+}
+
+/// Compute a trie root of a collection of encoded items.
+/// Ref: https://github.com/alloy-rs/trie/blob/main/src/root.rs.
+pub fn ordered_trie_root_noop_encoder(items: &[Vec<u8>]) -> B256 {
+    fn noop_encoder(item: &Vec<u8>, buffer: &mut Vec<u8>) {
+        buffer.extend_from_slice(item);
+    }
+
+    ordered_trie_root_with_encoder(items, noop_encoder)
+}
+
+/// Ensure that each log entry in the given array of logs match the given filter.
+pub fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
+    fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+        if let Some(block_hash) = filter.get_block_hash() {
+            if log.block_hash.unwrap() != block_hash {
+                return false;
+            }
+        }
+        if let Some(from_block) = filter.get_from_block() {
+            if log.block_number.unwrap() < from_block {
+                return false;
+            }
+        }
+        if let Some(to_block) = filter.get_to_block() {
+            if log.block_number.unwrap() > to_block {
+                return false;
+            }
+        }
+        if !filter.address.matches(&log.address()) {
+            return false;
+        }
+        for (i, topic) in filter.topics.iter().enumerate() {
+            if let Some(log_topic) = log.topics().get(i) {
+                if !topic.matches(log_topic) {
+                    return false;
+                }
+            } else {
+                // if filter topic is not present in log, it's a mismatch
+                return false;
+            }
+        }
+        true
+    }
+
+    for log in logs {
+        if !log_matches_filter(log, filter) {
+            return Err(ExecutionError::LogFilterMismatch().into());
+        }
+    }
+
+    Ok(())
 }

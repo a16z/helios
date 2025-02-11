@@ -42,6 +42,7 @@ impl OpStackClient {
 
         let config = Config {
             execution_rpc: execution_rpc.parse()?,
+            verifiable_api: None,
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,

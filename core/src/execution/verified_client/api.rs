@@ -15,22 +15,28 @@ use helios_common::{
 };
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
-use crate::execution::client::VerifiableMethods;
+use crate::execution::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
+use crate::execution::verified_client::VerifiableMethods;
 
 #[derive(Clone)]
-pub struct ExecutionVerifiableApiClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+pub struct VerifiableMethodsApi<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
     api: A,
     state: State<N, R>,
 }
 
 #[async_trait]
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<N>
-    for ExecutionVerifiableApiClient<N, R, A>
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<N, R>
+    for VerifiableMethodsApi<N, R, A>
 {
+    fn new(url: &str, state: State<N, R>) -> Result<Self> {
+        let api: A = VerifiableApi::new(url);
+        Ok(Self { api, state })
+    }
+
     async fn get_account(
         &self,
         address: Address,
@@ -108,6 +114,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
             receipt_proofs,
         } = self.api.get_logs(filter).await?;
 
+        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+            return Err(
+                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+            );
+        }
         self.verify_logs_and_receipts(&logs, receipt_proofs).await?;
 
         Ok(logs)
@@ -122,6 +133,13 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
                 logs,
                 receipt_proofs,
             }) => {
+                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                    return Err(ExecutionError::TooManyLogsToProve(
+                        logs.len(),
+                        MAX_SUPPORTED_LOGS_NUMBER,
+                    )
+                    .into());
+                }
                 self.verify_logs_and_receipts(&logs, receipt_proofs).await?;
                 FilterChanges::Logs(logs)
             }
@@ -134,15 +152,18 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
             receipt_proofs,
         } = self.api.get_filter_logs(filter_id).await?;
 
+        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+            return Err(
+                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+            );
+        }
         self.verify_logs_and_receipts(&logs, receipt_proofs).await?;
 
         Ok(logs)
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>>
-    ExecutionVerifiableApiClient<N, R, A>
-{
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsApi<N, R, A> {
     async fn verify_logs_and_receipts(
         &self,
         logs: &[Log],

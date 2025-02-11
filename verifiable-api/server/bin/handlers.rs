@@ -25,7 +25,7 @@ use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::{proof::create_receipt_proof, rpc::ExecutionRpc};
 use helios_verifiable_api_types::*;
 
-use crate::{ApiState, ExecutionClient};
+use crate::ApiState;
 
 #[allow(type_alias_bounds)]
 type Response<T: Serialize + DeserializeOwned> =
@@ -120,15 +120,14 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
         storage_keys,
         block,
     }): Query<AccountProofQuery>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<AccountResponse> {
     // Ensure that BlockId is of block number variant
     let block = block.unwrap_or(BlockId::latest());
     let block_num = match block {
         BlockId::Number(number_or_tag) => match number_or_tag {
             BlockNumberOrTag::Number(number) => Ok(number),
-            tag => execution_client
-                .rpc
+            tag => rpc
                 .get_block_by_number(tag, BlockTransactionsKind::Hashes)
                 .await
                 .map_err(map_server_err)?
@@ -140,8 +139,7 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
                 })
                 .map(|block| block.header().number()),
         },
-        BlockId::Hash(hash) => execution_client
-            .rpc
+        BlockId::Hash(hash) => rpc
             .get_block(hash.into())
             .await
             .map_err(map_server_err)
@@ -149,14 +147,12 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
     }?;
     let block = BlockId::from(block_num);
 
-    let proof = execution_client
-        .rpc
+    let proof = rpc
         .get_proof(address, &storage_keys, block)
         .await
         .map_err(map_server_err)?;
 
-    let code = execution_client
-        .rpc
+    let code = rpc
         .get_code(address, block_num)
         .await
         .map_err(map_server_err)?;
@@ -182,18 +178,16 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
 pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path((address, key)): Path<(Address, U256)>,
     Query(BlockQuery { block }): Query<BlockQuery>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<StorageAtResponse> {
     let block = block.unwrap_or(BlockId::latest());
 
-    let storage_slot = execution_client
-        .rpc
+    let storage_slot = rpc
         .get_storage_at(address, key, block)
         .await
         .map_err(map_server_err)?;
 
-    let proof = execution_client
-        .rpc
+    let proof = rpc
         .get_proof(address, &[storage_slot], block)
         .await
         .map_err(map_server_err)?;
@@ -225,10 +219,9 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// Replaces the `eth_getBlockReceipts` RPC method.
 pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(block): Path<BlockId>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<BlockReceiptsResponse<N>> {
-    let receipts = execution_client
-        .rpc
+    let receipts = rpc
         .get_block_receipts(block)
         .await
         .map_err(map_server_err)?
@@ -242,10 +235,9 @@ pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// Replaces the `eth_getTransactionReceipt` RPC method.
 pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(tx_hash): Path<B256>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<Option<TransactionReceiptResponse<N>>> {
-    let receipt = execution_client
-        .rpc
+    let receipt = rpc
         .get_transaction_receipt(tx_hash)
         .await
         .map_err(map_server_err)?;
@@ -254,8 +246,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     }
     let receipt = receipt.unwrap();
 
-    let receipts = execution_client
-        .rpc
+    let receipts = rpc
         .get_block_receipts(BlockId::from(receipt.block_number().unwrap()))
         .await
         .map_err(map_server_err)?
@@ -281,19 +272,15 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// Replaces the `eth_getLogs` RPC method.
 pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Query(logs_filter_query): Query<LogsQuery>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<LogsResponse<N>> {
     let filter: Filter = logs_filter_query.try_into().map_err(map_server_err)?;
 
     // Fetch the filter logs from RPC
-    let logs = execution_client
-        .rpc
-        .get_logs(&filter)
-        .await
-        .map_err(map_server_err)?;
+    let logs = rpc.get_logs(&filter).await.map_err(map_server_err)?;
 
     // Create receipt proofs for each log
-    let receipt_proofs = create_receipt_proofs_for_logs(&logs, execution_client)
+    let receipt_proofs = create_receipt_proofs_for_logs(&logs, rpc)
         .await
         .map_err(map_server_err)?;
 
@@ -309,17 +296,16 @@ pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// Replaces the `eth_getFilterLogs` RPC method.
 pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<FilterLogsResponse<N>> {
     // Fetch the filter logs from RPC
-    let logs = execution_client
-        .rpc
+    let logs = rpc
         .get_filter_logs(filter_id)
         .await
         .map_err(map_server_err)?;
 
     // Create receipt proofs for each log
-    let receipt_proofs = create_receipt_proofs_for_logs(&logs, execution_client)
+    let receipt_proofs = create_receipt_proofs_for_logs(&logs, rpc)
         .await
         .map_err(map_server_err)?;
 
@@ -336,10 +322,9 @@ pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// Replaces the `eth_getFilterChanges` RPC method.
 pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
-    State(ApiState { execution_client }): State<ApiState<N, R>>,
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<FilterChangesResponse<N>> {
-    let filter_changes = execution_client
-        .rpc
+    let filter_changes = rpc
         .get_filter_changes(filter_id)
         .await
         .map_err(map_server_err)?;
@@ -347,7 +332,7 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
     Ok(Json(match filter_changes {
         FilterChanges::Logs(logs) => {
             // Create receipt proofs for each log
-            let receipt_proofs = create_receipt_proofs_for_logs(&logs, execution_client)
+            let receipt_proofs = create_receipt_proofs_for_logs(&logs, rpc)
                 .await
                 .map_err(map_server_err)?;
 
@@ -366,7 +351,7 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
 
 async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     logs: &[Log],
-    execution_client: Arc<ExecutionClient<N, R>>,
+    rpc: Arc<R>,
 ) -> Result<HashMap<B256, TransactionReceiptResponse<N>>> {
     // Collect all (unique) block numbers
     let block_nums = logs
@@ -376,10 +361,10 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 
     // Collect all tx receipts for all block numbers
     let blocks_receipts_fut = block_nums.into_iter().map(|block_num| {
-        let execution_client = Arc::clone(&execution_client);
+        let rpc = Arc::clone(&rpc);
         async move {
             let block_id = BlockId::from(block_num);
-            let receipts = execution_client.rpc.get_block_receipts(block_id).await?;
+            let receipts = rpc.get_block_receipts(block_id).await?;
             receipts
                 .ok_or_eyre("No receipts found for the block")
                 .map(|receipts| (block_num, receipts))

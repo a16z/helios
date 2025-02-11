@@ -6,6 +6,7 @@ use alloy::{
 };
 use eyre::{Report, Result};
 use futures::future::join_all;
+use helios_verifiable_api_client::VerifiableApi;
 use revm::{
     primitives::{
         address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult,
@@ -24,16 +25,16 @@ use crate::execution::{
     ExecutionClient,
 };
 
-pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
-    execution: Arc<ExecutionClient<N, R>>,
+pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+    execution: Arc<ExecutionClient<N, R, A>>,
     chain_id: u64,
     tag: BlockTag,
     fork_schedule: ForkSchedule,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> Evm<N, R, A> {
     pub fn new(
-        execution: Arc<ExecutionClient<N, R>>,
+        execution: Arc<ExecutionClient<N, R, A>>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
         tag: BlockTag,
@@ -119,12 +120,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
     }
 }
 
-struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
-    state: EvmState<N, R>,
+struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+    state: EvmState<N, R, A>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ProofDB<N, R> {
-    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R>>) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ProofDB<N, R, A> {
+    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R, A>>) -> Self {
         let state = EvmState::new(execution.clone(), tag);
         ProofDB { state }
     }
@@ -136,17 +137,17 @@ enum StateAccess {
     Storage(Address, U256),
 }
 
-struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>> {
+struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
     basic: HashMap<Address, AccountInfo>,
     block_hash: HashMap<u64, B256>,
     storage: HashMap<Address, HashMap<U256, U256>>,
     block: BlockTag,
     access: Option<StateAccess>,
-    execution: Arc<ExecutionClient<N, R>>,
+    execution: Arc<ExecutionClient<N, R, A>>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
-    pub fn new(execution: Arc<ExecutionClient<N, R>>, block: BlockTag) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> {
+    pub fn new(execution: Arc<ExecutionClient<N, R, A>>, block: BlockTag) -> Self {
         Self {
             execution,
             block,
@@ -324,7 +325,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Database for ProofDB<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> Database for ProofDB<N, R, A> {
     type Error = Report;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Report> {

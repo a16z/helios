@@ -28,11 +28,12 @@ pub struct Client<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     pub fn new(
         execution_rpc: &str,
+        verifiable_api: Option<&str>,
         consensus: C,
         fork_schedule: ForkSchedule,
         #[cfg(not(target_arch = "wasm32"))] rpc_address: Option<SocketAddr>,
     ) -> Result<Self> {
-        let node = Node::new(execution_rpc, consensus, fork_schedule)?;
+        let node = Node::new(execution_rpc, verifiable_api, consensus, fork_schedule)?;
         let node = Arc::new(node);
 
         #[cfg(not(target_arch = "wasm32"))]

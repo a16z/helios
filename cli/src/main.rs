@@ -130,6 +130,8 @@ struct EthereumArgs {
     #[clap(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
     #[clap(short, long, env, value_parser = parse_url)]
+    verifiable_api: Option<Url>,
+    #[clap(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
     #[clap(short, long, env)]
     data_dir: Option<String>,
@@ -163,6 +165,7 @@ impl EthereumArgs {
         CliConfig {
             checkpoint: self.checkpoint,
             execution_rpc: self.execution_rpc.clone(),
+            verifiable_api: self.verifiable_api.clone(),
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self
                 .data_dir
@@ -187,6 +190,8 @@ struct OpStackArgs {
     rpc_port: Option<u16>,
     #[clap(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
+    #[clap(short, long, env, value_parser = parse_url)]
+    verifiable_api: Option<Url>,
     #[clap(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
     #[clap(
@@ -225,6 +230,10 @@ impl OpStackArgs {
 
         if let Some(rpc) = &self.execution_rpc {
             user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
+        }
+
+        if let Some(api) = &self.verifiable_api {
+            user_dict.insert("verifiable_api", Value::from(api.to_string()));
         }
 
         if let Some(rpc) = &self.consensus_rpc {

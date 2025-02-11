@@ -42,6 +42,7 @@ pub async fn start_server(
     system_config_contract: Address,
     replica_urls: Vec<Url>,
     execution_rpc: Url,
+    verifiable_api: Option<Url>,
 ) -> Result<()> {
     let state = Arc::new(RwLock::new(ServerState::new(
         gossip_addr,
@@ -50,6 +51,7 @@ pub async fn start_server(
         system_config_contract,
         replica_urls,
         execution_rpc,
+        verifiable_api,
     )?));
 
     let state_copy = state.clone();
@@ -108,6 +110,8 @@ struct ServerState {
     commitment_recv: Receiver<SequencerCommitment>,
     latest_commitment: Option<(SequencerCommitment, u64)>,
     execution_rpc: Url,
+    #[allow(dead_code)]
+    verifiable_api: Option<Url>,
     system_config_contract: Address,
 }
 
@@ -119,6 +123,7 @@ impl ServerState {
         system_config_contract: Address,
         replica_urls: Vec<Url>,
         execution_rpc: Url,
+        verifiable_api: Option<Url>,
     ) -> Result<Self> {
         let (send, commitment_recv) = channel(256);
         poller::start(replica_urls, signer, chain_id, send.clone());
@@ -131,6 +136,7 @@ impl ServerState {
             commitment_recv,
             latest_commitment: None,
             execution_rpc,
+            verifiable_api,
             system_config_contract,
         })
     }

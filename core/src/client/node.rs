@@ -7,6 +7,7 @@ use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_verifiable_api_client::VerifiableApiClient;
 
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
@@ -18,7 +19,7 @@ use crate::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
-    pub execution: Arc<ExecutionClient<N, HttpRpc<N>>>,
+    pub execution: Arc<ExecutionClient<N, HttpRpc<N>, VerifiableApiClient>>,
     pub history_size: usize,
     fork_schedule: ForkSchedule,
 }
@@ -26,6 +27,7 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub fn new(
         execution_rpc: &str,
+        verifiable_api: Option<&str>,
         mut consensus: C,
         fork_schedule: ForkSchedule,
     ) -> Result<Self, ClientError> {
@@ -34,7 +36,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let state = State::new(block_recv, finalized_block_recv, 256, execution_rpc);
         let execution = Arc::new(
-            ExecutionClient::new(execution_rpc, state, fork_schedule)
+            ExecutionClient::new(execution_rpc, verifiable_api, state, fork_schedule)
                 .map_err(ClientError::InternalError)?,
         );
 
