@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 autobenches = false
 exclude = ["benches"]
@@ -50,7 +50,7 @@ alloy = { version = "0.9.1", features = [
 ] }
 alloy-trie = "0.7.8"
 op-alloy-rpc-types = "0.9.0"
-revm = { version = "18.0.0", default-features = false, features = [
+revm = { version = "19.4.0", default-features = false, features = [
     "std",
     "serde",
     "optional_block_gas_limit",

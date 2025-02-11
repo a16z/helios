@@ -15,7 +15,7 @@ use revm::{
 };
 use tracing::trace;
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
 
 use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
@@ -28,14 +28,21 @@ pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
     execution: Arc<ExecutionClient<N, R>>,
     chain_id: u64,
     tag: BlockTag,
+    fork_schedule: ForkSchedule,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
-    pub fn new(execution: Arc<ExecutionClient<N, R>>, chain_id: u64, tag: BlockTag) -> Self {
+    pub fn new(
+        execution: Arc<ExecutionClient<N, R>>,
+        chain_id: u64,
+        fork_schedule: ForkSchedule,
+        tag: BlockTag,
+    ) -> Self {
         Evm {
             execution,
             chain_id,
             tag,
+            fork_schedule,
         }
     }
 
@@ -100,7 +107,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
             .await
             .ok_or(ExecutionError::BlockNotFound(tag))
             .unwrap();
-        env.block = N::block_env(&block);
+
+        env.block = N::block_env(&block, &self.fork_schedule);
 
         env.cfg.chain_id = self.chain_id;
         env.cfg.disable_block_gas_limit = true;

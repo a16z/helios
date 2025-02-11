@@ -9,7 +9,7 @@ use alloy::{
 };
 use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
-use helios_common::network_spec::NetworkSpec;
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ethereum;
@@ -112,7 +112,7 @@ impl NetworkSpec for Ethereum {
         tx_env
     }
 
-    fn block_env(block: &Self::BlockResponse) -> BlockEnv {
+    fn block_env(block: &Self::BlockResponse, fork_schedule: &ForkSchedule) -> BlockEnv {
         let mut block_env = BlockEnv::default();
         block_env.number = U256::from(block.header.number());
         block_env.coinbase = block.header.beneficiary();
@@ -121,10 +121,12 @@ impl NetworkSpec for Ethereum {
         block_env.basefee = U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64));
         block_env.difficulty = block.header.difficulty();
         block_env.prevrandao = block.header.mix_hash();
+
+        let is_prague = block.header.timestamp >= fork_schedule.prague_timestamp;
         block_env.blob_excess_gas_and_price = block
             .header
             .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v.into()));
+            .map(|v| BlobExcessGasAndPrice::new(v.into(), is_prague));
 
         block_env
     }

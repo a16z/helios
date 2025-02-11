@@ -21,7 +21,9 @@ pub fn calculate_fork_version<S: ConsensusSpec>(
 ) -> FixedVector<u8, typenum::U4> {
     let epoch = slot / S::slots_per_epoch();
 
-    let version = if epoch >= forks.deneb.epoch {
+    let version = if epoch >= forks.electra.epoch {
+        forks.electra.fork_version
+    } else if epoch >= forks.deneb.epoch {
         forks.deneb.fork_version
     } else if epoch >= forks.capella.epoch {
         forks.capella.fork_version

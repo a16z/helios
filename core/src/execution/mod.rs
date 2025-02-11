@@ -8,20 +8,20 @@ use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
-use constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS};
 use eyre::Result;
 use futures::future::try_join_all;
-use proof::{verify_account_proof, verify_storage_proof};
-use revm::primitives::KECCAK_EMPTY;
+use revm::primitives::{BlobExcessGasAndPrice, KECCAK_EMPTY};
 use tracing::warn;
 
 use helios_common::{
+    fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{Account, BlockTag},
 };
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
+use self::proof::{verify_account_proof, verify_storage_proof};
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
 
@@ -38,12 +38,17 @@ pub mod verifiable_api;
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     pub rpc: R,
     state: State<N, R>,
+    fork_schedule: ForkSchedule,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
-    pub fn new(rpc: &str, state: State<N, R>) -> Result<Self> {
+    pub fn new(rpc: &str, state: State<N, R>, fork_schedule: ForkSchedule) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(rpc)?;
-        Ok(ExecutionClient::<N, R> { rpc, state })
+        Ok(ExecutionClient::<N, R> {
+            rpc,
+            state,
+            fork_schedule,
+        })
     }
 
     pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
@@ -124,42 +129,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
     pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {
         let block = self.state.get_block(block).await;
-        if block.is_none() {
+        let Some(block) = block else {
             warn!(target: "helios::execution", "requested block not found");
             return U256::from(0);
-        }
-        let parent_hash = block.unwrap().header().parent_hash();
+        };
+
+        let parent_hash = block.header().parent_hash();
         let parent_block = self.get_block_by_hash(parent_hash, false).await;
         if parent_block.is_none() {
             warn!(target: "helios::execution", "requested parent block not foundß");
             return U256::from(0);
         };
 
-        let blob_base_fee = Self::calculate_base_fee_per_blob_gas(
-            parent_block.unwrap().header().excess_blob_gas().unwrap(),
-        );
-
-        U256::from(blob_base_fee)
-    }
-
-    fn calculate_base_fee_per_blob_gas(parent_excess_blob_gas: u64) -> u64 {
-        Self::fake_exponential(
-            MIN_BASE_FEE_PER_BLOB_GAS,
-            parent_excess_blob_gas,
-            BLOB_BASE_FEE_UPDATE_FRACTION,
-        )
-    }
-    //https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md#helpers
-    fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
-        let mut i = 1;
-        let mut output = 0;
-        let mut numerator_accum = factor * denominator;
-        while numerator_accum > 0 {
-            output += numerator_accum;
-            numerator_accum = numerator_accum * numerator / (denominator * i);
-            i += 1;
-        }
-        output / denominator
+        let excess_blob_gas = parent_block.unwrap().header().excess_blob_gas().unwrap();
+        let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
+        U256::from(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice)
     }
 
     pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Option<N::BlockResponse> {
@@ -299,7 +283,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                 ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
             );
         }
-
+        self.ensure_logs_match_filter(&logs, &filter).await?;
         self.verify_logs(&logs).await?;
         Ok(logs)
     }
@@ -312,7 +296,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                 // only concerned with filters created via helios
                 return Err(ExecutionError::FilterNotFound(filter_id).into());
             }
-            Some(FilterType::Logs) => {
+            Some(FilterType::Logs(filter)) => {
                 // underlying RPC takes care of keeping track of changes
                 let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
                 let logs = filter_changes.as_logs().unwrap_or(&[]);
@@ -323,6 +307,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     )
                     .into());
                 }
+                self.ensure_logs_match_filter(logs, filter).await?;
                 self.verify_logs(logs).await?;
                 FilterChanges::Logs(logs.to_vec())
             }
@@ -354,14 +339,27 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     }
 
     pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
-        let logs = self.rpc.get_filter_logs(filter_id).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
+        let filter_type = self.state.get_filter(&filter_id).await;
+
+        match &filter_type {
+            Some(FilterType::Logs(filter)) => {
+                let logs = self.rpc.get_filter_logs(filter_id).await?;
+                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                    return Err(ExecutionError::TooManyLogsToProve(
+                        logs.len(),
+                        MAX_SUPPORTED_LOGS_NUMBER,
+                    )
+                    .into());
+                }
+                self.ensure_logs_match_filter(&logs, filter).await?;
+                self.verify_logs(&logs).await?;
+                Ok(logs)
+            }
+            _ => {
+                // only concerned with filters created via helios
+                return Err(ExecutionError::FilterNotFound(filter_id).into());
+            }
         }
-        self.verify_logs(&logs).await?;
-        Ok(logs)
     }
 
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
@@ -388,7 +386,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let filter_id = self.rpc.new_filter(&filter).await?;
 
         // record the filter in the state
-        self.state.push_filter(filter_id, FilterType::Logs).await;
+        self.state
+            .push_filter(filter_id, FilterType::Logs(filter))
+            .await;
 
         Ok(filter_id)
     }
@@ -416,6 +416,50 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Ok(filter_id)
     }
 
+    /// Ensure that each log entry in the given array of logs match the given filter.
+    async fn ensure_logs_match_filter(&self, logs: &[Log], filter: &Filter) -> Result<()> {
+        fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+            if let Some(block_hash) = filter.get_block_hash() {
+                if log.block_hash.unwrap() != block_hash {
+                    return false;
+                }
+            }
+            if let Some(from_block) = filter.get_from_block() {
+                if log.block_number.unwrap() < from_block {
+                    return false;
+                }
+            }
+            if let Some(to_block) = filter.get_to_block() {
+                if log.block_number.unwrap() > to_block {
+                    return false;
+                }
+            }
+            if !filter.address.matches(&log.address()) {
+                return false;
+            }
+            for (i, topic) in filter.topics.iter().enumerate() {
+                if let Some(log_topic) = log.topics().get(i) {
+                    if !topic.matches(log_topic) {
+                        return false;
+                    }
+                } else {
+                    // if filter topic is not present in log, it's a mismatch
+                    return false;
+                }
+            }
+            true
+        }
+        for log in logs {
+            if !log_matches_filter(log, filter) {
+                return Err(ExecutionError::LogFilterMismatch().into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Verify the integrity of each log entry in the given array of logs by
+    /// checking its inclusion in the corresponding transaction receipt
+    /// and verifying the transaction receipt itself against the block's receipt root.
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
         // Collect all (unique) block numbers
         let block_nums = logs

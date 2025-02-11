@@ -444,7 +444,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             .await
             .map_err(|err| eyre!("could not fetch bootstrap: {}", err))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.beacon().slot);
+        let is_valid = self.is_valid_checkpoint(bootstrap.header().beacon().slot);
 
         if !is_valid {
             if self.config.strict_checkpoint_age {
@@ -507,7 +507,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     fn log_finality_update(&self, update: &FinalityUpdate<S>) {
         let size = S::sync_commitee_size() as f32;
         let participation =
-            get_bits::<S>(&update.sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
+            get_bits::<S>(&update.sync_aggregate().sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.finalized_header.beacon().slot);
 
@@ -526,7 +526,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     fn log_optimistic_update(&self, update: &FinalityUpdate<S>) {
         let size = S::sync_commitee_size() as f32;
         let participation =
-            get_bits::<S>(&update.sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
+            get_bits::<S>(&update.sync_aggregate().sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.optimistic_header.beacon().slot);
 

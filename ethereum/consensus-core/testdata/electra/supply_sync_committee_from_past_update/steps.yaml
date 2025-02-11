@@ -1,0 +1,13 @@
+- process_update:
+    update_fork_digest: '0x9acb230d'
+    update: update_0x83dbc2fa2597f8700f7722bd30594ff70b1aa182e884d1869eaad9993580fabc_sf
+    current_slot: 33
+    checks:
+      finalized_header:
+        slot: 49
+        beacon_root: '0x40987e44961b3a380aefe1959db633a4464a532a2189e47ceadf5facf6941a18'
+        execution_root: '0xc3ec0e0be84542cccc64e14333f4377b617da271f64233aec44c945844757aeb'
+      optimistic_header:
+        slot: 49
+        beacon_root: '0x40987e44961b3a380aefe1959db633a4464a532a2189e47ceadf5facf6941a18'
+        execution_root: '0xc3ec0e0be84542cccc64e14333f4377b617da271f64233aec44c945844757aeb'

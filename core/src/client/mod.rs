@@ -7,13 +7,13 @@ use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use tracing::{info, warn};
 
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+
 use crate::client::node::Node;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;
 use crate::consensus::Consensus;
 use crate::time::interval;
-
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]
@@ -29,9 +29,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     pub fn new(
         execution_rpc: &str,
         consensus: C,
+        fork_schedule: ForkSchedule,
         #[cfg(not(target_arch = "wasm32"))] rpc_address: Option<SocketAddr>,
     ) -> Result<Self> {
-        let node = Node::new(execution_rpc, consensus)?;
+        let node = Node::new(execution_rpc, consensus, fork_schedule)?;
         let node = Arc::new(node);
 
         #[cfg(not(target_arch = "wasm32"))]
