@@ -3086,6 +3086,7 @@ dependencies = [
  "dirs",
  "dotenv",
  "eyre",
+ "helios-common",
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
@@ -3112,6 +3113,7 @@ dependencies = [
  "eyre",
  "figment",
  "futures",
+ "helios-common",
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
@@ -3119,6 +3121,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+]
+
+[[package]]
+name = "helios-common"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "revm",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3158,6 +3170,8 @@ dependencies = [
  "eyre",
  "futures",
  "gloo-timers 0.3.0",
+ "helios-common",
+ "helios-verifiable-api-client",
  "hex",
  "jsonrpsee",
  "openssl",
@@ -3186,6 +3200,7 @@ dependencies = [
  "figment",
  "futures",
  "getrandom 0.2.15",
+ "helios-common",
  "helios-consensus-core",
  "helios-core",
  "hex",
@@ -3224,6 +3239,7 @@ dependencies = [
  "figment",
  "futures",
  "getrandom 0.2.15",
+ "helios-common",
  "helios-consensus-core",
  "helios-core",
  "helios-ethereum",
@@ -3256,7 +3272,7 @@ dependencies = [
  "alloy",
  "console_error_panic_hook",
  "eyre",
- "helios-core",
+ "helios-common",
  "helios-ethereum",
  "helios-opstack",
  "hex",
@@ -3275,10 +3291,9 @@ name = "helios-verifiable-api-client"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "alloy-trie",
  "async-trait",
  "eyre",
- "helios-core",
+ "helios-common",
  "helios-verifiable-api-types",
  "reqwest",
  "serde",
@@ -3290,13 +3305,13 @@ name = "helios-verifiable-api-server"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "alloy-trie",
  "async-trait",
  "axum 0.8.1",
  "axum-extra",
  "clap",
  "eyre",
  "futures",
+ "helios-common",
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
@@ -3314,7 +3329,7 @@ name = "helios-verifiable-api-types"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "helios-core",
+ "helios-common",
  "serde",
  "serde_json",
 ]

@@ -1,6 +1,7 @@
 use axum::{routing::get, Router};
 
-use helios_core::{execution::rpc::ExecutionRpc, network_spec::NetworkSpec};
+use helios_common::network_spec::NetworkSpec;
+use helios_core::execution::rpc::ExecutionRpc;
 
 use crate::{handlers, ApiState};
 

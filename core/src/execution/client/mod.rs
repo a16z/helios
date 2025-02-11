@@ -3,16 +3,13 @@ use alloy::rpc::types::{Filter, FilterChanges, Log};
 use async_trait::async_trait;
 use eyre::Result;
 
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
-
-use super::rpc::ExecutionRpc;
-use super::types::Account;
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
+};
 
 #[async_trait]
-pub trait ExecutionRpcClient<N: NetworkSpec, R: ExecutionRpc<N>, A>:
-    Send + Clone + Sync + 'static
-{
+pub trait VerifiableMethods<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_account(
         &self,
         address: Address,

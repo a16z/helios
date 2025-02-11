@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
-use helios_core::types::BlockTag;
+use helios_common::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
 use helios_opstack::OpStackClientBuilder;
 

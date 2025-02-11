@@ -1,5 +1,5 @@
 [package]
-name = "helios-verifiable-api-types"
+name = "helios-common"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,4 @@ edition = "2021"
 alloy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-
-# self crates
-helios-common = { path = "../../common" }
+revm.workspace = true

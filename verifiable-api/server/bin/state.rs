@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use eyre::Result;
 
+use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::rpc::ExecutionRpc;
-use helios_core::network_spec::NetworkSpec;
 
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     pub rpc: R,

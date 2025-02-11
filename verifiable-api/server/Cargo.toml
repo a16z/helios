@@ -9,7 +9,6 @@ path = "./bin/server.rs"
 
 [dependencies]
 alloy.workspace = true
-alloy-trie.workspace = true
 tokio.workspace = true
 eyre.workspace = true
 serde.workspace = true
@@ -22,6 +21,7 @@ async-trait.workspace = true
 
 # self crates
 helios-verifiable-api-types = { path = "../types" }
+helios-common = { path = "../../common" }
 helios-core = { path = "../../core" }
 helios-ethereum = { path = "../../ethereum" }
 helios-opstack = { path = "../../opstack" }

@@ -6,15 +6,15 @@ use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
 use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::state::State;
 use crate::execution::ExecutionClient;
-use crate::network_spec::NetworkSpec;
 use crate::time::{SystemTime, UNIX_EPOCH};
-use crate::types::BlockTag;
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,

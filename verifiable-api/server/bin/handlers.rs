@@ -21,10 +21,8 @@ use futures::future::try_join_all;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 
-use helios_core::{
-    execution::{proof::create_receipt_proof, rpc::ExecutionRpc},
-    network_spec::NetworkSpec,
-};
+use helios_common::network_spec::NetworkSpec;
+use helios_core::execution::{proof::create_receipt_proof, rpc::ExecutionRpc};
 use helios_verifiable_api_types::*;
 
 use crate::{ApiState, ExecutionClient};

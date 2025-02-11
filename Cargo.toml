@@ -8,6 +8,7 @@ exclude = ["benches"]
 [workspace]
 members = [
     "cli",
+    "common",
     "core",
     "ethereum",
     "ethereum/consensus-core",
@@ -86,6 +87,7 @@ typenum = "1.17.0"
 ######################################
 
 [dependencies]
+helios-common = { path = "./common" }
 helios-core = { path = "./core" }
 helios-ethereum = { path = "./ethereum" }
 helios-opstack = { path = "./opstack" }

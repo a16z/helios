@@ -15,14 +15,15 @@ use proof::{verify_account_proof, verify_storage_proof};
 use revm::primitives::KECCAK_EMPTY;
 use tracing::warn;
 
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
+};
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
-use self::types::Account;
 
 pub mod client;
 pub mod constants;
@@ -31,7 +32,7 @@ pub mod evm;
 pub mod proof;
 pub mod rpc;
 pub mod state;
-pub mod types;
+pub mod verifiable_api;
 
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {

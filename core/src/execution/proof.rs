@@ -11,7 +11,7 @@ use alloy_trie::{
 };
 use eyre::{eyre, Result};
 
-use crate::network_spec::NetworkSpec;
+use helios_common::network_spec::NetworkSpec;
 
 use super::errors::ExecutionError;
 

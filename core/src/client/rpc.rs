@@ -13,10 +13,10 @@ use jsonrpsee::{
 };
 use tracing::info;
 
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+
 use crate::client::node::Node;
 use crate::consensus::Consensus;
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 pub struct Rpc<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,

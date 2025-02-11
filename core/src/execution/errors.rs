@@ -3,7 +3,7 @@ use alloy::sol_types::decode_revert_reason;
 use eyre::Report;
 use thiserror::Error;
 
-use crate::types::BlockTag;
+use helios_common::types::BlockTag;
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {

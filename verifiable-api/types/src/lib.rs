@@ -7,7 +7,7 @@ use alloy::{
 };
 use serde::{Deserialize, Serialize};
 
-use helios_core::{execution::types::Account, network_spec::NetworkSpec};
+use helios_common::{network_spec::NetworkSpec, types::Account};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

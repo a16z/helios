@@ -7,8 +7,7 @@ use alloy::rpc::types::{
 use async_trait::async_trait;
 use eyre::Result;
 
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
 pub mod http_rpc;
 pub mod mock_rpc;

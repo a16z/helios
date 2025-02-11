@@ -15,17 +15,18 @@ use eyre::Result;
 use figment::providers::Serialized;
 use figment::value::Value;
 use futures::executor::block_on;
-use helios_core::client::Client;
-use helios_core::consensus::Consensus;
-use helios_core::network_spec::NetworkSpec;
-use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
-use helios_ethereum::database::FileDB;
-use helios_ethereum::{EthereumClient, EthereumClientBuilder};
-use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 use url::Url;
+
+use helios_common::network_spec::NetworkSpec;
+use helios_core::client::Client;
+use helios_core::consensus::Consensus;
+use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
+use helios_ethereum::database::FileDB;
+use helios_ethereum::{EthereumClient, EthereumClientBuilder};
+use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {

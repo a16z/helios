@@ -9,19 +9,17 @@ use alloy_trie::KECCAK_EMPTY;
 use async_trait::async_trait;
 use eyre::Result;
 
-use helios_core::execution::client::ExecutionRpcClient;
-use helios_core::execution::errors::ExecutionError;
-use helios_core::execution::proof::{
-    verify_account_proof, verify_receipt_proof, verify_storage_proof,
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
 };
-use helios_core::execution::rpc::ExecutionRpc;
-use helios_core::execution::state::State;
-use helios_core::execution::types::Account;
-use helios_core::network_spec::NetworkSpec;
-use helios_core::types::BlockTag;
-use helios_verifiable_api_types::*;
+use helios_verifiable_api_client::{types::*, VerifiableApi};
 
-use crate::api_client::VerifiableApi;
+use crate::execution::client::VerifiableMethods;
+use crate::execution::errors::ExecutionError;
+use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
+use crate::execution::rpc::ExecutionRpc;
+use crate::execution::state::State;
 
 #[derive(Clone)]
 pub struct ExecutionVerifiableApiClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
@@ -30,7 +28,7 @@ pub struct ExecutionVerifiableApiClient<N: NetworkSpec, R: ExecutionRpc<N>, A: V
 }
 
 #[async_trait]
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionRpcClient<N, R, A>
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<N>
     for ExecutionVerifiableApiClient<N, R, A>
 {
     async fn get_account(

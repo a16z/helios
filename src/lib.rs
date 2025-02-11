@@ -16,6 +16,10 @@
 //! Examples on how you can use helios can be found in the [`examples` directory of the repository](https://github.com/a16z/helios/tree/master/examples) and in the `tests/` directories of each crate.
 //!
 
+pub mod common {
+    pub use helios_common::*;
+}
+
 pub mod core {
     pub use helios_core::*;
 }

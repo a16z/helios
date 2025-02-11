@@ -11,9 +11,9 @@ use crate::client::node::Node;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;
 use crate::consensus::Consensus;
-use crate::network_spec::NetworkSpec;
 use crate::time::interval;
-use crate::types::BlockTag;
+
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]
