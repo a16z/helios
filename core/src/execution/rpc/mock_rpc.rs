@@ -9,7 +9,7 @@ use alloy::rpc::types::{
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::network_spec::NetworkSpec;
 
 use super::ExecutionRpc;
 
@@ -39,7 +39,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
     async fn create_access_list(
         &self,
         _opts: &N::TransactionRequest,
-        _block: BlockTag,
+        _block: BlockId,
     ) -> Result<AccessList> {
         Err(eyre!("not implemented"))
     }

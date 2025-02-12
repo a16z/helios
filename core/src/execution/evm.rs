@@ -1,25 +1,20 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
-use alloy::{
-    consensus::BlockHeader,
-    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
-};
+use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use eyre::{Report, Result};
-use futures::future::join_all;
-use helios_verifiable_api_client::VerifiableApi;
 use revm::{
     primitives::{
-        address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult,
-        ResultAndState, B256, U256,
+        address, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult, ResultAndState, B256,
+        U256,
     },
     Database, Evm as Revm,
 };
 use tracing::trace;
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_verifiable_api_client::VerifiableApi;
 
 use crate::execution::{
-    constants::PARALLEL_QUERY_BATCH_SIZE,
     errors::{EvmError, ExecutionError},
     rpc::ExecutionRpc,
     ExecutionClient,
@@ -237,70 +232,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> 
     }
 
     pub async fn prefetch_state(&mut self, tx: &N::TransactionRequest) -> Result<()> {
-        let mut list = self
+        let block_id = Some(self.block.into());
+        let account_map = self
             .execution
-            .rpc
-            .create_access_list(tx, self.block)
+            .create_access_list(tx, block_id)
             .await
-            .map_err(EvmError::RpcError)?
-            .0;
-
-        let from_access_entry = AccessListItem {
-            address: tx.from().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-
-        let to_access_entry = AccessListItem {
-            address: tx.to().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-
-        let coinbase = self
-            .execution
-            .get_block(self.block, false)
-            .await
-            .ok_or(ExecutionError::BlockNotFound(self.block))?
-            .header()
-            .beneficiary();
-        let producer_access_entry = AccessListItem {
-            address: coinbase,
-            storage_keys: Vec::default(),
-        };
-
-        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
-
-        if !list_addresses.contains(&from_access_entry.address) {
-            list.push(from_access_entry)
-        }
-
-        if !list_addresses.contains(&to_access_entry.address) {
-            list.push(to_access_entry)
-        }
-
-        if !list_addresses.contains(&producer_access_entry.address) {
-            list.push(producer_access_entry)
-        }
-
-        let mut account_map = HashMap::new();
-        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
-            let account_chunk_futs = chunk.iter().map(|account| {
-                let account_fut = self.execution.get_account(
-                    account.address,
-                    Some(account.storage_keys.as_slice()),
-                    self.block,
-                );
-                async move { (account.address, account_fut.await) }
-            });
-
-            let account_chunk = join_all(account_chunk_futs).await;
-
-            account_chunk
-                .into_iter()
-                .filter(|i| i.1.is_ok())
-                .for_each(|(key, value)| {
-                    account_map.insert(key, value.ok().unwrap());
-                });
-        }
+            .map_err(EvmError::RpcError)?;
 
         for (address, account) in account_map {
             self.basic.insert(

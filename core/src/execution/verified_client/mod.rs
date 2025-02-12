@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use alloy::eips::BlockId;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, FilterChanges, Log};
 use async_trait::async_trait;
@@ -30,6 +33,11 @@ pub trait VerifiableMethods<N: NetworkSpec, R: ExecutionRpc<N>> {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>>;
+    async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<HashMap<Address, Account>>;
 }
 
 #[derive(Clone)]

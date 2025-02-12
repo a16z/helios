@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use alloy::consensus::BlockHeader;
@@ -338,5 +339,16 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
             .await;
 
         Ok(filter_id)
+    }
+
+    pub async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<HashMap<Address, Account>> {
+        self.verified_methods
+            .client()
+            .create_access_list(tx, block)
+            .await
     }
 }

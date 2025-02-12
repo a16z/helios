@@ -6,9 +6,9 @@ use std::{
 use alloy::{
     consensus::{Account, BlockHeader},
     eips::BlockNumberOrTag,
-    network::{BlockResponse, ReceiptResponse},
+    network::{BlockResponse, ReceiptResponse, TransactionBuilder},
     primitives::{Address, B256, U256},
-    rpc::types::{BlockId, BlockTransactionsKind, Filter, FilterChanges, Log},
+    rpc::types::{AccessListItem, BlockId, BlockTransactionsKind, Filter, FilterChanges, Log},
 };
 use axum::{
     extract::{Path, State},
@@ -17,12 +17,14 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use eyre::{eyre, OptionExt, Report, Result};
-use futures::future::try_join_all;
+use futures::future::{join_all, try_join_all};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 
 use helios_common::network_spec::NetworkSpec;
-use helios_core::execution::{proof::create_receipt_proof, rpc::ExecutionRpc};
+use helios_core::execution::{
+    constants::PARALLEL_QUERY_BATCH_SIZE, proof::create_receipt_proof, rpc::ExecutionRpc,
+};
 use helios_verifiable_api_types::*;
 
 use crate::ApiState;
@@ -180,6 +182,7 @@ pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
     Query(BlockQuery { block }): Query<BlockQuery>,
     State(ApiState { rpc, .. }): State<ApiState<N, R>>,
 ) -> Response<StorageAtResponse> {
+    // ToDo(@eshaan7): ensure block number bcz multiple requests are being made
     let block = block.unwrap_or(BlockId::latest());
 
     let storage_slot = rpc
@@ -347,6 +350,87 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
             txs.into_iter().map(|t| t.inner.tx_hash().clone()).collect(),
         ),
     }))
+}
+
+/// This method returns a list of all accounts (along with their proofs) that are accessed by a given transaction.
+/// The list includes the `from`, `to` and `beneficiary` addresses as well.
+///
+/// Replaces the `eth_createAccessList` RPC method.
+pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
+    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
+    Json(AccessListRequest { tx, block }): Json<AccessListRequest<N>>,
+) -> Response<AccessListResponse> {
+    let block_id = block.unwrap_or(BlockId::latest());
+    let block = match block_id {
+        BlockId::Number(number_or_tag) => rpc
+            .get_block_by_number(number_or_tag, BlockTransactionsKind::Hashes)
+            .await
+            .map_err(map_server_err)?
+            .ok_or_else(|| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    json_err("Block not found"),
+                )
+            }),
+        BlockId::Hash(hash) => rpc.get_block(hash.into()).await.map_err(map_server_err),
+    }?;
+    let block_id = BlockId::Number(block.header().number().into());
+
+    let mut list = rpc
+        .create_access_list(&tx, block_id)
+        .await
+        .map_err(map_server_err)?
+        .0;
+
+    let from_access_entry = AccessListItem {
+        address: tx.from().unwrap_or_default(),
+        storage_keys: Vec::default(),
+    };
+    let to_access_entry = AccessListItem {
+        address: tx.to().unwrap_or_default(),
+        storage_keys: Vec::default(),
+    };
+    let producer_access_entry = AccessListItem {
+        address: block.header().beneficiary(),
+        storage_keys: Vec::default(),
+    };
+
+    let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
+
+    if !list_addresses.contains(&from_access_entry.address) {
+        list.push(from_access_entry)
+    }
+    if !list_addresses.contains(&to_access_entry.address) {
+        list.push(to_access_entry)
+    }
+    if !list_addresses.contains(&producer_access_entry.address) {
+        list.push(producer_access_entry)
+    }
+
+    let mut accounts = HashMap::new();
+    for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
+        let account_chunk_futs = chunk.iter().map(|account| async {
+            let account_fut = get_account(
+                Path(account.address),
+                Query(AccountProofQuery {
+                    storage_keys: account.storage_keys.clone(),
+                    block: Some(block_id),
+                }),
+                State(ApiState::new_from_rpc(rpc.clone())),
+            );
+            (account.address, account_fut.await)
+        });
+
+        let account_chunk = join_all(account_chunk_futs).await;
+
+        account_chunk.into_iter().for_each(|(address, value)| {
+            if let Some(account) = value.ok() {
+                accounts.insert(address, account.0);
+            }
+        });
+    }
+
+    Ok(Json(AccessListResponse { accounts }))
 }
 
 async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(

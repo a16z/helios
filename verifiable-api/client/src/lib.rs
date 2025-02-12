@@ -38,6 +38,11 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync {
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>>;
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>>;
+    async fn create_access_list(
+        &self,
+        tx: N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<AccessListResponse>;
 }
 
 pub struct VerifiableApiClient {
@@ -161,6 +166,22 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         );
         let response = self.client.get(&url).send().await?;
         let response = response.json::<FilterChangesResponse<N>>().await?;
+        Ok(response)
+    }
+
+    async fn create_access_list(
+        &self,
+        tx: N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<AccessListResponse> {
+        let url = format!("{}/eth/v1/proof/create_access_list", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&AccessListRequest::<N> { tx, block })
+            .send()
+            .await?;
+        let response = response.json::<AccessListResponse>().await?;
         Ok(response)
     }
 }

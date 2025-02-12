@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use alloy::primitives::{B256, U256};
+use alloy::{
+    eips::{BlockId, BlockNumberOrTag},
+    primitives::{B256, U256},
+};
+use eyre::{eyre, Report, Result};
 use serde::{de::Error, Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -59,5 +63,29 @@ impl<'de> Deserialize<'de> for BlockTag {
         };
 
         Ok(block_tag)
+    }
+}
+
+impl Into<BlockId> for BlockTag {
+    fn into(self) -> BlockId {
+        match self {
+            BlockTag::Latest => BlockId::latest(),
+            BlockTag::Finalized => BlockId::finalized(),
+            BlockTag::Number(num) => BlockId::Number(num.into()),
+        }
+    }
+}
+
+impl TryFrom<BlockId> for BlockTag {
+    type Error = Report;
+
+    fn try_from(block_id: BlockId) -> Result<Self, Self::Error> {
+        match block_id {
+            BlockId::Number(BlockNumberOrTag::Number(num)) => Ok(BlockTag::Number(num)),
+            BlockId::Number(BlockNumberOrTag::Latest) => Ok(BlockTag::Latest),
+            BlockId::Number(BlockNumberOrTag::Finalized) => Ok(BlockTag::Finalized),
+            BlockId::Number(other) => Err(eyre!("BlockId::Number({other}) is not supported")),
+            BlockId::Hash(_) => Err(eyre!("BlockId::Hash is not supported")),
+        }
     }
 }

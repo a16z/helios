@@ -7,7 +7,7 @@ use alloy::rpc::types::{
 use async_trait::async_trait;
 use eyre::Result;
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::network_spec::NetworkSpec;
 
 pub mod http_rpc;
 pub mod mock_rpc;
@@ -29,7 +29,7 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessList>;
 
     async fn get_code(&self, address: Address, block: u64) -> Result<Vec<u8>>;

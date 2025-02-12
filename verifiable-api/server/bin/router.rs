@@ -1,4 +1,7 @@
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::rpc::ExecutionRpc;
@@ -21,6 +24,7 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
             .route(
                 "/filter_changes/{filter_id}",
                 get(handlers::get_filter_changes),
-            ),
+            )
+            .route("/create_access_list", post(handlers::create_access_list)),
     )
 }

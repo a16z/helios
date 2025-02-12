@@ -2,21 +2,21 @@ use std::collections::{HashMap, HashSet};
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::BlockId;
-use alloy::network::{BlockResponse, ReceiptResponse};
+use alloy::network::{BlockResponse, ReceiptResponse, TransactionBuilder};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
-use alloy::rpc::types::{Filter, FilterChanges, Log};
+use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use async_trait::async_trait;
 use eyre::Result;
-use futures::future::try_join_all;
-use revm::primitives::KECCAK_EMPTY;
+use futures::future::{join_all, try_join_all};
+use revm::primitives::{AccessListItem, KECCAK_EMPTY};
 
 use helios_common::{
     network_spec::NetworkSpec,
     types::{Account, BlockTag},
 };
 
-use crate::execution::constants::MAX_SUPPORTED_LOGS_NUMBER;
+use crate::execution::constants::{MAX_SUPPORTED_LOGS_NUMBER, PARALLEL_QUERY_BATCH_SIZE};
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{
     ordered_trie_root_noop_encoder, verify_account_proof, verify_storage_proof,
@@ -57,34 +57,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
             .get_proof(address, slots, block.header().number().into())
             .await?;
 
-        // Verify the account proof
-        verify_account_proof(&proof, block.header().state_root())?;
-        // Verify the storage proofs, collecting the slot values
-        let slot_map = verify_storage_proof(&proof)?;
-        // Verify the code hash
-        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
-            Vec::new()
-        } else {
-            let code = self.rpc.get_code(address, block.header().number()).await?;
-            let code_hash = keccak256(&code);
-
-            if proof.code_hash != code_hash {
-                return Err(
-                    ExecutionError::CodeHashMismatch(address, code_hash, proof.code_hash).into(),
-                );
-            }
-
-            code
-        };
-
-        Ok(Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code,
-            code_hash: proof.code_hash,
-            storage_hash: proof.storage_hash,
-            slots: slot_map,
-        })
+        self.verify_proof_to_account(&proof, &block).await
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
@@ -174,9 +147,112 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
         self.verify_logs(&logs).await?;
         Ok(logs)
     }
+
+    async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<HashMap<Address, Account>> {
+        let block_id = block.unwrap_or(BlockId::latest());
+        let tag = BlockTag::try_from(block_id)?;
+        let block = self
+            .state
+            .get_block(tag)
+            .await
+            .ok_or(ExecutionError::BlockNotFound(tag))?;
+        let block_id = BlockId::Number(block.header().number().into());
+
+        let mut list = self.rpc.create_access_list(tx, block_id).await?.0;
+
+        let from_access_entry = AccessListItem {
+            address: tx.from().unwrap_or_default(),
+            storage_keys: Vec::default(),
+        };
+        let to_access_entry = AccessListItem {
+            address: tx.to().unwrap_or_default(),
+            storage_keys: Vec::default(),
+        };
+        let producer_access_entry = AccessListItem {
+            address: block.header().beneficiary(),
+            storage_keys: Vec::default(),
+        };
+
+        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
+
+        if !list_addresses.contains(&from_access_entry.address) {
+            list.push(from_access_entry)
+        }
+        if !list_addresses.contains(&to_access_entry.address) {
+            list.push(to_access_entry)
+        }
+        if !list_addresses.contains(&producer_access_entry.address) {
+            list.push(producer_access_entry)
+        }
+
+        let mut account_map = HashMap::new();
+        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
+            let account_chunk_futs = chunk.iter().map(|account| {
+                // ToDo(@eshaan7): block is fetched from state each iteration, can be optimized
+                let account_fut =
+                    self.get_account(account.address, Some(account.storage_keys.as_slice()), tag);
+                async move { (account.address, account_fut.await) }
+            });
+
+            let account_chunk = join_all(account_chunk_futs).await;
+
+            account_chunk.into_iter().for_each(|(address, value)| {
+                if let Some(account) = value.ok() {
+                    account_map.insert(address, account);
+                }
+            });
+        }
+
+        Ok(account_map)
+    }
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethodsRpc<N, R> {
+    async fn verify_proof_to_account(
+        &self,
+        proof: &EIP1186AccountProofResponse,
+        block: &N::BlockResponse,
+    ) -> Result<Account> {
+        // Verify the account proof
+        verify_account_proof(&proof, block.header().state_root())?;
+        // Verify the storage proofs, collecting the slot values
+        let slot_map = verify_storage_proof(&proof)?;
+        // Verify the code hash
+        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
+            Vec::new()
+        } else {
+            let code = self
+                .rpc
+                .get_code(proof.address, block.header().number())
+                .await?;
+            let code_hash = keccak256(&code);
+
+            if proof.code_hash != code_hash {
+                return Err(ExecutionError::CodeHashMismatch(
+                    proof.address,
+                    code_hash,
+                    proof.code_hash,
+                )
+                .into());
+            }
+
+            code
+        };
+
+        Ok(Account {
+            balance: proof.balance,
+            nonce: proof.nonce,
+            code_hash: proof.code_hash,
+            code,
+            storage_hash: proof.storage_hash,
+            slots: slot_map,
+        })
+    }
+
     /// Verify the integrity of each log entry in the given array of logs by
     /// checking its inclusion in the corresponding transaction receipt
     /// and verifying the transaction receipt itself against the block's receipt root.

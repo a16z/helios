@@ -51,49 +51,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
             .ok_or(ExecutionError::BlockNotFound(tag))?;
         let block_id = BlockId::number(block.header().number());
 
-        let AccountResponse {
-            account,
-            code,
-            account_proof,
-            storage_proof,
-        } = self.api.get_account(address, slots, Some(block_id)).await?;
+        let account_response = self.api.get_account(address, slots, Some(block_id)).await?;
 
-        // Verify the account proof
-        let proof = EIP1186AccountProofResponse {
-            address,
-            balance: account.balance,
-            code_hash: account.code_hash,
-            nonce: account.nonce,
-            storage_hash: account.storage_root,
-            account_proof,
-            storage_proof,
-        };
-        verify_account_proof(&proof, block.header().state_root())?;
-        // Verify the storage proofs, collecting the slot values
-        let slot_map = verify_storage_proof(&proof)?;
-        // Verify the code hash
-        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
-            Vec::new()
-        } else {
-            let code_hash = keccak256(&code);
-
-            if proof.code_hash != code_hash {
-                return Err(
-                    ExecutionError::CodeHashMismatch(address, code_hash, proof.code_hash).into(),
-                );
-            }
-
-            code.into()
-        };
-
-        Ok(Account {
-            balance: account.balance,
-            nonce: account.nonce,
-            code_hash: account.code_hash,
-            code,
-            storage_hash: account.storage_root,
-            slots: slot_map,
-        })
+        self.verify_account_response(address, account_response, &block)
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
@@ -161,9 +121,83 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
 
         Ok(logs)
     }
+
+    async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<HashMap<Address, Account>> {
+        let block_id = block.unwrap_or(BlockId::latest());
+        let tag = BlockTag::try_from(block_id)?;
+        let block = self
+            .state
+            .get_block(tag)
+            .await
+            .ok_or(ExecutionError::BlockNotFound(tag))?;
+        let block_id = BlockId::Number(block.header().number().into());
+
+        let AccessListResponse { accounts } = self
+            .api
+            .create_access_list(tx.clone(), Some(block_id))
+            .await?;
+
+        let account_map = accounts
+            .into_iter()
+            .map(|(address, account_response)| {
+                self.verify_account_response(address, account_response, &block)
+                    .map(|account| (address, account))
+            })
+            .collect::<Result<HashMap<_, _>>>()?;
+
+        Ok(account_map)
+    }
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsApi<N, R, A> {
+    fn verify_account_response(
+        &self,
+        address: Address,
+        account: AccountResponse,
+        block: &N::BlockResponse,
+    ) -> Result<Account> {
+        let proof = EIP1186AccountProofResponse {
+            address,
+            balance: account.account.balance,
+            code_hash: account.account.code_hash,
+            nonce: account.account.nonce,
+            storage_hash: account.account.storage_root,
+            account_proof: account.account_proof,
+            storage_proof: account.storage_proof,
+        };
+        // Verify the account proof
+        verify_account_proof(&proof, block.header().state_root())?;
+        // Verify the storage proofs, collecting the slot values
+        let slot_map = verify_storage_proof(&proof)?;
+        // Verify the code hash
+        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
+            Vec::new()
+        } else {
+            let code_hash = keccak256(&account.code);
+
+            if proof.code_hash != code_hash {
+                return Err(
+                    ExecutionError::CodeHashMismatch(address, code_hash, proof.code_hash).into(),
+                );
+            }
+
+            account.code.into()
+        };
+
+        Ok(Account {
+            balance: proof.balance,
+            nonce: proof.nonce,
+            code_hash: proof.code_hash,
+            code,
+            storage_hash: proof.storage_hash,
+            slots: slot_map,
+        })
+    }
+
     async fn verify_logs_and_receipts(
         &self,
         logs: &[Log],

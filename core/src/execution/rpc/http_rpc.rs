@@ -13,7 +13,7 @@ use eyre::{eyre, Result};
 use reqwest::Client;
 use revm::primitives::AccessList;
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::network_spec::NetworkSpec;
 
 use crate::errors::RpcError;
 
@@ -72,14 +72,8 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessList> {
-        let block = match block {
-            BlockTag::Latest => BlockId::latest(),
-            BlockTag::Finalized => BlockId::finalized(),
-            BlockTag::Number(num) => BlockId::number(num),
-        };
-
         let list = self
             .provider
             .create_access_list(tx)
