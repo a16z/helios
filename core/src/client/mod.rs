@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use tracing::{info, warn};
@@ -101,9 +102,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     pub async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: JsonStorageKey,
         block: BlockTag,
-    ) -> Result<U256> {
+    ) -> Result<B256> {
         self.node.get_storage_at(address, slot, block).await
     }
 

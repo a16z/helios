@@ -5,6 +5,7 @@ use alloy::network::primitives::HeaderResponse;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
 use eyre::Result;
@@ -102,6 +103,25 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             storage_hash: proof.storage_hash,
             slots: slot_map,
         })
+    }
+
+    pub async fn get_storage_at(
+        &self,
+        address: Address,
+        slot: JsonStorageKey,
+        block: BlockTag,
+    ) -> Result<B256> {
+        let storage_key = slot.as_b256();
+
+        let account = self
+            .get_account(address, Some(&[storage_key]), block)
+            .await?;
+
+        let value = account.slots.get(&storage_key);
+        match value {
+            Some(value) => Ok((*value).into()),
+            None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
+        }
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
