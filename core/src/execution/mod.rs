@@ -9,7 +9,6 @@ use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
 use eyre::Result;
 use futures::future::try_join_all;
-use proof::verify_mpt_proof;
 use revm::primitives::{BlobExcessGasAndPrice, KECCAK_EMPTY};
 use tracing::warn;
 
