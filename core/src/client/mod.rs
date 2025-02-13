@@ -101,9 +101,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     pub async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: U256,
         block: BlockTag,
-    ) -> Result<U256> {
+    ) -> Result<B256> {
         self.node.get_storage_at(address, slot, block).await
     }
 

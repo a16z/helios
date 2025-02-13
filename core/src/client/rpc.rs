@@ -145,9 +145,9 @@ trait EthRpc<
     async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: U256,
         block: BlockTag,
-    ) -> Result<U256, ErrorObjectOwned>;
+    ) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
@@ -370,9 +370,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
     async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: U256,
         block: BlockTag,
-    ) -> Result<U256, ErrorObjectOwned> {
+    ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.node.get_storage_at(address, slot, block).await)
     }
 }

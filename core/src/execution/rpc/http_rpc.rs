@@ -68,6 +68,17 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(proof_response)
     }
 
+    async fn get_storage_at(&self, address: Address, slot: U256, block: BlockId) -> Result<B256> {
+        let storage = self
+            .provider
+            .get_storage_at(address, slot)
+            .block_id(block)
+            .await
+            .map_err(|e| RpcError::new("get_storage_at", e))?;
+
+        Ok(storage.into())
+    }
+
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,

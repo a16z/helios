@@ -104,6 +104,20 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         })
     }
 
+    pub async fn get_storage_at(
+        &self,
+        address: Address,
+        slot: U256,
+        block: BlockTag,
+    ) -> Result<B256> {
+        let storage = self.rpc.get_storage_at(address, slot, block.into()).await?;
+
+        // use eth_getProof to verify the storage value
+        self.get_account(address, Some(&[storage]), block).await?;
+
+        Ok(storage)
+    }
+
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
         self.rpc.send_raw_transaction(bytes).await
     }
