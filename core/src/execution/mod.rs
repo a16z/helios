@@ -18,7 +18,7 @@ use crate::types::BlockTag;
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
-use self::proof::{ensure_logs_match_filter, verify_account_proof, verify_storage_proof};
+use self::proof::{verify_account_proof, verify_storage_proof};
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
 use self::types::Account;
@@ -280,7 +280,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                 ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
             );
         }
-        ensure_logs_match_filter(&logs, &filter)?;
+        self.ensure_logs_match_filter(&logs, &filter)?;
         self.verify_logs(&logs).await?;
         Ok(logs)
     }
@@ -304,7 +304,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     )
                     .into());
                 }
-                ensure_logs_match_filter(logs, filter)?;
+                self.ensure_logs_match_filter(logs, filter)?;
                 self.verify_logs(logs).await?;
                 FilterChanges::Logs(logs.to_vec())
             }
@@ -348,7 +348,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     )
                     .into());
                 }
-                ensure_logs_match_filter(&logs, filter)?;
+                self.ensure_logs_match_filter(&logs, filter)?;
                 self.verify_logs(&logs).await?;
                 Ok(logs)
             }
@@ -411,6 +411,50 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             .await;
 
         Ok(filter_id)
+    }
+
+    /// Ensure that each log entry in the given array of logs match the given filter.
+    fn ensure_logs_match_filter(&self, logs: &[Log], filter: &Filter) -> Result<()> {
+        fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+            if let Some(block_hash) = filter.get_block_hash() {
+                if log.block_hash.unwrap() != block_hash {
+                    return false;
+                }
+            }
+            if let Some(from_block) = filter.get_from_block() {
+                if log.block_number.unwrap() < from_block {
+                    return false;
+                }
+            }
+            if let Some(to_block) = filter.get_to_block() {
+                if log.block_number.unwrap() > to_block {
+                    return false;
+                }
+            }
+            if !filter.address.matches(&log.address()) {
+                return false;
+            }
+            for (i, filter_topic) in filter.topics.iter().enumerate() {
+                if filter_topic.is_empty() {
+                    return true; // empty filter topic matches any log topic
+                }
+                if let Some(log_topic) = log.topics().get(i) {
+                    return filter_topic.matches(log_topic);
+                } else {
+                    // if filter topic is not present in log, it's a mismatch
+                    return false;
+                }
+            }
+            true
+        }
+
+        for log in logs {
+            if !log_matches_filter(log, filter) {
+                return Err(ExecutionError::LogFilterMismatch().into());
+            }
+        }
+
+        Ok(())
     }
 
     /// Verify the integrity of each log entry in the given array of logs by
