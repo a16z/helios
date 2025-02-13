@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use alloy::eips::BlockId;
 use serde::{de::Error, Deserialize};
 
 #[derive(Debug, Clone, Copy)]
@@ -48,15 +47,5 @@ impl<'de> Deserialize<'de> for BlockTag {
         };
 
         Ok(block_tag)
-    }
-}
-
-impl From<BlockTag> for BlockId {
-    fn from(tag: BlockTag) -> Self {
-        match tag {
-            BlockTag::Latest => BlockId::latest(),
-            BlockTag::Finalized => BlockId::finalized(),
-            BlockTag::Number(num) => BlockId::Number(num.into()),
-        }
     }
 }

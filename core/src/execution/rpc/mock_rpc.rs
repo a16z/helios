@@ -34,16 +34,6 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&proof)?)
     }
 
-    async fn get_storage_at(
-        &self,
-        _address: Address,
-        _slot: U256,
-        _block: BlockId,
-    ) -> Result<B256> {
-        let storage = read_to_string(self.path.join("storage.txt"))?;
-        Ok(B256::from_str(&storage)?)
-    }
-
     async fn create_access_list(
         &self,
         _opts: &N::TransactionRequest,

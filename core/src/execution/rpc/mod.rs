@@ -25,8 +25,6 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
         block: BlockId,
     ) -> Result<EIP1186AccountProofResponse>;
 
-    async fn get_storage_at(&self, address: Address, slot: U256, block: BlockId) -> Result<B256>;
-
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,

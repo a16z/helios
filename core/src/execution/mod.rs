@@ -9,6 +9,7 @@ use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
 use eyre::Result;
 use futures::future::try_join_all;
+use proof::verify_mpt_proof;
 use revm::primitives::{BlobExcessGasAndPrice, KECCAK_EMPTY};
 use tracing::warn;
 
@@ -110,12 +111,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         slot: U256,
         block: BlockTag,
     ) -> Result<B256> {
-        let storage = self.rpc.get_storage_at(address, slot, block.into()).await?;
+        let storage_key = slot.into();
 
-        // use eth_getProof to verify the storage value
-        self.get_account(address, Some(&[storage]), block).await?;
+        let account = self
+            .get_account(address, Some(&[storage_key]), block)
+            .await?;
 
-        Ok(storage)
+        let value = account.slots.get(&storage_key);
+        match value {
+            Some(value) => Ok((*value).into()),
+            None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
+        }
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
