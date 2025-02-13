@@ -74,7 +74,11 @@ fn is_valid_node(node: &Enr<CombinedKey>, chain_id: u64) -> bool {
     node.get_raw_rlp("opstack")
         .map(|opstack| {
             OpStackEnrData::try_from(opstack)
-                .map(|opstack| opstack.chain_id == chain_id && opstack.version == 0)
+                .map(|opstack| {
+                    let todo = "rm this log";
+                    tracing::info!("peer chain_id: {}, expected: {chain_id}", opstack.chain_id);
+                    opstack.chain_id == chain_id && opstack.version == 0
+                })
                 .unwrap_or_default()
         })
         .unwrap_or_default()
