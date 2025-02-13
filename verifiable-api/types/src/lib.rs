@@ -27,9 +27,6 @@ pub struct StorageAtResponse {
     pub account_proof: Vec<Bytes>,
 }
 
-#[allow(type_alias_bounds)]
-pub type BlockReceiptsResponse<N: NetworkSpec> = Vec<N::ReceiptResponse>;
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionReceiptResponse<N: NetworkSpec> {

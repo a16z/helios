@@ -1,7 +1,7 @@
 use alloy::{
     eips::BlockId,
     primitives::{Address, B256, U256},
-    rpc::types::Filter,
+    rpc::types::{serde_helpers::JsonStorageKey, Filter, ValueOrArray},
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -21,16 +21,9 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync {
     async fn get_account(
         &self,
         address: Address,
-        storage_keys: &[B256],
+        storage_slots: &[JsonStorageKey],
         block: Option<BlockId>,
     ) -> Result<AccountResponse>;
-    async fn get_storage_at(
-        &self,
-        address: Address,
-        key: U256,
-        block: Option<BlockId>,
-    ) -> Result<StorageAtResponse>;
-    async fn get_block_receipts(&self, block: BlockId) -> Result<BlockReceiptsResponse<N>>;
     async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
@@ -71,7 +64,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     async fn get_account(
         &self,
         address: Address,
-        storage_keys: &[B256],
+        storage_slots: &[JsonStorageKey],
         block: Option<BlockId>,
     ) -> Result<AccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
@@ -79,34 +72,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         if let Some(block) = block {
             request = request.query(&[("block", block.to_string())]);
         }
-        for storage_key in storage_keys {
-            request = request.query(&[("storageKeys", storage_key)]);
+        for slot in storage_slots {
+            request = request.query(&[("storageSlots", slot)]);
         }
         let response = request.send().await?;
         let response = response.json::<AccountResponse>().await?;
-        Ok(response)
-    }
-
-    async fn get_storage_at(
-        &self,
-        address: Address,
-        key: U256,
-        block: Option<BlockId>,
-    ) -> Result<StorageAtResponse> {
-        let url = format!("{}/eth/v1/proof/storage/{}/{}", self.base_url, address, key);
-        let mut request = self.client.get(&url);
-        if let Some(block) = block {
-            request = request.query(&[("block", block.to_string())]);
-        }
-        let response = request.send().await?;
-        let response = response.json::<StorageAtResponse>().await?;
-        Ok(response)
-    }
-
-    async fn get_block_receipts(&self, block: BlockId) -> Result<BlockReceiptsResponse<N>> {
-        let url = format!("{}/eth/v1/proof/block_receipts/{}", self.base_url, block);
-        let response = self.client.get(&url).send().await?;
-        let response = response.json::<BlockReceiptsResponse<N>>().await?;
         Ok(response)
     }
 
@@ -138,13 +108,19 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         if let Some(address) = filter.address.to_value_or_array() {
             request = request.query(&[("address", address)]);
         }
-        let topics = filter
-            .topics
-            .iter()
-            .filter_map(|t| t.to_value_or_array())
-            .collect::<Vec<_>>();
-        for topic in topics {
-            request = request.query(&[("topics", topic)]);
+        for idx in 0..=3 {
+            if let Some(topics) = filter.topics[idx].to_value_or_array() {
+                match topics {
+                    ValueOrArray::Value(topic) => {
+                        request = request.query(&[(format!("topic{}", idx), topic)]);
+                    }
+                    ValueOrArray::Array(topics) => {
+                        for topic in topics {
+                            request = request.query(&[(format!("topic{}", idx), topic)]);
+                        }
+                    }
+                }
+            }
         }
 
         let response = request.send().await?;

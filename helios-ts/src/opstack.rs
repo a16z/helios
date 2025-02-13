@@ -4,6 +4,7 @@ extern crate web_sys;
 use std::str::FromStr;
 
 use alloy::primitives::{Address, B256, U256};
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::Filter;
 use wasm_bindgen::prelude::*;
 
@@ -174,6 +175,20 @@ impl OpStackClient {
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
         let code = map_err(self.inner.get_code(addr, block).await)?;
         Ok(format!("0x{}", hex::encode(code)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_storage_at(
+        &self,
+        address: JsValue,
+        slot: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let address: Address = serde_wasm_bindgen::from_value(address)?;
+        let slot: JsonStorageKey = serde_wasm_bindgen::from_value(slot)?;
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let storage = map_err(self.inner.get_storage_at(address, slot, block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&storage)?)
     }
 
     #[wasm_bindgen]

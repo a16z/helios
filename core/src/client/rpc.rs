@@ -3,6 +3,7 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use jsonrpsee::{
@@ -145,9 +146,9 @@ trait EthRpc<
     async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: JsonStorageKey,
         block: BlockTag,
-    ) -> Result<U256, ErrorObjectOwned>;
+    ) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
@@ -370,9 +371,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
     async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: JsonStorageKey,
         block: BlockTag,
-    ) -> Result<U256, ErrorObjectOwned> {
+    ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.node.get_storage_at(address, slot, block).await)
     }
 }

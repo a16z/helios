@@ -8,7 +8,10 @@ use alloy::{
     eips::BlockNumberOrTag,
     network::{BlockResponse, ReceiptResponse, TransactionBuilder},
     primitives::{Address, B256, U256},
-    rpc::types::{AccessListItem, BlockId, BlockTransactionsKind, Filter, FilterChanges, Log},
+    rpc::types::{
+        serde_helpers::JsonStorageKey, AccessListItem, BlockId, BlockTransactionsKind, Filter,
+        FilterChanges, FilterSet, Log,
+    },
 };
 use axum::{
     extract::{Path, State},
@@ -42,15 +45,10 @@ fn map_server_err(e: Report) -> (StatusCode, Json<serde_json::Value>) {
 }
 
 #[derive(Deserialize)]
-pub struct BlockQuery {
-    block: Option<BlockId>,
-}
-
-#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountProofQuery {
     #[serde(default)]
-    pub storage_keys: Vec<B256>,
+    pub storage_slots: Vec<JsonStorageKey>,
     pub block: Option<BlockId>,
 }
 
@@ -63,7 +61,13 @@ pub struct LogsQuery {
     #[serde(default)]
     pub address: Vec<Address>,
     #[serde(default)]
-    pub topics: Vec<B256>,
+    pub topic0: Vec<B256>,
+    #[serde(default)]
+    pub topic1: Vec<B256>,
+    #[serde(default)]
+    pub topic2: Vec<B256>,
+    #[serde(default)]
+    pub topic3: Vec<B256>,
 }
 
 impl TryInto<Filter> for LogsQuery {
@@ -76,9 +80,6 @@ impl TryInto<Filter> for LogsQuery {
             return Err(eyre!(
                 "cannot specify both blockHash and fromBlock/toBlock, choose one or the other"
             ));
-        }
-        if self.topics.len() > 4 {
-            return Err(eyre!("too many topics, max 4 allowed"));
         }
 
         let mut filter = Filter::new();
@@ -94,19 +95,17 @@ impl TryInto<Filter> for LogsQuery {
         if !self.address.is_empty() {
             filter = filter.address(self.address);
         }
-        if !self.topics.is_empty() {
-            if let Some(topic0) = self.topics.get(0) {
-                filter = filter.event_signature(*topic0);
-            }
-            if let Some(topic1) = self.topics.get(1) {
-                filter = filter.topic1(*topic1);
-            }
-            if let Some(topic2) = self.topics.get(2) {
-                filter = filter.topic2(*topic2);
-            }
-            if let Some(topic3) = self.topics.get(3) {
-                filter = filter.topic3(*topic3);
-            }
+        if !self.topic0.is_empty() {
+            filter = filter.event_signature(FilterSet::from(self.topic0));
+        }
+        if !self.topic1.is_empty() {
+            filter = filter.topic1(FilterSet::from(self.topic1));
+        }
+        if !self.topic2.is_empty() {
+            filter = filter.topic2(FilterSet::from(self.topic2));
+        }
+        if !self.topic3.is_empty() {
+            filter = filter.topic3(FilterSet::from(self.topic3));
         }
 
         Ok(filter)
@@ -115,11 +114,12 @@ impl TryInto<Filter> for LogsQuery {
 
 /// This method returns the EIP-1186 account proof for a given address.
 ///
-/// Replaces the `eth_getProof`, `eth_getTransactionCount`, `eth_getBalance` and `eth_getCode` RPC methods.
+/// Replaces the `eth_getProof`, `eth_getTransactionCount`,
+/// `eth_getBalance` `eth_getCode` and `eth_getStorageAt`RPC methods.
 pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(AccountProofQuery {
-        storage_keys,
+        storage_slots,
         block,
     }): Query<AccountProofQuery>,
     State(ApiState { rpc, .. }): State<ApiState<N, R>>,
@@ -149,6 +149,10 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
     }?;
     let block = BlockId::from(block_num);
 
+    let storage_keys = storage_slots
+        .into_iter()
+        .map(|key| key.as_b256())
+        .collect::<Vec<_>>();
     let proof = rpc
         .get_proof(address, &storage_keys, block)
         .await
@@ -170,67 +174,6 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
         account_proof: proof.account_proof,
         storage_proof: proof.storage_proof,
     }))
-}
-
-/// This method returns the value stored at a specific storage position for a given address.
-/// It provides the state of the contract's storage, which may not be exposed via the contract's methods.
-/// The storage value can be verified against the given storage and account proofs.
-///
-/// Replaces the `eth_getStorageAt` RPC method.
-pub async fn get_storage_at<N: NetworkSpec, R: ExecutionRpc<N>>(
-    Path((address, key)): Path<(Address, U256)>,
-    Query(BlockQuery { block }): Query<BlockQuery>,
-    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
-) -> Response<StorageAtResponse> {
-    // ToDo(@eshaan7): ensure block number bcz multiple requests are being made
-    let block = block.unwrap_or(BlockId::latest());
-
-    let storage_slot = rpc
-        .get_storage_at(address, key, block)
-        .await
-        .map_err(map_server_err)?;
-
-    let proof = rpc
-        .get_proof(address, &[storage_slot], block)
-        .await
-        .map_err(map_server_err)?;
-
-    let storage = match proof.storage_proof.get(0) {
-        Some(storage) => storage.clone(),
-        None => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                json_err("Failed to get storage proof"),
-            ))
-        }
-    };
-
-    Ok(Json(StorageAtResponse {
-        storage,
-        account: Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code_hash: proof.code_hash,
-            storage_root: proof.storage_hash,
-        },
-        account_proof: proof.account_proof,
-    }))
-}
-
-/// This method returns all transaction receipts for a given block.
-///
-/// Replaces the `eth_getBlockReceipts` RPC method.
-pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
-    Path(block): Path<BlockId>,
-    State(ApiState { rpc, .. }): State<ApiState<N, R>>,
-) -> Response<BlockReceiptsResponse<N>> {
-    let receipts = rpc
-        .get_block_receipts(block)
-        .await
-        .map_err(map_server_err)?
-        .unwrap_or(vec![]);
-
-    Ok(Json(receipts))
 }
 
 /// This method returns the receipt of a transaction along with a Merkle proof of its inclusion.
@@ -413,7 +356,11 @@ pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
             let account_fut = get_account(
                 Path(account.address),
                 Query(AccountProofQuery {
-                    storage_keys: account.storage_keys.clone(),
+                    storage_slots: account
+                        .storage_keys
+                        .iter()
+                        .map(|key| JsonStorageKey::Hash(*key))
+                        .collect(),
                     block: Some(block_id),
                 }),
                 State(ApiState::new_from_rpc(rpc.clone())),
@@ -438,6 +385,8 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     rpc: Arc<R>,
 ) -> Result<HashMap<B256, TransactionReceiptResponse<N>>> {
     // Collect all (unique) block numbers
+    // ToDo(@eshaan7): Might need to put a max limit on the number of blocks
+    // otherwise this could make too many requests and slow down the server
     let block_nums = logs
         .iter()
         .map(|log| log.block_number.ok_or_eyre("block_number not found in log"))

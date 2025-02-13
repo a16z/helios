@@ -4,6 +4,8 @@ use alloy::consensus::BlockHeader;
 use alloy::eips::BlockId;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
+use alloy::rlp;
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use alloy_trie::KECCAK_EMPTY;
 use async_trait::async_trait;
@@ -43,15 +45,22 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
         slots: Option<&[B256]>,
         tag: BlockTag,
     ) -> Result<Account> {
-        let slots = slots.unwrap_or(&[]);
         let block = self
             .state
             .get_block(tag)
             .await
             .ok_or(ExecutionError::BlockNotFound(tag))?;
         let block_id = BlockId::number(block.header().number());
+        let slots = slots
+            .unwrap_or(&[])
+            .into_iter()
+            .map(|s| JsonStorageKey::Hash(*s))
+            .collect::<Vec<_>>();
 
-        let account_response = self.api.get_account(address, slots, Some(block_id)).await?;
+        let account_response = self
+            .api
+            .get_account(address, &slots, Some(block_id))
+            .await?;
 
         self.verify_account_response(address, account_response, &block)
     }
@@ -213,9 +222,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsA
                 .get(&tx_hash)
                 .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
 
+            let encoded_log = rlp::encode(&log.inner);
+
             if N::receipt_logs(receipt)
                 .into_iter()
-                .find(|l| l == log)
+                .map(|l| rlp::encode(&l.inner))
+                .find(|el| *el == encoded_log)
                 .is_none()
             {
                 return Err(ExecutionError::MissingLog(

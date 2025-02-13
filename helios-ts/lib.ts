@@ -83,6 +83,9 @@ export class HeliosProvider {
       case "eth_getCode": {
         return this.#client.get_code(req.params[0], req.params[1]);
       }
+      case "eth_getStorageAt": {
+        return this.#client.get_storage_at(req.params[0], req.params[1], req.params[2]);
+      }
       case "eth_call": {
         return this.#client.call(req.params[0], req.params[1]);
       }

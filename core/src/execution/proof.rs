@@ -199,7 +199,12 @@ pub fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
         if !filter.address.matches(&log.address()) {
             return false;
         }
-        for (i, topic) in filter.topics.iter().enumerate() {
+        for (i, topic) in filter
+            .topics
+            .iter()
+            .filter(|topic| !topic.is_empty())
+            .enumerate()
+        {
             if let Some(log_topic) = log.topics().get(i) {
                 if !topic.matches(log_topic) {
                     return false;

@@ -6,6 +6,7 @@ use alloy::eips::BlockId;
 use alloy::network::primitives::HeaderResponse;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, B256, U256};
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use eyre::Result;
 use helios_verifiable_api_client::VerifiableApi;
@@ -86,6 +87,25 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
             .client()
             .get_account(address, slots, tag)
             .await
+    }
+
+    pub async fn get_storage_at(
+        &self,
+        address: Address,
+        slot: JsonStorageKey,
+        block: BlockTag,
+    ) -> Result<B256> {
+        let storage_key = slot.as_b256();
+
+        let account = self
+            .get_account(address, Some(&[storage_key]), block)
+            .await?;
+
+        let value = account.slots.get(&storage_key);
+        match value {
+            Some(value) => Ok((*value).into()),
+            None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
+        }
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
