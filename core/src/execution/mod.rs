@@ -5,6 +5,7 @@ use alloy::network::primitives::HeaderResponse;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
+use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
 use eyre::Result;
@@ -107,10 +108,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
     pub async fn get_storage_at(
         &self,
         address: Address,
-        slot: U256,
+        slot: JsonStorageKey,
         block: BlockTag,
     ) -> Result<B256> {
-        let storage_key = slot.into();
+        let storage_key = slot.as_b256();
 
         let account = self
             .get_account(address, Some(&[storage_key]), block)
