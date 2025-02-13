@@ -113,21 +113,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub async fn get_storage_at(
         &self,
         address: Address,
-        slot: B256,
+        slot: U256,
         tag: BlockTag,
-    ) -> Result<U256> {
-        self.check_head_age().await?;
+    ) -> Result<B256> {
+        self.check_blocktag_age(&tag).await?;
 
-        let account = self
-            .execution
-            .get_account(address, Some(&[slot]), tag)
-            .await?;
-
-        let value = account.slots.get(&slot);
-        match value {
-            Some(value) => Ok(*value),
-            None => Err(eyre!("slot not found")),
-        }
+        self.execution.get_storage_at(address, slot, tag).await
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {

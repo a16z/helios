@@ -104,6 +104,25 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         })
     }
 
+    pub async fn get_storage_at(
+        &self,
+        address: Address,
+        slot: U256,
+        block: BlockTag,
+    ) -> Result<B256> {
+        let storage_key = slot.into();
+
+        let account = self
+            .get_account(address, Some(&[storage_key]), block)
+            .await?;
+
+        let value = account.slots.get(&storage_key);
+        match value {
+            Some(value) => Ok((*value).into()),
+            None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
+        }
+    }
+
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
         self.rpc.send_raw_transaction(bytes).await
     }
