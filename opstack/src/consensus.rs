@@ -337,23 +337,22 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
     let withdrawals: Vec<Withdrawal> = value.withdrawals.into_iter().map(|w| w.into()).collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom.to_vec()));
+    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom));
 
     let consensus_header = ConsensusHeader {
-        parent_hash: value.parent_hash.into(),
+        parent_hash: value.parent_hash,
         ommers_hash: empty_uncle_hash,
         beneficiary: Address::from(*value.fee_recipient),
-        state_root: value.state_root.into(),
+        state_root: value.state_root,
         transactions_root: txs_root,
-        receipts_root: value.receipts_root.into(),
+        receipts_root: value.receipts_root,
         withdrawals_root: Some(withdrawals_root),
-        logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
         number: value.block_number,
         gas_limit: value.gas_limit,
         gas_used: value.gas_used,
         timestamp: value.timestamp,
-        mix_hash: value.prev_randao.into(),
+        mix_hash: value.prev_randao,
         nonce: empty_nonce,
         base_fee_per_gas: Some(value.base_fee_per_gas.to::<u64>()),
         blob_gas_used: Some(value.blob_gas_used),
@@ -361,6 +360,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         parent_beacon_block_root: None,
         extra_data: value.extra_data.to_vec().into(),
         requests_hash: None,
+        logs_bloom,
     };
 
     let header = Header {

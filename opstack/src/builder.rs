@@ -88,7 +88,7 @@ impl OpStackClientBuilder {
 
         let consensus = ConsensusClient::new(&config);
         OpStackClient::new(
-            &config.execution_rpc.to_string(),
+            config.execution_rpc.as_ref(),
             consensus,
             fork_schedule,
             #[cfg(not(target_arch = "wasm32"))]
