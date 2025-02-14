@@ -1,27 +1,31 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::marker::PhantomData;
 
 use alloy::consensus::BlockHeader;
+use alloy::eips::BlockId;
 use alloy::network::primitives::HeaderResponse;
-use alloy::network::{BlockResponse, ReceiptResponse};
-use alloy::primitives::{keccak256, Address, B256, U256};
-use alloy::rlp;
+use alloy::network::BlockResponse;
+use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
-use alloy_trie::root::ordered_trie_root_with_encoder;
 use eyre::Result;
-use futures::future::try_join_all;
-use revm::primitives::{BlobExcessGasAndPrice, KECCAK_EMPTY};
-use tracing::warn;
+use revm::primitives::BlobExcessGasAndPrice;
+use tracing::{info, warn};
 
-use crate::fork_schedule::ForkSchedule;
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use helios_common::{
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
+};
+use helios_verifiable_api_client::VerifiableApi;
 
-use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
-use self::proof::{verify_account_proof, verify_storage_proof};
+use self::proof::verify_block_receipts;
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
-use self::types::Account;
+use self::verified_client::{
+    api::VerifiableMethodsApi, rpc::VerifiableMethodsRpc, VerifiableMethods,
+    VerifiableMethodsClient,
+};
 
 pub mod constants;
 pub mod errors;
@@ -29,22 +33,38 @@ pub mod evm;
 pub mod proof;
 pub mod rpc;
 pub mod state;
-pub mod types;
+pub mod verified_client;
 
 #[derive(Clone)]
-pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
+pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
     pub rpc: R,
+    verified_methods: VerifiableMethodsClient<N, R, A>,
     state: State<N, R>,
     fork_schedule: ForkSchedule,
+    _marker: PhantomData<A>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
-    pub fn new(rpc: &str, state: State<N, R>, fork_schedule: ForkSchedule) -> Result<Self> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N, R, A> {
+    pub fn new(
+        rpc: &str,
+        verifiable_api: Option<&str>,
+        state: State<N, R>,
+        fork_schedule: ForkSchedule,
+    ) -> Result<Self> {
+        let verified_methods = if let Some(verifiable_api) = verifiable_api {
+            info!(target: "helios::execution", "using Verifiable-API url={}", verifiable_api);
+            VerifiableMethodsClient::Api(VerifiableMethodsApi::new(verifiable_api, state.clone())?)
+        } else {
+            info!(target: "helios::execution", "Using JSON-RPC url={}", rpc);
+            VerifiableMethodsClient::Rpc(VerifiableMethodsRpc::new(rpc, state.clone())?)
+        };
         let rpc: R = ExecutionRpc::new(rpc)?;
-        Ok(ExecutionClient::<N, R> {
+        Ok(Self {
             rpc,
+            verified_methods,
             state,
             fork_schedule,
+            _marker: PhantomData,
         })
     }
 
@@ -62,46 +82,29 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         slots: Option<&[B256]>,
         tag: BlockTag,
     ) -> Result<Account> {
-        let slots = slots.unwrap_or(&[]);
-        let block = self
-            .state
-            .get_block(tag)
+        self.verified_methods
+            .client()
+            .get_account(address, slots, tag)
             .await
-            .ok_or(ExecutionError::BlockNotFound(tag))?;
+    }
 
-        let proof = self
-            .rpc
-            .get_proof(address, slots, block.header().number().into())
+    pub async fn get_storage_at(
+        &self,
+        address: Address,
+        slot: U256,
+        block: BlockTag,
+    ) -> Result<B256> {
+        let storage_key = slot.into();
+
+        let account = self
+            .get_account(address, Some(&[storage_key]), block)
             .await?;
 
-        // Verify the account proof
-        verify_account_proof(&proof, block.header().state_root())?;
-        // Verify the storage proofs, collecting the slot values
-        let slot_map = verify_storage_proof(&proof)?;
-        // Verify the code hash
-        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
-            Vec::new()
-        } else {
-            let code = self.rpc.get_code(address, block.header().number()).await?;
-            let code_hash = keccak256(&code);
-
-            if proof.code_hash != code_hash {
-                return Err(
-                    ExecutionError::CodeHashMismatch(address, code_hash, proof.code_hash).into(),
-                );
-            }
-
-            code
-        };
-
-        Ok(Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code,
-            code_hash: proof.code_hash,
-            storage_hash: proof.storage_hash,
-            slots: slot_map,
-        })
+        let value = account.slots.get(&storage_key);
+        match value {
+            Some(value) => Ok((*value).into()),
+            None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
+        }
     }
 
     pub async fn get_storage_at(
@@ -202,46 +205,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         &self,
         tx_hash: B256,
     ) -> Result<Option<N::ReceiptResponse>> {
-        let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
-        if receipt.is_none() {
-            return Ok(None);
-        }
-        let receipt = receipt.unwrap();
-
-        let block_number = receipt.block_number().unwrap();
-        let tag = BlockTag::Number(block_number);
-
-        let block = self.state.get_block(tag).await;
-        let block = if let Some(block) = block {
-            block
-        } else {
-            return Ok(None);
-        };
-
-        // Fetch all receipts in block, check root and inclusion
-        let receipts = self
-            .rpc
-            .get_block_receipts(tag)
-            .await?
-            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
-
-        let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
-        let expected_receipt_root = ordered_trie_root(&receipts_encoded);
-
-        if expected_receipt_root != block.header().receipts_root()
-            // Note: Some RPC providers return different response in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
-            // Primarily due to https://github.com/ethereum/execution-apis/issues/295 not finalized
-            // Which means that the basic equality check in N::receipt_contains can be flaky
-            // So as a fallback do equality check on encoded receipts as well
-            || !(
-                N::receipt_contains(&receipts, &receipt)
-                || receipts_encoded.contains(&N::encode_receipt(&receipt))
-            )
-        {
-            return Err(ExecutionError::ReceiptRootMismatch(tx_hash).into());
-        }
-
-        Ok(Some(receipt))
+        self.verified_methods
+            .client()
+            .get_transaction_receipt(tx_hash)
+            .await
     }
 
     pub async fn get_block_receipts(
@@ -254,21 +221,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         } else {
             return Ok(None);
         };
-
-        let tag = BlockTag::Number(block.header().number());
+        let block_id = BlockId::from(block.header().number());
 
         let receipts = self
             .rpc
-            .get_block_receipts(tag)
+            .get_block_receipts(block_id)
             .await?
             .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
 
-        let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
-        let expected_receipt_root = ordered_trie_root(&receipts_encoded);
-
-        if expected_receipt_root != block.header().receipts_root() {
-            return Err(ExecutionError::BlockReceiptsRootMismatch(tag).into());
-        }
+        verify_block_receipts::<N>(&receipts, &block)?;
 
         Ok(Some(receipts))
     }
@@ -293,14 +254,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             filter
         };
 
-        let logs = self.rpc.get_logs(&filter).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
-        self.ensure_logs_match_filter(&logs, &filter).await?;
-        self.verify_logs(&logs).await?;
+        let logs = self.verified_methods.client().get_logs(&filter).await?;
+        ensure_logs_match_filter(&logs, &filter)?;
         Ok(logs)
     }
 
@@ -314,17 +269,13 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             }
             Some(FilterType::Logs(filter)) => {
                 // underlying RPC takes care of keeping track of changes
-                let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
+                let filter_changes = self
+                    .verified_methods
+                    .client()
+                    .get_filter_changes(filter_id)
+                    .await?;
                 let logs = filter_changes.as_logs().unwrap_or(&[]);
-                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-                    return Err(ExecutionError::TooManyLogsToProve(
-                        logs.len(),
-                        MAX_SUPPORTED_LOGS_NUMBER,
-                    )
-                    .into());
-                }
-                self.ensure_logs_match_filter(logs, filter).await?;
-                self.verify_logs(logs).await?;
+                ensure_logs_match_filter(logs, filter)?;
                 FilterChanges::Logs(logs.to_vec())
             }
             Some(FilterType::NewBlock(last_block_num)) => {
@@ -359,16 +310,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         match &filter_type {
             Some(FilterType::Logs(filter)) => {
-                let logs = self.rpc.get_filter_logs(filter_id).await?;
-                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-                    return Err(ExecutionError::TooManyLogsToProve(
-                        logs.len(),
-                        MAX_SUPPORTED_LOGS_NUMBER,
-                    )
-                    .into());
-                }
-                self.ensure_logs_match_filter(&logs, filter).await?;
-                self.verify_logs(&logs).await?;
+                let logs = self
+                    .verified_methods
+                    .client()
+                    .get_filter_logs(filter_id)
+                    .await?;
+                ensure_logs_match_filter(&logs, filter)?;
                 Ok(logs)
             }
             _ => {
@@ -432,30 +379,43 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Ok(filter_id)
     }
 
-    /// Ensure that each log entry in the given array of logs match the given filter.
-    async fn ensure_logs_match_filter(&self, logs: &[Log], filter: &Filter) -> Result<()> {
-        fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
-            if let Some(block_hash) = filter.get_block_hash() {
-                if log.block_hash.unwrap() != block_hash {
-                    return false;
-                }
-            }
-            if let Some(from_block) = filter.get_from_block() {
-                if log.block_number.unwrap() < from_block {
-                    return false;
-                }
-            }
-            if let Some(to_block) = filter.get_to_block() {
-                if log.block_number.unwrap() > to_block {
-                    return false;
-                }
-            }
-            if !filter.address.matches(&log.address()) {
+    pub async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<HashMap<Address, Account>> {
+        self.verified_methods
+            .client()
+            .create_access_list(tx, block)
+            .await
+    }
+}
+
+/// Ensure that each log entry in the given array of logs match the given filter.
+fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
+    fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+        if let Some(block_hash) = filter.get_block_hash() {
+            if log.block_hash.unwrap() != block_hash {
                 return false;
             }
-            for (i, topic) in filter.topics.iter().enumerate() {
+        }
+        if let Some(from_block) = filter.get_from_block() {
+            if log.block_number.unwrap() < from_block {
+                return false;
+            }
+        }
+        if let Some(to_block) = filter.get_to_block() {
+            if log.block_number.unwrap() > to_block {
+                return false;
+            }
+        }
+        if !filter.address.matches(&log.address()) {
+            return false;
+        }
+        for (i, filter_topic) in filter.topics.iter().enumerate() {
+            if !filter_topic.is_empty() {
                 if let Some(log_topic) = log.topics().get(i) {
-                    if !topic.matches(log_topic) {
+                    if !filter_topic.matches(log_topic) {
                         return false;
                     }
                 } else {
@@ -463,81 +423,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                     return false;
                 }
             }
-            true
         }
-        for log in logs {
-            if !log_matches_filter(log, filter) {
-                return Err(ExecutionError::LogFilterMismatch().into());
-            }
-        }
-        Ok(())
+        true
     }
 
-    /// Verify the integrity of each log entry in the given array of logs by
-    /// checking its inclusion in the corresponding transaction receipt
-    /// and verifying the transaction receipt itself against the block's receipt root.
-    async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
-        // Collect all (unique) block numbers
-        let block_nums = logs
-            .iter()
-            .map(|log| {
-                log.block_number
-                    .ok_or_else(|| eyre::eyre!("block num not found in log"))
-            })
-            .collect::<Result<HashSet<_>, _>>()?;
-
-        // Collect all (proven) tx receipts for all block numbers
-        let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
-            let tag = BlockTag::Number(block_num);
-            let receipts = self.get_block_receipts(tag).await;
-            receipts?.ok_or_else(|| eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))
-        });
-        let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
-        let receipts = blocks_receipts.into_iter().flatten().collect::<Vec<_>>();
-
-        // Map tx hashes to encoded logs
-        let receipts_logs_encoded = receipts
-            .into_iter()
-            .filter_map(|receipt| {
-                let logs = N::receipt_logs(&receipt);
-                if logs.is_empty() {
-                    None
-                } else {
-                    let tx_hash = logs[0].transaction_hash.unwrap();
-                    let encoded_logs = logs
-                        .iter()
-                        .map(|l| rlp::encode(&l.inner))
-                        .collect::<Vec<_>>();
-                    Some((tx_hash, encoded_logs))
-                }
-            })
-            .collect::<HashMap<_, _>>();
-
-        for log in logs {
-            // Check if the receipt contains the desired log
-            // Encoding logs for comparison
-            let tx_hash = log.transaction_hash.unwrap();
-            let log_encoded = rlp::encode(&log.inner);
-            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash,
-                    U256::from(log.log_index.unwrap()),
-                )
-                .into());
-            }
+    for log in logs {
+        if !log_matches_filter(log, filter) {
+            return Err(ExecutionError::LogFilterMismatch().into());
         }
-        Ok(())
-    }
-}
-
-/// Compute a trie root of a collection of encoded items.
-/// Ref: https://github.com/alloy-rs/trie/blob/main/src/root.rs.
-fn ordered_trie_root(items: &[Vec<u8>]) -> B256 {
-    fn noop_encoder(item: &Vec<u8>, buffer: &mut Vec<u8>) {
-        buffer.extend_from_slice(item);
     }
 
-    ordered_trie_root_with_encoder(items, noop_encoder)
+    Ok(())
 }

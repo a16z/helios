@@ -9,7 +9,7 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::core::types::BlockTag;
+use helios::common::types::BlockTag;
 use helios::ethereum::{
     config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
 };

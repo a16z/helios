@@ -1,0 +1,12 @@
+[package]
+name = "helios-verifiable-api-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+# self crates
+helios-common = { path = "../../common" }

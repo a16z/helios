@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
-use helios_core::types::BlockTag;
+use helios_common::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
 use helios_opstack::OpStackClientBuilder;
 
@@ -42,6 +42,7 @@ impl OpStackClient {
 
         let config = Config {
             execution_rpc: execution_rpc.parse()?,
+            verifiable_api: None,
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,
@@ -173,6 +174,20 @@ impl OpStackClient {
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
         let code = map_err(self.inner.get_code(addr, block).await)?;
         Ok(format!("0x{}", hex::encode(code)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_storage_at(
+        &self,
+        address: JsValue,
+        slot: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let address: Address = serde_wasm_bindgen::from_value(address)?;
+        let slot: U256 = serde_wasm_bindgen::from_value(slot)?;
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let storage = map_err(self.inner.get_storage_at(address, slot, block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&storage)?)
     }
 
     #[wasm_bindgen]

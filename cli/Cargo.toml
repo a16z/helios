@@ -21,6 +21,8 @@ dirs = "5.0.1"
 ctrlc = "3.2.3"
 url = "2.5.0"
 
+# self crates
+helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 helios-opstack = { path = "../opstack" }

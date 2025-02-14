@@ -7,10 +7,10 @@ use alloy::primitives::{b256, fixed_bytes};
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
-use helios_core::fork_schedule::ForkSchedule;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
+use helios_common::fork_schedule::ForkSchedule;
 use helios_consensus_core::types::{Fork, Forks};
 
 use crate::config::base::BaseConfig;
