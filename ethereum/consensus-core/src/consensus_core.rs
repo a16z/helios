@@ -31,7 +31,7 @@ pub fn verify_bootstrap<S: ConsensusSpec>(
     checkpoint: B256,
     forks: &Forks,
 ) -> Result<()> {
-    if !is_valid_header::<S>(&bootstrap.header(), forks) {
+    if !is_valid_header::<S>(bootstrap.header(), forks) {
         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
     }
 
@@ -140,7 +140,7 @@ pub fn apply_generic_update<S: ConsensusSpec>(
 
     // update best valid update
     if store.best_valid_update.is_none()
-        || is_better_update(update, &store.best_valid_update.as_ref().unwrap())
+        || is_better_update(update, store.best_valid_update.as_ref().unwrap())
     {
         store.best_valid_update = Some(update.clone());
     }
@@ -343,7 +343,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
     let is_valid_sig = verify_sync_committee_signture(
         &pks,
-        &update.attested_header.beacon(),
+        update.attested_header.beacon(),
         &update.sync_aggregate.sync_committee_signature,
         fork_data_root,
     );

@@ -373,7 +373,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             }
             _ => {
                 // only concerned with filters created via helios
-                return Err(ExecutionError::FilterNotFound(filter_id).into());
+                Err(ExecutionError::FilterNotFound(filter_id).into())
             }
         }
     }
@@ -403,7 +403,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         // record the filter in the state
         self.state
-            .push_filter(filter_id, FilterType::Logs(filter))
+            .push_filter(filter_id, FilterType::Logs(Box::new(filter)))
             .await;
 
         Ok(filter_id)

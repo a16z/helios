@@ -303,14 +303,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
     }
 
     fn prune_before(&mut self, n: u64) {
-        loop {
-            if let Some((oldest, _)) = self.blocks.first_key_value() {
-                let oldest = *oldest;
-                if oldest < n {
-                    self.blocks.remove(&oldest);
-                } else {
-                    break;
-                }
+        while let Some((oldest, _)) = self.blocks.first_key_value() {
+            let oldest = *oldest;
+            if oldest < n {
+                self.blocks.remove(&oldest);
             } else {
                 break;
             }
@@ -324,7 +320,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
 
         if let Some(block) = self.blocks.get(&n) {
             let prev = n - 1;
-            if self.blocks.get(&prev).is_none() {
+            if !self.blocks.contains_key(&prev) {
                 let backfilled = self.rpc.get_block(block.header().parent_hash()).await?;
 
                 if N::is_hash_valid(&backfilled)
@@ -373,7 +369,7 @@ struct TransactionLocation {
 #[derive(Clone)]
 pub enum FilterType {
     // filter content
-    Logs(Filter),
+    Logs(Box<Filter>),
     // block number when the filter was created or last queried
     NewBlock(u64),
     PendingTransactions,
