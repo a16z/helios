@@ -5,18 +5,16 @@ use helios_ethereum::config::{checkpoints, networks};
 async fn test_checkpoint_fallback() {
     let cf = checkpoints::CheckpointFallback::new();
 
-    assert_eq!(cf.services.get(&networks::Network::MAINNET), None);
-    assert_eq!(cf.services.get(&networks::Network::GOERLI), None);
-    assert_eq!(cf.services.get(&networks::Network::SEPOLIA), None);
-    assert_eq!(cf.services.get(&networks::Network::HOLESKY), None);
+    assert_eq!(cf.services.get(&networks::Network::Mainnet), None);
+    assert_eq!(cf.services.get(&networks::Network::Sepolia), None);
+    assert_eq!(cf.services.get(&networks::Network::Holesky), None);
 
     assert_eq!(
         cf.networks,
         [
-            networks::Network::MAINNET,
-            networks::Network::GOERLI,
-            networks::Network::SEPOLIA,
-            networks::Network::HOLESKY,
+            networks::Network::Mainnet,
+            networks::Network::Sepolia,
+            networks::Network::Holesky,
         ]
         .to_vec()
     );
@@ -29,10 +27,9 @@ async fn test_construct_checkpoints() {
         .await
         .unwrap();
 
-    assert!(cf.services[&networks::Network::MAINNET].len() > 1);
-    assert!(cf.services[&networks::Network::GOERLI].len() > 1);
-    assert!(cf.services[&networks::Network::SEPOLIA].len() > 1);
-    assert!(cf.services[&networks::Network::HOLESKY].len() > 1);
+    assert!(cf.services[&networks::Network::Mainnet].len() > 1);
+    assert!(cf.services[&networks::Network::Sepolia].len() > 1);
+    assert!(cf.services[&networks::Network::Holesky].len() > 1);
 }
 
 #[tokio::test]
@@ -42,17 +39,17 @@ async fn test_fetch_latest_checkpoints() {
         .await
         .unwrap();
     let checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::SEPOLIA)
+        .fetch_latest_checkpoint(&networks::Network::Sepolia)
         .await
         .unwrap();
     assert!(checkpoint != B256::ZERO);
     let checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::HOLESKY)
+        .fetch_latest_checkpoint(&networks::Network::Holesky)
         .await
         .unwrap();
     assert!(checkpoint != B256::ZERO);
     let checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::MAINNET)
+        .fetch_latest_checkpoint(&networks::Network::Mainnet)
         .await
         .unwrap();
     assert!(checkpoint != B256::ZERO);
@@ -64,13 +61,11 @@ async fn test_get_all_fallback_endpoints() {
         .build()
         .await
         .unwrap();
-    let urls = cf.get_all_fallback_endpoints(&networks::Network::MAINNET);
+    let urls = cf.get_all_fallback_endpoints(&networks::Network::Mainnet);
     assert!(!urls.is_empty());
-    let urls = cf.get_all_fallback_endpoints(&networks::Network::GOERLI);
+    let urls = cf.get_all_fallback_endpoints(&networks::Network::Sepolia);
     assert!(!urls.is_empty());
-    let urls = cf.get_all_fallback_endpoints(&networks::Network::SEPOLIA);
-    assert!(!urls.is_empty());
-    let urls = cf.get_all_fallback_endpoints(&networks::Network::HOLESKY);
+    let urls = cf.get_all_fallback_endpoints(&networks::Network::Holesky);
     assert!(!urls.is_empty());
 }
 
@@ -80,12 +75,10 @@ async fn test_get_healthy_fallback_endpoints() {
         .build()
         .await
         .unwrap();
-    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::MAINNET);
+    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::Mainnet);
     assert!(!urls.is_empty());
-    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::GOERLI);
+    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::Sepolia);
     assert!(!urls.is_empty());
-    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::SEPOLIA);
-    assert!(!urls.is_empty());
-    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::HOLESKY);
+    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::Holesky);
     assert!(!urls.is_empty());
 }
