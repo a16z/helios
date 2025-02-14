@@ -215,8 +215,8 @@ impl EthereumClientBuilder {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        let socket = if rpc_bind_ip.is_some() && rpc_port.is_some() {
-            Some(SocketAddr::new(rpc_bind_ip.unwrap(), rpc_port.unwrap()))
+        let socket = if let (Some(rpc_bind_ip), Some(rpc_port)) = (rpc_bind_ip, rpc_port) {
+            Some(SocketAddr::new(rpc_bind_ip, rpc_port))
         } else {
             None
         };
@@ -227,7 +227,7 @@ impl EthereumClientBuilder {
         Client::<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>>::new(
             &config.execution_rpc.clone(),
             consensus,
-            config.execution_forks.clone(),
+            config.execution_forks,
             #[cfg(not(target_arch = "wasm32"))]
             socket,
         )

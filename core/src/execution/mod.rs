@@ -373,7 +373,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             }
             _ => {
                 // only concerned with filters created via helios
-                return Err(ExecutionError::FilterNotFound(filter_id).into());
+                Err(ExecutionError::FilterNotFound(filter_id).into())
             }
         }
     }
@@ -403,7 +403,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         // record the filter in the state
         self.state
-            .push_filter(filter_id, FilterType::Logs(filter))
+            .push_filter(filter_id, FilterType::Logs(Box::new(filter)))
             .await;
 
         Ok(filter_id)
@@ -494,6 +494,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 /// Compute a trie root of a collection of encoded items.
 /// Ref: https://github.com/alloy-rs/trie/blob/main/src/root.rs.
 fn ordered_trie_root(items: &[Vec<u8>]) -> B256 {
+    #[allow(clippy::ptr_arg)]
     fn noop_encoder(item: &Vec<u8>, buffer: &mut Vec<u8>) {
         buffer.extend_from_slice(item);
     }

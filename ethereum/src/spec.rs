@@ -54,9 +54,8 @@ impl NetworkSpec for Ethereum {
         }
 
         if let Some(withdrawals) = &block.withdrawals {
-            let withdrawals_root = calculate_withdrawals_root(
-                &withdrawals.iter().map(|w| w.clone()).collect::<Vec<_>>(),
-            );
+            let withdrawals_root =
+                calculate_withdrawals_root(&withdrawals.iter().copied().collect::<Vec<_>>());
             if Some(withdrawals_root) != block.header.withdrawals_root {
                 return false;
             }
@@ -80,55 +79,55 @@ impl NetworkSpec for Ethereum {
     }
 
     fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
-        let mut tx_env = TxEnv::default();
-        tx_env.caller = tx.from.unwrap_or_default();
-        tx_env.gas_limit = <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
-            .map(|v| v as u64)
-            .unwrap_or(u64::MAX);
-        tx_env.gas_price = <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-            .map(U256::from)
-            .unwrap_or_default();
-        tx_env.transact_to = tx.to.unwrap_or_default();
-        tx_env.value = tx.value.unwrap_or_default();
-        tx_env.data = <TransactionRequest as TransactionBuilder<Self>>::input(tx)
-            .unwrap_or_default()
-            .clone();
-        tx_env.nonce = <TransactionRequest as TransactionBuilder<Self>>::nonce(tx);
-        tx_env.chain_id = <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx);
-        tx_env.access_list = <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-            .map(|v| v.to_vec())
-            .unwrap_or_default();
-        tx_env.gas_priority_fee =
-            <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
-                .map(U256::from);
-        tx_env.max_fee_per_blob_gas =
-            <TransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx).map(U256::from);
-        tx_env.blob_hashes = tx
-            .blob_versioned_hashes
-            .as_ref()
-            .map(|v| v.to_vec())
-            .unwrap_or_default();
-
-        tx_env
+        TxEnv {
+            caller: tx.from.unwrap_or_default(),
+            gas_limit: <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
+                .unwrap_or(u64::MAX),
+            gas_price: <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
+                .map(U256::from)
+                .unwrap_or_default(),
+            transact_to: tx.to.unwrap_or_default(),
+            value: tx.value.unwrap_or_default(),
+            data: <TransactionRequest as TransactionBuilder<Self>>::input(tx)
+                .unwrap_or_default()
+                .clone(),
+            nonce: <TransactionRequest as TransactionBuilder<Self>>::nonce(tx),
+            chain_id: <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx),
+            access_list: <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
+                .map(|v| v.to_vec())
+                .unwrap_or_default(),
+            gas_priority_fee:
+                <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
+                    .map(U256::from),
+            max_fee_per_blob_gas:
+                <TransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx)
+                    .map(U256::from),
+            blob_hashes: tx
+                .blob_versioned_hashes
+                .as_ref()
+                .map(|v| v.to_vec())
+                .unwrap_or_default(),
+            authorization_list: None,
+        }
     }
 
     fn block_env(block: &Self::BlockResponse, fork_schedule: &ForkSchedule) -> BlockEnv {
-        let mut block_env = BlockEnv::default();
-        block_env.number = U256::from(block.header.number());
-        block_env.coinbase = block.header.beneficiary();
-        block_env.timestamp = U256::from(block.header.timestamp());
-        block_env.gas_limit = U256::from(block.header.gas_limit());
-        block_env.basefee = U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64));
-        block_env.difficulty = block.header.difficulty();
-        block_env.prevrandao = block.header.mix_hash();
-
         let is_prague = block.header.timestamp >= fork_schedule.prague_timestamp;
-        block_env.blob_excess_gas_and_price = block
+        let blob_excess_gas_and_price = block
             .header
             .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v.into(), is_prague));
+            .map(|v| BlobExcessGasAndPrice::new(v, is_prague));
 
-        block_env
+        BlockEnv {
+            number: U256::from(block.header.number()),
+            coinbase: block.header.beneficiary(),
+            timestamp: U256::from(block.header.timestamp()),
+            gas_limit: U256::from(block.header.gas_limit()),
+            basefee: U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64)),
+            difficulty: block.header.difficulty(),
+            prevrandao: block.header.mix_hash(),
+            blob_excess_gas_and_price,
+        }
     }
 }
 

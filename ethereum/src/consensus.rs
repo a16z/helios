@@ -596,7 +596,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
                 block_hash: Some(*value.block_hash()),
                 block_number: Some(*value.block_number()),
                 transaction_index: Some(i as u64),
-                from: tx_envelope.recover_signer().unwrap().clone(),
+                from: tx_envelope.recover_signer().unwrap(),
                 effective_gas_price: Some(tx_envelope.effective_gas_price(base_fee)),
                 inner: tx_envelope,
             }
@@ -613,8 +613,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom =
-        Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner.to_vec()));
+    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner));
 
     let consensus_header = ConsensusHeader {
         parent_hash: *value.parent_hash(),
@@ -624,7 +623,6 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         transactions_root: txs_root,
         receipts_root: *value.receipts_root(),
         withdrawals_root: Some(withdrawals_root),
-        logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
         number: *value.block_number(),
         gas_limit: *value.gas_limit(),
@@ -638,6 +636,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         parent_beacon_block_root: None,
         extra_data: value.extra_data().inner.to_vec().into(),
         requests_hash: None,
+        logs_bloom,
     };
 
     let header = Header {
