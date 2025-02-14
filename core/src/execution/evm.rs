@@ -101,9 +101,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
     }
 
     async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
-        let mut env = Env::default();
-        env.tx = N::tx_env(tx);
-
         let block = self
             .execution
             .get_block(tag, false)

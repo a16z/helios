@@ -494,6 +494,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 /// Compute a trie root of a collection of encoded items.
 /// Ref: https://github.com/alloy-rs/trie/blob/main/src/root.rs.
 fn ordered_trie_root(items: &[Vec<u8>]) -> B256 {
+    #[allow(clippy::ptr_arg)]
     fn noop_encoder(item: &Vec<u8>, buffer: &mut Vec<u8>) {
         buffer.extend_from_slice(item);
     }
