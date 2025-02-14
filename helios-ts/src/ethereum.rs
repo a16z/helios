@@ -228,6 +228,20 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_storage_at(
+        &self,
+        address: JsValue,
+        slot: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let address: Address = serde_wasm_bindgen::from_value(address)?;
+        let slot: U256 = serde_wasm_bindgen::from_value(slot)?;
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let storage = map_err(self.inner.get_storage_at(address, slot, block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&storage)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
         let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
