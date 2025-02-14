@@ -187,6 +187,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
         .await
         .map_err(map_server_err)?;
     if receipt.is_none() {
+        // ToDo(@eshaan7): Maybe throw a 404 instead?
         return Ok(Json(None));
     }
     let receipt = receipt.unwrap();
