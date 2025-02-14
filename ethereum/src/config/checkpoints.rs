@@ -36,9 +36,9 @@ pub struct Slot {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartEndTime {
-    /// An ISO 8601 formatted UTC timestamp.
+    /// The ISO 8601 formatted UTC timestamp.
     pub start_time: String,
-    /// An ISO 8601 formatted UTC timestamp.
+    /// The ISO 8601 formatted UTC timestamp.
     pub end_time: String,
 }
 
