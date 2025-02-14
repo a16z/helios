@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
     info!("Using consensus RPC URL: {}", consensus_rpc);
 
     let mut client: EthereumClient<FileDB> = EthereumClientBuilder::new()
-        .network(Network::MAINNET)
+        .network(Network::Mainnet)
         .consensus_rpc(consensus_rpc)
         .execution_rpc(untrusted_rpc_url)
         .load_external_fallback()
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
 
     info!(
         "Built client on network \"{}\" with external checkpoint fallbacks",
-        Network::MAINNET
+        Network::Mainnet
     );
 
     client.start().await?;

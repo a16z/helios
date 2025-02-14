@@ -26,7 +26,7 @@ async fn setup() -> (
     let port = rand::thread_rng().gen_range(0..=65535);
 
     let mut helios_client = EthereumClientBuilder::new()
-        .network(Network::MAINNET)
+        .network(Network::Mainnet)
         .execution_rpc(&execution_rpc)
         .consensus_rpc(&consensus_rpc)
         .load_external_fallback()

@@ -736,7 +736,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.next_sync_committee.pubkeys[0] = PublicKey::default();
+        update.next_sync_committee_mut().pubkeys[0] = PublicKey::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -763,7 +763,7 @@ mod tests {
 
         let mut next_update = updates[1].clone();
         // Set a different finalized header to test invalid finality proof
-        next_update.finalized_header = updates[0].finalized_header.clone();
+        *next_update.finalized_header_mut() = updates[0].finalized_header().clone();
 
         let err = client.verify_update(&next_update).err().unwrap();
         assert_eq!(
@@ -785,7 +785,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.sync_aggregate.sync_committee_signature = Signature::default();
+        update.sync_aggregate_mut().sync_committee_signature = Signature::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -818,7 +818,7 @@ mod tests {
             .await
             .unwrap();
         // Replace here to test invalid finality proof
-        update.finalized_header = updates[0].finalized_header.clone();
+        *update.finalized_header_mut() = updates[0].finalized_header().clone();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
@@ -832,7 +832,7 @@ mod tests {
         let client = get_client(false, true).await;
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = Signature::default();
+        update.sync_aggregate_mut().sync_committee_signature = Signature::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
