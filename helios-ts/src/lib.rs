@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use eyre::Result;
 use wasm_bindgen::JsError;
 
