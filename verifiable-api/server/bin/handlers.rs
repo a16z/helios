@@ -9,8 +9,7 @@ use alloy::{
     network::{BlockResponse, ReceiptResponse, TransactionBuilder},
     primitives::{Address, B256, U256},
     rpc::types::{
-        serde_helpers::JsonStorageKey, AccessListItem, BlockId, BlockTransactionsKind, Filter,
-        FilterChanges, FilterSet, Log,
+        AccessListItem, BlockId, BlockTransactionsKind, Filter, FilterChanges, FilterSet, Log,
     },
 };
 use axum::{
@@ -48,7 +47,7 @@ fn map_server_err(e: Report) -> (StatusCode, Json<serde_json::Value>) {
 #[serde(rename_all = "camelCase")]
 pub struct AccountProofQuery {
     #[serde(default)]
-    pub storage_slots: Vec<JsonStorageKey>,
+    pub storage_slots: Vec<U256>,
     pub block: Option<BlockId>,
 }
 
@@ -151,7 +150,7 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
 
     let storage_keys = storage_slots
         .into_iter()
-        .map(|key| key.as_b256())
+        .map(|key| key.into())
         .collect::<Vec<_>>();
     let proof = rpc
         .get_proof(address, &storage_keys, block)
@@ -359,7 +358,7 @@ pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
                     storage_slots: account
                         .storage_keys
                         .iter()
-                        .map(|key| JsonStorageKey::Hash(*key))
+                        .map(|key| (*key).into())
                         .collect(),
                     block: Some(block_id),
                 }),

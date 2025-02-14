@@ -118,10 +118,6 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_storage_at(&self, _address: Address, _key: U256, _block: BlockId) -> Result<B256> {
-        Err(eyre!("not implemented"))
-    }
-
     async fn get_fee_history(
         &self,
         _block_count: u64,

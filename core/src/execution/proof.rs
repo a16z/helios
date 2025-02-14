@@ -4,7 +4,7 @@ use alloy::consensus::BlockHeader;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
-use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, Log};
+use alloy::rpc::types::EIP1186AccountProofResponse;
 use alloy_trie::root::ordered_trie_root_with_encoder;
 use alloy_trie::{
     proof::{verify_proof, ProofRetainer},
@@ -176,52 +176,4 @@ pub fn ordered_trie_root_noop_encoder(items: &[Vec<u8>]) -> B256 {
     }
 
     ordered_trie_root_with_encoder(items, noop_encoder)
-}
-
-/// Ensure that each log entry in the given array of logs match the given filter.
-pub fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
-    fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
-        if let Some(block_hash) = filter.get_block_hash() {
-            if log.block_hash.unwrap() != block_hash {
-                return false;
-            }
-        }
-        if let Some(from_block) = filter.get_from_block() {
-            if log.block_number.unwrap() < from_block {
-                return false;
-            }
-        }
-        if let Some(to_block) = filter.get_to_block() {
-            if log.block_number.unwrap() > to_block {
-                return false;
-            }
-        }
-        if !filter.address.matches(&log.address()) {
-            return false;
-        }
-        for (i, topic) in filter
-            .topics
-            .iter()
-            .filter(|topic| !topic.is_empty())
-            .enumerate()
-        {
-            if let Some(log_topic) = log.topics().get(i) {
-                if !topic.matches(log_topic) {
-                    return false;
-                }
-            } else {
-                // if filter topic is not present in log, it's a mismatch
-                return false;
-            }
-        }
-        true
-    }
-
-    for log in logs {
-        if !log_matches_filter(log, filter) {
-            return Err(ExecutionError::LogFilterMismatch().into());
-        }
-    }
-
-    Ok(())
 }

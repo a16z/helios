@@ -1,7 +1,7 @@
 use alloy::{
     eips::BlockId,
     primitives::{Address, B256, U256},
-    rpc::types::{serde_helpers::JsonStorageKey, Filter, ValueOrArray},
+    rpc::types::{Filter, ValueOrArray},
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -21,7 +21,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync {
     async fn get_account(
         &self,
         address: Address,
-        storage_slots: &[JsonStorageKey],
+        storage_slots: &[U256],
         block: Option<BlockId>,
     ) -> Result<AccountResponse>;
     async fn get_transaction_receipt(
@@ -64,7 +64,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     async fn get_account(
         &self,
         address: Address,
-        storage_slots: &[JsonStorageKey],
+        storage_slots: &[U256],
         block: Option<BlockId>,
     ) -> Result<AccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);

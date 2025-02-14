@@ -51,7 +51,6 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
         block: BlockNumberOrTag,
         txs_kind: BlockTransactionsKind,
     ) -> Result<Option<N::BlockResponse>>;
-    async fn get_storage_at(&self, address: Address, key: U256, block: BlockId) -> Result<B256>;
 
     async fn get_fee_history(
         &self,

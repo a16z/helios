@@ -5,7 +5,6 @@ use alloy::eips::BlockId;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
-use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use alloy_trie::KECCAK_EMPTY;
 use async_trait::async_trait;
@@ -54,7 +53,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
         let slots = slots
             .unwrap_or(&[])
             .into_iter()
-            .map(|s| JsonStorageKey::Hash(*s))
+            .map(|s| (*s).into())
             .collect::<Vec<_>>();
 
         let account_response = self

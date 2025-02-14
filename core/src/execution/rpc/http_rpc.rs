@@ -228,12 +228,4 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .await
             .map_err(|e| RpcError::new("get_block_by_number", e))?)
     }
-
-    async fn get_storage_at(&self, address: Address, key: U256, block: BlockId) -> Result<B256> {
-        Ok(self
-            .provider
-            .raw_request("eth_getStorageAt".into(), (address, key, block))
-            .await
-            .map_err(|e| RpcError::new("get_storage_at", e))?)
-    }
 }

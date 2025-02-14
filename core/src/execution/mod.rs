@@ -6,11 +6,8 @@ use alloy::eips::BlockId;
 use alloy::network::primitives::HeaderResponse;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::serde_helpers::JsonStorageKey;
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
 use eyre::Result;
-use helios_verifiable_api_client::VerifiableApi;
-use proof::{ensure_logs_match_filter, verify_block_receipts};
 use revm::primitives::BlobExcessGasAndPrice;
 use tracing::{info, warn};
 
@@ -19,8 +16,10 @@ use helios_common::{
     network_spec::NetworkSpec,
     types::{Account, BlockTag},
 };
+use helios_verifiable_api_client::VerifiableApi;
 
 use self::errors::ExecutionError;
+use self::proof::verify_block_receipts;
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
 use self::verified_client::{
@@ -92,10 +91,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
     pub async fn get_storage_at(
         &self,
         address: Address,
-        slot: JsonStorageKey,
+        slot: U256,
         block: BlockTag,
     ) -> Result<B256> {
-        let storage_key = slot.as_b256();
+        let storage_key = slot.into();
 
         let account = self
             .get_account(address, Some(&[storage_key]), block)
@@ -371,4 +370,49 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
             .create_access_list(tx, block)
             .await
     }
+}
+
+/// Ensure that each log entry in the given array of logs match the given filter.
+fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
+    fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+        if let Some(block_hash) = filter.get_block_hash() {
+            if log.block_hash.unwrap() != block_hash {
+                return false;
+            }
+        }
+        if let Some(from_block) = filter.get_from_block() {
+            if log.block_number.unwrap() < from_block {
+                return false;
+            }
+        }
+        if let Some(to_block) = filter.get_to_block() {
+            if log.block_number.unwrap() > to_block {
+                return false;
+            }
+        }
+        if !filter.address.matches(&log.address()) {
+            return false;
+        }
+        for (i, filter_topic) in filter.topics.iter().enumerate() {
+            if !filter_topic.is_empty() {
+                if let Some(log_topic) = log.topics().get(i) {
+                    if !filter_topic.matches(log_topic) {
+                        return false;
+                    }
+                } else {
+                    // if filter topic is not present in log, it's a mismatch
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    for log in logs {
+        if !log_matches_filter(log, filter) {
+            return Err(ExecutionError::LogFilterMismatch().into());
+        }
+    }
+
+    Ok(())
 }
