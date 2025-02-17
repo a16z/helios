@@ -106,7 +106,16 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             request = request.query(&[("blockHash", block_hash)]);
         }
         if let Some(address) = filter.address.to_value_or_array() {
-            request = request.query(&[("address", address)]);
+            match address {
+                ValueOrArray::Value(address) => {
+                    request = request.query(&[("address", address)]);
+                }
+                ValueOrArray::Array(addresses) => {
+                    for address in addresses {
+                        request = request.query(&[("address", address)]);
+                    }
+                }
+            }
         }
         for idx in 0..=3 {
             if let Some(topics) = filter.topics[idx].to_value_or_array() {

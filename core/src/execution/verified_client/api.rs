@@ -268,13 +268,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsA
                 block
             };
 
-            verify_receipt_proof::<N>(
-                receipt,
-                block.transactions().len(),
-                block.header().receipts_root(),
-                receipt_proof,
-            )
-            .map_err(|_| ExecutionError::ReceiptRootMismatch(receipt.transaction_hash()))?;
+            verify_receipt_proof::<N>(receipt, block.header().receipts_root(), receipt_proof)
+                .map_err(|_| ExecutionError::ReceiptRootMismatch(receipt.transaction_hash()))?;
         }
 
         Ok(())

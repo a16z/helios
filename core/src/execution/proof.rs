@@ -102,7 +102,6 @@ pub fn create_receipt_proof<N: NetworkSpec>(
 ) -> Vec<Bytes> {
     // Initialise the trie builder with proof retainer for the target index
     let receipts_len = receipts.len();
-    let target_index = adjust_index_for_rlp(target_index, receipts_len);
     let retainer = ProofRetainer::new(vec![Nibbles::unpack(rlp::encode_fixed_size(&target_index))]);
     let mut hb = HashBuilder::default().with_proof_retainer(retainer);
 
@@ -133,14 +132,14 @@ pub fn create_receipt_proof<N: NetworkSpec>(
 /// Given a receipt, the root hash, and a proof, verify the proof.
 pub fn verify_receipt_proof<N: NetworkSpec>(
     receipt: &N::ReceiptResponse,
-    receipts_len: usize,
     root: B256,
     proof: &[Bytes],
 ) -> Result<()> {
-    let index = receipt.transaction_index().unwrap() as usize;
-    let index = adjust_index_for_rlp(index, receipts_len);
-    let index_buffer = rlp::encode_fixed_size(&index);
-    let key = Nibbles::unpack(&index_buffer);
+    let key = {
+        let index = receipt.transaction_index().unwrap() as usize;
+        let index_buffer = rlp::encode_fixed_size(&index);
+        Nibbles::unpack(&index_buffer)
+    };
     let expected_value = Some(N::encode_receipt(receipt));
 
     verify_proof(root, key, expected_value, proof).map_err(|e| eyre!(e))
