@@ -373,11 +373,10 @@ pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
 
         let account_chunk = join_all(account_chunk_futs).await;
 
-        account_chunk.into_iter().for_each(|(address, value)| {
-            if let Some(account) = value.ok() {
-                accounts.insert(address, account.0);
-            }
-        });
+        for (address, value) in account_chunk {
+            let account = value?.0;
+            accounts.insert(address, account);
+        }
     }
 
     Ok(Json(AccessListResponse { accounts }))

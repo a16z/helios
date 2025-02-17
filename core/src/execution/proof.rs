@@ -119,14 +119,11 @@ pub fn create_receipt_proof<N: NetworkSpec>(
     hb.root();
 
     // Extract the proof nodes from the trie
-    let proof = hb
-        .take_proof_nodes()
+    hb.take_proof_nodes()
         .into_nodes_sorted()
         .into_iter()
         .map(|n| n.1)
-        .collect::<Vec<_>>();
-
-    proof
+        .collect::<Vec<_>>()
 }
 
 /// Given a receipt, the root hash, and a proof, verify the proof.
@@ -151,10 +148,7 @@ pub fn verify_block_receipts<N: NetworkSpec>(
     receipts: &[N::ReceiptResponse],
     block: &N::BlockResponse,
 ) -> Result<()> {
-    let receipts_encoded = receipts
-        .into_iter()
-        .map(N::encode_receipt)
-        .collect::<Vec<_>>();
+    let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
     let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
 
     if expected_receipt_root != block.header().receipts_root() {

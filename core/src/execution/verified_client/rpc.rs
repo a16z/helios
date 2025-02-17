@@ -185,11 +185,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
 
             let account_chunk = join_all(account_chunk_futs).await;
 
-            account_chunk.into_iter().for_each(|(address, value)| {
-                if let Some(account) = value.ok() {
-                    account_map.insert(address, account);
-                }
-            });
+            for (address, value) in account_chunk {
+                let account = value?;
+                account_map.insert(address, account);
+            }
         }
 
         Ok(account_map)
@@ -203,9 +202,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethodsRpc<N, R> {
         block: &N::BlockResponse,
     ) -> Result<Account> {
         // Verify the account proof
-        verify_account_proof(&proof, block.header().state_root())?;
+        verify_account_proof(proof, block.header().state_root())?;
         // Verify the storage proofs, collecting the slot values
-        let slot_map = verify_storage_proof(&proof)?;
+        let slot_map = verify_storage_proof(proof)?;
         // Verify the code hash
         let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
             Vec::new()

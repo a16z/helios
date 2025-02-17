@@ -51,7 +51,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
         let block_id = BlockId::number(block.header().number());
         let slots = slots
             .unwrap_or(&[])
-            .into_iter()
+            .iter()
             .map(|s| (*s).into())
             .collect::<Vec<_>>();
 
@@ -205,11 +205,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsA
 
             let encoded_log = rlp::encode(&log.inner);
 
-            if N::receipt_logs(receipt)
+            if !N::receipt_logs(receipt)
                 .into_iter()
                 .map(|l| rlp::encode(&l.inner))
-                .find(|el| *el == encoded_log)
-                .is_none()
+                .any(|el| el == encoded_log)
             {
                 return Err(ExecutionError::MissingLog(
                     tx_hash,

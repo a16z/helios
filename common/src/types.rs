@@ -66,9 +66,9 @@ impl<'de> Deserialize<'de> for BlockTag {
     }
 }
 
-impl Into<BlockId> for BlockTag {
-    fn into(self) -> BlockId {
-        match self {
+impl From<BlockTag> for BlockId {
+    fn from(block_tag: BlockTag) -> Self {
+        match block_tag {
             BlockTag::Latest => BlockId::latest(),
             BlockTag::Finalized => BlockId::finalized(),
             BlockTag::Number(num) => BlockId::Number(num.into()),
