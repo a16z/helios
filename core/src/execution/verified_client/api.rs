@@ -16,7 +16,6 @@ use helios_common::{
 };
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
-use crate::execution::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
 use crate::execution::rpc::ExecutionRpc;
@@ -82,11 +81,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
             receipt_proofs,
         } = self.api.get_logs(filter).await?;
 
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
         self.verify_logs_and_receipts(&logs, receipt_proofs).await?;
 
         Ok(logs)
@@ -101,13 +95,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
                 logs,
                 receipt_proofs,
             }) => {
-                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-                    return Err(ExecutionError::TooManyLogsToProve(
-                        logs.len(),
-                        MAX_SUPPORTED_LOGS_NUMBER,
-                    )
-                    .into());
-                }
                 self.verify_logs_and_receipts(&logs, receipt_proofs).await?;
                 FilterChanges::Logs(logs)
             }
@@ -120,11 +107,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
             receipt_proofs,
         } = self.api.get_filter_logs(filter_id).await?;
 
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
         self.verify_logs_and_receipts(&logs, receipt_proofs).await?;
 
         Ok(logs)

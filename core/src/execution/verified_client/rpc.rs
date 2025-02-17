@@ -16,7 +16,9 @@ use helios_common::{
     types::{Account, BlockTag},
 };
 
-use crate::execution::constants::{MAX_SUPPORTED_LOGS_NUMBER, PARALLEL_QUERY_BATCH_SIZE};
+use crate::execution::constants::{
+    MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS, PARALLEL_QUERY_BATCH_SIZE,
+};
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{
     ordered_trie_root_noop_encoder, verify_account_proof, verify_storage_proof,
@@ -107,13 +109,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         let logs = self.rpc.get_logs(filter).await?;
 
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
-
         self.verify_logs(&logs).await?;
+
         Ok(logs)
     }
 
@@ -122,13 +119,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
 
         if filter_changes.is_logs() {
             let logs = filter_changes.as_logs().unwrap_or(&[]);
-            if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-                return Err(ExecutionError::TooManyLogsToProve(
-                    logs.len(),
-                    MAX_SUPPORTED_LOGS_NUMBER,
-                )
-                .into());
-            }
             self.verify_logs(logs).await?;
         }
 
@@ -138,13 +128,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
         let logs = self.rpc.get_filter_logs(filter_id).await?;
 
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
-            return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
-            );
-        }
-
         self.verify_logs(&logs).await?;
+
         Ok(logs)
     }
 
@@ -265,6 +250,16 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethodsRpc<N, R> {
                     .ok_or_else(|| eyre::eyre!("block num not found in log"))
             })
             .collect::<Result<HashSet<_>, _>>()?;
+
+        // Check if the number of blocks to prove is within the limit
+        if block_nums.len() > MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS {
+            return Err(ExecutionError::TooManyLogsToProve(
+                logs.len(),
+                block_nums.len(),
+                MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS,
+            )
+            .into());
+        }
 
         // Collect all (proven) tx receipts for all block numbers
         let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {

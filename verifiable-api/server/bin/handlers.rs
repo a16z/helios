@@ -25,7 +25,10 @@ use serde_json::json;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::{
-    constants::PARALLEL_QUERY_BATCH_SIZE, proof::create_receipt_proof, rpc::ExecutionRpc,
+    constants::{MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS, PARALLEL_QUERY_BATCH_SIZE},
+    errors::ExecutionError,
+    proof::create_receipt_proof,
+    rpc::ExecutionRpc,
 };
 use helios_verifiable_api_types::*;
 
@@ -391,6 +394,16 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
         .iter()
         .map(|log| log.block_number.ok_or_eyre("block_number not found in log"))
         .collect::<Result<HashSet<_>, _>>()?;
+
+    // Check if the number of blocks to prove is within the limit
+    if block_nums.len() > MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS {
+        return Err(ExecutionError::TooManyLogsToProve(
+            logs.len(),
+            block_nums.len(),
+            MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS,
+        )
+        .into());
+    }
 
     // Collect all tx receipts for all block numbers
     let blocks_receipts_fut = block_nums.into_iter().map(|block_num| {
