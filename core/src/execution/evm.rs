@@ -4,8 +4,8 @@ use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use eyre::{Report, Result};
 use revm::{
     primitives::{
-        address, AccountInfo, Address, Bytecode, Bytes, Env, ExecutionResult, ResultAndState, B256,
-        U256,
+        address, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env, ExecutionResult,
+        ResultAndState, B256, U256,
     },
     Database, Evm as Revm,
 };
@@ -94,9 +94,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> Evm<N, R, A> {
     }
 
     async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
-        let mut env = Env::default();
-        env.tx = N::tx_env(tx);
-
         let block = self
             .execution
             .get_block(tag, false)
@@ -104,14 +101,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> Evm<N, R, A> {
             .ok_or(ExecutionError::BlockNotFound(tag))
             .unwrap();
 
-        env.block = N::block_env(&block, &self.fork_schedule);
+        let mut cfg = CfgEnv::default();
+        cfg.chain_id = self.chain_id;
+        cfg.disable_block_gas_limit = true;
+        cfg.disable_eip3607 = true;
+        cfg.disable_base_fee = true;
 
-        env.cfg.chain_id = self.chain_id;
-        env.cfg.disable_block_gas_limit = true;
-        env.cfg.disable_eip3607 = true;
-        env.cfg.disable_base_fee = true;
-
-        env
+        Env {
+            tx: N::tx_env(tx),
+            block: N::block_env(&block, &self.fork_schedule),
+            cfg,
+        }
     }
 }
 

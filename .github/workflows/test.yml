@@ -36,6 +36,8 @@ jobs:
           toolchain: stable
           override: true
       - uses: Swatinem/rust-cache@v2
+      - name: Install libfont
+        run: sudo apt install libfontconfig libfontconfig1-dev
       - uses: actions-rs/cargo@v1
         with:
           command: test

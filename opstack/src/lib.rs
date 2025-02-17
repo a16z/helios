@@ -32,7 +32,7 @@ pub struct SequencerCommitment {
 impl SequencerCommitment {
     pub fn new(data: &[u8]) -> Result<Self> {
         let mut decoder = snap::raw::Decoder::new();
-        let decompressed = decoder.decompress_vec(&data)?;
+        let decompressed = decoder.decompress_vec(data)?;
 
         let signature = Signature::try_from(&decompressed[..65])?;
         let data = Bytes::from(decompressed[65..].to_vec());
@@ -73,5 +73,5 @@ fn signature_msg(data: &[u8], chain_id: u64) -> B256 {
         payload_hash.as_slice(),
     ];
 
-    keccak256(signing_data.concat()).into()
+    keccak256(signing_data.concat())
 }

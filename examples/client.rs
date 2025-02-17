@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
     let mut builder = EthereumClientBuilder::new();
 
     // Set the network to mainnet
-    builder = builder.network(Network::MAINNET);
+    builder = builder.network(Network::Mainnet);
 
     // Set the consensus rpc url
     builder = builder.consensus_rpc("https://www.lightclientdata.org");

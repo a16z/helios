@@ -36,13 +36,13 @@ pub struct Withdrawal {
     amount: u64,
 }
 
-impl Into<alloy::eips::eip4895::Withdrawal> for Withdrawal {
-    fn into(self) -> alloy::eips::eip4895::Withdrawal {
+impl From<Withdrawal> for alloy::eips::eip4895::Withdrawal {
+    fn from(value: Withdrawal) -> Self {
         alloy::eips::eip4895::Withdrawal {
-            index: self.index,
-            validator_index: self.validator_index,
-            address: self.address,
-            amount: self.amount,
+            index: value.index,
+            validator_index: value.validator_index,
+            address: value.address,
+            amount: value.amount,
         }
     }
 }

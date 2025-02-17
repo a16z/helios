@@ -596,7 +596,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
                 block_hash: Some(*value.block_hash()),
                 block_number: Some(*value.block_number()),
                 transaction_index: Some(i as u64),
-                from: tx_envelope.recover_signer().unwrap().clone(),
+                from: tx_envelope.recover_signer().unwrap(),
                 effective_gas_price: Some(tx_envelope.effective_gas_price(base_fee)),
                 inner: tx_envelope,
             }
@@ -613,8 +613,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom =
-        Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner.to_vec()));
+    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner));
 
     let consensus_header = ConsensusHeader {
         parent_hash: *value.parent_hash(),
@@ -624,7 +623,6 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         transactions_root: txs_root,
         receipts_root: *value.receipts_root(),
         withdrawals_root: Some(withdrawals_root),
-        logs_bloom: logs_bloom,
         difficulty: U256::ZERO,
         number: *value.block_number(),
         gas_limit: *value.gas_limit(),
@@ -638,6 +636,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         parent_beacon_block_root: None,
         extra_data: value.extra_data().inner.to_vec().into(),
         requests_hash: None,
+        logs_bloom,
     };
 
     let header = Header {
@@ -737,7 +736,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.next_sync_committee.pubkeys[0] = PublicKey::default();
+        update.next_sync_committee_mut().pubkeys[0] = PublicKey::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -764,7 +763,7 @@ mod tests {
 
         let mut next_update = updates[1].clone();
         // Set a different finalized header to test invalid finality proof
-        next_update.finalized_header = updates[0].finalized_header.clone();
+        *next_update.finalized_header_mut() = updates[0].finalized_header().clone();
 
         let err = client.verify_update(&next_update).err().unwrap();
         assert_eq!(
@@ -786,7 +785,7 @@ mod tests {
             .unwrap();
 
         let mut update = updates[0].clone();
-        update.sync_aggregate.sync_committee_signature = Signature::default();
+        update.sync_aggregate_mut().sync_committee_signature = Signature::default();
 
         let err = client.verify_update(&update).err().unwrap();
         assert_eq!(
@@ -819,7 +818,7 @@ mod tests {
             .await
             .unwrap();
         // Replace here to test invalid finality proof
-        update.finalized_header = updates[0].finalized_header.clone();
+        *update.finalized_header_mut() = updates[0].finalized_header().clone();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(
@@ -833,7 +832,7 @@ mod tests {
         let client = get_client(false, true).await;
 
         let mut update = client.rpc.get_finality_update().await.unwrap();
-        update.sync_aggregate.sync_committee_signature = Signature::default();
+        update.sync_aggregate_mut().sync_committee_signature = Signature::default();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(

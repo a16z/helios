@@ -96,7 +96,7 @@ impl OpStackClientBuilder {
 
         let consensus = ConsensusClient::new(&config);
         OpStackClient::new(
-            &config.execution_rpc.to_string(),
+            config.execution_rpc.as_ref(),
             config.verifiable_api.map(|url| url.to_string()).as_deref(),
             consensus,
             fork_schedule,

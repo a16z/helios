@@ -52,7 +52,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
                     _ = finalized_block_recv.changed() => {
                         let block = finalized_block_recv.borrow_and_update().clone();
                         if let Some(block) = block {
-                            inner_ref.write().await.push_finalized_block(block).await;
+                            inner_ref.write().await.push_finalized_block(block);
                         }
 
                     },
@@ -302,14 +302,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
     }
 
     fn prune_before(&mut self, n: u64) {
-        loop {
-            if let Some((oldest, _)) = self.blocks.first_key_value() {
-                let oldest = *oldest;
-                if oldest < n {
-                    self.blocks.remove(&oldest);
-                } else {
-                    break;
-                }
+        while let Some((oldest, _)) = self.blocks.first_key_value() {
+            let oldest = *oldest;
+            if oldest < n {
+                self.blocks.remove(&oldest);
             } else {
                 break;
             }
@@ -323,7 +319,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
 
         if let Some(block) = self.blocks.get(&n) {
             let prev = n - 1;
-            if self.blocks.get(&prev).is_none() {
+            if !self.blocks.contains_key(&prev) {
                 let backfilled = self.rpc.get_block(block.header().parent_hash()).await?;
 
                 if N::is_hash_valid(&backfilled)
@@ -344,15 +340,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
         }
     }
 
-    pub async fn push_finalized_block(&mut self, block: N::BlockResponse) {
+    pub fn push_finalized_block(&mut self, block: N::BlockResponse) {
         if let Some(old_block) = self.blocks.get(&block.header().number()) {
             if old_block.header().hash() != block.header().hash() {
                 self.blocks = BTreeMap::new();
             }
         }
 
-        self.finalized_block = Some(block.clone());
-        self.push_block(block).await;
+        self.finalized_block = Some(block);
     }
 
     fn remove_block(&mut self, number: u64) {
@@ -373,7 +368,7 @@ struct TransactionLocation {
 #[derive(Clone)]
 pub enum FilterType {
     // filter content
-    Logs(Filter),
+    Logs(Box<Filter>),
     // block number when the filter was created or last queried
     NewBlock(u64),
     PendingTransactions,

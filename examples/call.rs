@@ -36,7 +36,7 @@ async fn main() -> eyre::Result<()> {
     // Construct the client
     let data_dir = PathBuf::from("/tmp/helios");
     let mut client: EthereumClient<FileDB> = EthereumClientBuilder::new()
-        .network(Network::MAINNET)
+        .network(Network::Mainnet)
         .data_dir(data_dir)
         .consensus_rpc(consensus_rpc)
         .execution_rpc(&eth_rpc_url)
@@ -45,7 +45,7 @@ async fn main() -> eyre::Result<()> {
 
     info!(
         "[\"{}\"] Client built with external checkpoint fallbacks",
-        Network::MAINNET
+        Network::Mainnet
     );
 
     // Start the client
