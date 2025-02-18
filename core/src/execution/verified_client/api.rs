@@ -193,23 +193,30 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsA
         logs: &[Log],
         receipt_proofs: HashMap<B256, TransactionReceiptResponse<N>>,
     ) -> Result<()> {
+        // Map of tx_hash -> encoded receipt logs to avoid encoding multiple times
+        let mut txhash_encodedlogs_map: HashMap<B256, Vec<Vec<u8>>> = HashMap::new();
+
+        // Verify each log entry exists in the corresponding receipt logs
         for log in logs {
             let tx_hash = log.transaction_hash.unwrap();
+            let log_encoded = rlp::encode(&log.inner);
 
-            let TransactionReceiptResponse {
-                receipt,
-                receipt_proof: _,
-            } = receipt_proofs
-                .get(&tx_hash)
-                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
+            if !txhash_encodedlogs_map.contains_key(&tx_hash) {
+                let TransactionReceiptResponse {
+                    receipt,
+                    receipt_proof: _,
+                } = receipt_proofs
+                    .get(&tx_hash)
+                    .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
+                let encoded_logs = N::receipt_logs(receipt)
+                    .iter()
+                    .map(|l| rlp::encode(&l.inner))
+                    .collect::<Vec<_>>();
+                txhash_encodedlogs_map.insert(tx_hash, encoded_logs);
+            }
+            let receipt_logs_encoded = txhash_encodedlogs_map.get(&tx_hash).unwrap();
 
-            let encoded_log = rlp::encode(&log.inner);
-
-            if !N::receipt_logs(receipt)
-                .into_iter()
-                .map(|l| rlp::encode(&l.inner))
-                .any(|el| el == encoded_log)
-            {
+            if !receipt_logs_encoded.contains(&log_encoded) {
                 return Err(ExecutionError::MissingLog(
                     tx_hash,
                     U256::from(log.log_index.unwrap()),
@@ -218,6 +225,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsA
             }
         }
 
+        // Verify all receipts
         self.verify_receipt_proofs(&receipt_proofs.values().collect::<Vec<_>>())
             .await?;
 
@@ -228,28 +236,19 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsA
         &self,
         receipt_proofs: &[&TransactionReceiptResponse<N>],
     ) -> Result<()> {
-        let mut blocks: HashMap<u64, N::BlockResponse> = HashMap::new();
-
         for TransactionReceiptResponse {
             receipt,
             receipt_proof,
         } in receipt_proofs
         {
-            let block_num = receipt.block_number().unwrap();
-            let block = if let Some(block) = blocks.get(&block_num) {
-                block.clone()
-            } else {
-                let tag = BlockTag::Number(block_num);
-                let block = self
-                    .state
-                    .get_block(tag)
-                    .await
-                    .ok_or(ExecutionError::BlockNotFound(tag))?;
-                blocks.insert(block_num, block.clone());
-                block
-            };
+            let tag = BlockTag::Number(receipt.block_number().unwrap());
+            let receipts_root = self
+                .state
+                .get_receipts_root(tag)
+                .await
+                .ok_or(ExecutionError::BlockNotFound(tag))?;
 
-            verify_receipt_proof::<N>(receipt, block.header().receipts_root(), receipt_proof)
+            verify_receipt_proof::<N>(receipt, receipts_root, receipt_proof)
                 .map_err(|_| ExecutionError::ReceiptRootMismatch(receipt.transaction_hash()))?;
         }
 

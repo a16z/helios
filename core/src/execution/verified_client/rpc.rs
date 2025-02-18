@@ -177,7 +177,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
         let mut account_map = HashMap::new();
         for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
             let account_chunk_futs = chunk.iter().map(|account| {
-                // ToDo(@eshaan7): block is fetched from state each iteration, can be optimized
                 let account_fut =
                     self.get_account(account.address, Some(account.storage_keys.as_slice()), tag);
                 async move { (account.address, account_fut.await) }
@@ -246,7 +245,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethodsRpc<N, R> {
             .iter()
             .map(|log| {
                 log.block_number
-                    .ok_or_else(|| eyre::eyre!("block num not found in log"))
+                    .ok_or_else(|| eyre::eyre!("block number not found in log"))
             })
             .collect::<Result<HashSet<_>, _>>()?;
 

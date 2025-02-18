@@ -47,7 +47,7 @@ pub enum VerifiableMethodsClient<N: NetworkSpec, R: ExecutionRpc<N>, A: Verifiab
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsClient<N, R, A> {
-    // Manual dispatch
+    // manual dynamic dispatch
     pub fn client(&self) -> &dyn VerifiableMethods<N, R> {
         match self {
             VerifiableMethodsClient::Api(client) => client,

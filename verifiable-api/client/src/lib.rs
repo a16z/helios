@@ -14,7 +14,7 @@ use helios_verifiable_api_types::*;
 pub use helios_verifiable_api_types as types;
 
 #[async_trait]
-pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync {
+pub trait VerifiableApi<N: NetworkSpec>: Clone + Send + Sync {
     fn new(base_url: &str) -> Self
     where
         Self: Sized;

@@ -135,12 +135,7 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
                 .get_block_by_number(tag, BlockTransactionsKind::Hashes)
                 .await
                 .map_err(map_server_err)?
-                .ok_or_else(|| {
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        json_err("Block not found"),
-                    )
-                })
+                .ok_or_else(|| (StatusCode::BAD_REQUEST, json_err("Block not found")))
                 .map(|block| block.header().number()),
         },
         BlockId::Hash(hash) => rpc
@@ -312,12 +307,7 @@ pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
             .get_block_by_number(number_or_tag, BlockTransactionsKind::Hashes)
             .await
             .map_err(map_server_err)?
-            .ok_or_else(|| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    json_err("Block not found"),
-                )
-            }),
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, json_err("Block not found"))),
         BlockId::Hash(hash) => rpc.get_block(hash.into()).await.map_err(map_server_err),
     }?;
     let block_id = BlockId::Number(block.header().number().into());
@@ -387,8 +377,6 @@ async fn create_receipt_proofs_for_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     rpc: Arc<R>,
 ) -> Result<HashMap<B256, TransactionReceiptResponse<N>>> {
     // Collect all (unique) block numbers
-    // ToDo(@eshaan7): Might need to put a max limit on the number of blocks
-    // otherwise this could make too many requests and slow down the server
     let block_nums = logs
         .iter()
         .map(|log| log.block_number.ok_or_eyre("block_number not found in log"))

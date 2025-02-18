@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, str::FromStr};
 
 use clap::Parser;
-use router::build_router;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use url::Url;
 
@@ -9,6 +8,7 @@ use helios_core::execution::rpc::http_rpc::HttpRpc;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 use helios_opstack::spec::OpStack as OpStackSpec;
 
+use crate::router::build_router;
 use crate::state::ApiState;
 
 mod handlers;

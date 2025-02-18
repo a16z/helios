@@ -1,5 +1,30 @@
 # helios-verifiable-api
 
+## Usage
+
+```bash
+$ cargo run -- --help
+Usage: server [OPTIONS] --execution-rpc <EXECUTION_RPC>
+
+Options:
+  -s, --server-address <SERVER_ADDRESS>  [default: 127.0.0.1:4000]
+  -n, --network <NETWORK>                [default: ethereum]
+  -e, --execution-rpc <EXECUTION_RPC>
+  -h, --help                             Print help
+```
+
+#### Ethereum
+
+```bash
+$ cargo run -- --network ethereum --execution-rpc https://ethereum-rpc.publicnode.com
+```
+
+#### OP Stack (Base)
+
+```bash
+$ cargo run -- --network opstack --execution-rpc https://base-rpc.publicnode.com
+```
+
 ## JSON-RPC to REST API map
 
 | Ethereum JSON-RPC Method       | Helios Verifiable API Endpoint                                                  |
