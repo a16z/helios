@@ -20,6 +20,8 @@ use super::ExecutionRpc;
 
 pub struct HttpRpc<N: NetworkSpec> {
     url: String,
+    #[cfg(target_arch = "wasm32")]
+    retry_config: RetryConfig,
     #[cfg(not(target_arch = "wasm32"))]
     provider: RootProvider<RetryBackoffService<Http<Client>>, N>,
     #[cfg(target_arch = "wasm32")]
@@ -48,6 +50,8 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
 
         Ok(HttpRpc {
             url: rpc.to_string(),
+            #[cfg(target_arch = "wasm32")]
+            retry_config: RetryConfig::default(),
             provider,
         })
     }
@@ -201,12 +205,15 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("new_pending_transaction_filter", e))?)
     }
 
+    #[cfg(target_arch = "wasm32")]
     async fn chain_id(&self) -> Result<u64> {
-        Ok(self
-            .provider
-            .get_chain_id()
-            .await
-            .map_err(|e| RpcError::new("chain_id", e))?)
+        self.execute_with_retry(|| async {
+            self.provider
+                .get_chain_id()
+                .await
+                .map_err(|e| RpcError::new("chain_id", e))
+        })
+        .await
     }
 
     async fn get_fee_history(
@@ -227,5 +234,115 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .raw_request::<_, Option<N::BlockResponse>>("eth_getBlockByHash".into(), (hash, true))
             .await?
             .ok_or(eyre!("block not found"))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+use std::time::Duration;
+#[cfg(target_arch = "wasm32")]
+use wasmtimer::tokio::sleep;
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Debug)]
+struct RetryConfig {
+    max_attempts: u32,
+    initial_backoff: Duration,
+    max_backoff: Duration,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: 3,
+            initial_backoff: Duration::from_millis(100),
+            max_backoff: Duration::from_secs(5),
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl<N: NetworkSpec> HttpRpc<N> {
+    async fn execute_with_retry<T, F, Fut>(&self, operation: F) -> Result<T>
+    where
+        F: Fn() -> Fut + Clone,
+        Fut: std::future::Future<Output = Result<T>>,
+    {
+        let config = RetryConfig::default();
+        let mut attempts = 0;
+        let mut backoff = config.initial_backoff;
+
+        loop {
+            attempts += 1;
+            match operation().await {
+                Ok(response) => return Ok(response),
+                Err(err) => {
+                    if !Self::should_retry(&err) || attempts >= config.max_attempts {
+                        return Err(err);
+                    }
+
+                    sleep(backoff).await;
+                    backoff = std::cmp::min(backoff * 2, config.max_backoff);
+                }
+            }
+        }
+    }
+
+    fn should_retry(err: &RpcError) -> bool {
+        if let Some(source) = &err.source {
+            let error_str = source.to_string().to_lowercase();
+            error_str.contains("rate limit") ||
+            error_str.contains("timeout") ||
+            error_str.contains("connection") ||
+            (error_str.contains("server") && error_str.contains("50"))
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::{mock, Server};
+    use std::time::Duration;
+
+    #[tokio::test]
+    #[cfg(target_arch = "wasm32")]
+    async fn test_retry_mechanism() {
+        let mut server = Server::new();
+        
+        // Test rate limit retry
+        let mock = server.mock("POST", "/")
+            .with_status(429)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error": "rate limit exceeded"}"#)
+            .expect(3)
+            .create();
+
+        let provider = HttpRpc::<NetworkSpec>::new(&server.url()).unwrap();
+        let result = provider.chain_id().await;
+        
+        assert!(result.is_err());
+        mock.assert();
+
+        // Test successful retry
+        let mock = server.mock("POST", "/")
+            .with_status(429)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error": "rate limit exceeded"}"#)
+            .times(2)
+            .create();
+
+        let mock_success = server.mock("POST", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"result": "0x1"}"#)
+            .create();
+
+        let result = provider.chain_id().await;
+        assert!(result.is_ok());
+        mock.assert();
+        mock_success.assert();
     }
 }
