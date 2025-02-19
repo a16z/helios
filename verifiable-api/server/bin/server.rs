@@ -1,6 +1,7 @@
-use std::{net::SocketAddr, str::FromStr};
+use std::net::SocketAddr;
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
+use tracing::{debug, level_filters::LevelFilter};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use url::Url;
 
@@ -22,34 +23,42 @@ async fn main() {
 
     // parse CLI arguments
     let cli = Cli::parse();
-    let network = cli.network;
-    let server_addr = cli.server_address;
-    let execution_rpc = cli.execution_rpc;
 
     // construct API state and build the router for our server
-    let app = match network {
-        Network::Ethereum => {
+    let (server_addr, app) = match cli.command {
+        Command::Ethereum(args) => {
+            let server_addr = args.server_address;
+            let execution_rpc = args.execution_rpc;
             let state =
                 ApiState::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str())
                     .unwrap();
-            build_router().with_state(state)
+            let router = build_router().with_state(state);
+            (server_addr, router)
         }
-        Network::Opstack => {
+        Command::OpStack(args) => {
+            let server_addr = args.server_address;
+            let execution_rpc = args.execution_rpc;
             let state = ApiState::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str())
                 .unwrap();
-            build_router().with_state(state)
+            let router = build_router().with_state(state);
+            (server_addr, router)
         }
     };
 
     // run the server
     let listener = tokio::net::TcpListener::bind(server_addr).await.unwrap();
+    debug!(
+        target: "helios::verifiable-api-server",
+        "listening on {}",
+        listener.local_addr().unwrap()
+    );
 
     axum::serve(listener, app).await.unwrap();
 }
 
 fn enable_tracing() {
     let env_filter = EnvFilter::builder()
-        .with_default_directive("helios_verifiable_api=info".parse().unwrap())
+        .with_default_directive(LevelFilter::INFO.into())
         .from_env()
         .expect("invalid env filter");
 
@@ -60,30 +69,26 @@ fn enable_tracing() {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 }
 
-#[derive(Debug, Parser)]
+#[derive(Parser)]
+#[clap(version, about)]
+/// Helios' Verifiable API server
 struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    #[clap(name = "ethereum")]
+    Ethereum(CliArgs),
+    #[clap(name = "opstack")]
+    OpStack(CliArgs),
+}
+
+#[derive(Args)]
+struct CliArgs {
     #[clap(short, long, default_value = "127.0.0.1:4000")]
     server_address: SocketAddr,
-    #[clap(short, long, default_value = "ethereum")]
-    network: Network,
     #[clap(short, long)]
     execution_rpc: Url,
-}
-
-#[derive(Debug, Clone)]
-enum Network {
-    Ethereum,
-    Opstack,
-}
-
-impl FromStr for Network {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "ethereum" => Ok(Network::Ethereum),
-            "opstack" => Ok(Network::Opstack),
-            _ => Err(format!("'{}' is not a valid network", s)),
-        }
-    }
 }

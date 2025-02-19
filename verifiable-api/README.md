@@ -4,11 +4,26 @@
 
 ```bash
 $ cargo run -- --help
-Usage: server [OPTIONS] --execution-rpc <EXECUTION_RPC>
+Helios' Verifiable API server
+
+Usage: server <COMMAND>
+
+Commands:
+  ethereum
+  opstack
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
+```bash
+$ cargo run -- ethereum --help
+Usage: server ethereum [OPTIONS] --execution-rpc <EXECUTION_RPC>
 
 Options:
   -s, --server-address <SERVER_ADDRESS>  [default: 127.0.0.1:4000]
-  -n, --network <NETWORK>                [default: ethereum]
   -e, --execution-rpc <EXECUTION_RPC>
   -h, --help                             Print help
 ```
@@ -16,13 +31,13 @@ Options:
 #### Ethereum
 
 ```bash
-$ cargo run -- --network ethereum --execution-rpc https://ethereum-rpc.publicnode.com
+$ cargo run -- ethereum --execution-rpc https://ethereum-rpc.publicnode.com
 ```
 
-#### OP Stack (Base)
+#### OP Stack (E.g. Base)
 
 ```bash
-$ cargo run -- --network opstack --execution-rpc https://base-rpc.publicnode.com
+$ cargo run -- opstack --execution-rpc https://base-rpc.publicnode.com
 ```
 
 ## JSON-RPC to REST API map
