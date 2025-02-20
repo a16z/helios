@@ -291,6 +291,8 @@ pub fn verify_generic_update<S: ConsensusSpec>(
         return Err(ConsensusError::NotRelevant.into());
     }
 
+    let update_attested_epoch = update.attested_header.beacon().slot / S::slots_per_epoch();
+
     if let Some(finalized_header) = &update.finalized_header {
         if let Some(finality_branch) = &update.finality_branch {
             if !is_valid_header::<S>(finalized_header, forks) {
@@ -301,7 +303,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
                 update.attested_header.beacon(),
                 finalized_header.beacon(),
                 finality_branch,
-                update.attested_header.beacon().slot / S::slots_per_epoch(),
+                update_attested_epoch,
                 forks,
             );
 
@@ -319,7 +321,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
                 update.attested_header.beacon(),
                 next_sync_committee,
                 next_sync_committee_branch,
-                update.attested_header.beacon().slot / S::slots_per_epoch(),
+                update_attested_epoch,
                 forks,
             );
 
@@ -467,6 +469,8 @@ fn is_better_update<S: ConsensusSpec>(
     if new_update.attested_header.beacon().slot != old_update.attested_header.beacon().slot {
         return new_update.attested_header.beacon().slot < old_update.attested_header.beacon().slot;
     }
+
+    // tiebreaker 3: prefer updates with earlier signature slots
     new_update.signature_slot < old_update.signature_slot
 }
 
@@ -499,6 +503,9 @@ fn safety_threshold<S: ConsensusSpec>(store: &LightClientStore<S>) -> u64 {
 fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> bool {
     let epoch = header.beacon().slot / S::slots_per_epoch();
 
+    // This deviates from the spec in that it dos not check that the blob fields are unset prior to
+    // deneb. This is fine since an honest sync committee will never sign an invalid block, which
+    // includes blocks that have the blob fields set pre-deneb.
     if epoch < forks.capella.epoch {
         header.execution().is_err() && header.execution_branch().is_err()
     } else if header.execution().is_ok() && header.execution_branch().is_ok() {
