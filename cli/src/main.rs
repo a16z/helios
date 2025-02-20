@@ -190,7 +190,7 @@ struct OpStackArgs {
     network: String,
     #[clap(short = 'b', long, env, default_value = "127.0.0.1")]
     rpc_bind_ip: Option<IpAddr>,
-    #[clap(short = 'p', long, env, default_value = "8546")]
+    #[clap(short = 'p', long, env, default_value = "8545")]
     rpc_port: Option<u16>,
     #[clap(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,

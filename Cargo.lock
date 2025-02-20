@@ -2980,7 +2980,7 @@ dependencies = [
 
 [[package]]
 name = "helios-cli"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "alloy",
  "clap",
