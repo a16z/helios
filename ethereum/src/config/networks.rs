@@ -76,7 +76,7 @@ impl Network {
 pub fn mainnet() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "0d5144fae3e0059e1372e5fc8fc28b042f1e2b9e698a007d42856ca6766d6ceb"
+            "2f5319c3db189044de938be99a76d12205290b1bfbb280ef7b0f60a40fbf81b8"
         ),
         rpc_port: 8545,
         consensus_rpc: Some("https://ethereum.operationsolarstorm.org".to_string()),
@@ -124,7 +124,7 @@ pub fn mainnet() -> BaseConfig {
 pub fn sepolia() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "4135bf01bddcfadac11143ba911f1c7f0772fdd6b87742b0bc229887bbf62b48"
+            "d2450a31dbdec0be8bc09f2eeddc4b58fc77ed2df9158aa16cb1f6b63b90be3e"
         ),
         rpc_port: 8545,
         consensus_rpc: None,
@@ -172,7 +172,7 @@ pub fn sepolia() -> BaseConfig {
 pub fn holesky() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "d8fad84478f4947c3d09cfefde36d09bb9e71217f650610a3eb730eba54cdf1f"
+            "8d7bf5aa9a46ef46ce2cec02e56c8a203d8157211d3599d61196972cf6def229"
         ),
         rpc_port: 8545,
         consensus_rpc: None,
