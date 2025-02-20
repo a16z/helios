@@ -76,6 +76,19 @@ impl From<BlockTag> for BlockId {
     }
 }
 
+impl TryFrom<BlockNumberOrTag> for BlockTag {
+    type Error = Report;
+
+    fn try_from(tag: BlockNumberOrTag) -> Result<Self, Self::Error> {
+        match tag {
+            BlockNumberOrTag::Number(num) => Ok(BlockTag::Number(num)),
+            BlockNumberOrTag::Latest => Ok(BlockTag::Latest),
+            BlockNumberOrTag::Finalized => Ok(BlockTag::Finalized),
+            other => Err(eyre!("block tag {other} is not supported")),
+        }
+    }
+}
+
 impl TryFrom<BlockId> for BlockTag {
     type Error = Report;
 
@@ -84,8 +97,8 @@ impl TryFrom<BlockId> for BlockTag {
             BlockId::Number(BlockNumberOrTag::Number(num)) => Ok(BlockTag::Number(num)),
             BlockId::Number(BlockNumberOrTag::Latest) => Ok(BlockTag::Latest),
             BlockId::Number(BlockNumberOrTag::Finalized) => Ok(BlockTag::Finalized),
-            BlockId::Number(other) => Err(eyre!("BlockId::Number({other}) is not supported")),
-            BlockId::Hash(_) => Err(eyre!("BlockId::Hash is not supported")),
+            BlockId::Number(other) => Err(eyre!("block tag {other} is not supported")),
+            BlockId::Hash(_) => Err(eyre!("block hash is not supported")),
         }
     }
 }

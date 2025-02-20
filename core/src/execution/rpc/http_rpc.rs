@@ -84,11 +84,11 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(list.access_list)
     }
 
-    async fn get_code(&self, address: Address, block: u64) -> Result<Vec<u8>> {
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Vec<u8>> {
         let code = self
             .provider
             .get_code_at(address)
-            .block_id(block.into())
+            .block_id(block)
             .await
             .map_err(|e| RpcError::new("get_code", e))?;
 

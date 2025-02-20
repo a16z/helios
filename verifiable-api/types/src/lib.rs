@@ -21,14 +21,6 @@ pub struct AccountResponse {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StorageAtResponse {
-    pub storage: EIP1186StorageProof,
-    pub account: TrieAccount,
-    pub account_proof: Vec<Bytes>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TransactionReceiptResponse<N: NetworkSpec> {
     pub receipt: N::ReceiptResponse,
     pub receipt_proof: Vec<Bytes>,

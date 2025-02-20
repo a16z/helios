@@ -210,7 +210,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethodsRpc<N, R> {
         } else {
             let code = self
                 .rpc
-                .get_code(proof.address, block.header().number())
+                .get_code(proof.address, block.header().number().into())
                 .await?;
             let code_hash = keccak256(&code);
 

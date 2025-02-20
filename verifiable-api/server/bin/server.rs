@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use api_service::ApiService;
 use clap::{Args, Parser, Subcommand};
 use tracing::{debug, level_filters::LevelFilter};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
@@ -12,6 +13,7 @@ use helios_opstack::spec::OpStack as OpStackSpec;
 use crate::router::build_router;
 use crate::state::ApiState;
 
+mod api_service;
 mod handlers;
 mod router;
 mod state;
@@ -29,18 +31,19 @@ async fn main() {
         Command::Ethereum(args) => {
             let server_addr = args.server_address;
             let execution_rpc = args.execution_rpc;
-            let state =
-                ApiState::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str())
+            let api_service =
+                ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str())
                     .unwrap();
-            let router = build_router().with_state(state);
+            let router = build_router().with_state(ApiState { api_service });
             (server_addr, router)
         }
         Command::OpStack(args) => {
             let server_addr = args.server_address;
             let execution_rpc = args.execution_rpc;
-            let state = ApiState::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str())
-                .unwrap();
-            let router = build_router().with_state(state);
+            let api_service =
+                ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str())
+                    .unwrap();
+            let router = build_router().with_state(ApiState { api_service });
             (server_addr, router)
         }
     };

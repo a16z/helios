@@ -32,7 +32,7 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
         block: BlockId,
     ) -> Result<AccessList>;
 
-    async fn get_code(&self, address: Address, block: u64) -> Result<Vec<u8>>;
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Vec<u8>>;
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256>;
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>>;
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;

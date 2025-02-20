@@ -44,7 +44,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_code(&self, _address: Address, _block: u64) -> Result<Vec<u8>> {
+    async fn get_code(&self, _address: Address, _block: BlockId) -> Result<Vec<u8>> {
         let code = read_to_string(self.path.join("code.json"))?;
         Ok(hex::decode(&code[2..code.len() - 1])?)
     }
