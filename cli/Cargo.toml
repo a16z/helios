@@ -1,6 +1,6 @@
 [package]
 name = "helios-cli"
-version = "0.8.1"
+version = "0.8.0"
 edition = "2021"
 
 [[bin]]
@@ -24,3 +24,4 @@ url = "2.5.0"
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 helios-opstack = { path = "../opstack" }
+helios-linea = { path = "../linea" }

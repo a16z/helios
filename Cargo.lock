@@ -2980,7 +2980,7 @@ dependencies = [
 
 [[package]]
 name = "helios-cli"
-version = "0.8.1"
+version = "0.8.0"
 dependencies = [
  "alloy",
  "clap",
@@ -2991,6 +2991,7 @@ dependencies = [
  "futures",
  "helios-core",
  "helios-ethereum",
+ "helios-linea",
  "helios-opstack",
  "tokio",
  "tracing",
@@ -3083,6 +3084,22 @@ dependencies = [
  "typenum",
  "url",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "helios-linea"
+version = "0.8.0"
+dependencies = [
+ "alloy",
+ "eyre",
+ "figment",
+ "helios-core",
+ "helios-ethereum",
+ "serde",
+ "strum",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

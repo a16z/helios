@@ -22,6 +22,7 @@ use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
 use helios_ethereum::database::FileDB;
 use helios_ethereum::{EthereumClient, EthereumClientBuilder};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
+use helios_linea::{config::Config as LineaConfig, types::LineaClient, builder::LineaClientBuilder, config::CliConfig as LineaCliConfig};
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
@@ -40,6 +41,11 @@ async fn main() -> Result<()> {
         }
         Command::OpStack(opstack) => {
             let mut client = opstack.make_client();
+            start_client(&mut client).await;
+            register_shutdown_handler(client);
+        }
+        Command::Linea(linea) => {
+            let mut client = linea.make_client();
             start_client(&mut client).await;
             register_shutdown_handler(client);
         }
@@ -114,6 +120,8 @@ enum Command {
     Ethereum(EthereumArgs),
     #[clap(name = "opstack")]
     OpStack(OpStackArgs),
+    #[clap(name = "linea")]
+    Linea(LineaArgs),
 }
 
 #[derive(Args)]
@@ -182,7 +190,7 @@ struct OpStackArgs {
     network: String,
     #[clap(short = 'b', long, env, default_value = "127.0.0.1")]
     rpc_bind_ip: Option<IpAddr>,
-    #[clap(short = 'p', long, env, default_value = "8545")]
+    #[clap(short = 'p', long, env, default_value = "8546")]
     rpc_port: Option<u16>,
     #[clap(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
@@ -252,6 +260,42 @@ impl OpStackArgs {
         }
 
         Serialized::from(user_dict, &self.network)
+    }
+}
+
+#[derive(Args, Debug)]
+struct LineaArgs {
+    #[clap(short, long, default_value = "mainnet")]
+    network: String,
+    #[clap(short = 'b', long, env)]
+    rpc_bind_ip: Option<IpAddr>,
+    #[clap(short = 'p', long, env)]
+    rpc_port: Option<u16>,
+    #[clap(short, long, env, value_parser = parse_url)]
+    execution_rpc: Option<Url>,
+}
+
+impl LineaArgs {
+    fn make_client(&self) -> LineaClient {
+        let config_path = home_dir().unwrap().join(".helios/helios.toml");
+        let cli_config = self.as_cli_config();
+        let config = LineaConfig::from_file(&config_path, &self.network, &cli_config);
+
+        match LineaClientBuilder::new().config(config).build() {
+            Ok(client) => client,
+            Err(err) => {
+                error!(target: "helios::runner", error = %err);
+                exit(1);
+            }
+        }
+    }
+
+    fn as_cli_config(&self) -> LineaCliConfig {
+        LineaCliConfig {
+            execution_rpc: self.execution_rpc.clone(),
+            rpc_bind_ip: self.rpc_bind_ip,
+            rpc_port: self.rpc_port,
+        }
     }
 }
 
