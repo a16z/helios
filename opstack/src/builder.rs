@@ -1,7 +1,8 @@
 use eyre::Result;
-use helios_core::fork_schedule::ForkSchedule;
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
+
+use helios_common::fork_schedule::ForkSchedule;
 
 use crate::{
     config::Network,
@@ -16,6 +17,7 @@ pub struct OpStackClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<Url>,
     execution_rpc: Option<Url>,
+    verifiable_api: Option<Url>,
     rpc_socket: Option<SocketAddr>,
     verify_unsafe_singer: Option<bool>,
 }
@@ -37,6 +39,11 @@ impl OpStackClientBuilder {
 
     pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
         self.execution_rpc = Some(execution_rpc.into_url().unwrap());
+        self
+    }
+
+    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: Option<T>) -> Self {
+        self.verifiable_api = verifiable_api.map(|s| s.into_url().unwrap());
         self
     }
 
@@ -74,6 +81,7 @@ impl OpStackClientBuilder {
             Config {
                 consensus_rpc,
                 execution_rpc,
+                verifiable_api: self.verifiable_api,
                 rpc_socket: self.rpc_socket,
                 chain: NetworkConfig::from(network).chain,
                 load_external_fallback: None,
@@ -89,6 +97,7 @@ impl OpStackClientBuilder {
         let consensus = ConsensusClient::new(&config);
         OpStackClient::new(
             config.execution_rpc.as_ref(),
+            config.verifiable_api.map(|url| url.to_string()).as_deref(),
             consensus,
             fork_schedule,
             #[cfg(not(target_arch = "wasm32"))]

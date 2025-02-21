@@ -1,42 +1,35 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
-use alloy::{
-    consensus::BlockHeader,
-    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
-};
+use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use eyre::{Report, Result};
-use futures::future::join_all;
 use revm::{
     primitives::{
-        address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env,
-        ExecutionResult, ResultAndState, B256, U256,
+        address, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env, ExecutionResult,
+        ResultAndState, B256, U256,
     },
     Database, Evm as Revm,
 };
 use tracing::trace;
 
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
-use crate::{
-    execution::{
-        constants::PARALLEL_QUERY_BATCH_SIZE,
-        errors::{EvmError, ExecutionError},
-        rpc::ExecutionRpc,
-        ExecutionClient,
-    },
-    fork_schedule::ForkSchedule,
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_verifiable_api_client::VerifiableApi;
+
+use crate::execution::{
+    errors::{EvmError, ExecutionError},
+    rpc::ExecutionRpc,
+    ExecutionClient,
 };
 
-pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
-    execution: Arc<ExecutionClient<N, R>>,
+pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+    execution: Arc<ExecutionClient<N, R, A>>,
     chain_id: u64,
     tag: BlockTag,
     fork_schedule: ForkSchedule,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> Evm<N, R, A> {
     pub fn new(
-        execution: Arc<ExecutionClient<N, R>>,
+        execution: Arc<ExecutionClient<N, R, A>>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
         tag: BlockTag,
@@ -122,12 +115,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
     }
 }
 
-struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
-    state: EvmState<N, R>,
+struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+    state: EvmState<N, R, A>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ProofDB<N, R> {
-    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R>>) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ProofDB<N, R, A> {
+    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R, A>>) -> Self {
         let state = EvmState::new(execution.clone(), tag);
         ProofDB { state }
     }
@@ -139,17 +132,17 @@ enum StateAccess {
     Storage(Address, U256),
 }
 
-struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>> {
+struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
     basic: HashMap<Address, AccountInfo>,
     block_hash: HashMap<u64, B256>,
     storage: HashMap<Address, HashMap<U256, U256>>,
     block: BlockTag,
     access: Option<StateAccess>,
-    execution: Arc<ExecutionClient<N, R>>,
+    execution: Arc<ExecutionClient<N, R, A>>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
-    pub fn new(execution: Arc<ExecutionClient<N, R>>, block: BlockTag) -> Self {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> {
+    pub fn new(execution: Arc<ExecutionClient<N, R, A>>, block: BlockTag) -> Self {
         Self {
             execution,
             block,
@@ -239,70 +232,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
     }
 
     pub async fn prefetch_state(&mut self, tx: &N::TransactionRequest) -> Result<()> {
-        let mut list = self
+        let block_id = Some(self.block.into());
+        let account_map = self
             .execution
-            .rpc
-            .create_access_list(tx, self.block)
+            .create_access_list(tx, block_id)
             .await
-            .map_err(EvmError::RpcError)?
-            .0;
-
-        let from_access_entry = AccessListItem {
-            address: tx.from().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-
-        let to_access_entry = AccessListItem {
-            address: tx.to().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-
-        let coinbase = self
-            .execution
-            .get_block(self.block, false)
-            .await
-            .ok_or(ExecutionError::BlockNotFound(self.block))?
-            .header()
-            .beneficiary();
-        let producer_access_entry = AccessListItem {
-            address: coinbase,
-            storage_keys: Vec::default(),
-        };
-
-        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
-
-        if !list_addresses.contains(&from_access_entry.address) {
-            list.push(from_access_entry)
-        }
-
-        if !list_addresses.contains(&to_access_entry.address) {
-            list.push(to_access_entry)
-        }
-
-        if !list_addresses.contains(&producer_access_entry.address) {
-            list.push(producer_access_entry)
-        }
-
-        let mut account_map = HashMap::new();
-        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
-            let account_chunk_futs = chunk.iter().map(|account| {
-                let account_fut = self.execution.get_account(
-                    account.address,
-                    Some(account.storage_keys.as_slice()),
-                    self.block,
-                );
-                async move { (account.address, account_fut.await) }
-            });
-
-            let account_chunk = join_all(account_chunk_futs).await;
-
-            account_chunk
-                .into_iter()
-                .filter(|i| i.1.is_ok())
-                .for_each(|(key, value)| {
-                    account_map.insert(key, value.ok().unwrap());
-                });
-        }
+            .map_err(EvmError::RpcError)?;
 
         for (address, account) in account_map {
             self.basic.insert(
@@ -327,7 +262,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Database for ProofDB<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> Database for ProofDB<N, R, A> {
     type Error = Report;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Report> {

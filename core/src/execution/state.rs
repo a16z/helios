@@ -16,8 +16,7 @@ use tokio::{
 };
 use tracing::{info, warn};
 
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
 use super::rpc::ExecutionRpc;
 

@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use alloy::primitives::Address;
 use criterion::{criterion_group, criterion_main, Criterion};
-use helios_core::types::BlockTag;
-use std::str::FromStr;
+
+use helios_common::types::BlockTag;
 
 mod harness;
 

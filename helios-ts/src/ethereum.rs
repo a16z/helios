@@ -9,7 +9,7 @@ use alloy::rpc::types::{Filter, TransactionRequest};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
 
-use helios_core::types::BlockTag;
+use helios_common::types::BlockTag;
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::database::{ConfigDB, Database};
 use helios_ethereum::EthereumClientBuilder;

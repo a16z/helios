@@ -1,15 +1,17 @@
 use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
+use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
-    AccessList, BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
+    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
+    FilterChanges, Log,
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
+use helios_common::network_spec::NetworkSpec;
+
 use super::ExecutionRpc;
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 #[derive(Clone)]
 pub struct MockRpc {
@@ -37,12 +39,12 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
     async fn create_access_list(
         &self,
         _opts: &N::TransactionRequest,
-        _block: BlockTag,
+        _block: BlockId,
     ) -> Result<AccessList> {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_code(&self, _address: Address, _block: u64) -> Result<Vec<u8>> {
+    async fn get_code(&self, _address: Address, _block: BlockId) -> Result<Vec<u8>> {
         let code = read_to_string(self.path.join("code.json"))?;
         Ok(hex::decode(&code[2..code.len() - 1])?)
     }
@@ -56,10 +58,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&receipt)?)
     }
 
-    async fn get_block_receipts(
-        &self,
-        _block: BlockTag,
-    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+    async fn get_block_receipts(&self, _block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = read_to_string(self.path.join("receipts.json"))?;
         Ok(serde_json::from_str(&receipts)?)
     }
@@ -108,6 +107,14 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
     }
 
     async fn get_block(&self, _hash: B256) -> Result<N::BlockResponse> {
+        Err(eyre!("not implemented"))
+    }
+
+    async fn get_block_by_number(
+        &self,
+        _block: BlockNumberOrTag,
+        _txs_kind: BlockTransactionsKind,
+    ) -> Result<Option<N::BlockResponse>> {
         Err(eyre!("not implemented"))
     }
 

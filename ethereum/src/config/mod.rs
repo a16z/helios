@@ -7,9 +7,9 @@ use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use helios_core::fork_schedule::ForkSchedule;
 use serde::Deserialize;
 
+use helios_common::fork_schedule::ForkSchedule;
 use helios_consensus_core::types::Forks;
 
 use self::base::BaseConfig;
@@ -28,6 +28,7 @@ mod types;
 pub struct Config {
     pub consensus_rpc: String,
     pub execution_rpc: String,
+    pub verifiable_api: Option<String>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub default_checkpoint: B256,
@@ -102,6 +103,7 @@ impl From<BaseConfig> for Config {
             rpc_port: Some(base.rpc_port),
             consensus_rpc: base.consensus_rpc.unwrap_or_default(),
             execution_rpc: String::new(),
+            verifiable_api: None,
             checkpoint: None,
             default_checkpoint: base.default_checkpoint,
             chain: base.chain,

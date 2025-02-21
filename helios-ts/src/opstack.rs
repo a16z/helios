@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
-use helios_core::types::BlockTag;
+use helios_common::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
 use helios_opstack::OpStackClientBuilder;
 
@@ -42,6 +42,7 @@ impl OpStackClient {
 
         let config = Config {
             execution_rpc: execution_rpc.parse()?,
+            verifiable_api: None,
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,

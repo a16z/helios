@@ -1,12 +1,14 @@
 #![allow(dead_code)]
+use std::{path::PathBuf, str::FromStr};
+
 use alloy::primitives::{Address, B256, U256};
-use helios_core::types::BlockTag;
+
+use helios_common::types::BlockTag;
 use helios_ethereum::{
     config::{checkpoints, networks},
     database::FileDB,
     EthereumClient, EthereumClientBuilder,
 };
-use std::{path::PathBuf, str::FromStr};
 
 /// Fetches the latest mainnet checkpoint from the fallback service.
 ///
