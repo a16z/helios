@@ -13,8 +13,9 @@ use helios_verifiable_api_types::*;
 // re-export types
 pub use helios_verifiable_api_types as types;
 
-#[async_trait]
-pub trait VerifiableApi<N: NetworkSpec>: Clone + Send + Sync {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     fn new(base_url: &str) -> Self
     where
         Self: Sized;
@@ -61,7 +62,8 @@ impl Clone for VerifiableApiClient {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     fn new(base_url: &str) -> Self {
         Self {

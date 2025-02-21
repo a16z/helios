@@ -34,7 +34,8 @@ pub struct ExecutionRpcClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     state: State<N, R>,
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpcClient<N, R> {
     fn new(url: &str, state: State<N, R>) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(url)?;

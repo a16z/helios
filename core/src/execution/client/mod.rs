@@ -18,8 +18,9 @@ use super::state::State;
 pub mod rpc;
 pub mod verifiable_api;
 
-#[async_trait]
-pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>> {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>>: Send + Sync {
     fn new(url: &str, state: State<N, R>) -> Result<Self>
     where
         Self: Sized;

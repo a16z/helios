@@ -28,7 +28,8 @@ pub struct ExecutionVerifiableApiClient<N: NetworkSpec, R: ExecutionRpc<N>, A: V
     state: State<N, R>,
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N, R>
     for ExecutionVerifiableApiClient<N, R, A>
 {

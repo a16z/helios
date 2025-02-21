@@ -29,7 +29,8 @@ pub struct ApiService<N: NetworkSpec, R: ExecutionRpc<N>> {
     _marker: PhantomData<N>,
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     fn new(rpc: &str) -> Self {
         Self {
