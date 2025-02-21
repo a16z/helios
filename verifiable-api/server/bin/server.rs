@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use api_service::ApiService;
 use clap::{Args, Parser, Subcommand};
 use tracing::{debug, level_filters::LevelFilter};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
@@ -9,13 +8,15 @@ use url::Url;
 use helios_core::execution::rpc::http_rpc::HttpRpc;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 use helios_opstack::spec::OpStack as OpStackSpec;
+use helios_verifiable_api_client::VerifiableApi;
 
 use crate::router::build_router;
+use crate::service::ApiService;
 use crate::state::ApiState;
 
-mod api_service;
 mod handlers;
 mod router;
+mod service;
 mod state;
 
 #[tokio::main]
@@ -32,8 +33,7 @@ async fn main() {
             let server_addr = args.server_address;
             let execution_rpc = args.execution_rpc;
             let api_service =
-                ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str())
-                    .unwrap();
+                ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str());
             let router = build_router().with_state(ApiState { api_service });
             (server_addr, router)
         }
@@ -41,8 +41,7 @@ async fn main() {
             let server_addr = args.server_address;
             let execution_rpc = args.execution_rpc;
             let api_service =
-                ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str())
-                    .unwrap();
+                ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str());
             let router = build_router().with_state(ApiState { api_service });
             (server_addr, router)
         }

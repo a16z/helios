@@ -16,21 +16,21 @@ use helios_common::{
 };
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
+use crate::execution::client::ExecutionMethods;
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
-use crate::execution::verified_client::VerifiableMethods;
 
 #[derive(Clone)]
-pub struct VerifiableMethodsApi<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+pub struct ExecutionVerifiableApiClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
     api: A,
     state: State<N, R>,
 }
 
 #[async_trait]
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<N, R>
-    for VerifiableMethodsApi<N, R, A>
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N, R>
+    for ExecutionVerifiableApiClient<N, R, A>
 {
     fn new(url: &str, state: State<N, R>) -> Result<Self> {
         let api: A = VerifiableApi::new(url);
@@ -141,9 +141,44 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethods<
 
         Ok(account_map)
     }
+
+    async fn chain_id(&self) -> Result<u64> {
+        let ChainIdResponse { chain_id } = self.api.chain_id().await?;
+        Ok(chain_id)
+    }
+
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.api.get_block_receipts(block).await
+    }
+
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
+        let SendRawTxResponse { hash } = self.api.send_raw_transaction(bytes).await?;
+        Ok(hash)
+    }
+
+    async fn new_filter(&self, filter: &Filter) -> Result<U256> {
+        let NewFilterResponse { id, .. } = self.api.new_filter(filter).await?;
+        Ok(id)
+    }
+
+    async fn new_block_filter(&self) -> Result<U256> {
+        let NewFilterResponse { id, .. } = self.api.new_block_filter().await?;
+        Ok(id)
+    }
+
+    async fn new_pending_transaction_filter(&self) -> Result<U256> {
+        let NewFilterResponse { id, .. } = self.api.new_pending_transaction_filter().await?;
+        Ok(id)
+    }
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
+        let UninstallFilterResponse { ok } = self.api.uninstall_filter(filter_id).await?;
+        Ok(ok)
+    }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsApi<N, R, A> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>>
+    ExecutionVerifiableApiClient<N, R, A>
+{
     fn verify_account_response(
         &self,
         address: Address,

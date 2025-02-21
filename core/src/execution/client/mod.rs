@@ -15,11 +15,11 @@ use helios_verifiable_api_client::VerifiableApi;
 use super::rpc::ExecutionRpc;
 use super::state::State;
 
-pub mod api;
 pub mod rpc;
+pub mod verifiable_api;
 
 #[async_trait]
-pub trait VerifiableMethods<N: NetworkSpec, R: ExecutionRpc<N>> {
+pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>> {
     fn new(url: &str, state: State<N, R>) -> Result<Self>
     where
         Self: Sized;
@@ -38,20 +38,27 @@ pub trait VerifiableMethods<N: NetworkSpec, R: ExecutionRpc<N>> {
         tx: &N::TransactionRequest,
         block: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>>;
+    async fn chain_id(&self) -> Result<u64>;
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256>;
+    async fn new_filter(&self, filter: &Filter) -> Result<U256>;
+    async fn new_block_filter(&self) -> Result<U256>;
+    async fn new_pending_transaction_filter(&self) -> Result<U256>;
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<bool>;
 }
 
 #[derive(Clone)]
-pub enum VerifiableMethodsClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
-    Api(api::VerifiableMethodsApi<N, R, A>),
-    Rpc(rpc::VerifiableMethodsRpc<N, R>),
+pub enum ExecutionMethodsClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+    Api(verifiable_api::ExecutionVerifiableApiClient<N, R, A>),
+    Rpc(rpc::ExecutionRpcClient<N, R>),
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> VerifiableMethodsClient<N, R, A> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethodsClient<N, R, A> {
     // manual dynamic dispatch
-    pub fn client(&self) -> &dyn VerifiableMethods<N, R> {
+    pub fn client(&self) -> &dyn ExecutionMethods<N, R> {
         match self {
-            VerifiableMethodsClient::Api(client) => client,
-            VerifiableMethodsClient::Rpc(client) => client,
+            ExecutionMethodsClient::Api(client) => client,
+            ExecutionMethodsClient::Rpc(client) => client,
         }
     }
 }

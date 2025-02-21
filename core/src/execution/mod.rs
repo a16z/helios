@@ -18,27 +18,26 @@ use helios_common::{
 };
 use helios_verifiable_api_client::VerifiableApi;
 
+use self::client::{
+    rpc::ExecutionRpcClient, verifiable_api::ExecutionVerifiableApiClient, ExecutionMethods,
+    ExecutionMethodsClient,
+};
 use self::errors::ExecutionError;
 use self::proof::verify_block_receipts;
 use self::rpc::ExecutionRpc;
 use self::state::{FilterType, State};
-use self::verified_client::{
-    api::VerifiableMethodsApi, rpc::VerifiableMethodsRpc, VerifiableMethods,
-    VerifiableMethodsClient,
-};
 
+pub mod client;
 pub mod constants;
 pub mod errors;
 pub mod evm;
 pub mod proof;
 pub mod rpc;
 pub mod state;
-pub mod verified_client;
 
 #[derive(Clone)]
 pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
-    pub rpc: R,
-    verified_methods: VerifiableMethodsClient<N, R, A>,
+    client: ExecutionMethodsClient<N, R, A>,
     state: State<N, R>,
     fork_schedule: ForkSchedule,
     _marker: PhantomData<A>,
@@ -51,25 +50,30 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         state: State<N, R>,
         fork_schedule: ForkSchedule,
     ) -> Result<Self> {
-        let verified_methods = if let Some(verifiable_api) = verifiable_api {
+        let client = if let Some(verifiable_api) = verifiable_api {
             info!(target: "helios::execution", "using Verifiable-API url={}", verifiable_api);
-            VerifiableMethodsClient::Api(VerifiableMethodsApi::new(verifiable_api, state.clone())?)
+            ExecutionMethodsClient::Api(ExecutionVerifiableApiClient::new(
+                verifiable_api,
+                state.clone(),
+            )?)
         } else {
             info!(target: "helios::execution", "Using JSON-RPC url={}", rpc);
-            VerifiableMethodsClient::Rpc(VerifiableMethodsRpc::new(rpc, state.clone())?)
+            ExecutionMethodsClient::Rpc(ExecutionRpcClient::new(rpc, state.clone())?)
         };
-        let rpc: R = ExecutionRpc::new(rpc)?;
         Ok(Self {
-            rpc,
-            verified_methods,
+            client,
             state,
             fork_schedule,
             _marker: PhantomData,
         })
     }
 
+    fn client(&self) -> &dyn ExecutionMethods<N, R> {
+        self.client.client()
+    }
+
     pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
-        if self.rpc.chain_id().await? != chain_id {
+        if self.client().chain_id().await? != chain_id {
             Err(ExecutionError::IncorrectRpcNetwork().into())
         } else {
             Ok(())
@@ -82,10 +86,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         slots: Option<&[B256]>,
         tag: BlockTag,
     ) -> Result<Account> {
-        self.verified_methods
-            .client()
-            .get_account(address, slots, tag)
-            .await
+        self.client().get_account(address, slots, tag).await
     }
 
     pub async fn get_storage_at(
@@ -108,7 +109,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
-        self.rpc.send_raw_transaction(bytes).await
+        self.client().send_raw_transaction(bytes).await
     }
 
     pub async fn get_block(&self, tag: BlockTag, full_tx: bool) -> Option<N::BlockResponse> {
@@ -186,10 +187,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         &self,
         tx_hash: B256,
     ) -> Result<Option<N::ReceiptResponse>> {
-        self.verified_methods
-            .client()
-            .get_transaction_receipt(tx_hash)
-            .await
+        self.client().get_transaction_receipt(tx_hash).await
     }
 
     pub async fn get_block_receipts(
@@ -205,7 +203,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         let block_id = BlockId::from(block.header().number());
 
         let receipts = self
-            .rpc
+            .client()
             .get_block_receipts(block_id)
             .await?
             .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
@@ -235,7 +233,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
             filter
         };
 
-        let logs = self.verified_methods.client().get_logs(&filter).await?;
+        let logs = self.client().get_logs(&filter).await?;
         ensure_logs_match_filter(&logs, &filter)?;
         Ok(logs)
     }
@@ -250,11 +248,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
             }
             Some(FilterType::Logs(filter)) => {
                 // underlying RPC takes care of keeping track of changes
-                let filter_changes = self
-                    .verified_methods
-                    .client()
-                    .get_filter_changes(filter_id)
-                    .await?;
+                let filter_changes = self.client().get_filter_changes(filter_id).await?;
                 let logs = filter_changes.as_logs().unwrap_or(&[]);
                 ensure_logs_match_filter(logs, filter)?;
                 FilterChanges::Logs(logs.to_vec())
@@ -279,7 +273,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
             }
             Some(FilterType::PendingTransactions) => {
                 // underlying RPC takes care of keeping track of changes
-                let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
+                let filter_changes = self.client().get_filter_changes(filter_id).await?;
                 let tx_hashes = filter_changes.as_hashes().unwrap_or(&[]);
                 FilterChanges::Hashes(tx_hashes.to_vec())
             }
@@ -291,11 +285,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
 
         match &filter_type {
             Some(FilterType::Logs(filter)) => {
-                let logs = self
-                    .verified_methods
-                    .client()
-                    .get_filter_logs(filter_id)
-                    .await?;
+                let logs = self.client().get_filter_logs(filter_id).await?;
                 ensure_logs_match_filter(&logs, filter)?;
                 Ok(logs)
             }
@@ -309,7 +299,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         // remove the filter from the state
         self.state.remove_filter(&filter_id).await;
-        self.rpc.uninstall_filter(filter_id).await
+        self.client().uninstall_filter(filter_id).await
     }
 
     pub async fn new_filter(&self, filter: &Filter) -> Result<U256> {
@@ -327,7 +317,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         } else {
             filter
         };
-        let filter_id = self.rpc.new_filter(&filter).await?;
+        let filter_id = self.client().new_filter(&filter).await?;
 
         // record the filter in the state
         self.state
@@ -338,7 +328,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
     }
 
     pub async fn new_block_filter(&self) -> Result<U256> {
-        let filter_id = self.rpc.new_block_filter().await?;
+        let filter_id = self.client().new_block_filter().await?;
 
         // record the filter in the state
         let latest_block_num = self.state.latest_block_number().await.unwrap_or(1);
@@ -350,7 +340,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
     }
 
     pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
-        let filter_id = self.rpc.new_pending_transaction_filter().await?;
+        let filter_id = self.client().new_pending_transaction_filter().await?;
 
         // record the filter in the state
         self.state
@@ -365,10 +355,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         tx: &N::TransactionRequest,
         block: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
-        self.verified_methods
-            .client()
-            .create_access_list(tx, block)
-            .await
+        self.client().create_access_list(tx, block).await
     }
 }
 

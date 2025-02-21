@@ -9,12 +9,13 @@ use axum::{
     response::Json,
 };
 use axum_extra::extract::Query;
-use eyre::{eyre, Report, Result};
+use eyre::{eyre, OptionExt, Report, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::{errors::ExecutionError, rpc::ExecutionRpc};
+use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
 
 use crate::ApiState;
@@ -107,10 +108,10 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
         storage_slots,
         block,
     }): Query<AccountProofQuery>,
-    State(ApiState { api_service, .. }): State<ApiState<N, R>>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<AccountResponse> {
     api_service
-        .get_account(address, storage_slots, block)
+        .get_account(address, &storage_slots, block)
         .await
         .map(Json)
         .map_err(map_server_err)
@@ -118,7 +119,7 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
 
 pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(tx_hash): Path<B256>,
-    State(ApiState { api_service, .. }): State<ApiState<N, R>>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<Option<TransactionReceiptResponse<N>>> {
     api_service
         .get_transaction_receipt(tx_hash)
@@ -129,12 +130,12 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
 
 pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Query(logs_filter_query): Query<LogsQuery>,
-    State(ApiState { api_service, .. }): State<ApiState<N, R>>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<LogsResponse<N>> {
     let filter: Filter = logs_filter_query.try_into().map_err(map_server_err)?;
 
     api_service
-        .get_logs(filter)
+        .get_logs(&filter)
         .await
         .map(Json)
         .map_err(map_server_err)
@@ -142,7 +143,7 @@ pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 
 pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
-    State(ApiState { api_service, .. }): State<ApiState<N, R>>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<FilterLogsResponse<N>> {
     api_service
         .get_filter_logs(filter_id)
@@ -153,7 +154,7 @@ pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
 
 pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
-    State(ApiState { api_service, .. }): State<ApiState<N, R>>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<FilterChangesResponse<N>> {
     api_service
         .get_filter_changes(filter_id)
@@ -163,11 +164,72 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
 }
 
 pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
-    State(ApiState { api_service, .. }): State<ApiState<N, R>>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
     Json(AccessListRequest { tx, block }): Json<AccessListRequest<N>>,
 ) -> Response<AccessListResponse> {
     api_service
         .create_access_list(tx, block)
+        .await
+        .map(Json)
+        .map_err(map_server_err)
+}
+
+pub async fn get_chain_id<N: NetworkSpec, R: ExecutionRpc<N>>(
+    State(ApiState { api_service }): State<ApiState<N, R>>,
+) -> Response<ChainIdResponse> {
+    api_service
+        .chain_id()
+        .await
+        .map(Json)
+        .map_err(map_server_err)
+}
+
+pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Path(block_id): Path<BlockId>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
+) -> Response<Option<Vec<N::ReceiptResponse>>> {
+    api_service
+        .get_block_receipts(block_id)
+        .await
+        .map(Json)
+        .map_err(map_server_err)
+}
+
+pub async fn send_raw_transaction<N: NetworkSpec, R: ExecutionRpc<N>>(
+    State(ApiState { api_service }): State<ApiState<N, R>>,
+    Json(SendRawTxRequest { bytes }): Json<SendRawTxRequest>,
+) -> Response<SendRawTxResponse> {
+    api_service
+        .send_raw_transaction(&bytes)
+        .await
+        .map(Json)
+        .map_err(map_server_err)
+}
+
+pub async fn new_filter<N: NetworkSpec, R: ExecutionRpc<N>>(
+    State(ApiState { api_service }): State<ApiState<N, R>>,
+    Json(NewFilterRequest { kind, filter }): Json<NewFilterRequest>,
+) -> Response<NewFilterResponse> {
+    let res = match kind {
+        FilterKind::Logs => {
+            let filter = filter
+                .ok_or_eyre("Missing filter body")
+                .map_err(map_server_err)?;
+            api_service.new_filter(&filter).await
+        }
+        FilterKind::NewBlocks => api_service.new_block_filter().await,
+        FilterKind::NewPendingTransactions => api_service.new_pending_transaction_filter().await,
+    };
+
+    res.map(Json).map_err(map_server_err)
+}
+
+pub async fn uninstall_filter<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Path(filter_id): Path<U256>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
+) -> Response<UninstallFilterResponse> {
+    api_service
+        .uninstall_filter(filter_id)
         .await
         .map(Json)
         .map_err(map_server_err)

@@ -26,16 +26,16 @@ use crate::execution::proof::{
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
 
-use super::VerifiableMethods;
+use super::ExecutionMethods;
 
 #[derive(Clone)]
-pub struct VerifiableMethodsRpc<N: NetworkSpec, R: ExecutionRpc<N>> {
+pub struct ExecutionRpcClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     rpc: R,
     state: State<N, R>,
 }
 
 #[async_trait]
-impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableMethodsRpc<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpcClient<N, R> {
     fn new(url: &str, state: State<N, R>) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(url)?;
         Ok(Self { rpc, state })
@@ -192,9 +192,37 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethods<N, R> for VerifiableM
 
         Ok(account_map)
     }
+
+    async fn chain_id(&self) -> Result<u64> {
+        self.rpc.chain_id().await
+    }
+
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.rpc.get_block_receipts(block).await
+    }
+
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
+        self.rpc.send_raw_transaction(bytes).await
+    }
+
+    async fn new_filter(&self, filter: &Filter) -> Result<U256> {
+        self.rpc.new_filter(filter).await
+    }
+
+    async fn new_block_filter(&self) -> Result<U256> {
+        self.rpc.new_block_filter().await
+    }
+
+    async fn new_pending_transaction_filter(&self) -> Result<U256> {
+        self.rpc.new_pending_transaction_filter().await
+    }
+
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
+        self.rpc.uninstall_filter(filter_id).await
+    }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableMethodsRpc<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionRpcClient<N, R> {
     async fn verify_proof_to_account(
         &self,
         proof: &EIP1186AccountProofResponse,

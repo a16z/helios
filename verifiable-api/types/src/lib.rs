@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use alloy::{
     consensus::Account as TrieAccount,
     eips::BlockId,
-    primitives::{Address, Bytes, B256},
-    rpc::types::{EIP1186StorageProof, Log},
+    primitives::{Address, Bytes, B256, U256},
+    rpc::types::{EIP1186StorageProof, Filter, Log},
 };
 use serde::{Deserialize, Serialize};
 
@@ -62,4 +62,49 @@ pub struct AccessListRequest<N: NetworkSpec> {
 #[serde(rename_all = "camelCase")]
 pub struct AccessListResponse {
     pub accounts: HashMap<Address, AccountResponse>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainIdResponse {
+    pub chain_id: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendRawTxRequest {
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendRawTxResponse {
+    pub hash: B256,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum FilterKind {
+    Logs,
+    NewBlocks,
+    NewPendingTransactions,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewFilterRequest {
+    pub kind: FilterKind,
+    pub filter: Option<Filter>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewFilterResponse {
+    pub id: U256,
+    pub kind: FilterKind,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallFilterResponse {
+    pub ok: bool,
 }

@@ -18,6 +18,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Clone + Send + Sync {
     fn new(base_url: &str) -> Self
     where
         Self: Sized;
+    // Methods augmented with proof
     async fn get_account(
         &self,
         address: Address,
@@ -36,6 +37,14 @@ pub trait VerifiableApi<N: NetworkSpec>: Clone + Send + Sync {
         tx: N::TransactionRequest,
         block: Option<BlockId>,
     ) -> Result<AccessListResponse>;
+    // Methods just for compatibility (acts as a proxy)
+    async fn chain_id(&self) -> Result<ChainIdResponse>;
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse>;
+    async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse>;
+    async fn new_block_filter(&self) -> Result<NewFilterResponse>;
+    async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse>;
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse>;
 }
 
 pub struct VerifiableApiClient {
@@ -167,6 +176,86 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             .send()
             .await?;
         let response = response.json::<AccessListResponse>().await?;
+        Ok(response)
+    }
+
+    async fn chain_id(&self) -> Result<ChainIdResponse> {
+        let url = format!("{}/eth/v1/chain_id", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let response = response.json::<ChainIdResponse>().await?;
+        Ok(response)
+    }
+
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let url = format!("{}/eth/v1/block_receipts/{}", self.base_url, block);
+        let response = self.client.get(&url).send().await?;
+        let response = response.json::<Option<Vec<N::ReceiptResponse>>>().await?;
+        Ok(response)
+    }
+
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
+        let url = format!("{}/eth/v1/send_raw_transaction", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&SendRawTxRequest {
+                bytes: bytes.to_vec(),
+            })
+            .send()
+            .await?;
+        let response = response.json::<SendRawTxResponse>().await?;
+        Ok(response)
+    }
+
+    async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse> {
+        let url = format!("{}/eth/v1/filter", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&NewFilterRequest {
+                kind: FilterKind::Logs,
+                filter: Some(filter.clone()),
+            })
+            .send()
+            .await?;
+        let response = response.json::<NewFilterResponse>().await?;
+        Ok(response)
+    }
+
+    async fn new_block_filter(&self) -> Result<NewFilterResponse> {
+        let url = format!("{}/eth/v1/filter", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&NewFilterRequest {
+                kind: FilterKind::NewBlocks,
+                filter: None,
+            })
+            .send()
+            .await?;
+        let response = response.json::<NewFilterResponse>().await?;
+        Ok(response)
+    }
+
+    async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse> {
+        let url = format!("{}/eth/v1/filter", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&NewFilterRequest {
+                kind: FilterKind::NewPendingTransactions,
+                filter: None,
+            })
+            .send()
+            .await?;
+        let response = response.json::<NewFilterResponse>().await?;
+        Ok(response)
+    }
+
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse> {
+        let url = format!("{}/eth/v1/filter/{}", self.base_url, filter_id);
+        let response = self.client.delete(&url).send().await?;
+        let response = response.json::<UninstallFilterResponse>().await?;
         Ok(response)
     }
 }

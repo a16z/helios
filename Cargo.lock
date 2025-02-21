@@ -3303,6 +3303,7 @@ dependencies = [
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
+ "helios-verifiable-api-client",
  "helios-verifiable-api-types",
  "serde",
  "serde_json",
