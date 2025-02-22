@@ -8,7 +8,6 @@ use helios_core::execution::rpc::ExecutionRpc;
 
 use crate::{handlers, ApiState};
 
-// ToDo(@eshaan7): prob use kebab-case for routes since that's the convention in REST APIs
 pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, R>> {
     Router::new()
         .nest(
@@ -16,31 +15,28 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
             Router::new()
                 .route("/account/{address}", get(handlers::get_account))
                 .route(
-                    "/tx_receipt/{tx_hash}",
+                    "/transaction/{txHash}/receipt",
                     get(handlers::get_transaction_receipt),
                 )
                 .route("/logs", get(handlers::get_logs))
-                .route("/filter_logs/{filter_id}", get(handlers::get_filter_logs))
+                .route("/filterLogs/{filterId}", get(handlers::get_filter_logs))
                 .route(
-                    "/filter_changes/{filter_id}",
+                    "/filterChanges/{filterId}",
                     get(handlers::get_filter_changes),
                 )
-                .route("/create_access_list", post(handlers::create_access_list)),
+                .route("/createAccessList", post(handlers::create_access_list)),
         )
         .nest(
             "/eth/v1",
             Router::new()
-                .route("/chain_id", get(handlers::get_chain_id))
-                .route("/block/{block_id}", get(handlers::get_block))
+                .route("/chainId", get(handlers::get_chain_id))
+                .route("/block/{blockId}", get(handlers::get_block))
                 .route(
-                    "/block/{block_id}/receipts",
+                    "/block/{blockId}/receipts",
                     get(handlers::get_block_receipts),
                 )
-                .route(
-                    "/send_raw_transaction",
-                    post(handlers::send_raw_transaction),
-                )
+                .route("/sendRawTransaction", post(handlers::send_raw_transaction))
                 .route("/filter", post(handlers::new_filter))
-                .route("/filter/{filter_id}", delete(handlers::uninstall_filter)),
+                .route("/filter/{filterId}", delete(handlers::uninstall_filter)),
         )
 }

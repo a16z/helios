@@ -99,7 +99,10 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
-        let url = format!("{}/eth/v1/proof/tx_receipt/{}", self.base_url, tx_hash);
+        let url = format!(
+            "{}/eth/v1/proof/transaction/{}/receipt",
+            self.base_url, tx_hash
+        );
         let response = self.client.get(&url).send().await?;
         let response = response
             .json::<Option<TransactionReceiptResponse<N>>>()
@@ -153,17 +156,14 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     }
 
     async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>> {
-        let url = format!("{}/eth/v1/proof/filter_logs/{}", self.base_url, filter_id);
+        let url = format!("{}/eth/v1/proof/filterLogs/{}", self.base_url, filter_id);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<FilterLogsResponse<N>>().await?;
         Ok(response)
     }
 
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>> {
-        let url = format!(
-            "{}/eth/v1/proof/filter_changes/{}",
-            self.base_url, filter_id
-        );
+        let url = format!("{}/eth/v1/proof/filterChanges/{}", self.base_url, filter_id);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<FilterChangesResponse<N>>().await?;
         Ok(response)
@@ -174,7 +174,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         tx: N::TransactionRequest,
         block: Option<BlockId>,
     ) -> Result<AccessListResponse> {
-        let url = format!("{}/eth/v1/proof/create_access_list", self.base_url);
+        let url = format!("{}/eth/v1/proof/createAccessList", self.base_url);
         let response = self
             .client
             .post(&url)
@@ -186,7 +186,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
-        let url = format!("{}/eth/v1/chain_id", self.base_url);
+        let url = format!("{}/eth/v1/chainId", self.base_url);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<ChainIdResponse>().await?;
         Ok(response)
@@ -207,7 +207,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
-        let url = format!("{}/eth/v1/send_raw_transaction", self.base_url);
+        let url = format!("{}/eth/v1/sendRawTransaction", self.base_url);
         let response = self
             .client
             .post(&url)
