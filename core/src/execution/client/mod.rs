@@ -29,6 +29,7 @@ pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>>: Send + Sync {
         address: Address,
         slots: Option<&[B256]>,
         tag: BlockTag,
+        include_code: bool,
     ) -> Result<Account>;
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>>;
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
@@ -40,6 +41,7 @@ pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>>: Send + Sync {
         block: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>>;
     async fn chain_id(&self) -> Result<u64>;
+    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>>;
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256>;
     async fn new_filter(&self, filter: &Filter) -> Result<U256>;

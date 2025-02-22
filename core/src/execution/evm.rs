@@ -159,7 +159,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> 
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(*address, None, self.block)
+                        .get_account(*address, None, self.block, true)
                         .await?;
 
                     self.basic.insert(
@@ -168,7 +168,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> 
                             account.balance,
                             account.nonce,
                             account.code_hash,
-                            Bytecode::new_raw(account.code.into()),
+                            Bytecode::new_raw(account.code.unwrap().into()),
                         ),
                     );
                 }
@@ -176,7 +176,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> 
                     let slot_bytes = B256::from(*slot);
                     let account = self
                         .execution
-                        .get_account(*address, Some(&[slot_bytes]), self.block)
+                        .get_account(*address, Some(&[slot_bytes]), self.block, false)
                         .await?;
 
                     let storage = self.storage.entry(*address).or_default();
@@ -246,7 +246,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> EvmState<N, R, A> 
                     account.balance,
                     account.nonce,
                     account.code_hash,
-                    Bytecode::new_raw(account.code.into()),
+                    Bytecode::new_raw(account.code.unwrap().into()),
                 ),
             );
 

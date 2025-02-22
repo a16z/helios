@@ -9,7 +9,7 @@ use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log}
 use async_trait::async_trait;
 use eyre::Result;
 use futures::future::{join_all, try_join_all};
-use revm::primitives::{AccessListItem, KECCAK_EMPTY};
+use revm::primitives::AccessListItem;
 
 use helios_common::{
     network_spec::NetworkSpec,
@@ -47,6 +47,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpc
         address: Address,
         slots: Option<&[B256]>,
         tag: BlockTag,
+        include_code: bool,
     ) -> Result<Account> {
         let slots = slots.unwrap_or(&[]);
         let block = self
@@ -60,7 +61,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpc
             .get_proof(address, slots, block.header().number().into())
             .await?;
 
-        self.verify_proof_to_account(&proof, &block).await
+        self.verify_proof_to_account(&proof, &block, include_code)
+            .await
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
@@ -178,8 +180,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpc
         let mut account_map = HashMap::new();
         for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
             let account_chunk_futs = chunk.iter().map(|account| {
-                let account_fut =
-                    self.get_account(account.address, Some(account.storage_keys.as_slice()), tag);
+                let account_fut = self.get_account(
+                    account.address,
+                    Some(account.storage_keys.as_slice()),
+                    tag,
+                    true,
+                );
                 async move { (account.address, account_fut.await) }
             });
 
@@ -196,6 +202,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpc
 
     async fn chain_id(&self) -> Result<u64> {
         self.rpc.chain_id().await
+    }
+
+    async fn get_block(&self, block: BlockId) -> Result<Option<N::BlockResponse>> {
+        Ok(match block {
+            BlockId::Number(number_or_tag) => {
+                self.rpc
+                    .get_block_by_number(number_or_tag, false.into())
+                    .await?
+            }
+            BlockId::Hash(hash) => self.rpc.get_block(hash.into()).await.ok(),
+        })
     }
 
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
@@ -228,21 +245,19 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionRpcClient<N, R> {
         &self,
         proof: &EIP1186AccountProofResponse,
         block: &N::BlockResponse,
+        verify_code: bool,
     ) -> Result<Account> {
         // Verify the account proof
         verify_account_proof(proof, block.header().state_root())?;
         // Verify the storage proofs, collecting the slot values
         let slot_map = verify_storage_proof(proof)?;
         // Verify the code hash
-        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
-            Vec::new()
-        } else {
+        let code = if verify_code {
             let code = self
                 .rpc
                 .get_code(proof.address, block.header().number().into())
                 .await?;
             let code_hash = keccak256(&code);
-
             if proof.code_hash != code_hash {
                 return Err(ExecutionError::CodeHashMismatch(
                     proof.address,
@@ -251,8 +266,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionRpcClient<N, R> {
                 )
                 .into());
             }
-
-            code
+            Some(code)
+        } else {
+            None
         };
 
         Ok(Account {

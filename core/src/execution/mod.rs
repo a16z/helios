@@ -85,8 +85,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         address: Address,
         slots: Option<&[B256]>,
         tag: BlockTag,
+        include_code: bool,
     ) -> Result<Account> {
-        self.client().get_account(address, slots, tag).await
+        self.client()
+            .get_account(address, slots, tag, include_code)
+            .await
     }
 
     pub async fn get_storage_at(
@@ -98,7 +101,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionClient<N,
         let storage_key = slot.into();
 
         let account = self
-            .get_account(address, Some(&[storage_key]), block)
+            .get_account(address, Some(&[storage_key]), block, false)
             .await?;
 
         let value = account.slots.get(&storage_key);

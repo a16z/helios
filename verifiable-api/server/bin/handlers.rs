@@ -40,6 +40,8 @@ fn map_server_err(e: Report) -> (StatusCode, Json<serde_json::Value>) {
 #[serde(rename_all = "camelCase")]
 pub struct AccountProofQuery {
     #[serde(default)]
+    include_code: bool,
+    #[serde(default)]
     pub storage_slots: Vec<U256>,
     pub block: Option<BlockId>,
 }
@@ -105,13 +107,14 @@ impl TryInto<Filter> for LogsQuery {
 pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(AccountProofQuery {
+        include_code,
         storage_slots,
         block,
     }): Query<AccountProofQuery>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<AccountResponse> {
     api_service
-        .get_account(address, &storage_slots, block)
+        .get_account(address, &storage_slots, block, include_code)
         .await
         .map(Json)
         .map_err(map_server_err)
@@ -179,6 +182,17 @@ pub async fn get_chain_id<N: NetworkSpec, R: ExecutionRpc<N>>(
 ) -> Response<ChainIdResponse> {
     api_service
         .chain_id()
+        .await
+        .map(Json)
+        .map_err(map_server_err)
+}
+
+pub async fn get_block<N: NetworkSpec, R: ExecutionRpc<N>>(
+    Path(block_id): Path<BlockId>,
+    State(ApiState { api_service }): State<ApiState<N, R>>,
+) -> Response<Option<N::BlockResponse>> {
+    api_service
+        .get_block(block_id)
         .await
         .map(Json)
         .map_err(map_server_err)

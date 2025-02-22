@@ -31,8 +31,9 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
             "/eth/v1",
             Router::new()
                 .route("/chain_id", get(handlers::get_chain_id))
+                .route("/block/{block_id}", get(handlers::get_block))
                 .route(
-                    "/block_receipts/{block_id}",
+                    "/block/{block_id}/receipts",
                     get(handlers::get_block_receipts),
                 )
                 .route(

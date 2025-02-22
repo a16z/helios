@@ -6,7 +6,6 @@ use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
-use alloy_trie::KECCAK_EMPTY;
 use async_trait::async_trait;
 use eyre::Result;
 
@@ -43,6 +42,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N
         address: Address,
         slots: Option<&[B256]>,
         tag: BlockTag,
+        include_code: bool,
     ) -> Result<Account> {
         let block = self
             .state
@@ -58,7 +58,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N
 
         let account_response = self
             .api
-            .get_account(address, &slots, Some(block_id))
+            .get_account(address, &slots, Some(block_id), include_code)
             .await?;
 
         self.verify_account_response(address, account_response, &block)
@@ -148,6 +148,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N
         Ok(chain_id)
     }
 
+    async fn get_block(&self, block: BlockId) -> Result<Option<N::BlockResponse>> {
+        self.api.get_block(block).await
+    }
+
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         self.api.get_block_receipts(block).await
     }
@@ -199,19 +203,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>>
         verify_account_proof(&proof, block.header().state_root())?;
         // Verify the storage proofs, collecting the slot values
         let slot_map = verify_storage_proof(&proof)?;
-        // Verify the code hash
-        let code = if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
-            Vec::new()
-        } else {
-            let code_hash = keccak256(&account.code);
-
-            if proof.code_hash != code_hash {
-                return Err(
-                    ExecutionError::CodeHashMismatch(address, code_hash, proof.code_hash).into(),
-                );
+        // Verify the code hash (if code is included in the response)
+        let code = match account.code {
+            Some(code) => {
+                let code_hash = keccak256(&code);
+                if proof.code_hash != code_hash {
+                    return Err(ExecutionError::CodeHashMismatch(
+                        address,
+                        code_hash,
+                        proof.code_hash,
+                    )
+                    .into());
+                }
+                Some(code.into())
             }
-
-            account.code.into()
+            None => None,
         };
 
         Ok(Account {

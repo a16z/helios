@@ -14,7 +14,8 @@ use helios_common::network_spec::NetworkSpec;
 #[serde(rename_all = "camelCase")]
 pub struct AccountResponse {
     pub account: TrieAccount,
-    pub code: Bytes,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<Bytes>,
     pub account_proof: Vec<Bytes>,
     pub storage_proof: Vec<EIP1186StorageProof>,
 }

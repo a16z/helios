@@ -33,7 +33,7 @@ async fn main() {
             let server_addr = args.server_address;
             let execution_rpc = args.execution_rpc;
             let api_service =
-                ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(&execution_rpc.as_str());
+                ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(execution_rpc.as_str());
             let router = build_router().with_state(ApiState { api_service });
             (server_addr, router)
         }
@@ -41,7 +41,7 @@ async fn main() {
             let server_addr = args.server_address;
             let execution_rpc = args.execution_rpc;
             let api_service =
-                ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(&execution_rpc.as_str());
+                ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(execution_rpc.as_str());
             let router = build_router().with_state(ApiState { api_service });
             (server_addr, router)
         }

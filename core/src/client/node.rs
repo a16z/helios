@@ -80,14 +80,20 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
         self.check_blocktag_age(&tag).await?;
 
-        let account = self.execution.get_account(address, None, tag).await?;
+        let account = self
+            .execution
+            .get_account(address, None, tag, false)
+            .await?;
         Ok(account.balance)
     }
 
     pub async fn get_nonce(&self, address: Address, tag: BlockTag) -> Result<u64> {
         self.check_blocktag_age(&tag).await?;
 
-        let account = self.execution.get_account(address, None, tag).await?;
+        let account = self
+            .execution
+            .get_account(address, None, tag, false)
+            .await?;
         Ok(account.nonce)
     }
 
@@ -107,8 +113,8 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
         self.check_blocktag_age(&tag).await?;
 
-        let account = self.execution.get_account(address, None, tag).await?;
-        Ok(account.code.into())
+        let account = self.execution.get_account(address, None, tag, true).await?;
+        Ok(account.code.unwrap().into())
     }
 
     pub async fn get_storage_at(

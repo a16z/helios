@@ -25,6 +25,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
         address: Address,
         storage_slots: &[U256],
         block: Option<BlockId>,
+        include_code: bool,
     ) -> Result<AccountResponse>;
     async fn get_transaction_receipt(
         &self,
@@ -40,6 +41,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     ) -> Result<AccessListResponse>;
     // Methods just for compatibility (acts as a proxy)
     async fn chain_id(&self) -> Result<ChainIdResponse>;
+    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>>;
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse>;
     async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse>;
@@ -77,6 +79,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         address: Address,
         storage_slots: &[U256],
         block: Option<BlockId>,
+        include_code: bool,
     ) -> Result<AccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
         let mut request = self.client.get(&url);
@@ -86,6 +89,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         for slot in storage_slots {
             request = request.query(&[("storageSlots", slot)]);
         }
+        request = request.query(&[("includeCode", include_code)]);
         let response = request.send().await?;
         let response = response.json::<AccountResponse>().await?;
         Ok(response)
@@ -188,8 +192,15 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         Ok(response)
     }
 
+    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>> {
+        let url = format!("{}/eth/v1/block/{}", self.base_url, block_id);
+        let response = self.client.get(&url).send().await?;
+        let response = response.json::<Option<N::BlockResponse>>().await?;
+        Ok(response)
+    }
+
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let url = format!("{}/eth/v1/block_receipts/{}", self.base_url, block);
+        let url = format!("{}/eth/v1/block/{}/receipts", self.base_url, block);
         let response = self.client.get(&url).send().await?;
         let response = response.json::<Option<Vec<N::ReceiptResponse>>>().await?;
         Ok(response)

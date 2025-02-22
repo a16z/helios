@@ -35,7 +35,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     fn new(rpc: &str) -> Self {
         Self {
             rpc: Arc::new(ExecutionRpc::new(rpc).unwrap()),
-            _marker: PhantomData::default(),
+            _marker: Default::default(),
         }
     }
 
@@ -44,6 +44,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         address: Address,
         storage_slots: &[U256],
         block: Option<BlockId>,
+        include_code: bool,
     ) -> Result<AccountResponse> {
         let block = block.unwrap_or_default();
         // make sure block ID is not tag but a number or hash
@@ -63,12 +64,16 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         }?;
 
         let storage_keys = storage_slots
-            .into_iter()
+            .iter()
             .map(|key| (*key).into())
             .collect::<Vec<_>>();
         let proof = self.rpc.get_proof(address, &storage_keys, block).await?;
 
-        let code = self.rpc.get_code(address, block).await?;
+        let code = if include_code {
+            Some(self.rpc.get_code(address, block).await?.into())
+        } else {
+            None
+        };
 
         Ok(AccountResponse {
             account: Account {
@@ -77,7 +82,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
                 code_hash: proof.code_hash,
                 storage_root: proof.storage_hash,
             },
-            code: code.into(),
+            code,
             account_proof: proof.account_proof,
             storage_proof: proof.storage_proof,
         })
@@ -199,7 +204,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
                     .iter()
                     .map(|key| (*key).into())
                     .collect::<Vec<_>>();
-                let account_fut = self.get_account(account.address, &slots, Some(block_id));
+                let account_fut = self.get_account(account.address, &slots, Some(block_id), true);
                 (account.address, account_fut.await)
             });
 
@@ -217,6 +222,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     async fn chain_id(&self) -> Result<ChainIdResponse> {
         Ok(ChainIdResponse {
             chain_id: self.rpc.chain_id().await?,
+        })
+    }
+
+    async fn get_block(&self, block: BlockId) -> Result<Option<N::BlockResponse>> {
+        Ok(match block {
+            BlockId::Number(number_or_tag) => {
+                self.rpc
+                    .get_block_by_number(number_or_tag, false.into())
+                    .await?
+            }
+            BlockId::Hash(hash) => self.rpc.get_block(hash.into()).await.ok(),
         })
     }
 
