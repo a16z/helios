@@ -363,21 +363,18 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         let mut updates: Vec<Update<S>> = vec![];
         if expected_current_period - bootstrap_period >= 128 {
-            println!("Over 128");
             while bootstrap_period < expected_current_period {
-
                 let batch_size = std::cmp::min(
                     expected_current_period - bootstrap_period,
                     MAX_REQUEST_LIGHT_CLIENT_UPDATES.into(),
                 );
-                println!("Running for {} and batch size:{}",bootstrap_period,batch_size);
                 let update = self
                     .rpc
                     .get_updates(bootstrap_period, batch_size.try_into().unwrap())
                     .await?;
                 updates.extend(update);
 
-                bootstrap_period +=batch_size;
+                bootstrap_period += batch_size;
             }
         }
         let update: Vec<Update<S>> = self
