@@ -275,7 +275,6 @@ pub fn verify_generic_update<S: ConsensusSpec>(
     } else {
         update_sig_period == store_period
     };
-
     if !valid_period {
         return Err(ConsensusError::InvalidPeriod.into());
     }

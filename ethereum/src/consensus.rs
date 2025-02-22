@@ -357,17 +357,39 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         self.bootstrap(checkpoint).await?;
 
-        let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
-        let updates = self
+        let expected_current_slot = self.expected_current_slot();
+        let expected_current_period = calc_sync_period::<S>(expected_current_slot);
+        let mut bootstrap_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
+
+        let mut updates: Vec<Update<S>> = vec![];
+        if expected_current_period - bootstrap_period >= 128 {
+            println!("Over 128");
+            while bootstrap_period < expected_current_period {
+
+                let batch_size = std::cmp::min(
+                    expected_current_period - bootstrap_period,
+                    MAX_REQUEST_LIGHT_CLIENT_UPDATES.into(),
+                );
+                println!("Running for {} and batch size:{}",bootstrap_period,batch_size);
+                let update = self
+                    .rpc
+                    .get_updates(bootstrap_period, batch_size.try_into().unwrap())
+                    .await?;
+                updates.extend(update);
+
+                bootstrap_period +=batch_size;
+            }
+        }
+        let update: Vec<Update<S>> = self
             .rpc
-            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .get_updates(bootstrap_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await?;
+        updates.extend(update);
 
         for update in updates {
             self.verify_update(&update)?;
             self.apply_update(&update);
         }
-
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
