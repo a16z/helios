@@ -11,6 +11,11 @@ use serde::{Deserialize, Serialize};
 use helios_common::network_spec::NetworkSpec;
 
 #[derive(Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountResponse {
     pub account: TrieAccount,

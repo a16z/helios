@@ -4,8 +4,9 @@ use alloy::{
     rpc::types::{Filter, ValueOrArray},
 };
 use async_trait::async_trait;
-use eyre::Result;
-use reqwest::Client;
+use eyre::{eyre, Result};
+use reqwest::{Client, Response};
+use serde::de::DeserializeOwned;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -91,8 +92,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         }
         request = request.query(&[("includeCode", include_code)]);
         let response = request.send().await?;
-        let response = response.json::<AccountResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn get_transaction_receipt(
@@ -104,10 +104,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             self.base_url, tx_hash
         );
         let response = self.client.get(&url).send().await?;
-        let response = response
-            .json::<Option<TransactionReceiptResponse<N>>>()
-            .await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
@@ -151,22 +148,19 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         }
 
         let response = request.send().await?;
-        let response = response.json::<LogsResponse<N>>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>> {
         let url = format!("{}/eth/v1/proof/filterLogs/{}", self.base_url, filter_id);
         let response = self.client.get(&url).send().await?;
-        let response = response.json::<FilterLogsResponse<N>>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>> {
         let url = format!("{}/eth/v1/proof/filterChanges/{}", self.base_url, filter_id);
         let response = self.client.get(&url).send().await?;
-        let response = response.json::<FilterChangesResponse<N>>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn create_access_list(
@@ -181,29 +175,25 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             .json(&AccessListRequest::<N> { tx, block })
             .send()
             .await?;
-        let response = response.json::<AccessListResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
         let url = format!("{}/eth/v1/chainId", self.base_url);
         let response = self.client.get(&url).send().await?;
-        let response = response.json::<ChainIdResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>> {
         let url = format!("{}/eth/v1/block/{}", self.base_url, block_id);
         let response = self.client.get(&url).send().await?;
-        let response = response.json::<Option<N::BlockResponse>>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let url = format!("{}/eth/v1/block/{}/receipts", self.base_url, block);
         let response = self.client.get(&url).send().await?;
-        let response = response.json::<Option<Vec<N::ReceiptResponse>>>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
@@ -216,8 +206,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             })
             .send()
             .await?;
-        let response = response.json::<SendRawTxResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse> {
@@ -231,8 +220,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             })
             .send()
             .await?;
-        let response = response.json::<NewFilterResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn new_block_filter(&self) -> Result<NewFilterResponse> {
@@ -246,8 +234,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             })
             .send()
             .await?;
-        let response = response.json::<NewFilterResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse> {
@@ -261,14 +248,21 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
             })
             .send()
             .await?;
-        let response = response.json::<NewFilterResponse>().await?;
-        Ok(response)
+        handle_response(response).await
     }
 
     async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse> {
         let url = format!("{}/eth/v1/filter/{}", self.base_url, filter_id);
         let response = self.client.delete(&url).send().await?;
-        let response = response.json::<UninstallFilterResponse>().await?;
-        Ok(response)
+        handle_response(response).await
+    }
+}
+
+async fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
+    if response.status().is_success() {
+        Ok(response.json::<T>().await?)
+    } else {
+        let error_response = response.json::<ErrorResponse>().await?;
+        Err(eyre!(error_response.error.to_string()))
     }
 }

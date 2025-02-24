@@ -11,7 +11,6 @@ use axum::{
 use axum_extra::extract::Query;
 use eyre::{eyre, OptionExt, Report, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::json;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::{errors::ExecutionError, rpc::ExecutionRpc};
@@ -21,18 +20,16 @@ use helios_verifiable_api_types::*;
 use crate::ApiState;
 
 #[allow(type_alias_bounds)]
-type Response<T: Serialize + DeserializeOwned> =
-    Result<Json<T>, (StatusCode, Json<serde_json::Value>)>;
+type Response<T: Serialize + DeserializeOwned> = Result<Json<T>, (StatusCode, Json<ErrorResponse>)>;
 
-fn json_err(error: &str) -> Json<serde_json::Value> {
-    Json(json!({ "error": error }))
-}
-
-fn map_server_err(e: Report) -> (StatusCode, Json<serde_json::Value>) {
+fn map_server_err(e: Report) -> (StatusCode, Json<ErrorResponse>) {
+    let json_err = Json(ErrorResponse {
+        error: e.to_string(),
+    });
     if let Some(ExecutionError::BlockNotFound(_)) = e.downcast_ref::<ExecutionError>() {
-        (StatusCode::BAD_REQUEST, json_err(&e.to_string()))
+        (StatusCode::BAD_REQUEST, json_err)
     } else {
-        (StatusCode::INTERNAL_SERVER_ERROR, json_err(&e.to_string()))
+        (StatusCode::INTERNAL_SERVER_ERROR, json_err)
     }
 }
 
