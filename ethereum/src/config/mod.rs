@@ -27,8 +27,8 @@ mod types;
 #[derive(Deserialize, Debug, Default)]
 pub struct Config {
     pub consensus_rpc: String,
-    pub execution_rpc: String,
-    pub verifiable_api: Option<String>,
+    pub execution_rpc: Option<String>,
+    pub execution_verifiable_api: Option<String>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub default_checkpoint: B256,
@@ -102,8 +102,8 @@ impl From<BaseConfig> for Config {
             rpc_bind_ip: Some(base.rpc_bind_ip),
             rpc_port: Some(base.rpc_port),
             consensus_rpc: base.consensus_rpc.unwrap_or_default(),
-            execution_rpc: String::new(),
-            verifiable_api: None,
+            execution_rpc: None,
+            execution_verifiable_api: None,
             checkpoint: None,
             default_checkpoint: base.default_checkpoint,
             chain: base.chain,

@@ -24,7 +24,11 @@ pub struct OpStackClient {
 #[wasm_bindgen]
 impl OpStackClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(execution_rpc: String, network: String) -> Result<OpStackClient, JsError> {
+    pub fn new(
+        execution_rpc: Option<String>,
+        execution_verifiable_api: Option<String>,
+        network: String,
+    ) -> Result<OpStackClient, JsError> {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
@@ -41,8 +45,8 @@ impl OpStackClient {
             .ok_or(JsError::new("consensus rpc not found"))?;
 
         let config = Config {
-            execution_rpc: execution_rpc.parse()?,
-            verifiable_api: None,
+            execution_rpc,
+            execution_verifiable_api,
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,

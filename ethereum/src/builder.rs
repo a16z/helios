@@ -7,6 +7,7 @@ use std::sync::Arc;
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
 
+use helios_common::execution_mode::ExecutionMode;
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::client::Client;
 
@@ -23,7 +24,7 @@ pub struct EthereumClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
-    verifiable_api: Option<String>,
+    execution_verifiable_api: Option<String>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_bind_ip: Option<IpAddr>,
@@ -57,8 +58,8 @@ impl EthereumClientBuilder {
         self
     }
 
-    pub fn verifiable_api(mut self, verifiable_api: Option<String>) -> Self {
-        self.verifiable_api = verifiable_api;
+    pub fn execution_verifiable_api(mut self, execution_verifiable_api: &str) -> Self {
+        self.execution_verifiable_api = Some(execution_verifiable_api.to_string());
         self
     }
 
@@ -124,19 +125,15 @@ impl EthereumClientBuilder {
                 .clone()
         });
 
-        let execution_rpc = self.execution_rpc.unwrap_or_else(|| {
-            self.config
-                .as_ref()
-                .expect("missing execution rpc")
-                .execution_rpc
-                .clone()
-        });
+        let execution_rpc = self
+            .execution_rpc
+            .or_else(|| self.config.as_ref().unwrap().execution_rpc.clone());
 
-        let verifiable_api = self.verifiable_api.or_else(|| {
+        let execution_verifiable_api = self.execution_verifiable_api.or_else(|| {
             self.config
                 .as_ref()
-                .expect("missing verifiable_api rpc")
-                .verifiable_api
+                .unwrap()
+                .execution_verifiable_api
                 .clone()
         });
 
@@ -204,7 +201,7 @@ impl EthereumClientBuilder {
         let config = Config {
             consensus_rpc,
             execution_rpc,
-            verifiable_api,
+            execution_verifiable_api,
             checkpoint,
             default_checkpoint,
             #[cfg(not(target_arch = "wasm32"))]
@@ -236,12 +233,15 @@ impl EthereumClientBuilder {
             None
         };
 
+        let execution_mode = ExecutionMode::from_urls(
+            config.execution_rpc.clone(),
+            config.execution_verifiable_api.clone(),
+        );
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
 
         Client::<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>>::new(
-            &config.execution_rpc.clone(),
-            config.verifiable_api.as_deref(),
+            execution_mode,
             consensus,
             config.execution_forks,
             #[cfg(not(target_arch = "wasm32"))]

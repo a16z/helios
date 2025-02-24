@@ -58,7 +58,8 @@ pub struct EthereumClient {
 impl EthereumClient {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        execution_rpc: String,
+        execution_rpc: Option<String>,
+        execution_verifiable_api: Option<String>,
         consensus_rpc: Option<String>,
         network: String,
         checkpoint: Option<String>,
@@ -92,6 +93,7 @@ impl EthereumClient {
 
         let config = Config {
             execution_rpc,
+            execution_verifiable_api,
             consensus_rpc,
             checkpoint,
 

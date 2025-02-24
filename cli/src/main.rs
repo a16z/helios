@@ -127,10 +127,10 @@ struct EthereumArgs {
     rpc_port: Option<u16>,
     #[clap(short = 'w', long, env)]
     checkpoint: Option<B256>,
-    #[clap(short, long, env, value_parser = parse_url)]
+    #[clap(long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
-    #[clap(short, long, env, value_parser = parse_url)]
-    verifiable_api: Option<Url>,
+    #[clap(long, env, value_parser = parse_url)]
+    execution_verifiable_api: Option<Url>,
     #[clap(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
     #[clap(short, long, env)]
@@ -165,7 +165,7 @@ impl EthereumArgs {
         CliConfig {
             checkpoint: self.checkpoint,
             execution_rpc: self.execution_rpc.clone(),
-            verifiable_api: self.verifiable_api.clone(),
+            execution_verifiable_api: self.execution_verifiable_api.clone(),
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self
                 .data_dir
@@ -188,10 +188,10 @@ struct OpStackArgs {
     rpc_bind_ip: Option<IpAddr>,
     #[clap(short = 'p', long, env, default_value = "8545")]
     rpc_port: Option<u16>,
-    #[clap(short, long, env, value_parser = parse_url)]
+    #[clap(long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
-    #[clap(short, long, env, value_parser = parse_url)]
-    verifiable_api: Option<Url>,
+    #[clap(long, env, value_parser = parse_url)]
+    execution_verifiable_api: Option<Url>,
     #[clap(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
     #[clap(
@@ -232,8 +232,8 @@ impl OpStackArgs {
             user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
         }
 
-        if let Some(api) = &self.verifiable_api {
-            user_dict.insert("verifiable_api", Value::from(api.to_string()));
+        if let Some(api) = &self.execution_verifiable_api {
+            user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
         }
 
         if let Some(rpc) = &self.consensus_rpc {

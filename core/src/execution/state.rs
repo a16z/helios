@@ -18,53 +18,48 @@ use tracing::{info, warn};
 
 use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
-use super::rpc::ExecutionRpc;
+use super::client::ExecutionInner;
 
+pub fn start_state_updater<N: NetworkSpec>(
+    state: State<N>,
+    client: Arc<dyn ExecutionInner<N>>,
+    mut block_recv: Receiver<N::BlockResponse>,
+    mut finalized_block_recv: watch::Receiver<Option<N::BlockResponse>>,
+) {
+    #[cfg(not(target_arch = "wasm32"))]
+    let run = tokio::spawn;
+    #[cfg(target_arch = "wasm32")]
+    let run = wasm_bindgen_futures::spawn_local;
+
+    run(async move {
+        loop {
+            select! {
+                block = block_recv.recv() => {
+                    if let Some(block) = block {
+                        state.inner.write().await.push_block(block, client.clone()).await;
+                    }
+                },
+                _ = finalized_block_recv.changed() => {
+                    let block = finalized_block_recv.borrow_and_update().clone();
+                    if let Some(block) = block {
+                        state.inner.write().await.push_finalized_block(block);
+                    }
+
+                },
+            }
+        }
+    });
+}
 #[derive(Clone)]
-pub struct State<N: NetworkSpec, R: ExecutionRpc<N>> {
-    inner: Arc<RwLock<Inner<N, R>>>,
+pub struct State<N: NetworkSpec> {
+    inner: Arc<RwLock<Inner<N>>>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
-    pub fn new(
-        mut block_recv: Receiver<N::BlockResponse>,
-        mut finalized_block_recv: watch::Receiver<Option<N::BlockResponse>>,
-        history_length: u64,
-        rpc: &str,
-    ) -> Self {
-        let rpc = R::new(rpc).unwrap();
-        let inner = Arc::new(RwLock::new(Inner::new(history_length, rpc)));
-        let inner_ref = inner.clone();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let run = tokio::spawn;
-        #[cfg(target_arch = "wasm32")]
-        let run = wasm_bindgen_futures::spawn_local;
-
-        run(async move {
-            loop {
-                select! {
-                    block = block_recv.recv() => {
-                        if let Some(block) = block {
-                            inner_ref.write().await.push_block(block).await;
-                        }
-                    },
-                    _ = finalized_block_recv.changed() => {
-                        let block = finalized_block_recv.borrow_and_update().clone();
-                        if let Some(block) = block {
-                            inner_ref.write().await.push_finalized_block(block);
-                        }
-
-                    },
-                }
-            }
-        });
-
-        Self { inner }
-    }
-
-    pub async fn push_block(&self, block: N::BlockResponse) {
-        self.inner.write().await.push_block(block).await;
+impl<N: NetworkSpec> State<N> {
+    pub fn new(history_length: usize) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(Inner::new(history_length))),
+        }
     }
 
     // full block fetch
@@ -214,36 +209,38 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
     }
 }
 
-struct Inner<N: NetworkSpec, R: ExecutionRpc<N>> {
+pub struct Inner<N: NetworkSpec> {
     blocks: BTreeMap<u64, N::BlockResponse>,
     finalized_block: Option<N::BlockResponse>,
     hashes: HashMap<B256, u64>,
     txs: HashMap<B256, TransactionLocation>,
     filters: HashMap<U256, FilterType>,
-    history_length: u64,
-    rpc: R,
+    history_length: usize,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
-    pub fn new(history_length: u64, rpc: R) -> Self {
+impl<N: NetworkSpec> Inner<N> {
+    pub fn new(history_length: usize) -> Self {
         Self {
-            history_length,
             blocks: BTreeMap::default(),
             finalized_block: None,
             hashes: HashMap::default(),
             txs: HashMap::default(),
             filters: HashMap::default(),
-            rpc,
+            history_length,
         }
     }
 
-    pub async fn push_block(&mut self, block: N::BlockResponse) {
+    pub async fn push_block(
+        &mut self,
+        block: N::BlockResponse,
+        client: Arc<dyn ExecutionInner<N>>,
+    ) {
         let block_number = block.header().number();
         if self.try_insert_tip(block) {
             let mut n = block_number;
 
             loop {
-                if let Ok(backfilled) = self.backfill_behind(n).await {
+                if let Ok(backfilled) = self.backfill_behind(n, client.clone()).await {
                     if !backfilled {
                         break;
                     }
@@ -294,7 +291,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
     }
 
     fn prune(&mut self) {
-        while self.blocks.len() as u64 > self.history_length {
+        while self.blocks.len() > self.history_length {
             if let Some((number, _)) = self.blocks.first_key_value() {
                 self.remove_block(*number);
             }
@@ -312,7 +309,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
         }
     }
 
-    async fn backfill_behind(&mut self, n: u64) -> Result<bool> {
+    async fn backfill_behind(
+        &mut self,
+        n: u64,
+        client: Arc<dyn ExecutionInner<N>>,
+    ) -> Result<bool> {
         if self.blocks.len() < 2 {
             return Ok(false);
         }
@@ -320,7 +321,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
         if let Some(block) = self.blocks.get(&n) {
             let prev = n - 1;
             if !self.blocks.contains_key(&prev) {
-                let backfilled = self.rpc.get_block(block.header().parent_hash()).await?;
+                let backfilled = client
+                    .get_block(block.header().parent_hash().into())
+                    .await?
+                    .ok_or(eyre!("backfill block not found"))?;
 
                 if N::is_hash_valid(&backfilled)
                     && block.header().parent_hash() == backfilled.header().hash()

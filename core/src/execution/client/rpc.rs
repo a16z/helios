@@ -26,18 +26,18 @@ use crate::execution::proof::{
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
 
-use super::ExecutionMethods;
+use super::ExecutionInner;
 
 #[derive(Clone)]
-pub struct ExecutionRpcClient<N: NetworkSpec, R: ExecutionRpc<N>> {
+pub struct ExecutionInnerRpcClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     rpc: R,
-    state: State<N, R>,
+    state: State<N>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpcClient<N, R> {
-    fn new(url: &str, state: State<N, R>) -> Result<Self> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInner<N> for ExecutionInnerRpcClient<N, R> {
+    fn new(url: &str, state: State<N>) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(url)?;
         Ok(Self { rpc, state })
     }
@@ -240,7 +240,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionMethods<N, R> for ExecutionRpc
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionRpcClient<N, R> {
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
     async fn verify_proof_to_account(
         &self,
         proof: &EIP1186AccountProofResponse,

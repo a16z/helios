@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CliConfig {
     pub execution_rpc: Option<Url>,
-    pub verifiable_api: Option<Url>,
+    pub execution_verifiable_api: Option<Url>,
     pub consensus_rpc: Option<Url>,
     pub checkpoint: Option<B256>,
     pub rpc_bind_ip: Option<IpAddr>,
@@ -29,8 +29,8 @@ impl CliConfig {
             user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
         }
 
-        if let Some(api) = &self.verifiable_api {
-            user_dict.insert("verifiable_api", Value::from(api.to_string()));
+        if let Some(api) = &self.execution_verifiable_api {
+            user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
         }
 
         if let Some(rpc) = &self.consensus_rpc {

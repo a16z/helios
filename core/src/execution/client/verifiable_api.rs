@@ -15,24 +15,23 @@ use helios_common::{
 };
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
-use crate::execution::client::ExecutionMethods;
+use crate::execution::client::ExecutionInner;
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
-use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
 
 #[derive(Clone)]
-pub struct ExecutionVerifiableApiClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+pub struct ExecutionInnerVerifiableApiClient<N: NetworkSpec, A: VerifiableApi<N>> {
     api: A,
-    state: State<N, R>,
+    state: State<N>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N, R>
-    for ExecutionVerifiableApiClient<N, R, A>
+impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInner<N>
+    for ExecutionInnerVerifiableApiClient<N, A>
 {
-    fn new(url: &str, state: State<N, R>) -> Result<Self> {
+    fn new(url: &str, state: State<N>) -> Result<Self> {
         let api: A = VerifiableApi::new(url);
         Ok(Self { api, state })
     }
@@ -175,15 +174,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethods<N
         let NewFilterResponse { id, .. } = self.api.new_pending_transaction_filter().await?;
         Ok(id)
     }
+
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
         let UninstallFilterResponse { ok } = self.api.uninstall_filter(filter_id).await?;
         Ok(ok)
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>>
-    ExecutionVerifiableApiClient<N, R, A>
-{
+impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInnerVerifiableApiClient<N, A> {
     fn verify_account_response(
         &self,
         address: Address,

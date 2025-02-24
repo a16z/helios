@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use alloy::eips::BlockId;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, FilterChanges, Log};
 use async_trait::async_trait;
 use eyre::Result;
+use tracing::info;
 
 use helios_common::{
+    execution_mode::ExecutionMode,
     network_spec::NetworkSpec,
     types::{Account, BlockTag},
 };
@@ -20,8 +23,8 @@ pub mod verifiable_api;
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>>: Send + Sync {
-    fn new(url: &str, state: State<N, R>) -> Result<Self>
+pub trait ExecutionInner<N: NetworkSpec>: Send + Sync + 'static {
+    fn new(url: &str, state: State<N>) -> Result<Self>
     where
         Self: Sized;
     async fn get_account(
@@ -51,17 +54,34 @@ pub trait ExecutionMethods<N: NetworkSpec, R: ExecutionRpc<N>>: Send + Sync {
 }
 
 #[derive(Clone)]
-pub enum ExecutionMethodsClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
-    Api(verifiable_api::ExecutionVerifiableApiClient<N, R, A>),
-    Rpc(rpc::ExecutionRpcClient<N, R>),
+pub enum ExecutionInnerClient<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> {
+    Api(verifiable_api::ExecutionInnerVerifiableApiClient<N, A>),
+    Rpc(rpc::ExecutionInnerRpcClient<N, R>),
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionMethodsClient<N, R, A> {
-    // manual dynamic dispatch
-    pub fn client(&self) -> &dyn ExecutionMethods<N, R> {
-        match self {
-            ExecutionMethodsClient::Api(client) => client,
-            ExecutionMethodsClient::Rpc(client) => client,
-        }
+impl<N: NetworkSpec, R: ExecutionRpc<N>, A: VerifiableApi<N>> ExecutionInnerClient<N, R, A> {
+    /// Dynamically construct and returns one of `ExecutionInnerRpcClient` or `ExecutionInnerVerifiableApiClient`
+    /// based on the given `ExecutionMode`.
+    pub fn make_inner_client(
+        execution_mode: ExecutionMode,
+        state: State<N>,
+    ) -> Result<Arc<dyn ExecutionInner<N>>> {
+        let this = match execution_mode {
+            ExecutionMode::VerifiableApi(api_url) => {
+                info!(target: "helios::execution", "using Verifiable-API url={}", api_url);
+                Self::Api(verifiable_api::ExecutionInnerVerifiableApiClient::new(
+                    &api_url, state,
+                )?)
+            }
+            ExecutionMode::Rpc(rpc_url) => {
+                info!(target: "helios::execution", "Using JSON-RPC url={}", rpc_url);
+                Self::Rpc(rpc::ExecutionInnerRpcClient::new(&rpc_url, state)?)
+            }
+        };
+
+        Ok(match this {
+            Self::Api(client) => Arc::new(client),
+            Self::Rpc(client) => Arc::new(client),
+        })
     }
 }

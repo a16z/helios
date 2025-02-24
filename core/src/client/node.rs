@@ -6,44 +6,54 @@ use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{
+    execution_mode::ExecutionMode, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
+    types::BlockTag,
+};
 use helios_verifiable_api_client::VerifiableApiClient;
 
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
+use crate::execution::client::ExecutionInnerClient;
+use crate::execution::constants::MAX_STATE_HISTORY_SIZE;
 use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
-use crate::execution::state::State;
+use crate::execution::state::{start_state_updater, State};
 use crate::execution::ExecutionClient;
 use crate::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
-    pub execution: Arc<ExecutionClient<N, HttpRpc<N>, VerifiableApiClient>>,
-    pub history_size: usize,
+    pub execution: Arc<ExecutionClient<N>>,
     fork_schedule: ForkSchedule,
 }
 
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub fn new(
-        execution_rpc: &str,
-        verifiable_api: Option<&str>,
+        execution_mode: ExecutionMode,
         mut consensus: C,
         fork_schedule: ForkSchedule,
     ) -> Result<Self, ClientError> {
         let block_recv = consensus.block_recv().take().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
 
-        let state = State::new(block_recv, finalized_block_recv, 256, execution_rpc);
+        let state = State::new(MAX_STATE_HISTORY_SIZE);
+        let client_inner =
+            ExecutionInnerClient::<N, HttpRpc<N>, VerifiableApiClient>::make_inner_client(
+                execution_mode,
+                state.clone(),
+            )
+            .map_err(ClientError::InternalError)?;
         let execution = Arc::new(
-            ExecutionClient::new(execution_rpc, verifiable_api, state, fork_schedule)
+            ExecutionClient::new(client_inner.clone(), state.clone(), fork_schedule)
                 .map_err(ClientError::InternalError)?,
         );
+
+        start_state_updater(state, client_inner, block_recv, finalized_block_recv);
 
         Ok(Node {
             consensus,
             execution,
-            history_size: 64,
             fork_schedule,
         })
     }

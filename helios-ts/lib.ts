@@ -13,8 +13,10 @@ export class HeliosProvider {
 
   /// Do not use this constructor. Instead use the createHeliosProvider function.
   constructor(config: Config, kind: "ethereum" | "opstack") {
+    const executionRpc = config.executionRpc;
+    const executionVerifiableApi = config.executionVerifiableApi;
+
     if (kind === "ethereum") {
-      const executionRpc = config.executionRpc;
       const consensusRpc = config.consensusRpc;
       const checkpoint = config.checkpoint;
       const network = config.network ?? Network.MAINNET;
@@ -22,19 +24,20 @@ export class HeliosProvider {
 
       this.#client = new EthereumClient(
         executionRpc,
+        executionVerifiableApi,
         consensusRpc,
         network,
         checkpoint,
         dbType
       );
     } else if (kind === "opstack") {
-      const executionRpc = config.executionRpc;
       const network = config.network;
 
-      this.#client = new OpStackClient(executionRpc, network);
+      this.#client = new OpStackClient(executionRpc, executionVerifiableApi, network);
     } else {
       throw "invalid kind: must be ethereum or opstack";
     }
+
     this.#chainId = this.#client.chain_id();
   }
 
@@ -161,7 +164,8 @@ export class HeliosProvider {
 }
 
 export type Config = {
-  executionRpc: string;
+  executionRpc?: string;
+  executionVerifiableApi?: string;
   consensusRpc?: string;
   checkpoint?: string;
   network?: Network;
