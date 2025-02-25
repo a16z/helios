@@ -343,7 +343,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 
     let fork_version = calculate_fork_version::<S>(forks, update.signature_slot.saturating_sub(1));
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
-    let is_valid_sig = verify_sync_committee_signture(
+    let is_valid_sig = verify_sync_committee_signature(
         &pks,
         update.attested_header.beacon(),
         &update.sync_aggregate.sync_committee_signature,
@@ -482,7 +482,7 @@ fn has_finality_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
     update.finality_branch.is_some()
 }
 
-fn verify_sync_committee_signture(
+fn verify_sync_committee_signature(
     pks: &[PublicKey],
     attested_header: &BeaconBlockHeader,
     signature: &Signature,
