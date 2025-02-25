@@ -321,7 +321,7 @@ impl<N: NetworkSpec> Inner<N> {
             let prev = n - 1;
             if !self.blocks.contains_key(&prev) {
                 let backfilled = client
-                    .get_block(block.header().parent_hash().into())
+                    .get_block(block.header().parent_hash().into(), false)
                     .await?
                     .ok_or(eyre!("backfill block not found"))?;
 

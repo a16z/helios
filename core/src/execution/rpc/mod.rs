@@ -1,4 +1,3 @@
-use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
     AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
@@ -45,10 +44,9 @@ pub trait ExecutionRpc<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn new_block_filter(&self) -> Result<U256>;
     async fn new_pending_transaction_filter(&self) -> Result<U256>;
     async fn chain_id(&self) -> Result<u64>;
-    async fn get_block(&self, hash: B256) -> Result<N::BlockResponse>;
-    async fn get_block_by_number(
+    async fn get_block(
         &self,
-        block: BlockNumberOrTag,
+        block_id: BlockId,
         txs_kind: BlockTransactionsKind,
     ) -> Result<Option<N::BlockResponse>>;
 

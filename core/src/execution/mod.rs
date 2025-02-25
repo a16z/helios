@@ -7,6 +7,7 @@ use alloy::network::primitives::HeaderResponse;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
+use async_trait::async_trait;
 use eyre::Result;
 use revm::primitives::BlobExcessGasAndPrice;
 use tracing::warn;
@@ -20,6 +21,7 @@ use helios_common::{
 use self::client::ExecutionInner;
 use self::errors::ExecutionError;
 use self::proof::verify_block_receipts;
+use self::spec::ExecutionSpec;
 use self::state::{FilterType, State};
 
 pub mod client;
@@ -28,6 +30,7 @@ pub mod errors;
 pub mod evm;
 pub mod proof;
 pub mod rpc;
+pub mod spec;
 pub mod state;
 
 #[derive(Clone)]
@@ -58,18 +61,6 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         }
     }
 
-    pub async fn get_account(
-        &self,
-        address: Address,
-        slots: Option<&[B256]>,
-        tag: BlockTag,
-        include_code: bool,
-    ) -> Result<Account> {
-        self.client
-            .get_account(address, slots, tag, include_code)
-            .await
-    }
-
     pub async fn get_storage_at(
         &self,
         address: Address,
@@ -89,26 +80,6 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         }
     }
 
-    pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
-        self.client.send_raw_transaction(bytes).await
-    }
-
-    pub async fn get_block(&self, tag: BlockTag, full_tx: bool) -> Option<N::BlockResponse> {
-        let block = self.state.get_block(tag).await;
-        if block.is_none() {
-            warn!(target: "helios::execution", "requested block not found in state: {}", tag);
-            return None;
-        }
-        let mut block = block.unwrap();
-
-        if !full_tx {
-            *block.transactions_mut() =
-                BlockTransactions::Hashes(block.transactions().hashes().collect());
-        }
-
-        Some(block)
-    }
-
     pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {
         let block = self.state.get_block(block).await;
         let Some(block) = block else {
@@ -117,31 +88,15 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         };
 
         let parent_hash = block.header().parent_hash();
-        let parent_block = self.get_block_by_hash(parent_hash, false).await;
+        let parent_block = self.state.get_block_by_hash(parent_hash).await;
         if parent_block.is_none() {
-            warn!(target: "helios::execution", "requested parent block not foundß");
+            warn!(target: "helios::execution", "requested parent block not found");
             return U256::from(0);
         };
 
         let excess_blob_gas = parent_block.unwrap().header().excess_blob_gas().unwrap();
         let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
         U256::from(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice)
-    }
-
-    pub async fn get_block_by_hash(&self, hash: B256, full_tx: bool) -> Option<N::BlockResponse> {
-        let block = self.state.get_block_by_hash(hash).await;
-        if block.is_none() {
-            warn!(target: "helios::execution", "requested block not found in state: {}", hash);
-            return None;
-        }
-        let mut block = block.unwrap();
-
-        if !full_tx {
-            *block.transactions_mut() =
-                BlockTransactions::Hashes(block.transactions().hashes().collect());
-        }
-
-        Some(block)
     }
 
     pub async fn get_transaction_by_block_hash_and_index(
@@ -164,38 +119,31 @@ impl<N: NetworkSpec> ExecutionClient<N> {
             .await
     }
 
-    pub async fn get_transaction_receipt(
-        &self,
-        tx_hash: B256,
-    ) -> Result<Option<N::ReceiptResponse>> {
-        self.client.get_transaction_receipt(tx_hash).await
-    }
-
-    pub async fn get_block_receipts(
-        &self,
-        tag: BlockTag,
-    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let Some(block) = self.state.get_block(tag).await else {
-            return Ok(None);
-        };
-        let block_id = BlockId::from(block.header().number());
-
-        let receipts = self
-            .client
-            .get_block_receipts(block_id)
-            .await?
-            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
-
-        verify_block_receipts::<N>(&receipts, &block)?;
-
-        Ok(Some(receipts))
-    }
-
     pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {
         self.state.get_transaction(hash).await
     }
+}
 
-    pub async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
+    async fn get_account(
+        &self,
+        address: Address,
+        slots: Option<&[B256]>,
+        tag: BlockTag,
+        include_code: bool,
+    ) -> Result<Account> {
+        self.client
+            .get_account(address, slots, tag, include_code)
+            .await
+    }
+
+    async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
+        self.client.get_transaction_receipt(tx_hash).await
+    }
+
+    async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         let filter = filter.clone();
 
         // avoid fetching logs for a block helios hasn't seen yet
@@ -216,7 +164,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         Ok(logs)
     }
 
-    pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
         let filter_type = self.state.get_filter(&filter_id).await;
 
         Ok(match &filter_type {
@@ -258,7 +206,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         })
     }
 
-    pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
+    async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
         let filter_type = self.state.get_filter(&filter_id).await;
 
         match &filter_type {
@@ -274,13 +222,72 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         }
     }
 
-    pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
-        // remove the filter from the state
-        self.state.remove_filter(&filter_id).await;
-        self.client.uninstall_filter(filter_id).await
+    async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: Option<BlockId>,
+    ) -> Result<HashMap<Address, Account>> {
+        self.client.create_access_list(tx, block).await
     }
 
-    pub async fn new_filter(&self, filter: &Filter) -> Result<U256> {
+    async fn chain_id(&self) -> Result<u64> {
+        self.client.chain_id().await
+    }
+
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        let block = match block_id {
+            BlockId::Number(tag) => self.state.get_block(tag.try_into().unwrap()).await,
+            BlockId::Hash(hash) => self.state.get_block_by_hash(hash.into()).await,
+        };
+        if block.is_none() {
+            warn!(target: "helios::execution", "requested block not found in state: {}", block_id);
+            return Ok(None);
+        };
+        let mut block = block.unwrap();
+
+        if !full_tx {
+            *block.transactions_mut() =
+                BlockTransactions::Hashes(block.transactions().hashes().collect());
+        }
+
+        Ok(Some(block))
+    }
+
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
+        self.client.send_raw_transaction(bytes).await
+    }
+
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let block = match block_id {
+            BlockId::Number(tag) => self.state.get_block(tag.try_into()?).await,
+            BlockId::Hash(hash) => self.state.get_block_by_hash(hash.into()).await,
+        };
+        let Some(block) = block else {
+            return Ok(None);
+        };
+        let block_num = block.header().number();
+        let block_id = BlockId::from(block_num);
+        let tag = BlockTag::Number(block_num);
+
+        let receipts = self
+            .client
+            .get_block_receipts(block_id)
+            .await?
+            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
+
+        verify_block_receipts::<N>(&receipts, &block)?;
+
+        Ok(Some(receipts))
+    }
+
+    async fn new_filter(&self, filter: &Filter) -> Result<U256> {
         let filter = filter.clone();
 
         // avoid submitting a filter for logs for a block helios hasn't seen yet
@@ -305,7 +312,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         Ok(filter_id)
     }
 
-    pub async fn new_block_filter(&self) -> Result<U256> {
+    async fn new_block_filter(&self) -> Result<U256> {
         let filter_id = self.client.new_block_filter().await?;
 
         // record the filter in the state
@@ -317,7 +324,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         Ok(filter_id)
     }
 
-    pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
+    async fn new_pending_transaction_filter(&self) -> Result<U256> {
         let filter_id = self.client.new_pending_transaction_filter().await?;
 
         // record the filter in the state
@@ -328,12 +335,10 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         Ok(filter_id)
     }
 
-    pub async fn create_access_list(
-        &self,
-        tx: &N::TransactionRequest,
-        block: Option<BlockId>,
-    ) -> Result<HashMap<Address, Account>> {
-        self.client.create_access_list(tx, block).await
+    async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
+        // remove the filter from the state
+        self.state.remove_filter(&filter_id).await;
+        self.client.uninstall_filter(filter_id).await
     }
 }
 

@@ -26,7 +26,7 @@ use crate::execution::proof::{
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
 
-use super::ExecutionInner;
+use super::{ExecutionInner, ExecutionSpec};
 
 #[derive(Clone)]
 pub struct ExecutionInnerRpcClient<N: NetworkSpec, R: ExecutionRpc<N>> {
@@ -41,7 +41,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInner<N> for ExecutionInnerRpc
         let rpc: R = ExecutionRpc::new(url)?;
         Ok(Self { rpc, state })
     }
+}
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcClient<N, R> {
     async fn get_account(
         &self,
         address: Address,
@@ -134,9 +138,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInner<N> for ExecutionInnerRpc
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
-        let block_id = block.unwrap_or(BlockId::latest());
+        let block_id = block_id.unwrap_or_default();
         let tag = BlockTag::try_from(block_id)?;
         let block = self
             .state
@@ -199,19 +203,19 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInner<N> for ExecutionInnerRpc
         self.rpc.chain_id().await
     }
 
-    async fn get_block(&self, block: BlockId) -> Result<Option<N::BlockResponse>> {
-        Ok(match block {
-            BlockId::Number(number_or_tag) => {
-                self.rpc
-                    .get_block_by_number(number_or_tag, false.into())
-                    .await?
-            }
-            BlockId::Hash(hash) => self.rpc.get_block(hash.into()).await.ok(),
-        })
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        self.rpc.get_block(block_id, full_tx.into()).await
     }
 
-    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        self.rpc.get_block_receipts(block).await
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.rpc.get_block_receipts(block_id).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {

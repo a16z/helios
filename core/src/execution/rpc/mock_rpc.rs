@@ -1,6 +1,5 @@
 use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
-use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{
     AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
@@ -106,13 +105,9 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Err(eyre!("not implemented"))
     }
 
-    async fn get_block(&self, _hash: B256) -> Result<N::BlockResponse> {
-        Err(eyre!("not implemented"))
-    }
-
-    async fn get_block_by_number(
+    async fn get_block(
         &self,
-        _block: BlockNumberOrTag,
+        _block_id: BlockId,
         _txs_kind: BlockTransactionsKind,
     ) -> Result<Option<N::BlockResponse>> {
         Err(eyre!("not implemented"))

@@ -7,7 +7,7 @@ use alloy::{
     eips::BlockNumberOrTag,
     network::{BlockResponse, ReceiptResponse, TransactionBuilder},
     primitives::{Address, B256, U256},
-    rpc::types::{AccessListItem, BlockId, BlockTransactionsKind, Filter, FilterChanges, Log},
+    rpc::types::{AccessListItem, BlockId, Filter, FilterChanges, Log},
 };
 use async_trait::async_trait;
 use eyre::{Ok, OptionExt, Report, Result};
@@ -43,34 +43,34 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         &self,
         address: Address,
         storage_slots: &[U256],
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
         include_code: bool,
     ) -> Result<AccountResponse> {
-        let block = block.unwrap_or_default();
+        let block_id = block_id.unwrap_or_default();
         // make sure block ID is not tag but a number or hash
-        let block = match block {
+        let block_id = match block_id {
             BlockId::Number(number_or_tag) => match number_or_tag {
-                BlockNumberOrTag::Number(_) => Ok(block),
+                BlockNumberOrTag::Number(_) => Ok(block_id),
                 tag => Ok(BlockId::Number(
                     self.rpc
-                        .get_block_by_number(tag, false.into())
+                        .get_block(tag.into(), false.into())
                         .await?
                         .ok_or_eyre(ExecutionError::BlockNotFound(tag.try_into()?))
                         .map(|block| block.header().number())?
                         .into(),
                 )),
             },
-            BlockId::Hash(_) => Ok(block),
+            BlockId::Hash(_) => Ok(block_id),
         }?;
 
         let storage_keys = storage_slots
             .iter()
             .map(|key| (*key).into())
             .collect::<Vec<_>>();
-        let proof = self.rpc.get_proof(address, &storage_keys, block).await?;
+        let proof = self.rpc.get_proof(address, &storage_keys, block_id).await?;
 
         let code = if include_code {
-            Some(self.rpc.get_code(address, block).await?.into())
+            Some(self.rpc.get_code(address, block_id).await?.into())
         } else {
             None
         };
@@ -154,18 +154,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     async fn create_access_list(
         &self,
         tx: N::TransactionRequest,
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
     ) -> Result<AccessListResponse> {
-        let block_id = block.unwrap_or_default();
-        let block = match block_id {
-            BlockId::Number(number_or_tag) => self
-                .rpc
-                .get_block_by_number(number_or_tag, BlockTransactionsKind::Hashes)
-                .await?
-                .ok_or_eyre(ExecutionError::BlockNotFound(number_or_tag.try_into()?)),
-            BlockId::Hash(hash) => self.rpc.get_block(hash.into()).await,
-        }?;
-        let block_id = BlockId::Number(block.header().number().into());
+        let block_id = block_id.unwrap_or_default();
+        let block = self
+            .rpc
+            .get_block(block_id, false.into())
+            .await?
+            .ok_or_eyre(ExecutionError::BlockNotFound(block_id.try_into()?))?;
 
         let mut list = self.rpc.create_access_list(&tx, block_id).await?.0;
 
@@ -223,19 +219,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         })
     }
 
-    async fn get_block(&self, block: BlockId) -> Result<Option<N::BlockResponse>> {
-        Ok(match block {
-            BlockId::Number(number_or_tag) => {
-                self.rpc
-                    .get_block_by_number(number_or_tag, false.into())
-                    .await?
-            }
-            BlockId::Hash(hash) => self.rpc.get_block(hash.into()).await.ok(),
-        })
+    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>> {
+        self.rpc.get_block(block_id, false.into()).await
     }
 
-    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        self.rpc.get_block_receipts(block).await
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.rpc.get_block_receipts(block_id).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {

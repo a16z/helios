@@ -25,7 +25,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
         &self,
         address: Address,
         storage_slots: &[U256],
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
         include_code: bool,
     ) -> Result<AccountResponse>;
     async fn get_transaction_receipt(
@@ -38,12 +38,15 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn create_access_list(
         &self,
         tx: N::TransactionRequest,
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
     ) -> Result<AccessListResponse>;
     // Methods just for compatibility (acts as a proxy)
     async fn chain_id(&self) -> Result<ChainIdResponse>;
     async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>>;
-    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>>;
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse>;
     async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse>;
     async fn new_block_filter(&self) -> Result<NewFilterResponse>;
@@ -79,13 +82,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         &self,
         address: Address,
         storage_slots: &[U256],
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
         include_code: bool,
     ) -> Result<AccountResponse> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
         let mut request = self.client.get(&url);
-        if let Some(block) = block {
-            request = request.query(&[("block", block.to_string())]);
+        if let Some(block_id) = block_id {
+            request = request.query(&[("block", block_id.to_string())]);
         }
         for slot in storage_slots {
             request = request.query(&[("storageSlots", slot)]);
@@ -166,13 +169,16 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
     async fn create_access_list(
         &self,
         tx: N::TransactionRequest,
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
     ) -> Result<AccessListResponse> {
         let url = format!("{}/eth/v1/proof/createAccessList", self.base_url);
         let response = self
             .client
             .post(&url)
-            .json(&AccessListRequest::<N> { tx, block })
+            .json(&AccessListRequest::<N> {
+                tx,
+                block: block_id,
+            })
             .send()
             .await?;
         handle_response(response).await
@@ -190,8 +196,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for VerifiableApiClient {
         handle_response(response).await
     }
 
-    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let url = format!("{}/eth/v1/block/{}/receipts", self.base_url, block);
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let url = format!("{}/eth/v1/block/{}/receipts", self.base_url, block_id);
         let response = self.client.get(&url).send().await?;
         handle_response(response).await
     }

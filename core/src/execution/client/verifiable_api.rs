@@ -15,10 +15,11 @@ use helios_common::{
 };
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
-use crate::execution::client::ExecutionInner;
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
 use crate::execution::state::State;
+
+use super::{ExecutionInner, ExecutionSpec};
 
 #[derive(Clone)]
 pub struct ExecutionInnerVerifiableApiClient<N: NetworkSpec, A: VerifiableApi<N>> {
@@ -35,7 +36,13 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInner<N>
         let api: A = VerifiableApi::new(url);
         Ok(Self { api, state })
     }
+}
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
+    for ExecutionInnerVerifiableApiClient<N, A>
+{
     async fn get_account(
         &self,
         address: Address,
@@ -113,9 +120,9 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInner<N>
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: Option<BlockId>,
+        block_id: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
-        let block_id = block.unwrap_or(BlockId::latest());
+        let block_id = block_id.unwrap_or_default();
         let tag = BlockTag::try_from(block_id)?;
         let block = self
             .state
@@ -145,12 +152,19 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInner<N>
         Ok(chain_id)
     }
 
-    async fn get_block(&self, block: BlockId) -> Result<Option<N::BlockResponse>> {
-        self.api.get_block(block).await
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        _full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        self.api.get_block(block_id).await
     }
 
-    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        self.api.get_block_receipts(block).await
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.api.get_block_receipts(block_id).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {

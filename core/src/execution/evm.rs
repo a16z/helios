@@ -15,7 +15,7 @@ use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, type
 
 use crate::execution::{
     errors::{EvmError, ExecutionError},
-    ExecutionClient,
+    ExecutionClient, ExecutionSpec,
 };
 
 pub struct Evm<N: NetworkSpec> {
@@ -94,8 +94,9 @@ impl<N: NetworkSpec> Evm<N> {
     async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
         let block = self
             .execution
-            .get_block(tag, false)
+            .get_block(tag.into(), false)
             .await
+            .unwrap()
             .ok_or(ExecutionError::BlockNotFound(tag))
             .unwrap();
 
@@ -185,8 +186,8 @@ impl<N: NetworkSpec> EvmState<N> {
                     let tag = BlockTag::Number(*number);
                     let block = self
                         .execution
-                        .get_block(tag, false)
-                        .await
+                        .get_block(tag.into(), false)
+                        .await?
                         .ok_or(ExecutionError::BlockNotFound(tag))?;
 
                     self.block_hash.insert(*number, block.header().hash());

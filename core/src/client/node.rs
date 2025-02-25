@@ -18,6 +18,7 @@ use crate::execution::client::ExecutionInnerClient;
 use crate::execution::constants::MAX_STATE_HISTORY_SIZE;
 use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
+use crate::execution::spec::ExecutionSpec;
 use crate::execution::state::{start_state_updater, State};
 use crate::execution::ExecutionClient;
 use crate::time::{SystemTime, UNIX_EPOCH};
@@ -108,7 +109,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     }
 
     pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<Option<u64>> {
-        let block = self.execution.get_block_by_hash(hash, false).await;
+        let block = self.execution.get_block(hash.into(), false).await?;
         Ok(block.map(|block| block.transactions().hashes().len() as u64))
     }
 
@@ -116,7 +117,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         &self,
         tag: BlockTag,
     ) -> Result<Option<u64>> {
-        let block = self.execution.get_block(tag, false).await;
+        let block = self.execution.get_block(tag.into(), false).await?;
         Ok(block.map(|block| block.transactions().hashes().len() as u64))
     }
 
@@ -155,7 +156,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
         self.check_blocktag_age(&block).await?;
 
-        self.execution.get_block_receipts(block).await
+        self.execution.get_block_receipts(block.into()).await
     }
 
     pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<N::TransactionResponse> {
@@ -221,12 +222,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub async fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age().await?;
+        let tag = BlockTag::Latest;
 
         let block = self
             .execution
-            .get_block(BlockTag::Latest, false)
-            .await
-            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+            .get_block(tag.into(), false)
+            .await?
+            .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
         let base_fee = block.header().base_fee_per_gas().unwrap_or(0_u64);
         let tip = 10_u64.pow(9);
         Ok(U256::from(base_fee + tip))
@@ -244,12 +246,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_block_number(&self) -> Result<U256> {
         self.check_head_age().await?;
+        let tag = BlockTag::Latest;
 
         let block = self
             .execution
-            .get_block(BlockTag::Latest, false)
-            .await
-            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+            .get_block(tag.into(), false)
+            .await?
+            .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
         Ok(U256::from(block.header().number()))
     }
 
@@ -260,8 +263,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<Option<N::BlockResponse>> {
         self.check_blocktag_age(&tag).await?;
 
-        let block = self.execution.get_block(tag, full_tx).await;
-        Ok(block)
+        self.execution.get_block(tag.into(), full_tx).await
     }
 
     pub async fn get_block_by_hash(
@@ -269,8 +271,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         hash: B256,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let block = self.execution.get_block_by_hash(hash, full_tx).await;
-        Ok(block)
+        self.execution.get_block(hash.into(), full_tx).await
     }
 
     pub fn chain_id(&self) -> u64 {
@@ -295,12 +296,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_coinbase(&self) -> Result<Address> {
         self.check_head_age().await?;
+        let tag = BlockTag::Latest;
 
         let block = self
             .execution
-            .get_block(BlockTag::Latest, false)
-            .await
-            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+            .get_block(tag.into(), false)
+            .await?
+            .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
 
         Ok(block.header().beneficiary())
     }
@@ -310,11 +312,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_else(|_| panic!("unreachable"))
             .as_secs();
+        let tag = BlockTag::Latest;
 
         let block_timestamp = self
             .execution
-            .get_block(BlockTag::Latest, false)
+            .get_block(tag.into(), false)
             .await
+            .map_err(|_| ClientError::BlockNotFound(tag))?
             .ok_or_else(|| ClientError::OutOfSync(timestamp))?
             .header()
             .timestamp();

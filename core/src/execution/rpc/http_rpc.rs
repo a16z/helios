@@ -1,4 +1,3 @@
-use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
@@ -9,7 +8,7 @@ use alloy::rpc::types::{
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
-use eyre::{eyre, Result};
+use eyre::Result;
 use reqwest::Client;
 use revm::primitives::AccessList;
 
@@ -210,22 +209,15 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("fee_history", e))?)
     }
 
-    async fn get_block(&self, hash: B256) -> Result<N::BlockResponse> {
-        self.provider
-            .raw_request::<_, Option<N::BlockResponse>>("eth_getBlockByHash".into(), (hash, true))
-            .await?
-            .ok_or(eyre!("block not found"))
-    }
-
-    async fn get_block_by_number(
+    async fn get_block(
         &self,
-        block: BlockNumberOrTag,
+        block_id: BlockId,
         txs_kind: BlockTransactionsKind,
     ) -> Result<Option<N::BlockResponse>> {
         Ok(self
             .provider
-            .get_block_by_number(block, txs_kind)
+            .get_block(block_id, txs_kind)
             .await
-            .map_err(|e| RpcError::new("get_block_by_number", e))?)
+            .map_err(|e| RpcError::new("get_block", e))?)
     }
 }
