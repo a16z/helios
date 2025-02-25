@@ -357,17 +357,12 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         self.bootstrap(checkpoint).await?;
 
-        let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
-        let updates = self
-            .rpc
-            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
-            .await?;
+        let updates: Vec<Update<S>> = self.get_updates().await?;
 
         for update in updates {
             self.verify_update(&update)?;
             self.apply_update(&update);
         }
-
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
@@ -379,6 +374,41 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         );
 
         Ok(())
+    }
+
+    pub async fn get_updates(
+        &mut self,
+        // expected_current_period: u64,
+        // next_update_fetch_period: &mut u64,
+    ) -> Result<Vec<Update<S>>> {
+        let expected_current_slot = self.expected_current_slot();
+        let expected_current_period = calc_sync_period::<S>(expected_current_slot);
+        let mut next_update_fetch_period =
+            calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
+
+        let mut updates: Vec<Update<S>> = vec![];
+        if expected_current_period - next_update_fetch_period >= 128 {
+            while next_update_fetch_period < expected_current_period {
+                let batch_size = std::cmp::min(
+                    expected_current_period - next_update_fetch_period,
+                    MAX_REQUEST_LIGHT_CLIENT_UPDATES.into(),
+                );
+                let update = self
+                    .rpc
+                    .get_updates(next_update_fetch_period, batch_size.try_into().unwrap())
+                    .await?;
+                updates.extend(update);
+
+                next_update_fetch_period += batch_size;
+            }
+        }
+        let update: Vec<Update<S>> = self
+            .rpc
+            .get_updates(next_update_fetch_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await?;
+        updates.extend(update);
+
+        Ok(updates)
     }
 
     pub async fn advance(&mut self) -> Result<()> {
