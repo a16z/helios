@@ -124,7 +124,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag, true).await?;
-        Ok(account.code.unwrap().into())
+        Ok(account.code.unwrap())
     }
 
     pub async fn get_storage_at(

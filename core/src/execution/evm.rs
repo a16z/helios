@@ -166,7 +166,7 @@ impl<N: NetworkSpec> EvmState<N> {
                             account.balance,
                             account.nonce,
                             account.code_hash,
-                            Bytecode::new_raw(account.code.unwrap().into()),
+                            Bytecode::new_raw(account.code.unwrap()),
                         ),
                     );
                 }
@@ -244,7 +244,7 @@ impl<N: NetworkSpec> EvmState<N> {
                     account.balance,
                     account.nonce,
                     account.code_hash,
-                    Bytecode::new_raw(account.code.unwrap().into()),
+                    Bytecode::new_raw(account.code.unwrap()),
                 ),
             );
 

@@ -175,10 +175,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         &self,
         tag: BlockTag,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let block = self.state.get_block(tag).await;
-        let block = if let Some(block) = block {
-            block
-        } else {
+        let Some(block) = self.state.get_block(tag).await else {
             return Ok(None);
         };
         let block_id = BlockId::from(block.header().number());

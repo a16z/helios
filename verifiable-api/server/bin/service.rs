@@ -92,11 +92,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
-        let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
-        if receipt.is_none() {
+        let Some(receipt) = self.rpc.get_transaction_receipt(tx_hash).await? else {
             return Ok(None);
-        }
-        let receipt = receipt.unwrap();
+        };
 
         let block_num = receipt.block_number().unwrap();
         let receipts = self.rpc.get_block_receipts(block_num.into()).await?.ok_or(

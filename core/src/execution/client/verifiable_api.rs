@@ -64,11 +64,9 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInner<N>
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
-        let tx_receipt_response = self.api.get_transaction_receipt(tx_hash).await?;
-        if tx_receipt_response.is_none() {
+        let Some(tx_receipt_response) = self.api.get_transaction_receipt(tx_hash).await? else {
             return Ok(None);
-        }
-        let tx_receipt_response = tx_receipt_response.unwrap();
+        };
 
         self.verify_receipt_proofs(&[&tx_receipt_response]).await?;
 
@@ -213,7 +211,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInnerVerifiableApiClient<N, A
                     )
                     .into());
                 }
-                Some(code.into())
+                Some(code)
             }
             None => None,
         };

@@ -66,20 +66,15 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInner<N> for ExecutionInnerRpc
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
-        let receipt = self.rpc.get_transaction_receipt(tx_hash).await?;
-        if receipt.is_none() {
+        let Some(receipt) = self.rpc.get_transaction_receipt(tx_hash).await? else {
             return Ok(None);
-        }
-        let receipt = receipt.unwrap();
+        };
 
-        let block_number = receipt.block_number().unwrap();
-        let block_id = BlockId::from(block_number);
-        let tag = BlockTag::Number(block_number);
+        let block_num = receipt.block_number().unwrap();
+        let block_id = BlockId::from(block_num);
+        let tag = BlockTag::Number(block_num);
 
-        let block = self.state.get_block(tag).await;
-        let block = if let Some(block) = block {
-            block
-        } else {
+        let Some(block_receipts_root) = self.state.get_receipts_root(tag).await else {
             return Ok(None);
         };
 
@@ -93,7 +88,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInner<N> for ExecutionInnerRpc
         let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
         let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
 
-        if expected_receipt_root != block.header().receipts_root()
+        if expected_receipt_root != block_receipts_root
             // Note: Some RPC providers return different response in `eth_getTransactionReceipt` vs `eth_getBlockReceipts`
             // Primarily due to https://github.com/ethereum/execution-apis/issues/295 not finalized
             // Which means that the basic equality check in N::receipt_contains can be flaky
@@ -266,7 +261,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
                 )
                 .into());
             }
-            Some(code)
+            Some(code.into())
         } else {
             None
         };

@@ -44,7 +44,6 @@ pub fn start_state_updater<N: NetworkSpec>(
                     if let Some(block) = block {
                         state.inner.write().await.push_finalized_block(block);
                     }
-
                 },
             }
         }

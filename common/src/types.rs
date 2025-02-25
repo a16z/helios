@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
-    primitives::{B256, U256},
+    primitives::{Bytes, B256, U256},
 };
 use eyre::{eyre, Report, Result};
 use serde::{de::Error, Deserialize, Serialize};
@@ -13,7 +13,7 @@ pub struct Account {
     pub balance: U256,
     pub nonce: u64,
     pub code_hash: B256,
-    pub code: Option<Vec<u8>>,
+    pub code: Option<Bytes>,
     pub storage_hash: B256,
     pub slots: HashMap<B256, U256>,
 }

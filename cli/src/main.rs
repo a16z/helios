@@ -127,7 +127,7 @@ struct EthereumArgs {
     rpc_port: Option<u16>,
     #[clap(short = 'w', long, env)]
     checkpoint: Option<B256>,
-    #[clap(long, env, value_parser = parse_url)]
+    #[clap(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
     #[clap(long, env, value_parser = parse_url)]
     execution_verifiable_api: Option<Url>,
@@ -188,7 +188,7 @@ struct OpStackArgs {
     rpc_bind_ip: Option<IpAddr>,
     #[clap(short = 'p', long, env, default_value = "8545")]
     rpc_port: Option<u16>,
-    #[clap(long, env, value_parser = parse_url)]
+    #[clap(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
     #[clap(long, env, value_parser = parse_url)]
     execution_verifiable_api: Option<Url>,
