@@ -32,6 +32,7 @@ impl OpStackClient {
             "base" => NetworkConfig::from(Network::Base),
             "worldchain" => NetworkConfig::from(Network::Worldchain),
             "zora" => NetworkConfig::from(Network::Zora),
+            "phala" => NetworkConfig::from(Network::Phala),
             other => Err(JsError::new(&format!("invalid network: {}", other)))?,
         };
 
