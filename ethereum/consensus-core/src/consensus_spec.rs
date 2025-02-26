@@ -16,9 +16,9 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
     type MaxBlsToExecutionChanged: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxBlobKzgCommitments: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxWithdrawals: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
-    type MaxValidatorsPerCommitee: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
+    type MaxValidatorsPerCommittee: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type SlotsPerEpoch: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
-    type EpochsPerSyncCommiteePeriod: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
+    type EpochsPerSyncCommitteePeriod: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type SyncCommitteeSize: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxWithdrawalRequests: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxDepositRequests: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
@@ -28,15 +28,15 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
         Self::SlotsPerEpoch::to_u64()
     }
 
-    fn epochs_per_sync_commitee_period() -> u64 {
-        Self::EpochsPerSyncCommiteePeriod::to_u64()
+    fn epochs_per_sync_committee_period() -> u64 {
+        Self::EpochsPerSyncCommitteePeriod::to_u64()
     }
 
-    fn slots_per_sync_commitee_period() -> u64 {
-        Self::slots_per_epoch() * Self::epochs_per_sync_commitee_period()
+    fn slots_per_sync_committee_period() -> u64 {
+        Self::slots_per_epoch() * Self::epochs_per_sync_committee_period()
     }
 
-    fn sync_commitee_size() -> u64 {
+    fn sync_committee_size() -> u64 {
         Self::SyncCommitteeSize::to_u64()
     }
 }
@@ -57,9 +57,9 @@ impl ConsensusSpec for MainnetConsensusSpec {
     type MaxBlsToExecutionChanged = typenum::U16;
     type MaxBlobKzgCommitments = typenum::U4096;
     type MaxWithdrawals = typenum::U16;
-    type MaxValidatorsPerCommitee = typenum::U2048;
+    type MaxValidatorsPerCommittee = typenum::U2048;
     type SlotsPerEpoch = typenum::U32;
-    type EpochsPerSyncCommiteePeriod = typenum::U256;
+    type EpochsPerSyncCommitteePeriod = typenum::U256;
     type SyncCommitteeSize = typenum::U512;
     type MaxDepositRequests = typenum::U8192;
     type MaxWithdrawalRequests = typenum::U16;
@@ -82,9 +82,9 @@ impl ConsensusSpec for MinimalConsensusSpec {
     type MaxBlsToExecutionChanged = typenum::U16;
     type MaxBlobKzgCommitments = typenum::U4096;
     type MaxWithdrawals = typenum::U16;
-    type MaxValidatorsPerCommitee = typenum::U2048;
+    type MaxValidatorsPerCommittee = typenum::U2048;
     type SlotsPerEpoch = typenum::U8;
-    type EpochsPerSyncCommiteePeriod = typenum::U8;
+    type EpochsPerSyncCommitteePeriod = typenum::U8;
     type SyncCommitteeSize = typenum::U32;
     type MaxDepositRequests = typenum::U4;
     type MaxWithdrawalRequests = typenum::U2;
