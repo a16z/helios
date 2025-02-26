@@ -376,11 +376,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         Ok(())
     }
 
-    pub async fn get_updates(
-        &mut self,
-        // expected_current_period: u64,
-        // next_update_fetch_period: &mut u64,
-    ) -> Result<Vec<Update<S>>> {
+    pub async fn get_updates(&self) -> Result<Vec<Update<S>>> {
         let expected_current_slot = self.expected_current_slot();
         let expected_current_period = calc_sync_period::<S>(expected_current_slot);
         let mut next_update_fetch_period =
@@ -402,6 +398,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
                 next_update_fetch_period += batch_size;
             }
         }
+
         let update: Vec<Update<S>> = self
             .rpc
             .get_updates(next_update_fetch_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
@@ -842,11 +839,13 @@ mod tests {
         let period = calc_sync_period::<MainnetConsensusSpec>(
             client.store.finalized_header.beacon().slot.into(),
         );
+        *client.rpc.fetched_updates.lock().unwrap() = false;
         let updates: Vec<Update<MainnetConsensusSpec>> = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
+
         // Replace here to test invalid finality proof
         *update.finalized_header_mut() = updates[0].finalized_header().clone();
 
