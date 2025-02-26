@@ -1,4 +1,8 @@
-use std::{fs::read_to_string, path::PathBuf};
+use std::{
+    fs::read_to_string,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use alloy::primitives::B256;
 use async_trait::async_trait;
@@ -14,6 +18,7 @@ use super::ConsensusRpc;
 
 pub struct MockRpc {
     testdata: PathBuf,
+    pub fetched_updates: Arc<Mutex<bool>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -22,6 +27,7 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
     fn new(path: &str) -> Self {
         MockRpc {
             testdata: PathBuf::from(path),
+            fetched_updates: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -32,6 +38,10 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
     }
 
     async fn get_updates(&self, _period: u64, _count: u8) -> Result<Vec<Update<S>>> {
+        if *self.fetched_updates.lock().unwrap() {
+            return Ok(Vec::new());
+        }
+        *self.fetched_updates.lock().unwrap() = true;
         let res = read_to_string(self.testdata.join("updates.json"))?;
         let updates: Vec<UpdateData<S>> = serde_json::from_str(&res)?;
         Ok(updates.into_iter().map(|update| update.data).collect())

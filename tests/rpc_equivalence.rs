@@ -50,8 +50,16 @@ async fn setup() -> (
     (helios_client, helios_provider, provider)
 }
 
+fn rpc_exists() -> bool {
+    env::var("MAINNET_EXECUTION_RPC").is_ok()
+}
+
 #[tokio::test]
 async fn get_transaction_by_hash() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle, helios_provider, provider) = setup().await;
 
     let block = helios_provider
@@ -97,6 +105,10 @@ async fn get_transaction_by_hash() {
 
 #[tokio::test]
 async fn get_transaction_receipt() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle, helios_provider, provider) = setup().await;
 
     let block = helios_provider
@@ -123,6 +135,10 @@ async fn get_transaction_receipt() {
 
 #[tokio::test]
 async fn get_block_receipts() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle, helios_provider, provider) = setup().await;
 
     let block = helios_provider
@@ -150,6 +166,10 @@ async fn get_block_receipts() {
 
 #[tokio::test]
 async fn get_balance() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle, helios_provider, provider) = setup().await;
     let num = helios_provider.get_block_number().await.unwrap();
 
@@ -171,6 +191,10 @@ async fn get_balance() {
 
 #[tokio::test]
 async fn call() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle, helios_provider, provider) = setup().await;
     let num = helios_provider.get_block_number().await.unwrap();
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
