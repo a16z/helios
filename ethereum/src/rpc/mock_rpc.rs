@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     fs::read_to_string,
     path::PathBuf,
     sync::{Arc, Mutex},
