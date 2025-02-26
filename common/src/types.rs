@@ -8,7 +8,7 @@ use alloy::{
 use eyre::{eyre, Report, Result};
 use serde::{de::Error, Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Account {
     pub balance: U256,
     pub nonce: u64,

@@ -30,3 +30,6 @@ helios-opstack = { path = "../../opstack" }
 axum = "0.8.1"
 axum-extra = { version = "0.10.0", features = ["query"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
+
+[dev-dependencies]
+helios-test-utils = { path = "../../tests/test-utils" }

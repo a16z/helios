@@ -3159,6 +3159,8 @@ dependencies = [
  "futures",
  "gloo-timers 0.3.0",
  "helios-common",
+ "helios-ethereum",
+ "helios-test-utils",
  "helios-verifiable-api-client",
  "hex",
  "jsonrpsee",
@@ -3254,6 +3256,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "helios-test-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "helios-common",
+ "helios-core",
+ "helios-ethereum",
+ "helios-verifiable-api-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "helios-ts"
 version = "0.1.0"
 dependencies = [
@@ -3303,6 +3318,7 @@ dependencies = [
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
+ "helios-test-utils",
  "helios-verifiable-api-client",
  "helios-verifiable-api-types",
  "serde",

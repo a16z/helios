@@ -10,7 +10,7 @@ use helios_common::{
     execution_mode::ExecutionMode, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
     types::BlockTag,
 };
-use helios_verifiable_api_client::VerifiableApiClient;
+use helios_verifiable_api_client::http::HttpVerifiableApi;
 
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
@@ -40,7 +40,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let state = State::new(MAX_STATE_HISTORY_SIZE);
         let client_inner =
-            ExecutionInnerClient::<N, HttpRpc<N>, VerifiableApiClient>::make_inner_client(
+            ExecutionInnerClient::<N, HttpRpc<N>, HttpVerifiableApi>::make_inner_client(
                 execution_mode,
                 state.clone(),
             )

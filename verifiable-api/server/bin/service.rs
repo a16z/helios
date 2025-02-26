@@ -34,7 +34,7 @@ pub struct ApiService<N: NetworkSpec, R: ExecutionRpc<N>> {
 impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     fn new(rpc: &str) -> Self {
         Self {
-            rpc: Arc::new(ExecutionRpc::new(rpc).unwrap()),
+            rpc: Arc::new(R::new(rpc).unwrap()),
             _marker: Default::default(),
         }
     }
@@ -323,5 +323,267 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ApiService<N, R> {
         }
 
         Ok(receipt_proofs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy::rpc::types::TransactionRequest;
+    use helios_core::execution::rpc::mock_rpc::MockRpc;
+    use helios_ethereum::spec::Ethereum as EthereumSpec;
+    use helios_test_utils::*;
+
+    use super::*;
+
+    fn get_service() -> ApiService<EthereumSpec, MockRpc> {
+        let base_path = testdata_dir().join("rpc/");
+        ApiService::<EthereumSpec, MockRpc>::new(base_path.to_str().unwrap())
+    }
+
+    #[tokio::test]
+    async fn test_get_account() {
+        let service = get_service();
+        let rpc_proof = rpc_proof();
+
+        let response = service
+            .get_account(
+                rpc_proof.address,
+                &[U256::from(1)],
+                BlockId::latest().into(),
+                true,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response, verifiable_api_account_response());
+    }
+
+    #[tokio::test]
+    async fn test_get_account_without_code() {
+        let service = get_service();
+        let rpc_proof = rpc_proof();
+
+        let response = service
+            .get_account(rpc_proof.address, &[], BlockId::latest().into(), false)
+            .await
+            .unwrap();
+
+        let mut expected_resp = verifiable_api_account_response();
+        expected_resp.code = None;
+        assert_eq!(response, expected_resp);
+    }
+
+    #[tokio::test]
+    async fn test_get_transaction_receipt() {
+        let service = get_service();
+
+        let response = service
+            .get_transaction_receipt(*rpc_tx().inner.tx_hash())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(response, verifiable_api_tx_receipt_response());
+    }
+
+    #[tokio::test]
+    async fn test_get_logs() {
+        let service = get_service();
+        let filter = Filter::default();
+
+        let response = service.get_logs(&filter).await.unwrap();
+
+        let expected_response = verifiable_api_logs_response();
+        assert_eq!(response.logs, expected_response.logs);
+        assert_eq!(
+            response
+                .receipt_proofs
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect::<Vec<_>>(),
+            expected_response
+                .receipt_proofs
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_filter_logs() {
+        let service = get_service();
+        let filter_id = rpc_filter_id_logs();
+
+        let response = service.get_filter_logs(filter_id).await.unwrap();
+
+        let expected_response = verifiable_api_logs_response();
+        assert_eq!(response.logs, expected_response.logs);
+        assert_eq!(
+            response
+                .receipt_proofs
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect::<Vec<_>>(),
+            expected_response
+                .receipt_proofs
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_filter_changes_logs() {
+        let service = get_service();
+        let filter_id = rpc_filter_id_logs();
+
+        let response = service.get_filter_changes(filter_id).await.unwrap();
+        let response = match response {
+            FilterChangesResponse::Logs(response) => response,
+            _ => panic!("Expected FilterChangesResponse::Logs"),
+        };
+
+        let expected_response = verifiable_api_logs_response();
+        assert_eq!(response.logs, expected_response.logs);
+        assert_eq!(
+            response
+                .receipt_proofs
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect::<Vec<_>>(),
+            expected_response
+                .receipt_proofs
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_filter_changes_blocks() {
+        let service = get_service();
+        let filter_id = rpc_filter_id_blocks();
+
+        let response = service.get_filter_changes(filter_id).await.unwrap();
+        let response = match response {
+            FilterChangesResponse::Hashes(response) => response,
+            _ => panic!("Expected FilterChangesResponse::Hashes"),
+        };
+
+        assert_eq!(response, rpc_filter_block_hashes());
+    }
+
+    #[tokio::test]
+    async fn test_get_filter_changes_txs() {
+        let service = get_service();
+        let filter_id = rpc_filter_id_txs();
+
+        let response = service.get_filter_changes(filter_id).await.unwrap();
+        let response = match response {
+            FilterChangesResponse::Hashes(response) => response,
+            _ => panic!("Expected FilterChangesResponse::Hashes"),
+        };
+
+        assert_eq!(response, rpc_filter_tx_hashes());
+    }
+
+    #[tokio::test]
+    async fn test_create_access_list() {
+        let service = get_service();
+        let address = rpc_proof().address;
+        let tx = TransactionRequest::default().from(address).to(address);
+
+        let response = service
+            .create_access_list(tx, BlockId::latest().into())
+            .await
+            .unwrap();
+
+        assert_eq!(response.accounts.len(), 2);
+        assert_eq!(
+            response.accounts.get(&address).unwrap(),
+            &verifiable_api_account_response()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_chain_id() {
+        let service = get_service();
+
+        let response = service.chain_id().await.unwrap();
+
+        assert_eq!(response.chain_id, rpc_chain_id());
+    }
+
+    #[tokio::test]
+    async fn test_get_block() {
+        let service = get_service();
+        let response = service.get_block(BlockId::latest()).await.unwrap().unwrap();
+
+        assert_eq!(response, rpc_block());
+    }
+
+    #[tokio::test]
+    async fn test_get_block_receipts() {
+        let service = get_service();
+
+        let response = service
+            .get_block_receipts(BlockId::latest())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(response, rpc_block_receipts());
+    }
+
+    #[tokio::test]
+    async fn test_send_raw_transaction() {
+        let service = get_service();
+
+        let response = service.send_raw_transaction(&[]).await.unwrap();
+
+        assert_eq!(response.hash, *rpc_tx().inner.tx_hash());
+    }
+
+    #[tokio::test]
+    async fn test_new_filter() {
+        let service = get_service();
+        let filter = Filter::default();
+
+        let response = service.new_filter(&filter).await.unwrap();
+
+        assert_eq!(response.id, rpc_filter_id_logs());
+        assert_eq!(response.kind, FilterKind::Logs);
+    }
+
+    #[tokio::test]
+    async fn test_new_block_filter() {
+        let service = get_service();
+
+        let response = service.new_block_filter().await.unwrap();
+
+        assert_eq!(response.id, rpc_filter_id_blocks());
+        assert_eq!(response.kind, FilterKind::NewBlocks);
+    }
+
+    #[tokio::test]
+    async fn test_new_pending_transaction_filter() {
+        let service = get_service();
+
+        let response = service.new_pending_transaction_filter().await.unwrap();
+
+        assert_eq!(response.id, rpc_filter_id_txs());
+        assert_eq!(response.kind, FilterKind::NewPendingTransactions);
+    }
+
+    #[tokio::test]
+    async fn test_uninstall_filter() {
+        let service = get_service();
+
+        let response = service
+            .uninstall_filter(rpc_filter_id_logs())
+            .await
+            .unwrap();
+
+        assert_eq!(response.ok, true);
     }
 }

@@ -15,7 +15,7 @@ pub struct ErrorResponse {
     pub error: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountResponse {
     pub account: TrieAccount,
@@ -25,7 +25,7 @@ pub struct AccountResponse {
     pub storage_proof: Vec<EIP1186StorageProof>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionReceiptResponse<N: NetworkSpec> {
     pub receipt: N::ReceiptResponse,
@@ -88,7 +88,7 @@ pub struct SendRawTxResponse {
     pub hash: B256,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum FilterKind {
     Logs,
     NewBlocks,

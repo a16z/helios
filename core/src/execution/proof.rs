@@ -170,3 +170,84 @@ pub fn ordered_trie_root_noop_encoder(items: &[Vec<u8>]) -> B256 {
 
     ordered_trie_root_with_encoder(items, noop_encoder)
 }
+
+#[cfg(test)]
+mod tests {
+    use alloy::primitives::b256;
+
+    use helios_ethereum::spec::Ethereum as EthereumSpec;
+    use helios_test_utils::*;
+
+    use super::*;
+
+    #[test]
+    fn test_verify_account_proof() {
+        let proof = rpc_proof();
+        let state_root = rpc_block().header().state_root();
+
+        let result = verify_account_proof(&proof, state_root);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_storage_proof() {
+        let proof = rpc_proof();
+        let expected = rpc_account();
+
+        let result = verify_storage_proof(&proof);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected.slots);
+    }
+
+    #[test]
+    fn test_create_receipt_proof() {
+        let receipts = rpc_block_receipts();
+        let expected = verifiable_api_tx_receipt_response();
+
+        let proof = create_receipt_proof::<EthereumSpec>(
+            receipts,
+            expected.receipt.transaction_index().unwrap() as usize,
+        );
+
+        assert_eq!(proof, expected.receipt_proof);
+    }
+
+    #[test]
+    fn test_verify_receipt_proof() {
+        let receipts = rpc_block_receipts();
+        let receipts_root = rpc_block().header().receipts_root();
+
+        for idx in 0..receipts.len() {
+            let proof = create_receipt_proof::<EthereumSpec>(receipts.clone(), idx);
+
+            let result =
+                verify_receipt_proof::<EthereumSpec>(&receipts[idx], receipts_root, &proof);
+
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_verify_block_receipts() {
+        let receipts = rpc_block_receipts();
+        let block = rpc_block();
+
+        let result = verify_block_receipts::<EthereumSpec>(&receipts, &block);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_ordered_trie_root_noop_encoder() {
+        let items = vec![vec![0u8; 32], vec![1u8; 32]];
+
+        let root = ordered_trie_root_noop_encoder(&items);
+
+        assert_eq!(
+            root,
+            b256!("0x5369c64e2b262259b880114e7ac092e69c673e2671352991989f3a89fbc8f0af")
+        );
+    }
+}

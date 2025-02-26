@@ -11,7 +11,7 @@ use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ethereum;
 
 impl NetworkSpec for Ethereum {

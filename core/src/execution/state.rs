@@ -61,6 +61,10 @@ impl<N: NetworkSpec> State<N> {
         }
     }
 
+    pub async fn push_block(&self, block: N::BlockResponse, client: Arc<dyn ExecutionInner<N>>) {
+        self.inner.write().await.push_block(block, client).await
+    }
+
     // full block fetch
 
     pub async fn get_block(&self, tag: BlockTag) -> Option<N::BlockResponse> {
