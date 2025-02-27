@@ -51,7 +51,7 @@ async fn setup() -> (
 }
 
 fn rpc_exists() -> bool {
-    env::var("MAINNET_EXECUTION_RPC").is_ok()
+    env::var("MAINNET_EXECUTION_RPC").is_ok_and(|rpc| !rpc.is_empty())
 }
 
 #[tokio::test]
