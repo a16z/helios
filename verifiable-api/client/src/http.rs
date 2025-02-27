@@ -141,9 +141,18 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         handle_response(response).await
     }
 
-    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>> {
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
         let url = format!("{}/eth/v1/block/{}", self.base_url, block_id);
-        let response = self.client.get(&url).send().await?;
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("transactionDetailFlag", full_tx)])
+            .send()
+            .await?;
         handle_response(response).await
     }
 

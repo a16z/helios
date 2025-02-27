@@ -42,7 +42,8 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     ) -> Result<AccessListResponse>;
     // Methods just for compatibility (acts as a proxy)
     async fn chain_id(&self) -> Result<ChainIdResponse>;
-    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>>;
+    async fn get_block(&self, block_id: BlockId, full_tx: bool)
+        -> Result<Option<N::BlockResponse>>;
     async fn get_block_receipts(
         &self,
         block_id: BlockId,

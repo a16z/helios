@@ -219,8 +219,12 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         })
     }
 
-    async fn get_block(&self, block_id: BlockId) -> Result<Option<N::BlockResponse>> {
-        self.rpc.get_block(block_id, false.into()).await
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        self.rpc.get_block(block_id, full_tx.into()).await
     }
 
     async fn get_block_receipts(
@@ -517,7 +521,11 @@ mod tests {
     #[tokio::test]
     async fn test_get_block() {
         let service = get_service();
-        let response = service.get_block(BlockId::latest()).await.unwrap().unwrap();
+        let response = service
+            .get_block(BlockId::latest(), false)
+            .await
+            .unwrap()
+            .unwrap();
 
         assert_eq!(response, rpc_block());
     }

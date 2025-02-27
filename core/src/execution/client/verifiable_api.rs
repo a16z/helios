@@ -155,9 +155,9 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
     async fn get_block(
         &self,
         block_id: BlockId,
-        _full_tx: bool,
+        full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        self.api.get_block(block_id).await
+        self.api.get_block(block_id, full_tx).await
     }
 
     async fn get_block_receipts(

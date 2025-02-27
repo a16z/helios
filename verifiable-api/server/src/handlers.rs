@@ -61,6 +61,13 @@ pub struct LogsQuery {
     pub topic3: Vec<B256>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockQuery {
+    #[serde(default)]
+    pub transaction_detail_flag: bool,
+}
+
 impl TryInto<Filter> for LogsQuery {
     type Error = Report;
 
@@ -186,10 +193,13 @@ pub async fn get_chain_id<N: NetworkSpec, R: ExecutionRpc<N>>(
 
 pub async fn get_block<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(block_id): Path<BlockId>,
+    Query(BlockQuery {
+        transaction_detail_flag,
+    }): Query<BlockQuery>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<Option<N::BlockResponse>> {
     api_service
-        .get_block(block_id)
+        .get_block(block_id, transaction_detail_flag)
         .await
         .map(Json)
         .map_err(map_server_err)

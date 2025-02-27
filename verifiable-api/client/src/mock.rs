@@ -116,7 +116,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
         })
     }
 
-    async fn get_block(&self, _block_id: BlockId) -> Result<Option<N::BlockResponse>> {
+    async fn get_block(
+        &self,
+        _block_id: BlockId,
+        _full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
         let json_str = read_to_string(self.path.join("rpc/block.json"))?;
         let block = serde_json::from_str(&json_str)?;
         Ok(Some(block))
