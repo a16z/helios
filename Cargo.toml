@@ -94,9 +94,12 @@ helios-ethereum = { path = "./ethereum" }
 helios-opstack = { path = "./opstack" }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio.workspace = true
+futures.workspace = true
+url.workspace = true
+serde.workspace = true
 dotenv = "0.15.0"
-serde = { version = "1.0.154", features = ["derive"] }
+helios-verifiable-api-server = { path = "verifiable-api/server" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 alloy = { version = "0.9.1", features = ["full"] }

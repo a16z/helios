@@ -3073,10 +3073,12 @@ dependencies = [
  "dirs",
  "dotenv",
  "eyre",
+ "futures",
  "helios-common",
  "helios-core",
  "helios-ethereum",
  "helios-opstack",
+ "helios-verifiable-api-server",
  "hex",
  "plotters",
  "pretty_assertions",
@@ -3087,6 +3089,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-test",
+ "url",
 ]
 
 [[package]]
