@@ -17,7 +17,7 @@ use helios_core::execution::{errors::ExecutionError, rpc::ExecutionRpc};
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
 
-use crate::ApiState;
+use crate::state::ApiState;
 
 #[allow(type_alias_bounds)]
 type Response<T: Serialize + DeserializeOwned> = Result<Json<T>, (StatusCode, Json<ErrorResponse>)>;

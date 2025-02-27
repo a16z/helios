@@ -6,7 +6,7 @@ use axum::{
 use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::rpc::ExecutionRpc;
 
-use crate::{handlers, ApiState};
+use crate::{handlers, state::ApiState};
 
 pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, R>> {
     Router::new()

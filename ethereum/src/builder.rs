@@ -125,16 +125,16 @@ impl EthereumClientBuilder {
                 .clone()
         });
 
-        let execution_rpc = self
-            .execution_rpc
-            .or_else(|| self.config.as_ref().unwrap().execution_rpc.clone());
+        let execution_rpc = self.execution_rpc.or_else(|| {
+            self.config
+                .as_ref()
+                .map_or(None, |c| c.execution_rpc.clone())
+        });
 
         let execution_verifiable_api = self.execution_verifiable_api.or_else(|| {
             self.config
                 .as_ref()
-                .unwrap()
-                .execution_verifiable_api
-                .clone()
+                .map_or(None, |c| c.execution_verifiable_api.clone())
         });
 
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
