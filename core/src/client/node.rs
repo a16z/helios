@@ -35,8 +35,8 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         mut consensus: C,
         fork_schedule: ForkSchedule,
     ) -> Result<Self, ClientError> {
-        let block_recv = consensus.block_recv().take().unwrap();
-        let finalized_block_recv = consensus.finalized_block_recv().take().unwrap();
+        let block_recv = consensus.block_recv().unwrap();
+        let finalized_block_recv = consensus.finalized_block_recv().unwrap();
 
         let state = State::new(MAX_STATE_HISTORY_SIZE);
         let client_inner =

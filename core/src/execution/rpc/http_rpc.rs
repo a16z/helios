@@ -20,10 +20,7 @@ use super::ExecutionRpc;
 
 pub struct HttpRpc<N: NetworkSpec> {
     url: String,
-    #[cfg(not(target_arch = "wasm32"))]
     provider: RootProvider<RetryBackoffService<Http<Client>>, N>,
-    #[cfg(target_arch = "wasm32")]
-    provider: RootProvider<Http<Client>, N>,
 }
 
 impl<N: NetworkSpec> Clone for HttpRpc<N> {
@@ -36,13 +33,9 @@ impl<N: NetworkSpec> Clone for HttpRpc<N> {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     fn new(rpc: &str) -> Result<Self> {
-        #[cfg(not(target_arch = "wasm32"))]
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc.parse().unwrap());
-
-        #[cfg(target_arch = "wasm32")]
-        let client = ClientBuilder::default().http(rpc.parse().unwrap());
 
         let provider = ProviderBuilder::new().network::<N>().on_client(client);
 

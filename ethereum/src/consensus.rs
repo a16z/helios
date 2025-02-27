@@ -357,17 +357,12 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         self.bootstrap(checkpoint).await?;
 
-        let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
-        let updates = self
-            .rpc
-            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
-            .await?;
+        let updates: Vec<Update<S>> = self.get_updates().await?;
 
         for update in updates {
             self.verify_update(&update)?;
             self.apply_update(&update);
         }
-
         let finality_update = self.rpc.get_finality_update().await?;
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
@@ -379,6 +374,38 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         );
 
         Ok(())
+    }
+
+    pub async fn get_updates(&self) -> Result<Vec<Update<S>>> {
+        let expected_current_slot = self.expected_current_slot();
+        let expected_current_period = calc_sync_period::<S>(expected_current_slot);
+        let mut next_update_fetch_period =
+            calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
+
+        let mut updates: Vec<Update<S>> = vec![];
+        if expected_current_period - next_update_fetch_period >= 128 {
+            while next_update_fetch_period < expected_current_period {
+                let batch_size = std::cmp::min(
+                    expected_current_period - next_update_fetch_period,
+                    MAX_REQUEST_LIGHT_CLIENT_UPDATES.into(),
+                );
+                let update = self
+                    .rpc
+                    .get_updates(next_update_fetch_period, batch_size.try_into().unwrap())
+                    .await?;
+                updates.extend(update);
+
+                next_update_fetch_period += batch_size;
+            }
+        }
+
+        let update: Vec<Update<S>> = self
+            .rpc
+            .get_updates(next_update_fetch_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await?;
+        updates.extend(update);
+
+        Ok(updates)
     }
 
     pub async fn advance(&mut self) -> Result<()> {
@@ -505,7 +532,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate<S>) {
-        let size = S::sync_commitee_size() as f32;
+        let size = S::sync_committee_size() as f32;
         let participation =
             get_bits::<S>(&update.sync_aggregate().sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -524,7 +551,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn log_optimistic_update(&self, update: &FinalityUpdate<S>) {
-        let size = S::sync_commitee_size() as f32;
+        let size = S::sync_committee_size() as f32;
         let participation =
             get_bits::<S>(&update.sync_aggregate().sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
@@ -811,11 +838,13 @@ mod tests {
         let period = calc_sync_period::<MainnetConsensusSpec>(
             client.store.finalized_header.beacon().slot.into(),
         );
+        *client.rpc.fetched_updates.lock().unwrap() = false;
         let updates: Vec<Update<MainnetConsensusSpec>> = client
             .rpc
             .get_updates(period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await
             .unwrap();
+
         // Replace here to test invalid finality proof
         *update.finalized_header_mut() = updates[0].finalized_header().clone();
 

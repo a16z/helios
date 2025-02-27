@@ -99,8 +99,16 @@ async fn setup() -> (
     )
 }
 
+fn rpc_exists() -> bool {
+    env::var("MAINNET_EXECUTION_RPC").is_ok()
+}
+
 #[tokio::test]
 async fn get_transaction_by_hash() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle1, _handle2, _handle3, providers) = setup().await;
 
     let block = providers[0]
@@ -150,6 +158,10 @@ async fn get_transaction_by_hash() {
 
 #[tokio::test]
 async fn get_transaction_receipt() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle1, _handle2, _handle3, providers) = setup().await;
 
     let block = providers[0]
@@ -180,6 +192,10 @@ async fn get_transaction_receipt() {
 
 #[tokio::test]
 async fn get_block_receipts() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle1, _handle2, _handle3, providers) = setup().await;
 
     let block_num = providers[0].get_block_number().await.unwrap();
@@ -204,6 +220,10 @@ async fn get_block_receipts() {
 
 #[tokio::test]
 async fn get_balance() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle1, _handle2, _handle3, providers) = setup().await;
 
     let block_num = providers[0].get_block_number().await.unwrap();
@@ -230,6 +250,10 @@ async fn get_balance() {
 
 #[tokio::test]
 async fn call() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle1, _handle2, _handle3, providers) = setup().await;
 
     let block_num = providers[0].get_block_number().await.unwrap();
@@ -267,6 +291,10 @@ async fn call() {
 
 #[tokio::test]
 async fn get_logs() {
+    if !rpc_exists() {
+        return;
+    }
+
     let (_handle1, _handle2, _handle3, providers) = setup().await;
 
     let block = providers[0]

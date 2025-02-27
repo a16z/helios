@@ -171,7 +171,7 @@ pub fn apply_generic_update<S: ConsensusSpec>(
         && update_finalized_period == update_attested_period;
 
     let should_apply_update = {
-        let has_majority = committee_bits * 3 >= S::sync_commitee_size() * 2;
+        let has_majority = committee_bits * 3 >= S::sync_committee_size() * 2;
         if !has_majority {
             warn!("skipping block with low vote count");
         }
@@ -275,7 +275,6 @@ pub fn verify_generic_update<S: ConsensusSpec>(
     } else {
         update_sig_period == store_period
     };
-
     if !valid_period {
         return Err(ConsensusError::InvalidPeriod.into());
     }
@@ -291,6 +290,8 @@ pub fn verify_generic_update<S: ConsensusSpec>(
         return Err(ConsensusError::NotRelevant.into());
     }
 
+    let update_attested_epoch = update.attested_header.beacon().slot / S::slots_per_epoch();
+
     if let Some(finalized_header) = &update.finalized_header {
         if let Some(finality_branch) = &update.finality_branch {
             if !is_valid_header::<S>(finalized_header, forks) {
@@ -301,7 +302,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
                 update.attested_header.beacon(),
                 finalized_header.beacon(),
                 finality_branch,
-                update.attested_header.beacon().slot / S::slots_per_epoch(),
+                update_attested_epoch,
                 forks,
             );
 
@@ -319,7 +320,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
                 update.attested_header.beacon(),
                 next_sync_committee,
                 next_sync_committee_branch,
-                update.attested_header.beacon().slot / S::slots_per_epoch(),
+                update_attested_epoch,
                 forks,
             );
 
@@ -341,7 +342,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 
     let fork_version = calculate_fork_version::<S>(forks, update.signature_slot.saturating_sub(1));
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
-    let is_valid_sig = verify_sync_committee_signture(
+    let is_valid_sig = verify_sync_committee_signature(
         &pks,
         update.attested_header.beacon(),
         &update.sync_aggregate.sync_committee_signature,
@@ -358,7 +359,7 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 /// WARNING: `force_update` allows Helios to accept a header with less than a quorum of signatures.
 /// Use with caution only in cases where it is not possible that valid updates are being censored.
 pub fn force_update<S: ConsensusSpec>(store: &mut LightClientStore<S>, current_slot: u64) {
-    if current_slot > store.finalized_header.beacon().slot + S::slots_per_sync_commitee_period() {
+    if current_slot > store.finalized_header.beacon().slot + S::slots_per_sync_committee_period() {
         if let Some(mut best_valid_update) = store.best_valid_update.clone() {
             if best_valid_update
                 .finalized_header
@@ -390,7 +391,7 @@ pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
 
 pub fn calc_sync_period<S: ConsensusSpec>(slot: u64) -> u64 {
     let epoch = slot / S::slots_per_epoch();
-    epoch / S::epochs_per_sync_commitee_period()
+    epoch / S::epochs_per_sync_committee_period()
 }
 
 pub fn get_bits<S: ConsensusSpec>(bitfield: &BitVector<S::SyncCommitteeSize>) -> u64 {
@@ -467,6 +468,8 @@ fn is_better_update<S: ConsensusSpec>(
     if new_update.attested_header.beacon().slot != old_update.attested_header.beacon().slot {
         return new_update.attested_header.beacon().slot < old_update.attested_header.beacon().slot;
     }
+
+    // tiebreaker 3: prefer updates with earlier signature slots
     new_update.signature_slot < old_update.signature_slot
 }
 
@@ -478,7 +481,7 @@ fn has_finality_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
     update.finality_branch.is_some()
 }
 
-fn verify_sync_committee_signture(
+fn verify_sync_committee_signature(
     pks: &[PublicKey],
     attested_header: &BeaconBlockHeader,
     signature: &Signature,
@@ -499,6 +502,9 @@ fn safety_threshold<S: ConsensusSpec>(store: &LightClientStore<S>) -> u64 {
 fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> bool {
     let epoch = header.beacon().slot / S::slots_per_epoch();
 
+    // This deviates from the spec in that it dos not check that the blob fields are unset prior to
+    // deneb. This is fine since an honest sync committee will never sign an invalid block, which
+    // includes blocks that have the blob fields set pre-deneb.
     if epoch < forks.capella.epoch {
         header.execution().is_err() && header.execution_branch().is_err()
     } else if header.execution().is_ok() && header.execution_branch().is_ok() {

@@ -19,7 +19,7 @@ pub struct OpStackClientBuilder {
     execution_rpc: Option<String>,
     execution_verifiable_api: Option<String>,
     rpc_socket: Option<SocketAddr>,
-    verify_unsafe_singer: Option<bool>,
+    verify_unsafe_signer: Option<bool>,
 }
 
 impl OpStackClientBuilder {
@@ -57,8 +57,8 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn verify_unsafe_singer(mut self, value: bool) -> Self {
-        self.verify_unsafe_singer = Some(value);
+    pub fn verify_unsafe_signer(mut self, value: bool) -> Self {
+        self.verify_unsafe_signer = Some(value);
         self
     }
 
@@ -82,7 +82,7 @@ impl OpStackClientBuilder {
                 chain: NetworkConfig::from(network).chain,
                 load_external_fallback: None,
                 checkpoint: None,
-                verify_unsafe_signer: self.verify_unsafe_singer.unwrap_or_default(),
+                verify_unsafe_signer: self.verify_unsafe_signer.unwrap_or_default(),
             }
         };
 
