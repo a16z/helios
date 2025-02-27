@@ -30,7 +30,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
     pub fn new(
         mut block_recv: Receiver<N::BlockResponse>,
         mut finalized_block_recv: watch::Receiver<Option<N::BlockResponse>>,
-        history_length: u64,
+        history_length: usize,
         rpc: &str,
     ) -> Self {
         let rpc = R::new(rpc).unwrap();
@@ -221,12 +221,12 @@ struct Inner<N: NetworkSpec, R: ExecutionRpc<N>> {
     hashes: HashMap<B256, u64>,
     txs: HashMap<B256, TransactionLocation>,
     filters: HashMap<U256, FilterType>,
-    history_length: u64,
+    history_length: usize,
     rpc: R,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
-    pub fn new(history_length: u64, rpc: R) -> Self {
+    pub fn new(history_length: usize, rpc: R) -> Self {
         Self {
             history_length,
             blocks: BTreeMap::default(),
@@ -295,7 +295,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Inner<N, R> {
     }
 
     fn prune(&mut self) {
-        while self.blocks.len() as u64 > self.history_length {
+        while self.blocks.len() > self.history_length {
             if let Some((number, _)) = self.blocks.first_key_value() {
                 self.remove_block(*number);
             }

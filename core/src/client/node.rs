@@ -8,6 +8,7 @@ use eyre::{eyre, Result};
 
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
+use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
 use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::state::State;
@@ -20,7 +21,6 @@ use crate::types::BlockTag;
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
     pub execution: Arc<ExecutionClient<N, HttpRpc<N>>>,
-    pub history_size: usize,
     fork_schedule: ForkSchedule,
 }
 
@@ -33,7 +33,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         let block_recv = consensus.block_recv().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().unwrap();
 
-        let state = State::new(block_recv, finalized_block_recv, 256, execution_rpc);
+        let state = State::new(
+            block_recv,
+            finalized_block_recv,
+            MAX_STATE_HISTORY_LENGTH,
+            execution_rpc,
+        );
         let execution = Arc::new(
             ExecutionClient::new(execution_rpc, state, fork_schedule)
                 .map_err(ClientError::InternalError)?,
@@ -42,7 +47,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         Ok(Node {
             consensus,
             execution,
-            history_size: 64,
             fork_schedule,
         })
     }
