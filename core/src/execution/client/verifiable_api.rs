@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::BlockId;
@@ -253,7 +253,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInnerVerifiableApiClient<N, A
             let tx_hash = log.transaction_hash.unwrap();
             let log_encoded = rlp::encode(&log.inner);
 
-            if !txhash_encodedlogs_map.contains_key(&tx_hash) {
+            if let Entry::Vacant(e) = txhash_encodedlogs_map.entry(tx_hash) {
                 let TransactionReceiptResponse {
                     receipt,
                     receipt_proof: _,
@@ -264,7 +264,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInnerVerifiableApiClient<N, A
                     .iter()
                     .map(|l| rlp::encode(&l.inner))
                     .collect::<Vec<_>>();
-                txhash_encodedlogs_map.insert(tx_hash, encoded_logs);
+                e.insert(encoded_logs);
             }
             let receipt_logs_encoded = txhash_encodedlogs_map.get(&tx_hash).unwrap();
 

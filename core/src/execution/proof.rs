@@ -164,6 +164,7 @@ pub fn verify_block_receipts<N: NetworkSpec>(
 /// Compute a trie root of a collection of encoded items.
 /// Ref: https://github.com/alloy-rs/trie/blob/main/src/root.rs.
 pub fn ordered_trie_root_noop_encoder(items: &[Vec<u8>]) -> B256 {
+    #[allow(clippy::ptr_arg)] // the fn signature is fixed in the external crate
     fn noop_encoder(item: &Vec<u8>, buffer: &mut Vec<u8>) {
         buffer.extend_from_slice(item);
     }

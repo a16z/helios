@@ -42,15 +42,32 @@ $ cargo run -- opstack --execution-rpc https://base-rpc.publicnode.com
 
 ## JSON-RPC to REST API map
 
-| Ethereum JSON-RPC Method       | Helios Verifiable API Endpoint                                                  |
-|--------------------------------|--------------------------------------------------------------------------------|
-| `eth_getProof`                 | `/eth/v1/proof/account/{address}?storageSlots={}&block={}`                     |
-| `eth_getBalance`               | `/eth/v1/proof/account/{address}?storageSlots={}&block={}`                     |
-| `eth_getTransactionCount`      | `/eth/v1/proof/account/{address}?storageSlots={}&block={}`                     |
-| `eth_getCode`                  | `/eth/v1/proof/account/{address}?storageSlots={}&block={}`                     |
-| `eth_getStorageAt`             | `/eth/v1/proof/account/{address}?storageSlots={}&block={}`                     |
-| `eth_getTransactionReceipt`    | `/eth/v1/proof/tx_receipt/{tx_hash}`                                           |
-| `eth_getLogs`                  | `/eth/v1/proof/logs?fromBlock={}&toBlock={}&blockHash={}&address={}&topic0={}` |
-| `eth_getFilterLogs`            | `/eth/v1/proof/filter_logs/{filter_id}`                                          |
-| `eth_getFilterChanges`         | `/eth/v1/proof/filter_changes/{filter_id}`                                       |
-| `eth_createAccessList`         | `/eth/v1/proof/create_access_list`                                             |
+### Verifiable endpoints
+
+| Ethereum JSON-RPC Method       | Helios Verifiable API Endpoint                                                           |
+|--------------------------------|-----------------------------------------------------------------------------------------|
+| `eth_getProof`                 | `GET /eth/v1/proof/account/{address}?block={}`                                          |
+| `eth_getBalance`               | `GET /eth/v1/proof/account/{address}?block={}`                                          |
+| `eth_getTransactionCount`      | `GET /eth/v1/proof/account/{address}?block={}`                                          |
+| `eth_getCode`                  | `GET /eth/v1/proof/account/{address}?includeCode=true&block={}`                         |
+| `eth_getStorageAt`             | `GET /eth/v1/proof/account/{address}?storageSlots={}&block={}`                          |
+| `eth_getTransactionReceipt`    | `GET /eth/v1/proof/transaction/{tx_hash}/receipt`                                       |
+| `eth_getLogs`                  | `GET /eth/v1/proof/logs?fromBlock={}&toBlock={}&blockHash={}&address={}&topic0={}`      |
+| `eth_getFilterLogs`            | `GET /eth/v1/proof/filterLogs/{filter_id}`                                                |
+| `eth_getFilterChanges`         | `GET /eth/v1/proof/filterChanges/{filter_id}`                                             |
+| `eth_createAccessList`         | `POST /eth/v1/proof/createAccessList`                                                   |
+
+
+### Proxy endpoints
+
+| Ethereum JSON-RPC Method         | Helios Verifiable API Endpoint               |
+|----------------------------------|---------------------------------------------|
+| `eth_chainId`                    | `GET /eth/v1/chainId`                       |
+| `eth_sendRawTransaction`         | `POST /eth/v1/sendRawTransaction`           |
+| `eth_getBlockByHash`             | `GET /eth/v1/block/{block_id}`              |
+| `eth_getBlockByNumber`           | `GET /eth/v1/block/{block_id}`              |
+| `eth_getBlockReceipts`           | `GET /eth/v1/block/{block_id}/receipts`     |
+| `eth_newFilter`                  | `POST /eth/v1/filter`                        |
+| `eth_newBlockFilter`             | `POST /eth/v1/filter`                        |
+| `eth_newPendingTransactionFilter`| `POST /eth/v1/filter`                        |
+| `eth_uninstallFilter`            | `DELETE /eth/v1/filter/{filter_id}`           |
