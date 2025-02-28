@@ -1,29 +1,20 @@
 use std::collections::HashMap;
 
 use alloy::{
-    consensus::Account as TrieAccount,
     eips::BlockId,
     primitives::{Address, Bytes, B256, U256},
-    rpc::types::{EIP1186StorageProof, Filter, Log},
+    rpc::types::{Filter, Log},
 };
 use serde::{Deserialize, Serialize};
 
-use helios_common::network_spec::NetworkSpec;
+use helios_common::{network_spec::NetworkSpec, types::Account};
 
 #[derive(Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub error: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct AccountResponse {
-    pub account: TrieAccount,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub code: Option<Bytes>,
-    pub account_proof: Vec<Bytes>,
-    pub storage_proof: Vec<EIP1186StorageProof>,
-}
+pub type AccountResponse = Account;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -67,7 +58,7 @@ pub struct AccessListRequest<N: NetworkSpec> {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessListResponse {
-    pub accounts: HashMap<Address, AccountResponse>,
+    pub accounts: HashMap<Address, Account>,
 }
 
 #[derive(Serialize, Deserialize)]

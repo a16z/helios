@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use alloy::consensus::BlockHeader;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
@@ -13,8 +11,7 @@ use alloy_trie::{
 };
 use eyre::{eyre, Result};
 
-use helios_common::network_spec::NetworkSpec;
-use helios_common::types::BlockTag;
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
 use super::errors::ExecutionError;
 
@@ -33,21 +30,16 @@ pub fn verify_account_proof(proof: &EIP1186AccountProofResponse, state_root: B25
 }
 
 /// Verify a given `EIP1186AccountProofResponse`'s storage proof against the storage root.
-/// Also returns a map of storage slots.
-pub fn verify_storage_proof(proof: &EIP1186AccountProofResponse) -> Result<HashMap<B256, U256>> {
-    let mut slot_map = HashMap::with_capacity(proof.storage_proof.len());
-
+pub fn verify_storage_proof(proof: &EIP1186AccountProofResponse) -> Result<()> {
     for storage_proof in &proof.storage_proof {
         let key = storage_proof.key.as_b256();
         let value = storage_proof.value;
 
         verify_mpt_proof(proof.storage_hash, key, value, &storage_proof.proof)
             .map_err(|_| ExecutionError::InvalidStorageProof(proof.address, key))?;
-
-        slot_map.insert(key, value);
     }
 
-    Ok(slot_map)
+    Ok(())
 }
 
 /// Verify a given `EIP1186AccountProofResponse`'s code hash against the given code.
@@ -212,12 +204,10 @@ mod tests {
     #[test]
     fn test_verify_storage_proof() {
         let proof = rpc_proof();
-        let expected = rpc_account();
 
         let result = verify_storage_proof(&proof);
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), expected.slots);
     }
 
     #[test]

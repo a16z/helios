@@ -4,7 +4,7 @@ use alloy::{
     eips::BlockId,
     network::{ReceiptResponse, TransactionResponse},
     primitives::{Address, B256, U256},
-    rpc::types::Filter,
+    rpc::types::{EIP1186AccountProofResponse, Filter},
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
@@ -29,13 +29,28 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
 
     async fn get_account(
         &self,
-        _address: Address,
+        address: Address,
         _storage_slots: &[U256],
         _block_id: Option<BlockId>,
         include_code: bool,
     ) -> Result<AccountResponse> {
-        let json_str = read_to_string(self.path.join("verifiable_api/account.json"))?;
-        let mut account_response: AccountResponse = serde_json::from_str(&json_str)?;
+        let proof: EIP1186AccountProofResponse =
+            serde_json::from_str(&read_to_string(self.path.join("rpc/proof.json"))?)?;
+        let block_miner_proof: EIP1186AccountProofResponse = serde_json::from_str(
+            &read_to_string(self.path.join("rpc/block_miner_proof.json"))?,
+        )?;
+        let account: AccountResponse =
+            serde_json::from_str(&read_to_string(self.path.join("rpc/account.json"))?)?;
+        let block_miner_account: AccountResponse = serde_json::from_str(&read_to_string(
+            self.path.join("rpc/block_miner_account.json"),
+        )?)?;
+
+        let mut account_response = match address {
+            address if address == proof.address => Ok(account),
+            address if address == block_miner_proof.address => Ok(block_miner_account),
+            _ => Err(eyre!("Account not found")),
+        }?;
+
         if !include_code {
             account_response.code = None;
         }

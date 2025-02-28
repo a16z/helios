@@ -4,22 +4,25 @@ use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use eyre::{Report, Result};
 use revm::{
     primitives::{
-        address, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env, ExecutionResult,
-        ResultAndState, B256, U256,
+        address, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env, ExecutionResult, B256, U256,
     },
     Database, Evm as Revm,
 };
 use tracing::trace;
 
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
+};
 
-use crate::execution::{
+use super::{
     errors::{EvmError, ExecutionError},
-    ExecutionClient, ExecutionSpec,
+    spec::ExecutionSpec,
 };
 
 pub struct Evm<N: NetworkSpec> {
-    execution: Arc<ExecutionClient<N>>,
+    execution: Arc<dyn ExecutionSpec<N>>,
     chain_id: u64,
     tag: BlockTag,
     fork_schedule: ForkSchedule,
@@ -27,7 +30,7 @@ pub struct Evm<N: NetworkSpec> {
 
 impl<N: NetworkSpec> Evm<N> {
     pub fn new(
-        execution: Arc<ExecutionClient<N>>,
+        execution: Arc<dyn ExecutionSpec<N>>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
         tag: BlockTag,
@@ -41,9 +44,9 @@ impl<N: NetworkSpec> Evm<N> {
     }
 
     pub async fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
-        let tx = self.call_inner(tx).await?;
+        let (result, ..) = self.call_inner(tx).await?;
 
-        match tx.result {
+        match result {
             ExecutionResult::Success { output, .. } => Ok(output.into_data()),
             ExecutionResult::Revert { output, .. } => {
                 Err(EvmError::Revert(Some(output.to_vec().into())))
@@ -53,16 +56,34 @@ impl<N: NetworkSpec> Evm<N> {
     }
 
     pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
-        let tx = self.call_inner(tx).await?;
+        let (result, ..) = self.call_inner(tx).await?;
 
-        match tx.result {
+        match result {
             ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
             ExecutionResult::Revert { gas_used, .. } => Ok(gas_used),
             ExecutionResult::Halt { gas_used, .. } => Ok(gas_used),
         }
     }
 
-    async fn call_inner(&mut self, tx: &N::TransactionRequest) -> Result<ResultAndState, EvmError> {
+    pub async fn create_access_list(
+        &mut self,
+        tx: &N::TransactionRequest,
+    ) -> Result<HashMap<Address, Account>, EvmError> {
+        let (result, accounts) = self.call_inner(tx).await?;
+
+        match result {
+            ExecutionResult::Success { .. } => Ok(accounts),
+            ExecutionResult::Revert { output, .. } => {
+                Err(EvmError::Revert(Some(output.to_vec().into())))
+            }
+            ExecutionResult::Halt { .. } => Err(EvmError::Revert(None)),
+        }
+    }
+
+    async fn call_inner(
+        &mut self,
+        tx: &N::TransactionRequest,
+    ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
         let mut db = ProofDB::new(self.tag, self.execution.clone());
         _ = db.state.prefetch_state(tx).await;
 
@@ -84,7 +105,7 @@ impl<N: NetworkSpec> Evm<N> {
             let needs_update = db.state.needs_update();
 
             if res.is_ok() || !needs_update {
-                break res;
+                break res.map(|res| (res.result, db.state.accounts.to_owned()));
             }
         };
 
@@ -119,8 +140,8 @@ struct ProofDB<N: NetworkSpec> {
 }
 
 impl<N: NetworkSpec> ProofDB<N> {
-    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N>>) -> Self {
-        let state = EvmState::new(execution.clone(), tag);
+    pub fn new(tag: BlockTag, execution: Arc<dyn ExecutionSpec<N>>) -> Self {
+        let state = EvmState::new(execution, tag);
         ProofDB { state }
     }
 }
@@ -132,65 +153,53 @@ enum StateAccess {
 }
 
 struct EvmState<N: NetworkSpec> {
-    basic: HashMap<Address, AccountInfo>,
+    accounts: HashMap<Address, Account>,
     block_hash: HashMap<u64, B256>,
-    storage: HashMap<Address, HashMap<U256, U256>>,
     block: BlockTag,
     access: Option<StateAccess>,
-    execution: Arc<ExecutionClient<N>>,
+    execution: Arc<dyn ExecutionSpec<N>>,
 }
 
 impl<N: NetworkSpec> EvmState<N> {
-    pub fn new(execution: Arc<ExecutionClient<N>>, block: BlockTag) -> Self {
+    pub fn new(execution: Arc<dyn ExecutionSpec<N>>, block: BlockTag) -> Self {
         Self {
             execution,
             block,
-            basic: HashMap::new(),
-            storage: HashMap::new(),
+            accounts: HashMap::new(),
             block_hash: HashMap::new(),
             access: None,
         }
     }
 
     pub async fn update_state(&mut self) -> Result<()> {
-        if let Some(access) = &self.access.take() {
+        if let Some(access) = self.access.take() {
             match access {
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(*address, None, self.block, true)
+                        .get_account(address, None, self.block, true)
                         .await?;
 
-                    self.basic.insert(
-                        *address,
-                        AccountInfo::new(
-                            account.balance,
-                            account.nonce,
-                            account.code_hash,
-                            Bytecode::new_raw(account.code.unwrap()),
-                        ),
-                    );
+                    self.accounts.insert(address, account);
                 }
                 StateAccess::Storage(address, slot) => {
-                    let slot_bytes = B256::from(*slot);
+                    let slot_bytes = B256::from(slot);
                     let account = self
                         .execution
-                        .get_account(*address, Some(&[slot_bytes]), self.block, false)
+                        .get_account(address, Some(&[slot_bytes]), self.block, true)
                         .await?;
 
-                    let storage = self.storage.entry(*address).or_default();
-                    let value = *account.slots.get(&slot_bytes).unwrap();
-                    storage.insert(*slot, value);
+                    self.accounts.insert(address, account);
                 }
                 StateAccess::BlockHash(number) => {
-                    let tag = BlockTag::Number(*number);
+                    let tag = BlockTag::Number(number);
                     let block = self
                         .execution
                         .get_block(tag.into(), false)
                         .await?
                         .ok_or(ExecutionError::BlockNotFound(tag))?;
 
-                    self.block_hash.insert(*number, block.header().hash());
+                    self.block_hash.insert(number, block.header().hash());
                 }
             }
         }
@@ -203,8 +212,13 @@ impl<N: NetworkSpec> EvmState<N> {
     }
 
     pub fn get_basic(&mut self, address: Address) -> Result<AccountInfo> {
-        if let Some(account) = self.basic.get(&address) {
-            Ok(account.clone())
+        if let Some(account) = self.accounts.get(&address) {
+            Ok(AccountInfo::new(
+                account.account.balance,
+                account.account.nonce,
+                account.account.code_hash,
+                Bytecode::new_raw(account.code.as_ref().unwrap().clone()),
+            ))
         } else {
             self.access = Some(StateAccess::Basic(address));
             eyre::bail!("state missing");
@@ -212,13 +226,13 @@ impl<N: NetworkSpec> EvmState<N> {
     }
 
     pub fn get_storage(&mut self, address: Address, slot: U256) -> Result<U256> {
-        let storage = self.storage.entry(address).or_default();
-        if let Some(slot) = storage.get(&slot) {
-            Ok(*slot)
-        } else {
-            self.access = Some(StateAccess::Storage(address, slot));
-            eyre::bail!("state missing");
+        if let Some(account) = self.accounts.get(&address) {
+            if let Some(value) = account.get_storage_value(B256::from(slot)) {
+                return Ok(value);
+            }
         }
+        self.access = Some(StateAccess::Storage(address, slot));
+        eyre::bail!("state missing");
     }
 
     pub fn get_block_hash(&mut self, block: u64) -> Result<B256> {
@@ -239,22 +253,7 @@ impl<N: NetworkSpec> EvmState<N> {
             .map_err(EvmError::RpcError)?;
 
         for (address, account) in account_map {
-            self.basic.insert(
-                address,
-                AccountInfo::new(
-                    account.balance,
-                    account.nonce,
-                    account.code_hash,
-                    Bytecode::new_raw(account.code.unwrap()),
-                ),
-            );
-
-            for (slot, value) in account.slots {
-                self.storage
-                    .entry(address)
-                    .or_default()
-                    .insert(slot.into(), value);
-            }
+            self.accounts.insert(address, account);
         }
 
         Ok(())

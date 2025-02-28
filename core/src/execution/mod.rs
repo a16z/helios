@@ -73,9 +73,9 @@ impl<N: NetworkSpec> ExecutionClient<N> {
             .get_account(address, Some(&[storage_key]), block, false)
             .await?;
 
-        let value = account.slots.get(&storage_key);
+        let value = account.get_storage_value(storage_key);
         match value {
-            Some(value) => Ok((*value).into()),
+            Some(value) => Ok(value.into()),
             None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
         }
     }

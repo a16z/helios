@@ -3,28 +3,32 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use alloy::{
-    consensus::{Account, BlockHeader},
+    consensus::{Account as TrieAccount, BlockHeader},
     eips::BlockNumberOrTag,
-    network::{BlockResponse, ReceiptResponse, TransactionBuilder},
+    network::{BlockResponse, ReceiptResponse},
     primitives::{Address, B256, U256},
-    rpc::types::{AccessListItem, BlockId, Filter, FilterChanges, Log},
+    rpc::types::{BlockId, Filter, FilterChanges, Log},
 };
 use async_trait::async_trait;
 use eyre::{Ok, OptionExt, Report, Result};
-use futures::future::{join_all, try_join_all};
+use futures::future::try_join_all;
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
 use helios_core::execution::{
-    constants::{MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS, PARALLEL_QUERY_BATCH_SIZE},
+    client::{rpc::ExecutionInnerRpcClient, ExecutionInner},
+    constants::MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS,
     errors::ExecutionError,
+    evm::Evm,
     proof::create_receipt_proof,
     rpc::ExecutionRpc,
+    state::State,
 };
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
 
 #[derive(Clone)]
 pub struct ApiService<N: NetworkSpec, R: ExecutionRpc<N>> {
+    rpc_url: String,
     rpc: Arc<R>,
     _marker: PhantomData<N>,
 }
@@ -34,6 +38,7 @@ pub struct ApiService<N: NetworkSpec, R: ExecutionRpc<N>> {
 impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     fn new(rpc: &str) -> Self {
         Self {
+            rpc_url: rpc.to_string(),
             rpc: Arc::new(R::new(rpc).unwrap()),
             _marker: Default::default(),
         }
@@ -76,7 +81,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         };
 
         Ok(AccountResponse {
-            account: Account {
+            account: TrieAccount {
                 balance: proof.balance,
                 nonce: proof.nonce,
                 code_hash: proof.code_hash,
@@ -162,53 +167,26 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
             .get_block(block_id, false.into())
             .await?
             .ok_or_eyre(ExecutionError::BlockNotFound(block_id.try_into()?))?;
+        let tag = BlockTag::Number(block.header().number());
 
-        let mut list = self.rpc.create_access_list(&tx, block_id).await?.0;
+        // initialise state for given block and ExecutionInnerRpcClient with it
+        let state = State::new(1);
+        let client = Arc::new(ExecutionInnerRpcClient::<N, R>::new(
+            &self.rpc_url,
+            state.clone(),
+        )?);
+        state.push_block(block, client.clone()).await;
 
-        let from_access_entry = AccessListItem {
-            address: tx.from().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-        let to_access_entry = AccessListItem {
-            address: tx.to().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-        let producer_access_entry = AccessListItem {
-            address: block.header().beneficiary(),
-            storage_keys: Vec::default(),
-        };
-
-        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
-
-        if !list_addresses.contains(&from_access_entry.address) {
-            list.push(from_access_entry)
-        }
-        if !list_addresses.contains(&to_access_entry.address) {
-            list.push(to_access_entry)
-        }
-        if !list_addresses.contains(&producer_access_entry.address) {
-            list.push(producer_access_entry)
-        }
-
-        let mut accounts = HashMap::new();
-        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
-            let account_chunk_futs = chunk.iter().map(|account| async {
-                let slots = account
-                    .storage_keys
-                    .iter()
-                    .map(|key| (*key).into())
-                    .collect::<Vec<_>>();
-                let account_fut = self.get_account(account.address, &slots, Some(block_id), true);
-                (account.address, account_fut.await)
-            });
-
-            let account_chunk = join_all(account_chunk_futs).await;
-
-            for (address, value) in account_chunk {
-                let account = value?;
-                accounts.insert(address, account);
-            }
-        }
+        // call EVM with the transaction, collect accounts and storage keys
+        let mut evm = Evm::new(
+            client,
+            self.rpc.chain_id().await?,
+            ForkSchedule {
+                prague_timestamp: u64::MAX,
+            },
+            tag,
+        );
+        let accounts = evm.create_access_list(&tx).await?;
 
         Ok(AccessListResponse { accounts })
     }
@@ -359,7 +337,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response, verifiable_api_account_response());
+        assert_eq!(response, rpc_account());
     }
 
     #[tokio::test]
@@ -372,9 +350,9 @@ mod tests {
             .await
             .unwrap();
 
-        let mut expected_resp = verifiable_api_account_response();
-        expected_resp.code = None;
-        assert_eq!(response, expected_resp);
+        let mut expected_account = rpc_account();
+        expected_account.code = None;
+        assert_eq!(response, expected_account);
     }
 
     #[tokio::test]
@@ -495,7 +473,11 @@ mod tests {
     async fn test_create_access_list() {
         let service = get_service();
         let address = rpc_proof().address;
-        let tx = TransactionRequest::default().from(address).to(address);
+        let block_beneficiary = rpc_block().header.beneficiary;
+        let tx = TransactionRequest::default()
+            .from(address)
+            .to(block_beneficiary)
+            .value(U256::ZERO);
 
         let response = service
             .create_access_list(tx, BlockId::latest().into())
@@ -503,9 +485,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.accounts.len(), 2);
+        assert_eq!(response.accounts.get(&address).unwrap(), &rpc_account());
         assert_eq!(
-            response.accounts.get(&address).unwrap(),
-            &verifiable_api_account_response()
+            response.accounts.get(&block_beneficiary).unwrap(),
+            &rpc_block_miner_account()
         );
     }
 

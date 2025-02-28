@@ -95,7 +95,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
             .execution
             .get_account(address, None, tag, false)
             .await?;
-        Ok(account.balance)
+        Ok(account.account.balance)
     }
 
     pub async fn get_nonce(&self, address: Address, tag: BlockTag) -> Result<u64> {
@@ -105,7 +105,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
             .execution
             .get_account(address, None, tag, false)
             .await?;
-        Ok(account.nonce)
+        Ok(account.account.nonce)
     }
 
     pub async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<Option<u64>> {

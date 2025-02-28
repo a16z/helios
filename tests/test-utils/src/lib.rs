@@ -9,7 +9,7 @@ use alloy::{
 use helios_common::types::Account;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 use helios_verifiable_api_types::{
-    AccessListResponse, AccountResponse, FilterLogsResponse, TransactionReceiptResponse,
+    AccessListResponse, FilterLogsResponse, TransactionReceiptResponse,
 };
 
 pub fn testdata_dir() -> PathBuf {
@@ -88,17 +88,6 @@ pub fn rpc_filter_id_txs() -> U256 {
 
 pub fn verifiable_api_access_list_response() -> AccessListResponse {
     let resp = read_to_string(testdata_dir().join("verifiable_api/access_list.json")).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-pub fn verifiable_api_account_response() -> AccountResponse {
-    let resp = read_to_string(testdata_dir().join("verifiable_api/account.json")).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-pub fn verifiable_api_block_miner_account_response() -> AccountResponse {
-    let resp =
-        read_to_string(testdata_dir().join("verifiable_api/block_miner_account.json")).unwrap();
     serde_json::from_str(&resp).unwrap()
 }
 

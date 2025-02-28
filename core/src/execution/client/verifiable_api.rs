@@ -64,12 +64,14 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
             .map(|s| (*s).into())
             .collect::<Vec<_>>();
 
-        let account_response = self
+        let account = self
             .api
             .get_account(address, &slots, Some(block_id), include_code)
             .await?;
 
-        self.verify_account_response(address, account_response, &block)
+        self.verify_account(address, &account, &block)?;
+
+        Ok(account)
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
@@ -138,15 +140,11 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
             .create_access_list(tx.clone(), Some(block_id))
             .await?;
 
-        let account_map = accounts
-            .into_iter()
-            .map(|(address, account_response)| {
-                self.verify_account_response(address, account_response, &block)
-                    .map(|account| (address, account))
-            })
-            .collect::<Result<HashMap<_, _>>>()?;
+        for (address, account) in &accounts {
+            self.verify_account(*address, account, &block)?;
+        }
 
-        Ok(account_map)
+        Ok(accounts)
     }
 
     async fn chain_id(&self) -> Result<u64> {
@@ -196,42 +194,31 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
 }
 
 impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInnerVerifiableApiClient<N, A> {
-    fn verify_account_response(
+    fn verify_account(
         &self,
         address: Address,
-        account: AccountResponse,
+        account: &AccountResponse,
         block: &N::BlockResponse,
-    ) -> Result<Account> {
+    ) -> Result<()> {
         let proof = EIP1186AccountProofResponse {
             address,
             balance: account.account.balance,
             code_hash: account.account.code_hash,
             nonce: account.account.nonce,
             storage_hash: account.account.storage_root,
-            account_proof: account.account_proof,
-            storage_proof: account.storage_proof,
+            account_proof: account.account_proof.clone(),
+            storage_proof: account.storage_proof.clone(),
         };
         // Verify the account proof
         verify_account_proof(&proof, block.header().state_root())?;
-        // Verify the storage proofs, collecting the slot values
-        let slot_map = verify_storage_proof(&proof)?;
+        // Verify the storage proofs
+        verify_storage_proof(&proof)?;
         // Verify the code hash (if code is included in the response)
-        let code = match account.code {
-            Some(code) => {
-                verify_code_hash_proof(&proof, &code)?;
-                Some(code)
-            }
-            None => None,
-        };
+        if let Some(code) = &account.code {
+            verify_code_hash_proof(&proof, code)?;
+        }
 
-        Ok(Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code_hash: proof.code_hash,
-            code,
-            storage_hash: proof.storage_hash,
-            slots: slot_map,
-        })
+        Ok(())
     }
 
     async fn verify_logs_and_receipts(

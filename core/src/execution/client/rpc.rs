@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use alloy::consensus::BlockHeader;
+use alloy::consensus::{Account as TrieAccount, BlockHeader};
 use alloy::eips::BlockId;
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionBuilder};
 use alloy::primitives::{Address, B256, U256};
@@ -66,7 +66,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
             .get_proof(address, slots, block.header().number().into())
             .await?;
 
-        self.verify_proof_to_account(&proof, &block, include_code)
+        self.verify_proof_to_account(proof, &block, include_code)
             .await
     }
 
@@ -243,14 +243,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
     async fn verify_proof_to_account(
         &self,
-        proof: &EIP1186AccountProofResponse,
+        proof: EIP1186AccountProofResponse,
         block: &N::BlockResponse,
         verify_code: bool,
     ) -> Result<Account> {
         // Verify the account proof
-        verify_account_proof(proof, block.header().state_root())?;
-        // Verify the storage proofs, collecting the slot values
-        let slot_map = verify_storage_proof(proof)?;
+        verify_account_proof(&proof, block.header().state_root())?;
+        // Verify the storage proofs
+        verify_storage_proof(&proof)?;
         // Verify the code hash
         let code = if verify_code {
             let code = self
@@ -258,19 +258,22 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
                 .get_code(proof.address, block.header().number().into())
                 .await?
                 .into();
-            verify_code_hash_proof(proof, &code)?;
+            verify_code_hash_proof(&proof, &code)?;
             Some(code)
         } else {
             None
         };
 
         Ok(Account {
-            balance: proof.balance,
-            nonce: proof.nonce,
-            code_hash: proof.code_hash,
+            account: TrieAccount {
+                nonce: proof.nonce,
+                balance: proof.balance,
+                storage_root: proof.storage_hash,
+                code_hash: proof.code_hash,
+            },
             code,
-            storage_hash: proof.storage_hash,
-            slots: slot_map,
+            account_proof: proof.account_proof,
+            storage_proof: proof.storage_proof,
         })
     }
 
