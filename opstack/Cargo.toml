@@ -42,7 +42,7 @@ helios-consensus-core = { path = "../ethereum/consensus-core" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # server
-axum = "0.7.6"
+axum = "0.8"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 # networking
 libp2p = { version = "0.51.3", features = ["macros", "tokio", "tcp", "mplex", "noise", "gossipsub", "ping"] }
