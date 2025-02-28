@@ -3,7 +3,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use alloy::consensus::BlockHeader;
 use alloy::eips::BlockId;
 use alloy::network::{BlockResponse, ReceiptResponse};
-use alloy::primitives::{keccak256, Address, B256, U256};
+use alloy::primitives::{Address, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use async_trait::async_trait;
@@ -16,7 +16,9 @@ use helios_common::{
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
 use crate::execution::errors::ExecutionError;
-use crate::execution::proof::{verify_account_proof, verify_receipt_proof, verify_storage_proof};
+use crate::execution::proof::{
+    verify_account_proof, verify_code_hash_proof, verify_receipt_proof, verify_storage_proof,
+};
 use crate::execution::state::State;
 
 use super::{ExecutionInner, ExecutionSpec};
@@ -216,15 +218,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionInnerVerifiableApiClient<N, A
         // Verify the code hash (if code is included in the response)
         let code = match account.code {
             Some(code) => {
-                let code_hash = keccak256(&code);
-                if proof.code_hash != code_hash {
-                    return Err(ExecutionError::CodeHashMismatch(
-                        address,
-                        code_hash,
-                        proof.code_hash,
-                    )
-                    .into());
-                }
+                verify_code_hash_proof(&proof, &code)?;
                 Some(code)
             }
             None => None,

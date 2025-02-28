@@ -7,9 +7,9 @@ use alloy::rpc::types::{
     FilterChanges, Log,
 };
 use async_trait::async_trait;
-use eyre::Result;
+use eyre::{Ok, Result};
 
-use helios_common::network_spec::NetworkSpec;
+use helios_common::{network_spec::NetworkSpec, types::Account};
 
 use crate::execution::errors::ExecutionError;
 
@@ -30,12 +30,19 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
 
     async fn get_proof(
         &self,
-        _address: Address,
+        address: Address,
         _slots: &[B256],
         _block: BlockId,
     ) -> Result<EIP1186AccountProofResponse> {
-        let proof = read_to_string(self.path.join("proof.json"))?;
-        Ok(serde_json::from_str(&proof)?)
+        let proof: EIP1186AccountProofResponse =
+            serde_json::from_str(&read_to_string(self.path.join("proof.json"))?)?;
+        let block_miner_proof: EIP1186AccountProofResponse =
+            serde_json::from_str(&read_to_string(self.path.join("block_miner_proof.json"))?)?;
+        match address {
+            address if address == proof.address => Ok(proof),
+            address if address == block_miner_proof.address => Ok(block_miner_proof),
+            _ => Err(ExecutionError::InvalidAccountProof(address).into()),
+        }
     }
 
     async fn create_access_list(
@@ -47,9 +54,25 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
         Ok(serde_json::from_str(&access_list)?)
     }
 
-    async fn get_code(&self, _address: Address, _block: BlockId) -> Result<Vec<u8>> {
-        let code = read_to_string(self.path.join("code.txt"))?;
-        Ok(hex::decode(&code[2..code.len()])?)
+    async fn get_code(&self, address: Address, _block: BlockId) -> Result<Vec<u8>> {
+        let proof: EIP1186AccountProofResponse =
+            serde_json::from_str(&read_to_string(self.path.join("proof.json"))?)?;
+        let block_miner_proof: EIP1186AccountProofResponse =
+            serde_json::from_str(&read_to_string(self.path.join("block_miner_proof.json"))?)?;
+        let account: Account =
+            serde_json::from_str(&read_to_string(self.path.join("account.json"))?)?;
+        let block_miner_account: Account =
+            serde_json::from_str(&read_to_string(self.path.join("block_miner_account.json"))?)?;
+
+        let code = match address {
+            address if address == proof.address => Ok(account.code.unwrap()),
+            address if address == block_miner_proof.address => {
+                Ok(block_miner_account.code.unwrap())
+            }
+            _ => Err(ExecutionError::InvalidAccountProof(address).into()),
+        }?;
+
+        Ok(code.into())
     }
 
     async fn send_raw_transaction(&self, _bytes: &[u8]) -> Result<B256> {

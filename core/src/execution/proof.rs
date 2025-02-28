@@ -9,7 +9,7 @@ use alloy_trie::root::ordered_trie_root_with_encoder;
 use alloy_trie::{
     proof::{verify_proof, ProofRetainer},
     root::adjust_index_for_rlp,
-    HashBuilder, Nibbles, TrieAccount,
+    HashBuilder, Nibbles, TrieAccount, KECCAK_EMPTY,
 };
 use eyre::{eyre, Result};
 
@@ -48,6 +48,24 @@ pub fn verify_storage_proof(proof: &EIP1186AccountProofResponse) -> Result<HashM
     }
 
     Ok(slot_map)
+}
+
+/// Verify a given `EIP1186AccountProofResponse`'s code hash against the given code.
+pub fn verify_code_hash_proof(proof: &EIP1186AccountProofResponse, code: &Bytes) -> Result<()> {
+    if (proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO) && code.is_empty() {
+        Ok(())
+    } else {
+        let code_hash = keccak256(code);
+        if proof.code_hash != code_hash {
+            return Err(ExecutionError::CodeHashMismatch(
+                proof.address,
+                code_hash,
+                proof.code_hash,
+            )
+            .into());
+        }
+        Ok(())
+    }
 }
 
 /// Verifies a MPT proof for a given key-value pair against the provided root hash.
@@ -200,6 +218,37 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), expected.slots);
+    }
+
+    #[test]
+    fn test_verify_code_hash_proof() {
+        let proof = rpc_proof();
+        let code = rpc_account().code.unwrap();
+
+        let result = verify_code_hash_proof(&proof, &code);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_code_hash_proof_empty_hash() {
+        let proof = EIP1186AccountProofResponse::default();
+        let code = Bytes::new();
+
+        let result = verify_code_hash_proof(&proof, &code);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_code_hash_proof_empty_keccak() {
+        let mut proof = EIP1186AccountProofResponse::default();
+        proof.code_hash = KECCAK_EMPTY;
+        let code = Bytes::new();
+
+        let result = verify_code_hash_proof(&proof, &code);
+
+        assert!(result.is_ok());
     }
 
     #[test]

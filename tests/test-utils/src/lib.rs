@@ -31,6 +31,11 @@ pub fn rpc_account() -> Account {
     serde_json::from_str(&json_str).unwrap()
 }
 
+pub fn rpc_block_miner_account() -> Account {
+    let json_str = read_to_string(testdata_dir().join("rpc/block_miner_account.json")).unwrap();
+    serde_json::from_str(&json_str).unwrap()
+}
+
 pub fn rpc_tx() -> <EthereumSpec as Network>::TransactionResponse {
     let json_str = read_to_string(testdata_dir().join("rpc/transaction.json")).unwrap();
     serde_json::from_str(&json_str).unwrap()
@@ -88,6 +93,12 @@ pub fn verifiable_api_access_list_response() -> AccessListResponse {
 
 pub fn verifiable_api_account_response() -> AccountResponse {
     let resp = read_to_string(testdata_dir().join("verifiable_api/account.json")).unwrap();
+    serde_json::from_str(&resp).unwrap()
+}
+
+pub fn verifiable_api_block_miner_account_response() -> AccountResponse {
+    let resp =
+        read_to_string(testdata_dir().join("verifiable_api/block_miner_account.json")).unwrap();
     serde_json::from_str(&resp).unwrap()
 }
 

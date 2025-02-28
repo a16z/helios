@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use alloy::consensus::BlockHeader;
 use alloy::eips::BlockId;
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionBuilder};
-use alloy::primitives::{keccak256, Address, B256, U256};
+use alloy::primitives::{Address, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use async_trait::async_trait;
@@ -21,7 +21,8 @@ use crate::execution::constants::{
 };
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{
-    ordered_trie_root_noop_encoder, verify_account_proof, verify_storage_proof,
+    ordered_trie_root_noop_encoder, verify_account_proof, verify_code_hash_proof,
+    verify_storage_proof,
 };
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
@@ -255,17 +256,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
             let code = self
                 .rpc
                 .get_code(proof.address, block.header().number().into())
-                .await?;
-            let code_hash = keccak256(&code);
-            if proof.code_hash != code_hash {
-                return Err(ExecutionError::CodeHashMismatch(
-                    proof.address,
-                    code_hash,
-                    proof.code_hash,
-                )
-                .into());
-            }
-            Some(code.into())
+                .await?
+                .into();
+            verify_code_hash_proof(proof, &code)?;
+            Some(code)
         } else {
             None
         };
@@ -510,7 +504,11 @@ mod tests {
     async fn test_create_access_list() {
         let client = get_client().await;
         let address = rpc_proof().address;
-        let tx = TransactionRequest::default().from(address).to(address);
+        let block_beneficiary = rpc_block().header.beneficiary;
+        let tx = TransactionRequest::default()
+            .from(address)
+            .to(block_beneficiary)
+            .value(U256::ZERO);
 
         let response = client
             .create_access_list(&tx, BlockId::latest().into())
@@ -519,6 +517,10 @@ mod tests {
 
         assert_eq!(response.len(), 2);
         assert_eq!(response.get(&address).unwrap(), &rpc_account());
+        assert_eq!(
+            response.get(&block_beneficiary).unwrap(),
+            &rpc_block_miner_account()
+        );
     }
 
     #[tokio::test]
