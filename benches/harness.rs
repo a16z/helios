@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use alloy::primitives::{Address, B256, U256};
-use helios_core::types::BlockTag;
+uuse alloy::rpc::types::BlockId;
 use helios_ethereum::{
     config::{checkpoints, networks},
     database::FileDB,
@@ -105,7 +105,7 @@ pub fn get_balance(
     address: &str,
 ) -> eyre::Result<U256> {
     rt.block_on(async {
-        let block = BlockTag::Latest;
+        let block = BlockId::Latest;
         let address = Address::from_str(address)?;
         client.get_balance(address, block).await
     })

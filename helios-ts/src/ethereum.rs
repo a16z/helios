@@ -5,11 +5,11 @@ use std::str::FromStr;
 
 use alloy::hex::FromHex;
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{Filter, TransactionRequest};
+use alloy::rpc::types::{Filter,BlockId , TransactionRequest};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
 
-use helios_core::types::BlockTag;
+
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::database::{ConfigDB, Database};
 use helios_ethereum::EthereumClientBuilder;
@@ -130,7 +130,7 @@ impl EthereumClient {
     #[wasm_bindgen]
     pub async fn get_balance(&self, addr: JsValue, block: JsValue) -> Result<String, JsError> {
         let addr: Address = serde_wasm_bindgen::from_value(addr)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let res = map_err(self.inner.get_balance(addr, block).await);
         res.map(|v| v.to_string())
     }
@@ -163,7 +163,7 @@ impl EthereumClient {
         block: JsValue,
         index: JsValue,
     ) -> Result<JsValue, JsError> {
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let index: u64 = serde_wasm_bindgen::from_value(index)?;
         let tx = map_err(
             self.inner
@@ -180,7 +180,7 @@ impl EthereumClient {
         block: JsValue,
     ) -> Result<u32, JsError> {
         let addr: Address = serde_wasm_bindgen::from_value(addr)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         Ok(map_err(self.inner.get_nonce(addr, block).await)? as u32)
     }
 
@@ -199,7 +199,7 @@ impl EthereumClient {
         &self,
         block: JsValue,
     ) -> Result<Option<u32>, JsError> {
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let count = map_err(
             self.inner
                 .get_block_transaction_count_by_number(block)
@@ -214,7 +214,7 @@ impl EthereumClient {
         block: JsValue,
         full_tx: bool,
     ) -> Result<JsValue, JsError> {
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let block = map_err(self.inner.get_block_by_number(block, full_tx).await)?;
         Ok(serde_wasm_bindgen::to_value(&block)?)
     }
@@ -222,7 +222,7 @@ impl EthereumClient {
     #[wasm_bindgen]
     pub async fn get_code(&self, addr: JsValue, block: JsValue) -> Result<String, JsError> {
         let addr: Address = serde_wasm_bindgen::from_value(addr)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let code = map_err(self.inner.get_code(addr, block).await)?;
         Ok(format!("0x{}", hex::encode(code)))
     }
@@ -236,7 +236,7 @@ impl EthereumClient {
     ) -> Result<JsValue, JsError> {
         let address: Address = serde_wasm_bindgen::from_value(address)?;
         let slot: U256 = serde_wasm_bindgen::from_value(slot)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let storage = map_err(self.inner.get_storage_at(address, slot, block).await)?;
         Ok(serde_wasm_bindgen::to_value(&storage)?)
     }
@@ -244,7 +244,7 @@ impl EthereumClient {
     #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
         let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let res = map_err(self.inner.call(&opts, block).await)?;
         Ok(format!("0x{}", hex::encode(res)))
     }
@@ -283,7 +283,7 @@ impl EthereumClient {
 
     #[wasm_bindgen]
     pub async fn get_block_receipts(&self, block: JsValue) -> Result<JsValue, JsError> {
-        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
         let receipts = map_err(self.inner.get_block_receipts(block).await)?;
         Ok(serde_wasm_bindgen::to_value(&receipts)?)
     }

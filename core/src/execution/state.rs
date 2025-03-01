@@ -7,7 +7,7 @@ use alloy::{
     consensus::BlockHeader,
     network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256, U256},
-    rpc::types::{BlockTransactions, Filter},
+    rpc::types::{BlockTransactions,BlockId.  Filter},
 };
 use eyre::{eyre, Result};
 use tokio::{
@@ -17,7 +17,6 @@ use tokio::{
 use tracing::{info, warn};
 
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 use super::rpc::ExecutionRpc;
 
@@ -70,9 +69,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
 
     // full block fetch
 
-    pub async fn get_block(&self, tag: BlockTag) -> Option<N::BlockResponse> {
+    pub async fn get_block(&self, tag: BlockId) -> Option<N::BlockResponse> {
         match tag {
-            BlockTag::Latest => self
+            BlockId::Latest => self
                 .inner
                 .read()
                 .await
@@ -80,8 +79,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
                 .last_key_value()
                 .map(|entry| entry.1)
                 .cloned(),
-            BlockTag::Finalized => self.inner.read().await.finalized_block.clone(),
-            BlockTag::Number(number) => self.inner.read().await.blocks.get(&number).cloned(),
+                BlockId::Finalized => self.inner.read().await.finalized_block.clone(),
+                BlockId::Number(number) => self.inner.read().await.blocks.get(&number).cloned(),
         }
     }
 
@@ -94,7 +93,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
             .cloned()
     }
 
-    pub async fn get_blocks_after(&self, tag: BlockTag) -> Vec<N::BlockResponse> {
+    pub async fn get_blocks_after(&self, tag: BlockId) -> Vec<N::BlockResponse> {
         let start_block = self.get_block(tag).await;
         if start_block.is_none() {
             return vec![];
@@ -151,7 +150,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
 
     pub async fn get_transaction_by_block_and_index(
         &self,
-        tag: BlockTag,
+        tag: BlockId,
         index: u64,
     ) -> Option<N::TransactionResponse> {
         let block = self.get_block(tag).await?;
@@ -164,25 +163,25 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> State<N, R> {
 
     // block field fetch
 
-    pub async fn get_state_root(&self, tag: BlockTag) -> Option<B256> {
+    pub async fn get_state_root(&self, tag: BlockId) -> Option<B256> {
         self.get_block(tag)
             .await
             .map(|block| block.header().state_root())
     }
 
-    pub async fn get_receipts_root(&self, tag: BlockTag) -> Option<B256> {
+    pub async fn get_receipts_root(&self, tag: BlockId) -> Option<B256> {
         self.get_block(tag)
             .await
             .map(|block| block.header().receipts_root())
     }
 
-    pub async fn get_base_fee(&self, tag: BlockTag) -> Option<Option<u64>> {
+    pub async fn get_base_fee(&self, tag: BlockId) -> Option<Option<u64>> {
         self.get_block(tag)
             .await
             .map(|block| block.header().base_fee_per_gas())
     }
 
-    pub async fn get_coinbase(&self, tag: BlockTag) -> Option<Address> {
+    pub async fn get_coinbase(&self, tag: BlockId) -> Option<Address> {
         self.get_block(tag)
             .await
             .map(|block| block.header().beneficiary())

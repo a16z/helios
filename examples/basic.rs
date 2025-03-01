@@ -6,7 +6,7 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::core::types::BlockTag;
+use alloy::rpc::types::BlockId
 use helios::ethereum::{
     config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
 };
@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     let client_version = client.client_version().await;
     let head_block_num = client.get_block_number().await?;
     let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
-    let block = BlockTag::Latest;
+    let block = BlockId::Latest;
     let balance = client.get_balance(addr, block).await?;
 
     info!("client version: {}", client_version);

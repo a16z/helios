@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{Filter,BlockId ,FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use tracing::{info, warn};
 
@@ -14,7 +14,7 @@ use crate::consensus::Consensus;
 use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::time::interval;
-use crate::types::BlockTag;
+
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]
@@ -67,7 +67,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         }
     }
 
-    pub async fn call(&self, tx: &N::TransactionRequest, block: BlockTag) -> Result<Bytes> {
+    pub async fn call(&self, tx: &N::TransactionRequest, block: BlockId) -> Result<Bytes> {
         self.node.call(tx, block).await.map_err(|err| err.into())
     }
 
@@ -75,11 +75,11 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         self.node.estimate_gas(tx).await.map_err(|err| err.into())
     }
 
-    pub async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256> {
+    pub async fn get_balance(&self, address: Address, block: BlockId) -> Result<U256> {
         self.node.get_balance(address, block).await
     }
 
-    pub async fn get_nonce(&self, address: Address, block: BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: Address, block: BlockId) -> Result<u64> {
         self.node.get_nonce(address, block).await
     }
 
@@ -89,12 +89,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
 
     pub async fn get_block_transaction_count_by_number(
         &self,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Option<u64>> {
         self.node.get_block_transaction_count_by_number(block).await
     }
 
-    pub async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes> {
+    pub async fn get_code(&self, address: Address, block: BlockId) -> Result<Bytes> {
         self.node.get_code(address, block).await
     }
 
@@ -102,7 +102,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         &self,
         address: Address,
         slot: U256,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<B256> {
         self.node.get_storage_at(address, slot, block).await
     }
@@ -120,7 +120,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
 
     pub async fn get_block_receipts(
         &self,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
         self.node.get_block_receipts(block).await
     }
@@ -165,7 +165,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         self.node.get_priority_fee()
     }
 
-    pub async fn blob_base_fee(&self, block: BlockTag) -> Result<U256> {
+    pub async fn blob_base_fee(&self, block: BlockId) -> Result<U256> {
         self.node.blob_base_fee(block).await
     }
 
@@ -179,7 +179,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
 
     pub async fn get_block_by_number(
         &self,
-        block: BlockTag,
+        block: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
         self.node.get_block_by_number(block, full_tx).await
@@ -205,7 +205,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
 
     pub async fn get_transaction_by_block_number_and_index(
         &self,
-        block: BlockTag,
+        block: BlockId,
         index: u64,
     ) -> Result<Option<N::TransactionResponse>> {
         self.node

@@ -3,7 +3,7 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{Filter, BlockId FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods},
@@ -16,7 +16,6 @@ use tracing::info;
 use crate::client::node::Node;
 use crate::consensus::Consensus;
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 pub struct Rpc<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,
@@ -60,13 +59,13 @@ trait EthRpc<
     async fn get_balance(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "getTransactionCount")]
     async fn get_transaction_count(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockTransactionCountByHash")]
     async fn get_block_transaction_count_by_hash(
@@ -76,12 +75,12 @@ trait EthRpc<
     #[method(name = "getBlockTransactionCountByNumber")]
     async fn get_block_transaction_count_by_number(
         &self,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Option<U64>, ErrorObjectOwned>;
     #[method(name = "getCode")]
-    async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "call")]
-    async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
+    async fn call(&self, tx: TXR, block: BlockId) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
     async fn estimate_gas(&self, tx: TXR) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "chainId")]
@@ -91,13 +90,13 @@ trait EthRpc<
     #[method(name = "maxPriorityFeePerGas")]
     async fn max_priority_fee_per_gas(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "blobBaseFee")]
-    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned>;
+    async fn blob_base_fee(&self, block: BlockId) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "blockNumber")]
     async fn block_number(&self) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockByNumber")]
     async fn get_block_by_number(
         &self,
-        block: BlockTag,
+        block: BlockId,
         full_tx: bool,
     ) -> Result<Option<B>, ErrorObjectOwned>;
     #[method(name = "getBlockByHash")]
@@ -111,7 +110,7 @@ trait EthRpc<
     #[method(name = "getTransactionReceipt")]
     async fn get_transaction_receipt(&self, hash: B256) -> Result<Option<R>, ErrorObjectOwned>;
     #[method(name = "getBlockReceipts")]
-    async fn get_block_receipts(&self, block: BlockTag)
+    async fn get_block_receipts(&self, block: BlockId)
         -> Result<Option<Vec<R>>, ErrorObjectOwned>;
     #[method(name = "getTransactionByHash")]
     async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<TX>, ErrorObjectOwned>;
@@ -124,7 +123,7 @@ trait EthRpc<
     #[method(name = "getTransactionByBlockNumberAndIndex")]
     async fn get_transaction_by_block_number_and_index(
         &self,
-        block: BlockTag,
+        block: BlockId,
         index: U64,
     ) -> Result<Option<TX>, ErrorObjectOwned>;
     #[method(name = "getLogs")]
@@ -146,7 +145,7 @@ trait EthRpc<
         &self,
         address: Address,
         slot: U256,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
@@ -192,7 +191,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
     async fn get_balance(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U256, ErrorObjectOwned> {
         convert_err(self.node.get_balance(address, block).await)
     }
@@ -200,7 +199,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
     async fn get_transaction_count(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U64, ErrorObjectOwned> {
         convert_err(self.node.get_nonce(address, block).await).map(U64::from)
     }
@@ -219,7 +218,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
 
     async fn get_block_transaction_count_by_number(
         &self,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Option<U64>, ErrorObjectOwned> {
         convert_err(
             self.node
@@ -229,14 +228,14 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         )
     }
 
-    async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned> {
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Bytes, ErrorObjectOwned> {
         convert_err(self.node.get_code(address, block).await)
     }
 
     async fn call(
         &self,
         tx: N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Bytes, ErrorObjectOwned> {
         convert_err(self.node.call(&tx, block).await)
     }
@@ -259,7 +258,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         convert_err(self.node.get_priority_fee())
     }
 
-    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned> {
+    async fn blob_base_fee(&self, block: BlockId) -> Result<U256, ErrorObjectOwned> {
         convert_err(self.node.blob_base_fee(block).await)
     }
 
@@ -269,7 +268,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
 
     async fn get_block_by_number(
         &self,
-        block: BlockTag,
+        block: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>, ErrorObjectOwned> {
         convert_err(self.node.get_block_by_number(block, full_tx).await)
@@ -296,7 +295,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
 
     async fn get_block_receipts(
         &self,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>, ErrorObjectOwned> {
         convert_err(self.node.get_block_receipts(block).await)
     }
@@ -321,7 +320,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
 
     async fn get_transaction_by_block_number_and_index(
         &self,
-        block: BlockTag,
+        block: BlockId,
         index: U64,
     ) -> Result<Option<N::TransactionResponse>, ErrorObjectOwned> {
         convert_err(
@@ -371,7 +370,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         &self,
         address: Address,
         slot: U256,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.node.get_storage_at(address, slot, block).await)
     }
