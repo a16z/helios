@@ -15,7 +15,7 @@ use helios_verifiable_api_client::http::HttpVerifiableApi;
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
 use crate::execution::client::ExecutionInnerClient;
-use crate::execution::constants::MAX_STATE_HISTORY_SIZE;
+use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
 use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::spec::ExecutionSpec;
@@ -38,7 +38,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         let block_recv = consensus.block_recv().unwrap();
         let finalized_block_recv = consensus.finalized_block_recv().unwrap();
 
-        let state = State::new(MAX_STATE_HISTORY_SIZE);
+        let state = State::new(MAX_STATE_HISTORY_LENGTH);
         let client_inner =
             ExecutionInnerClient::<N, HttpRpc<N>, HttpVerifiableApi>::make_inner_client(
                 execution_mode,
