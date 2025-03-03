@@ -93,7 +93,10 @@ export class HeliosProvider {
         return this.#client.call(req.params[0], req.params[1]);
       }
       case "eth_estimateGas": {
-        return this.#client.estimate_gas(req.params[0]);
+        return this.#client.estimate_gas(req.params[0], req.params[1]);
+      }
+      case "eth_createAccessList": {
+        return this.#client.create_access_list(req.params[0], req.params[1]);
       }
       case "eth_gasPrice": {
         return this.#client.gas_price();

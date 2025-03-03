@@ -3,7 +3,7 @@ use std::sync::Arc;
 use alloy::consensus::BlockHeader;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
+use alloy::rpc::types::{AccessListResult, Filter, FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 
 use helios_common::{
@@ -75,17 +75,43 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         evm.call(tx).await.map_err(ClientError::EvmError)
     }
 
-    pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64, ClientError> {
-        self.check_head_age().await?;
+    pub async fn estimate_gas(
+        &self,
+        tx: &N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<u64, ClientError> {
+        self.check_blocktag_age(&block).await?;
 
         let mut evm = Evm::new(
             self.execution.clone(),
             self.chain_id(),
             self.fork_schedule,
-            BlockTag::Latest,
+            block,
         );
 
         evm.estimate_gas(tx).await.map_err(ClientError::EvmError)
+    }
+
+    pub async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ClientError> {
+        self.check_blocktag_age(&block).await?;
+
+        let mut evm = Evm::new(
+            self.execution.clone(),
+            self.chain_id(),
+            self.fork_schedule,
+            block,
+        );
+
+        let res = evm
+            .create_access_list(tx)
+            .await
+            .map_err(ClientError::EvmError)?;
+
+        Ok(res.access_list_result)
     }
 
     pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {

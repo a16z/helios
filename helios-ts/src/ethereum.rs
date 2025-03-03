@@ -252,9 +252,22 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
-    pub async fn estimate_gas(&self, opts: JsValue) -> Result<u32, JsError> {
+    pub async fn estimate_gas(&self, opts: JsValue, block: JsValue) -> Result<u32, JsError> {
         let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
-        Ok(map_err(self.inner.estimate_gas(&opts).await)? as u32)
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        Ok(map_err(self.inner.estimate_gas(&opts, block).await)? as u32)
+    }
+
+    #[wasm_bindgen]
+    pub async fn create_access_list(
+        &self,
+        opts: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let access_list_result = map_err(self.inner.create_access_list(&opts, block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&access_list_result)?)
     }
 
     #[wasm_bindgen]

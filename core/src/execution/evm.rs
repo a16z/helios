@@ -1,10 +1,14 @@
 use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
-use alloy::network::{primitives::HeaderResponse, BlockResponse};
+use alloy::{
+    network::{primitives::HeaderResponse, BlockResponse},
+    rpc::types::{AccessListResult, EIP1186StorageProof},
+};
 use eyre::{Report, Result};
 use revm::{
     primitives::{
-        address, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env, ExecutionResult, B256, U256,
+        address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env,
+        ExecutionResult, B256, U256,
     },
     Database, Evm as Revm,
 };
@@ -68,11 +72,32 @@ impl<N: NetworkSpec> Evm<N> {
     pub async fn create_access_list(
         &mut self,
         tx: &N::TransactionRequest,
-    ) -> Result<HashMap<Address, Account>, EvmError> {
+    ) -> Result<AccessListResultWithAccounts, EvmError> {
         let (result, accounts) = self.call_inner(tx).await?;
 
         match result {
-            ExecutionResult::Success { .. } => Ok(accounts),
+            ExecutionResult::Success { .. } => Ok(AccessListResultWithAccounts {
+                access_list_result: AccessListResult {
+                    access_list: accounts
+                        .iter()
+                        .map(|(address, account)| {
+                            let storage_keys = account
+                                .storage_proof
+                                .iter()
+                                .map(|EIP1186StorageProof { key, .. }| key.as_b256())
+                                .collect();
+                            AccessListItem {
+                                address: *address,
+                                storage_keys,
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .into(),
+                    gas_used: U256::from(result.gas_used()),
+                    error: None,
+                },
+                accounts,
+            }),
             ExecutionResult::Revert { output, .. } => {
                 Err(EvmError::Revert(Some(output.to_vec().into())))
             }
@@ -294,6 +319,10 @@ impl<N: NetworkSpec> Database for ProofDB<N> {
 
 fn is_precompile(address: &Address) -> bool {
     address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
+}
+pub struct AccessListResultWithAccounts {
+    pub access_list_result: AccessListResult,
+    pub accounts: HashMap<Address, Account>,
 }
 
 // #[cfg(test)]

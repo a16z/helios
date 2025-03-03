@@ -186,9 +186,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
             },
             tag,
         );
-        let accounts = evm.create_access_list(&tx).await?;
+        let res = evm.create_access_list(&tx).await?;
 
-        Ok(AccessListResponse { accounts })
+        Ok(AccessListResponse {
+            accounts: res.accounts,
+        })
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {

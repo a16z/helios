@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{AccessListResult, Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use tracing::{info, warn};
 
@@ -73,8 +73,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         self.node.call(tx, block).await.map_err(|err| err.into())
     }
 
-    pub async fn estimate_gas(&self, tx: &N::TransactionRequest) -> Result<u64> {
-        self.node.estimate_gas(tx).await.map_err(|err| err.into())
+    pub async fn estimate_gas(&self, tx: &N::TransactionRequest, block: BlockTag) -> Result<u64> {
+        self.node
+            .estimate_gas(tx, block)
+            .await
+            .map_err(|err| err.into())
+    }
+
+    pub async fn create_access_list(
+        &self,
+        tx: &N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<AccessListResult> {
+        self.node
+            .create_access_list(tx, block)
+            .await
+            .map_err(|err| err.into())
     }
 
     pub async fn get_balance(&self, address: Address, block: BlockTag) -> Result<U256> {

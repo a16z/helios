@@ -3,7 +3,7 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{AccessListResult, Filter, FilterChanges, Log, SyncStatus};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods},
@@ -83,7 +83,13 @@ trait EthRpc<
     #[method(name = "call")]
     async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, tx: TXR) -> Result<U64, ErrorObjectOwned>;
+    async fn estimate_gas(&self, tx: TXR, block: BlockTag) -> Result<U64, ErrorObjectOwned>;
+    #[method(name = "createAccessList")]
+    async fn create_access_list(
+        &self,
+        tx: TXR,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ErrorObjectOwned>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "gasPrice")]
@@ -241,10 +247,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         convert_err(self.node.call(&tx, block).await)
     }
 
-    async fn estimate_gas(&self, tx: N::TransactionRequest) -> Result<U64, ErrorObjectOwned> {
-        let res = self.node.estimate_gas(&tx).await.map(U64::from);
+    async fn estimate_gas(
+        &self,
+        tx: N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned> {
+        let res = self.node.estimate_gas(&tx, block).await.map(U64::from);
 
         convert_err(res)
+    }
+
+    async fn create_access_list(
+        &self,
+        tx: N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ErrorObjectOwned> {
+        convert_err(self.node.create_access_list(&tx, block).await)
     }
 
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned> {
