@@ -6,7 +6,9 @@ use alloy::eips::BlockId;
 use alloy::network::primitives::HeaderResponse;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
+use alloy::rpc::types::{
+    BlockTransactions, EIP1186AccountProofResponse, Filter, FilterChanges, Log,
+};
 use async_trait::async_trait;
 use eyre::Result;
 use revm::primitives::BlobExcessGasAndPrice;
@@ -78,6 +80,28 @@ impl<N: NetworkSpec> ExecutionClient<N> {
             Some(value) => Ok(value.into()),
             None => Err(ExecutionError::InvalidStorageProof(address, storage_key).into()),
         }
+    }
+
+    pub async fn get_proof(
+        &self,
+        address: Address,
+        slots: Option<&[B256]>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse> {
+        let account = self
+            .client
+            .get_account(address, slots, block, false)
+            .await?;
+
+        Ok(EIP1186AccountProofResponse {
+            address,
+            balance: account.account.balance,
+            code_hash: account.account.code_hash,
+            nonce: account.account.nonce,
+            storage_hash: account.account.storage_root,
+            account_proof: account.account_proof,
+            storage_proof: account.storage_proof,
+        })
     }
 
     pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {

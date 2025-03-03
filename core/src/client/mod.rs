@@ -3,7 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{AccessListResult, Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+};
 use eyre::Result;
 use tracing::{info, warn};
 
@@ -121,6 +123,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         block: BlockTag,
     ) -> Result<B256> {
         self.node.get_storage_at(address, slot, block).await
+    }
+
+    pub async fn get_proof(
+        &self,
+        address: Address,
+        slots: Option<&[B256]>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse> {
+        self.node.get_proof(address, slots, block).await
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {

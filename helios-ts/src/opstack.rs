@@ -195,6 +195,28 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_proof(
+        &self,
+        address: JsValue,
+        storage_keys: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let address: Address = serde_wasm_bindgen::from_value(address)?;
+        let storage_keys: Vec<U256> = serde_wasm_bindgen::from_value(storage_keys)?;
+        let storage_keys = storage_keys
+            .into_iter()
+            .map(|k| k.into())
+            .collect::<Vec<_>>();
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let proof = map_err(
+            self.inner
+                .get_proof(address, Some(&storage_keys), block)
+                .await,
+        )?;
+        Ok(serde_wasm_bindgen::to_value(&proof)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
         let opts: OpTransactionRequest = serde_wasm_bindgen::from_value(opts)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;

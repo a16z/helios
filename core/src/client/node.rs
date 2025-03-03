@@ -3,7 +3,9 @@ use std::sync::Arc;
 use alloy::consensus::BlockHeader;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{AccessListResult, Filter, FilterChanges, Log, SyncInfo, SyncStatus};
+use alloy::rpc::types::{
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncInfo, SyncStatus,
+};
 use eyre::{eyre, Result};
 
 use helios_common::{
@@ -163,6 +165,17 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         self.check_blocktag_age(&tag).await?;
 
         self.execution.get_storage_at(address, slot, tag).await
+    }
+
+    pub async fn get_proof(
+        &self,
+        address: Address,
+        slots: Option<&[B256]>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse> {
+        self.check_blocktag_age(&block).await?;
+
+        self.execution.get_proof(address, slots, block).await
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {

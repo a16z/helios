@@ -12,7 +12,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_call` | `call` | Executes a new message call immediately without creating a transaction on the blockchain. | `client.call(&self, opts: CallOpts, block: BlockTag)` |
 | `eth_estimateGas` | `estimate_gas` | Generates and returns an estimate of how much gas is necessary to allow the transaction to be completed. | `client.estimate_gas(&self, opts: CallOpts, block: BlockTag)` |
 | `eth_createAccessList` | `create_access_list` | Creates an EIP2930 type `accessList` based on a given Transaction object. Returns list of addresses and storage keys that are read and written by the transaction (except precompiles), plus the estimated gas consumed when the access list is added. | `client.create_access_list(&self, opts: CallOpts, block: BlockTag)` |
-| `eth_getChainId` | `chain_id` | Returns the chain ID of the current network. | `client.chain_id(&self)` |
+| `eth_chainId` | `chain_id` | Returns the chain ID of the current network. | `client.chain_id(&self)` |
 | `eth_gasPrice` | `gas_price` | Returns the current price per gas in wei. | `client.gas_price(&self)` |
 | `eth_maxPriorityFeePerGas` | `max_priority_fee_per_gas` | Returns the current max priority fee per gas in wei. | `client.max_priority_fee_per_gas(&self)` |
 | `eth_blobBaseFee` | `blob_base_fee` | Returns the base fee per blob gas in wei. | `client.blob_base_fee(&self, block: BlockTag)` |
@@ -34,6 +34,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_newBlockFilter` | `new_block_filter` | Creates a filter in the node, to notify when a new block arrives. | `client.new_block_filter(&self)` |
 | `eth_newPendingTransactionFilter` | `new_pending_transaction_filter` | Creates a filter in the node, to notify when new pending transactions arrive. | `client.new_pending_transaction_filter(&self)` |
 | `eth_getStorageAt` | `get_storage_at` | Returns the value from a storage position at a given address. | `client.get_storage_at(&self, address: &str, slot: H256, block: BlockTag)` |
+| `eth_getProof` | `get_proof` | Returns the merkle proof for a given account and optionally some storage keys. | `client.get_proof(&self, address: &str, slots: [H256], block: BlockTag)` |
 | `eth_coinbase` | `get_coinbase` | Returns the client coinbase address. | `client.get_coinbase(&self)` |
 | `eth_syncing` | `syncing` | Returns an object with data about the sync status or false. | `client.syncing(&self)` |
 | `web3_clientVersion` | `client_version` | Returns the current version of the chain client. | `client.client_version(&self)` |

@@ -3,7 +3,9 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{AccessListResult, Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods},
@@ -154,6 +156,13 @@ trait EthRpc<
         slot: U256,
         block: BlockTag,
     ) -> Result<B256, ErrorObjectOwned>;
+    #[method(name = "getProof")]
+    async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<U256>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
@@ -392,6 +401,20 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         block: BlockTag,
     ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.node.get_storage_at(address, slot, block).await)
+    }
+
+    async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<U256>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned> {
+        let slots = storage_keys
+            .into_iter()
+            .map(|k| k.into())
+            .collect::<Vec<_>>();
+
+        convert_err(self.node.get_proof(address, Some(&slots), block).await)
     }
 }
 
