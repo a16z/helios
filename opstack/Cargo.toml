@@ -36,6 +36,8 @@ snap = "1"
 # config
 figment = { version = "0.10.7", features = ["toml", "env"] }
 
+# self crates
+helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 helios-consensus-core = { path = "../ethereum/consensus-core" }

@@ -3,7 +3,9 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+};
 use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods},
@@ -13,10 +15,10 @@ use jsonrpsee::{
 };
 use tracing::info;
 
+use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+
 use crate::client::node::Node;
 use crate::consensus::Consensus;
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 pub struct Rpc<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,
@@ -83,7 +85,13 @@ trait EthRpc<
     #[method(name = "call")]
     async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, tx: TXR) -> Result<U64, ErrorObjectOwned>;
+    async fn estimate_gas(&self, tx: TXR, block: BlockTag) -> Result<U64, ErrorObjectOwned>;
+    #[method(name = "createAccessList")]
+    async fn create_access_list(
+        &self,
+        tx: TXR,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ErrorObjectOwned>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "gasPrice")]
@@ -148,6 +156,13 @@ trait EthRpc<
         slot: U256,
         block: BlockTag,
     ) -> Result<B256, ErrorObjectOwned>;
+    #[method(name = "getProof")]
+    async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<U256>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
@@ -241,10 +256,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         convert_err(self.node.call(&tx, block).await)
     }
 
-    async fn estimate_gas(&self, tx: N::TransactionRequest) -> Result<U64, ErrorObjectOwned> {
-        let res = self.node.estimate_gas(&tx).await.map(U64::from);
+    async fn estimate_gas(
+        &self,
+        tx: N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned> {
+        let res = self.node.estimate_gas(&tx, block).await.map(U64::from);
 
         convert_err(res)
+    }
+
+    async fn create_access_list(
+        &self,
+        tx: N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ErrorObjectOwned> {
+        convert_err(self.node.create_access_list(&tx, block).await)
     }
 
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned> {
@@ -374,6 +401,20 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         block: BlockTag,
     ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.node.get_storage_at(address, slot, block).await)
+    }
+
+    async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<U256>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned> {
+        let slots = storage_keys
+            .into_iter()
+            .map(|k| k.into())
+            .collect::<Vec<_>>();
+
+        convert_err(self.node.get_proof(address, Some(&slots), block).await)
     }
 }
 
