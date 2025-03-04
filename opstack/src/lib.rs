@@ -64,7 +64,7 @@ impl TryFrom<&SequencerCommitment> for ExecutionPayload {
 
 fn signature_msg(data: &[u8], chain_id: u64) -> B256 {
     let domain = B256::ZERO;
-    let chain_id = B256::left_padding_from(&chain_id.to_be_bytes());
+    let chain_id = B256::from_uint(&U256::from(chain_id));
     let payload_hash = keccak256(data);
 
     let signing_data = [
