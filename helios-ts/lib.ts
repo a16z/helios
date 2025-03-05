@@ -33,7 +33,7 @@ export class HeliosProvider {
 
       this.#client = new OpStackClient(executionRpc, network);
     } else {
-      throw "invalid kind: must be ethereum or opstack";
+      throw new Error("Invalid kind: must be 'ethereum' or 'opstack'");
     }
     this.#chainId = this.#client.chain_id();
   }
