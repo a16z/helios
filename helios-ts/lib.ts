@@ -33,7 +33,7 @@ export class HeliosProvider {
 
       this.#client = new OpStackClient(executionRpc, network);
     } else {
-      throw "invalid kind: must be ethereum or opstack";
+      throw new Error("Invalid kind: must be 'ethereum' or 'opstack'");
     }
     this.#chainId = this.#client.chain_id();
   }
@@ -103,9 +103,6 @@ export class HeliosProvider {
       }
       case "eth_getTransactionReceipt": {
         return this.#client.get_transaction_receipt(req.params[0]);
-      }
-      case "eth_getTransactionByHash": {
-        return this.#client.get_transaction_by_hash(req.params[0]);
       }
       case "eth_getTransactionByBlockHashAndIndex": {
         return this.#client.get_transaction_by_block_hash_and_index(
