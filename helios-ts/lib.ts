@@ -102,31 +102,41 @@ export class HeliosProvider {
         return this.#client.send_raw_transaction(req.params[0]);
       }
       case "eth_getTransactionReceipt": {
-        return this.#client.get_transaction_receipt(req.params[0]);
+        const receipt = await this.#client.get_transaction_receipt(req.params[0]);
+        return mapToObj(receipt);
       }
       case "eth_getTransactionByBlockHashAndIndex": {
-        return this.#client.get_transaction_by_block_hash_and_index(
+        const tx = await this.#client.get_transaction_by_block_hash_and_index(
           req.params[0],
           req.params[1]
         );
+        return mapToObj(tx);
       }
       case "eth_getTransactionByBlockNumberAndIndex": {
-        return this.#client.get_transaction_by_block_number_and_index(
+        const tx = await this.#client.get_transaction_by_block_number_and_index(
           req.params[0],
           req.params[1]
         );
+        return mapToObj(tx);
       }
       case "eth_getBlockReceipts": {
-        return this.#client.get_block_receipts(req.params[0]);
+        const receipts = await this.#client.get_block_receipts(req.params[0]);
+        return receipts.map(mapToObj);
       }
       case "eth_getLogs": {
-        return this.#client.get_logs(req.params[0]);
+        const logs = await this.#client.get_logs(req.params[0]);
+        return logs.map(mapToObj);
       }
       case "eth_getFilterChanges": {
-        return this.#client.get_filter_changes(req.params[0]);
+        const changes = await this.#client.get_filter_changes(req.params[0]);
+        if (changes.length > 0 && typeof changes[0] === "object") {
+          return changes.map(mapToObj);
+        }
+        return changes;
       }
       case "eth_getFilterLogs": {
-        return this.#client.get_filter_logs(req.params[0]);
+        const logs = await this.#client.get_filter_logs(req.params[0]);
+        return logs.map(mapToObj);
       }
       case "eth_uninstallFilter": {
         return this.#client.uninstall_filter(req.params[0]);
@@ -145,6 +155,10 @@ export class HeliosProvider {
       }
       case "eth_getBlockByNumber": {
         const block = await this.#client.get_block_by_number(req.params[0], req.params[1]);
+        return mapToObj(block);
+      }
+      case "eth_getBlockByHash": {
+        const block = await this.#client.get_block_by_hash(req.params[0], req.params[1]);
         return mapToObj(block);
       }
       case "web3_clientVersion": {
