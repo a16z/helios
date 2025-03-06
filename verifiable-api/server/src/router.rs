@@ -24,7 +24,10 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
                     "/filterChanges/{filterId}",
                     get(handlers::get_filter_changes),
                 )
-                .route("/createAccessList", post(handlers::create_access_list)),
+                .route(
+                    "/createExtendedAccessList",
+                    post(handlers::create_extended_access_list),
+                ),
         )
         .nest(
             "/eth/v1",

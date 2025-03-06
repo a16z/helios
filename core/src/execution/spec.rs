@@ -27,7 +27,7 @@ pub trait ExecutionSpec<N: NetworkSpec>: Send + Sync + 'static {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>>;
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
         block_id: Option<BlockId>,
@@ -35,6 +35,11 @@ pub trait ExecutionSpec<N: NetworkSpec>: Send + Sync + 'static {
     async fn chain_id(&self) -> Result<u64>;
     async fn get_block(&self, block_id: BlockId, full_tx: bool)
         -> Result<Option<N::BlockResponse>>;
+    async fn get_untrusted_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>>;
     async fn get_block_receipts(
         &self,
         block_id: BlockId,

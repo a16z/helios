@@ -5,6 +5,7 @@ use std::{
 
 use alloy::{
     consensus::BlockHeader,
+    eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256, U256},
     rpc::types::{BlockTransactions, Filter},
@@ -18,11 +19,11 @@ use tracing::{info, warn};
 
 use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
-use super::client::ExecutionInner;
+use super::spec::ExecutionSpec;
 
 pub fn start_state_updater<N: NetworkSpec>(
     state: State<N>,
-    client: Arc<dyn ExecutionInner<N>>,
+    client: Arc<dyn ExecutionSpec<N>>,
     mut block_recv: Receiver<N::BlockResponse>,
     mut finalized_block_recv: watch::Receiver<Option<N::BlockResponse>>,
 ) {
@@ -61,11 +62,34 @@ impl<N: NetworkSpec> State<N> {
         }
     }
 
-    pub async fn push_block(&self, block: N::BlockResponse, client: Arc<dyn ExecutionInner<N>>) {
+    pub async fn push_block(&self, block: N::BlockResponse, client: Arc<dyn ExecutionSpec<N>>) {
         self.inner.write().await.push_block(block, client).await
     }
 
     // full block fetch
+
+    pub async fn get_block_by_id(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        let block = match block_id {
+            BlockId::Number(tag) => self.get_block(tag.try_into()?).await,
+            BlockId::Hash(hash) => self.get_block_by_hash(hash.into()).await,
+        };
+        if block.is_none() {
+            warn!(target: "helios::execution", "requested block not found in state: {}", block_id);
+            return Ok(None);
+        };
+        let mut block = block.unwrap();
+
+        if !full_tx {
+            *block.transactions_mut() =
+                BlockTransactions::Hashes(block.transactions().hashes().collect());
+        }
+
+        Ok(Some(block))
+    }
 
     pub async fn get_block(&self, tag: BlockTag) -> Option<N::BlockResponse> {
         match tag {
@@ -233,11 +257,7 @@ impl<N: NetworkSpec> Inner<N> {
         }
     }
 
-    pub async fn push_block(
-        &mut self,
-        block: N::BlockResponse,
-        client: Arc<dyn ExecutionInner<N>>,
-    ) {
+    pub async fn push_block(&mut self, block: N::BlockResponse, client: Arc<dyn ExecutionSpec<N>>) {
         let block_number = block.header().number();
         if self.try_insert_tip(block) {
             let mut n = block_number;
@@ -312,11 +332,7 @@ impl<N: NetworkSpec> Inner<N> {
         }
     }
 
-    async fn backfill_behind(
-        &mut self,
-        n: u64,
-        client: Arc<dyn ExecutionInner<N>>,
-    ) -> Result<bool> {
+    async fn backfill_behind(&mut self, n: u64, client: Arc<dyn ExecutionSpec<N>>) -> Result<bool> {
         if self.blocks.len() < 2 {
             return Ok(false);
         }
@@ -325,7 +341,7 @@ impl<N: NetworkSpec> Inner<N> {
             let prev = n - 1;
             if !self.blocks.contains_key(&prev) {
                 let backfilled = client
-                    .get_block(block.header().parent_hash().into(), false)
+                    .get_untrusted_block(block.header().parent_hash().into(), false)
                     .await?
                     .ok_or(eyre!("backfill block not found"))?;
 

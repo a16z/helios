@@ -50,14 +50,14 @@ pub enum FilterChangesResponse<N: NetworkSpec> {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AccessListRequest<N: NetworkSpec> {
+pub struct ExtendedAccessListRequest<N: NetworkSpec> {
     pub tx: N::TransactionRequest,
     pub block: Option<BlockId>,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AccessListResponse {
+pub struct ExtendedAccessListResponse {
     pub accounts: HashMap<Address, Account>,
 }
 

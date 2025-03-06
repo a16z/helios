@@ -21,8 +21,8 @@ use crate::execution::constants::{
 };
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{
-    ordered_trie_root_noop_encoder, verify_account_proof, verify_code_hash_proof,
-    verify_storage_proof,
+    ordered_trie_root_noop_encoder, verify_account_proof, verify_block_receipts,
+    verify_code_hash_proof, verify_storage_proof,
 };
 use crate::execution::rpc::ExecutionRpc;
 use crate::execution::state::State;
@@ -66,8 +66,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
             .get_proof(address, slots, block.header().number().into())
             .await?;
 
-        self.verify_proof_to_account(proof, &block, include_code)
-            .await
+        self.verify_account_proof(proof, &block, include_code).await
     }
 
     async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<N::ReceiptResponse>> {
@@ -88,7 +87,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
             .rpc
             .get_block_receipts(block_id)
             .await?
-            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
+            .ok_or(ExecutionError::NoReceiptsForBlock(tag))?;
 
         let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
         let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
@@ -136,7 +135,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
         Ok(logs)
     }
 
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
         block_id: Option<BlockId>,
@@ -209,6 +208,14 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
+        self.state.get_block_by_id(block_id, full_tx).await
+    }
+
+    async fn get_untrusted_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
         self.rpc.get_block(block_id, full_tx.into()).await
     }
 
@@ -216,7 +223,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        self.rpc.get_block_receipts(block_id).await
+        let block = self.state.get_block_by_id(block_id, false).await?;
+        let Some(block) = block else {
+            return Ok(None);
+        };
+        let block_num = block.header().number();
+
+        let receipts = self
+            .rpc
+            .get_block_receipts(block_num.into())
+            .await?
+            .ok_or(ExecutionError::NoReceiptsForBlock(block_num.into()))?;
+
+        verify_block_receipts::<N>(&receipts, &block)?;
+
+        Ok(Some(receipts))
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
@@ -241,7 +262,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
-    async fn verify_proof_to_account(
+    async fn verify_account_proof(
         &self,
         proof: EIP1186AccountProofResponse,
         block: &N::BlockResponse,
@@ -302,10 +323,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionInnerRpcClient<N, R> {
 
         // Collect all (proven) tx receipts for all block numbers
         let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
-            let tag = BlockTag::Number(block_num);
-            // ToDo(@eshaan7): use verified version of `get_block_receipts`
-            let receipts = self.rpc.get_block_receipts(block_num.into()).await;
-            receipts?.ok_or_else(|| eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))
+            let receipts = self.get_block_receipts(block_num.into()).await;
+            receipts?
+                .ok_or_else(|| eyre::eyre!(ExecutionError::NoReceiptsForBlock(block_num.into())))
         });
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
         let receipts = blocks_receipts.into_iter().flatten().collect::<Vec<_>>();
@@ -504,7 +524,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_access_list() {
+    async fn test_create_extended_access_list() {
         let client = get_client().await;
         let address = rpc_proof().address;
         let block_beneficiary = rpc_block().header.beneficiary;
@@ -514,7 +534,7 @@ mod tests {
             .value(U256::ZERO);
 
         let response = client
-            .create_access_list(&tx, BlockId::latest().into())
+            .create_extended_access_list(&tx, BlockId::latest().into())
             .await
             .unwrap();
 
@@ -541,6 +561,19 @@ mod tests {
 
         let response = client
             .get_block(BlockId::latest(), false)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(response, rpc_block());
+    }
+
+    #[tokio::test]
+    async fn test_get_untrusted_block() {
+        let client = get_client().await;
+
+        let response = client
+            .get_untrusted_block(BlockId::latest(), false)
             .await
             .unwrap()
             .unwrap();

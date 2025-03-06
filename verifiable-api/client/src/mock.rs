@@ -115,11 +115,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
         }
     }
 
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         _tx: N::TransactionRequest,
         _block_id: Option<BlockId>,
-    ) -> Result<AccessListResponse> {
+    ) -> Result<ExtendedAccessListResponse> {
         let json_str = read_to_string(self.path.join("verifiable_api/access_list.json"))?;
         Ok(serde_json::from_str(&json_str)?)
     }

@@ -48,11 +48,11 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
             )
             .map_err(ClientError::InternalError)?;
         let execution = Arc::new(
-            ExecutionClient::new(client_inner.clone(), state.clone(), fork_schedule)
+            ExecutionClient::new(client_inner, state.clone(), fork_schedule)
                 .map_err(ClientError::InternalError)?,
         );
 
-        start_state_updater(state, client_inner, block_recv, finalized_block_recv);
+        start_state_updater(state, execution.clone(), block_recv, finalized_block_recv);
 
         Ok(Node {
             consensus,
@@ -153,7 +153,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag, true).await?;
-        Ok(account.code.unwrap())
+        account
+            .code
+            .ok_or(eyre!("Failed to fetch code for address"))
     }
 
     pub async fn get_storage_at(

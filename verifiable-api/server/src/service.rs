@@ -102,9 +102,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         };
 
         let block_num = receipt.block_number().unwrap();
-        let receipts = self.rpc.get_block_receipts(block_num.into()).await?.ok_or(
-            ExecutionError::NoReceiptsForBlock(BlockTag::Number(block_num)),
-        )?;
+        let receipts = self
+            .rpc
+            .get_block_receipts(block_num.into())
+            .await?
+            .ok_or(ExecutionError::NoReceiptsForBlock(block_num.into()))?;
 
         let receipt_proof =
             create_receipt_proof::<N>(receipts, receipt.transaction_index().unwrap() as usize);
@@ -156,11 +158,11 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         })
     }
 
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         tx: N::TransactionRequest,
         block_id: Option<BlockId>,
-    ) -> Result<AccessListResponse> {
+    ) -> Result<ExtendedAccessListResponse> {
         let block_id = block_id.unwrap_or_default();
         let block = self
             .rpc
@@ -188,7 +190,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         );
         let res = evm.create_access_list(&tx).await?;
 
-        Ok(AccessListResponse {
+        Ok(ExtendedAccessListResponse {
             accounts: res.accounts,
         })
     }
@@ -270,9 +272,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ApiService<N, R> {
         let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
             let receipts = self.rpc.get_block_receipts(block_num.into()).await?;
             receipts
-                .ok_or::<Report>(
-                    ExecutionError::NoReceiptsForBlock(BlockTag::Number(block_num)).into(),
-                )
+                .ok_or::<Report>(ExecutionError::NoReceiptsForBlock(block_num.into()).into())
                 .map(|receipts| (block_num, receipts))
         });
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
@@ -472,7 +472,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_access_list() {
+    async fn test_create_extended_access_list() {
         let service = get_service();
         let address = rpc_proof().address;
         let block_beneficiary = rpc_block().header.beneficiary;
@@ -482,7 +482,7 @@ mod tests {
             .value(U256::ZERO);
 
         let response = service
-            .create_access_list(tx, BlockId::latest().into())
+            .create_extended_access_list(tx, BlockId::latest().into())
             .await
             .unwrap();
 

@@ -17,7 +17,8 @@ use helios_verifiable_api_client::{types::*, VerifiableApi};
 
 use crate::execution::errors::ExecutionError;
 use crate::execution::proof::{
-    verify_account_proof, verify_code_hash_proof, verify_receipt_proof, verify_storage_proof,
+    verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_receipt_proof,
+    verify_storage_proof,
 };
 use crate::execution::state::State;
 
@@ -121,7 +122,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
         Ok(logs)
     }
 
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
         block_id: Option<BlockId>,
@@ -135,9 +136,9 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
             .ok_or(ExecutionError::BlockNotFound(tag))?;
         let block_id = BlockId::Number(block.header().number().into());
 
-        let AccessListResponse { accounts } = self
+        let ExtendedAccessListResponse { accounts } = self
             .api
-            .create_access_list(tx.clone(), Some(block_id))
+            .create_extended_access_list(tx.clone(), Some(block_id))
             .await?;
 
         for (address, account) in &accounts {
@@ -157,6 +158,14 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
+        self.state.get_block_by_id(block_id, full_tx).await
+    }
+
+    async fn get_untrusted_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
         self.api.get_block(block_id, full_tx).await
     }
 
@@ -164,7 +173,21 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        self.api.get_block_receipts(block_id).await
+        let block = self.state.get_block_by_id(block_id, false).await?;
+        let Some(block) = block else {
+            return Ok(None);
+        };
+        let block_num = block.header().number();
+
+        let receipts = self
+            .api
+            .get_block_receipts(block_num.into())
+            .await?
+            .ok_or(ExecutionError::NoReceiptsForBlock(block_num.into()))?;
+
+        verify_block_receipts::<N>(&receipts, &block)?;
+
+        Ok(Some(receipts))
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
@@ -444,13 +467,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_access_list() {
+    async fn test_create_extended_access_list() {
         let client = get_client().await;
         let address = rpc_proof().address;
         let tx = TransactionRequest::default().from(address).to(address);
 
         let response = client
-            .create_access_list(&tx, BlockId::latest().into())
+            .create_extended_access_list(&tx, BlockId::latest().into())
             .await
             .unwrap();
 
@@ -473,6 +496,19 @@ mod tests {
 
         let response = client
             .get_block(BlockId::latest(), false)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(response, rpc_block());
+    }
+
+    #[tokio::test]
+    async fn test_get_untrusted_block() {
+        let client = get_client().await;
+
+        let response = client
+            .get_untrusted_block(BlockId::latest(), false)
             .await
             .unwrap()
             .unwrap();

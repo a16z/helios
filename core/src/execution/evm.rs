@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap, mem, sync::Arc};
 
 use alloy::{
     network::{primitives::HeaderResponse, BlockResponse},
@@ -48,7 +48,7 @@ impl<N: NetworkSpec> Evm<N> {
     }
 
     pub async fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
-        let (result, ..) = self.call_inner(tx).await?;
+        let (result, ..) = self.call_inner(tx, true).await?;
 
         match result {
             ExecutionResult::Success { output, .. } => Ok(output.into_data()),
@@ -60,7 +60,7 @@ impl<N: NetworkSpec> Evm<N> {
     }
 
     pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
-        let (result, ..) = self.call_inner(tx).await?;
+        let (result, ..) = self.call_inner(tx, false).await?;
 
         match result {
             ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -73,7 +73,7 @@ impl<N: NetworkSpec> Evm<N> {
         &mut self,
         tx: &N::TransactionRequest,
     ) -> Result<AccessListResultWithAccounts, EvmError> {
-        let (result, accounts) = self.call_inner(tx).await?;
+        let (result, accounts) = self.call_inner(tx, false).await?;
 
         match result {
             ExecutionResult::Success { .. } => Ok(AccessListResultWithAccounts {
@@ -108,11 +108,12 @@ impl<N: NetworkSpec> Evm<N> {
     async fn call_inner(
         &mut self,
         tx: &N::TransactionRequest,
+        simulate_call: bool,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
         let mut db = ProofDB::new(self.tag, self.execution.clone());
         _ = db.state.prefetch_state(tx).await;
 
-        let env = Box::new(self.get_env(tx, self.tag).await);
+        let env = Box::new(self.get_env(tx, self.tag, simulate_call).await);
         let evm = Revm::builder().with_db(db).with_env(env).build();
         let mut ctx = evm.into_context_with_handler_cfg();
 
@@ -130,14 +131,14 @@ impl<N: NetworkSpec> Evm<N> {
             let needs_update = db.state.needs_update();
 
             if res.is_ok() || !needs_update {
-                break res.map(|res| (res.result, db.state.accounts.to_owned()));
+                break res.map(|res| (res.result, mem::take(&mut db.state.accounts)));
             }
         };
 
         tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
     }
 
-    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
+    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag, simulate_call: bool) -> Env {
         let block = self
             .execution
             .get_block(tag.into(), false)
@@ -148,9 +149,9 @@ impl<N: NetworkSpec> Evm<N> {
 
         let mut cfg = CfgEnv::default();
         cfg.chain_id = self.chain_id;
-        cfg.disable_block_gas_limit = true;
-        cfg.disable_eip3607 = true;
-        cfg.disable_base_fee = true;
+        cfg.disable_block_gas_limit = simulate_call;
+        cfg.disable_eip3607 = simulate_call;
+        cfg.disable_base_fee = simulate_call;
 
         Env {
             tx: N::tx_env(tx),
@@ -273,7 +274,7 @@ impl<N: NetworkSpec> EvmState<N> {
         let block_id = Some(self.block.into());
         let account_map = self
             .execution
-            .create_access_list(tx, block_id)
+            .create_extended_access_list(tx, block_id)
             .await
             .map_err(EvmError::RpcError)?;
 

@@ -170,12 +170,12 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
-pub async fn create_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
+pub async fn create_extended_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
     State(ApiState { api_service }): State<ApiState<N, R>>,
-    Json(AccessListRequest { tx, block }): Json<AccessListRequest<N>>,
-) -> Response<AccessListResponse> {
+    Json(ExtendedAccessListRequest { tx, block }): Json<ExtendedAccessListRequest<N>>,
+) -> Response<ExtendedAccessListResponse> {
     api_service
-        .create_access_list(tx, block)
+        .create_extended_access_list(tx, block)
         .await
         .map(Json)
         .map_err(map_server_err)

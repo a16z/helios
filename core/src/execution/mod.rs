@@ -6,9 +6,7 @@ use alloy::eips::BlockId;
 use alloy::network::primitives::HeaderResponse;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{
-    BlockTransactions, EIP1186AccountProofResponse, Filter, FilterChanges, Log,
-};
+use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use async_trait::async_trait;
 use eyre::Result;
 use revm::primitives::BlobExcessGasAndPrice;
@@ -22,7 +20,6 @@ use helios_common::{
 
 use self::client::ExecutionInner;
 use self::errors::ExecutionError;
-use self::proof::verify_block_receipts;
 use self::spec::ExecutionSpec;
 use self::state::{FilterType, State};
 
@@ -56,7 +53,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
     }
 
     pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
-        if self.client.chain_id().await? != chain_id {
+        if self.chain_id().await? != chain_id {
             Err(ExecutionError::IncorrectRpcNetwork().into())
         } else {
             Ok(())
@@ -246,15 +243,16 @@ impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
         }
     }
 
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
         block: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
-        self.client.create_access_list(tx, block).await
+        self.client.create_extended_access_list(tx, block).await
     }
 
     async fn chain_id(&self) -> Result<u64> {
+        // ToDo: verify the response from RPC/API or just return from config?
         self.client.chain_id().await
     }
 
@@ -263,22 +261,15 @@ impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let block = match block_id {
-            BlockId::Number(tag) => self.state.get_block(tag.try_into().unwrap()).await,
-            BlockId::Hash(hash) => self.state.get_block_by_hash(hash.into()).await,
-        };
-        if block.is_none() {
-            warn!(target: "helios::execution", "requested block not found in state: {}", block_id);
-            return Ok(None);
-        };
-        let mut block = block.unwrap();
+        self.client.get_block(block_id, full_tx).await
+    }
 
-        if !full_tx {
-            *block.transactions_mut() =
-                BlockTransactions::Hashes(block.transactions().hashes().collect());
-        }
-
-        Ok(Some(block))
+    async fn get_untrusted_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        self.client.get_untrusted_block(block_id, full_tx).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
@@ -289,26 +280,7 @@ impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let block = match block_id {
-            BlockId::Number(tag) => self.state.get_block(tag.try_into()?).await,
-            BlockId::Hash(hash) => self.state.get_block_by_hash(hash.into()).await,
-        };
-        let Some(block) = block else {
-            return Ok(None);
-        };
-        let block_num = block.header().number();
-        let block_id = BlockId::from(block_num);
-        let tag = BlockTag::Number(block_num);
-
-        let receipts = self
-            .client
-            .get_block_receipts(block_id)
-            .await?
-            .ok_or(eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))?;
-
-        verify_block_receipts::<N>(&receipts, &block)?;
-
-        Ok(Some(receipts))
+        self.client.get_block_receipts(block_id).await
     }
 
     async fn new_filter(&self, filter: &Filter) -> Result<U256> {

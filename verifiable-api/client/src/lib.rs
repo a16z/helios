@@ -35,11 +35,11 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>>;
     async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>>;
-    async fn create_access_list(
+    async fn create_extended_access_list(
         &self,
         tx: N::TransactionRequest,
         block_id: Option<BlockId>,
-    ) -> Result<AccessListResponse>;
+    ) -> Result<ExtendedAccessListResponse>;
     // Methods just for compatibility (acts as a proxy)
     async fn chain_id(&self) -> Result<ChainIdResponse>;
     async fn get_block(&self, block_id: BlockId, full_tx: bool)

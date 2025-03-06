@@ -41,6 +41,12 @@ pub enum BlockTag {
     Number(u64),
 }
 
+impl From<u64> for BlockTag {
+    fn from(num: u64) -> Self {
+        BlockTag::Number(num)
+    }
+}
+
 impl Display for BlockTag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let formatted = match self {
