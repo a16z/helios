@@ -222,6 +222,13 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_block_by_hash(&self, hash: String, full_tx: bool) -> Result<JsValue, JsError> {
+        let hash = B256::from_str(&hash)?;
+        let block = map_err(self.inner.get_block_by_hash(hash, full_tx).await)?;
+        Ok(serde_wasm_bindgen::to_value(&block)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn get_code(&self, addr: JsValue, block: JsValue) -> Result<String, JsError> {
         let addr: Address = serde_wasm_bindgen::from_value(addr)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
