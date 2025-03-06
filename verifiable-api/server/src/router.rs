@@ -10,6 +10,7 @@ use crate::{handlers, state::ApiState};
 
 pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, R>> {
     Router::new()
+        .route("/openapi.yaml", get(handlers::openapi))
         .nest(
             "/eth/v1/proof",
             Router::new()

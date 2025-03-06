@@ -1,6 +1,14 @@
 # helios-verifiable-api
 
-## Usage
+A JSON REST API for Ethereum Execution Layer with verifiable responses as a first-class feature.
+
+It wraps and replaces [Ethereum's execution JSON-RPC](https://ethereum.org/en/developers/docs/apis/json-rpc/).
+
+## API Spec
+
+[openapi.yaml](https://github.com/a16z/helios/blob/master/verifiable-api/server/openapi.yaml)
+
+## Server Usage
 
 ```bash
 $ cargo run -- --help
@@ -28,21 +36,29 @@ Options:
   -h, --help                             Print help
 ```
 
-#### Ethereum
+### Examples
+
+**Ethereum**
 
 ```bash
 $ cargo run -- ethereum --execution-rpc https://ethereum-rpc.publicnode.com
 ```
 
-#### OP Stack (E.g. Base)
+**OP Stack (E.g. Base)**
 
 ```bash
 $ cargo run -- opstack --execution-rpc https://base-rpc.publicnode.com
 ```
 
+## Client Usage
+
+See [helios-verifiable-api-client](verifiable-api/client) crate.
+
 ## JSON-RPC to REST API map
 
 ### Verifiable endpoints
+
+Below is a map of RPC methods to Verifiable-API endpoints that are augmented with relevant proofs for verifiability.
 
 | Ethereum JSON-RPC Method       | Helios Verifiable API Endpoint                                                           |
 |--------------------------------|-----------------------------------------------------------------------------------------|
@@ -55,10 +71,13 @@ $ cargo run -- opstack --execution-rpc https://base-rpc.publicnode.com
 | `eth_getLogs`                  | `GET /eth/v1/proof/logs?fromBlock={}&toBlock={}&blockHash={}&address={}&topic0={}`      |
 | `eth_getFilterLogs`            | `GET /eth/v1/proof/filterLogs/{filter_id}`                                                |
 | `eth_getFilterChanges`         | `GET /eth/v1/proof/filterChanges/{filter_id}`                                             |
-| `eth_createAccessList`         | `POST /eth/v1/proof/createAccessList`                                                   |
+| `eth_createAccessList`         | `POST /eth/v1/proof/createExtendedAccessList`                                           |
 
 
 ### Proxy endpoints
+
+Below is a map of RPC methods to Verifiable-API endpoints that cannot be augmented with proofs but still supported
+so a client only needs to consume a single data source.
 
 | Ethereum JSON-RPC Method         | Helios Verifiable API Endpoint               |
 |----------------------------------|---------------------------------------------|

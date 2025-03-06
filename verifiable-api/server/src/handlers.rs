@@ -1,3 +1,5 @@
+use std::{fs::File, io::Read};
+
 use alloy::{
     eips::BlockNumberOrTag,
     primitives::{Address, B256, U256},
@@ -108,6 +110,28 @@ impl TryInto<Filter> for LogsQuery {
     }
 }
 
+/// Returns information about an address along with its EIP-1186 account proof.
+///
+/// ## Path Parameters
+///
+/// - `address` - The address of the account.
+///
+/// ## Query Parameters
+///
+/// - `includeCode` - A flag indicating whether to include the account's code.
+/// - `storageSlots` - A list of storage positions (in hex) to include in the proof.
+/// - `block` - The block number, tag or hash to query the account state at.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getProof`, `eth_getTransactionCount`,
+/// `eth_getBalance`, `eth_getCode`, and `eth_getStorageAt` RPC methods.
+///
+/// ## How to verify response?
+///
+/// - RLP encode the `TrieAccount` struct and keccak-256 hash it.
+/// - Verify the given `accountProof` against the trusted block's state root using the address as the key (path) and the hashed account as the value (leaf).
+/// - For each item in `storageProof`, verify the given leaf’s Merkle Proof against the `storageHash`
 pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(address): Path<Address>,
     Query(AccountProofQuery {
@@ -124,6 +148,20 @@ pub async fn get_account<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns the receipt of a transaction along with a Merkle Proof of its inclusion.
+///
+/// ## Path Parameters
+///
+/// - `txHash` - The hash of the transaction.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getTransactionReceipt` RPC method.
+///
+/// ## How to verify response?
+///
+/// - RLP encode the given receipt and keccak-256 hash it.
+/// - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf.
 pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(tx_hash): Path<B256>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
@@ -135,6 +173,32 @@ pub async fn get_transaction_receipt<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns an array of all logs matching the given filter object.
+/// Corresponding to each log, it also returns the transaction receipt and a Merkle Proof of its inclusion.
+///
+/// ## Query Parameters
+///
+/// - `fromBlock`: range — starting block number or tag.
+/// - `toBlock`: range — ending block number or tag.
+/// - `blockHash`: Using blockHash is equivalent to fromBlock = toBlock = the block number with hash blockHash. If blockHash is present in the filter criteria, then neither fromBlock nor toBlock are allowed.
+/// - `address`: Contract address or a list of addresses from which logs should originate.
+/// - `topic0`: Array of 32 Bytes DATA topics.
+/// - `topic1`: Array of 32 Bytes DATA topics.
+/// - `topic2`: Array of 32 Bytes DATA topics.
+/// - `topic3`: Array of 32 Bytes DATA topics.
+/// > Note: Topics are order-dependent. Each topic can also be an array of DATA with "or" options.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getLogs` RPC method.
+///
+/// ## How to verify response?
+///
+/// For each log,
+/// - Find the corresponding transaction receipt for the log from the `receiptProofs` field. Let’s call this `receipt`.
+/// - Ensure that this log entry is included in the `receipt.logs` array.
+/// - RLP encode the `receipt` and keccak-256 hash it.
+/// - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf.
 pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Query(logs_filter_query): Query<LogsQuery>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
@@ -148,6 +212,24 @@ pub async fn get_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns an array of all logs matching the filter with given id.
+/// Corresponding to each log, it also returns the transaction receipt and a Merkle Proof of its inclusion.
+///
+/// ## Path Parameters
+///
+/// - `filterId` - The ID of the filter.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getFilterLogs` RPC method.
+///
+/// ## How to verify response?
+///
+/// For each log,
+/// - Find the corresponding transaction receipt for the log from the `receiptProofs` field. Let’s call this `receipt`.
+/// - Ensure that this log entry is included in the `receipt.logs` array.
+/// - RLP encode the `receipt` and keccak-256 hash it.
+/// - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf.
 pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
@@ -159,6 +241,28 @@ pub async fn get_filter_logs<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns the changes since the last poll for a given filter id.
+/// If filter is of logs type, then corresponding to each log,
+/// it also returns the transaction receipt and a Merkle Proof of its inclusion.
+///
+/// ## Path Parameters
+///
+/// - `filterId` - The ID of the filter.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getFilterChanges` RPC method.
+///
+/// ## How to verify response?
+///
+/// > Note: Only applicable for filters of logs type.
+///
+///
+/// For each log,
+/// - Find the corresponding transaction receipt for the log from the `receiptProofs` field. Let’s call this `receipt`.
+/// - Ensure that this log entry is included in the `receipt.logs` array.
+/// - RLP encode the `receipt` and keccak-256 hash it.
+/// - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf
 pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
@@ -170,6 +274,24 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns a list of all addresses and storage keys (along with their EIP-1186 proofs) that are accessed by a given transaction.
+/// It's an extended list because it includes the `from`, `to` and `block.beneficiary` addresses as well.
+///
+/// ## Path Parameters
+///
+/// - `tx` - The transaction call object to create the access list for.
+/// - `block` - The block number, tag or hash to simulate the transaction at.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_createAccessList` RPC method.
+///
+/// ## How to verify response?
+///
+/// For each account:
+/// - RLP encode the `TrieAccount` struct and keccak-256 hash it.
+/// - Verify the given `accountProof` against the trusted block's state root using the address as the key (path) and the hashed account as the value (leaf).
+/// - For each item in `storageProof`: verify the given leaf’s Merkle Proof against the `storageHash`.
 pub async fn create_extended_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
     State(ApiState { api_service }): State<ApiState<N, R>>,
     Json(ExtendedAccessListRequest { tx, block }): Json<ExtendedAccessListRequest<N>>,
@@ -181,6 +303,11 @@ pub async fn create_extended_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns the chain id of the network of the underlying RPC node.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_chainId` RPC method.
 pub async fn get_chain_id<N: NetworkSpec, R: ExecutionRpc<N>>(
     State(ApiState { api_service }): State<ApiState<N, R>>,
 ) -> Response<ChainIdResponse> {
@@ -191,6 +318,19 @@ pub async fn get_chain_id<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns information about a block by block number, tag or hash.
+///
+/// ## Path Parameters
+///
+/// - `blockId` - The block number, tag, or hash.
+///
+/// ## Query Parameters
+///
+/// - `transactionDetailFlag` - A flag indicating whether to include full transaction details or just the hashes.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getBlockByNumber` and `eth_getBlockByHash` RPC methods.
 pub async fn get_block<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(block_id): Path<BlockId>,
     Query(BlockQuery {
@@ -205,6 +345,21 @@ pub async fn get_block<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Returns all transaction receipts for a given block.
+///
+/// ## Path Parameters
+///
+/// - `blockId` - The block number, tag, or hash.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_getBlockReceipts` RPC method.
+///
+/// ## How to verify response?
+///
+/// - RLP encode each receipt and keccak-256 hash these encoded receipts.
+/// - Construct a Merkle Patricia Trie (MPT) from these hashes.
+/// - Verify the root of the constructed MPT against the trusted block's receipt root.
 pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(block_id): Path<BlockId>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
@@ -216,6 +371,15 @@ pub async fn get_block_receipts<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Creates a new message call transaction or a contract creation for signed transactions.
+///
+/// ## Path Parameters
+///
+/// - `bytes` - Bytes of the signed transaction data.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_sendRawTransaction` RPC method.
 pub async fn send_raw_transaction<N: NetworkSpec, R: ExecutionRpc<N>>(
     State(ApiState { api_service }): State<ApiState<N, R>>,
     Json(SendRawTxRequest { bytes }): Json<SendRawTxRequest>,
@@ -227,6 +391,18 @@ pub async fn send_raw_transaction<N: NetworkSpec, R: ExecutionRpc<N>>(
         .map_err(map_server_err)
 }
 
+/// Creates a filter in the node, to notify when the state changes.
+/// State changes can be of three types: logs, new blocks and pending transactions.
+/// To check if the state has changed, query `/filterChanges/{filterId}`.
+///
+/// ## Path Parameters
+///
+/// - `kind` - The kind of filter to create (`Logs`, `NewBlocks`, or `NewPendingTransactions`).
+/// - `filter` - The filter object (optional, required only for `Logs` filter).
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_newFilter`, `eth_newBlockFilter` and `eth_newPendingTransactionFilter` RPC methods.
 pub async fn new_filter<N: NetworkSpec, R: ExecutionRpc<N>>(
     State(ApiState { api_service }): State<ApiState<N, R>>,
     Json(NewFilterRequest { kind, filter }): Json<NewFilterRequest>,
@@ -245,6 +421,15 @@ pub async fn new_filter<N: NetworkSpec, R: ExecutionRpc<N>>(
     res.map(Json).map_err(map_server_err)
 }
 
+/// Uninstalls a filter with given id.
+///
+/// ## Path Parameters
+///
+/// - `filterId` - The ID of the filter to uninstall.
+///
+/// ## Why is this useful?
+///
+/// Replaces the `eth_uninstallFilter` RPC method.
 pub async fn uninstall_filter<N: NetworkSpec, R: ExecutionRpc<N>>(
     Path(filter_id): Path<U256>,
     State(ApiState { api_service }): State<ApiState<N, R>>,
@@ -254,4 +439,27 @@ pub async fn uninstall_filter<N: NetworkSpec, R: ExecutionRpc<N>>(
         .await
         .map(Json)
         .map_err(map_server_err)
+}
+
+/// Returns the OpenAPI specification in YAML format.
+pub async fn openapi() -> Result<String, (StatusCode, String)> {
+    let mut file = match File::open("openapi.yaml") {
+        Ok(file) => file,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to open openapi.yaml".to_string(),
+            ));
+        }
+    };
+
+    let mut contents = String::new();
+    if file.read_to_string(&mut contents).is_err() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to read openapi.yaml".to_string(),
+        ));
+    }
+
+    Ok(contents)
 }

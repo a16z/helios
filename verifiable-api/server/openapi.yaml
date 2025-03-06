@@ -1,0 +1,776 @@
+openapi: 3.0.0
+info:
+  title: Helios Verifiable API
+  version: 0.0.0
+  description: >
+    Helios Verifiable API for Ethereum Execution Layer.
+
+
+    GitHub: [https://github.com/a16z/helios/tree/master/verifiable-api]([https://github.com/a16z/helios/tree/master/verifiable-api)
+paths:
+  /eth/v1/proof/account/{address}:
+    get:
+      tags:
+        - verifiable
+      summary: Get Account Information
+      description: >
+        Returns information about an address along with its EIP-1186 account proof.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getProof`, `eth_getTransactionCount`,
+        `eth_getBalance`, `eth_getCode`, and `eth_getStorageAt` RPC methods.
+
+        ### How to verify response?
+
+        - RLP encode the `TrieAccount` struct and keccak-256 hash it.
+
+        - Verify the given `accountProof` against the trusted block's state root using the address as the key (path) and the hashed account as the value (leaf).
+
+        - For each item in `storageProof`, verify the given leaf’s Merkle Proof against the `storageHash`
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/address"
+          description: The address of the account.
+        - name: includeCode
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: A flag indicating whether to include the account's code.
+        - name: storageSlots
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/bytesMax32"
+          description: A list of storage positions (in hex) to include in the proof.
+        - name: block
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/BlockNumberOrTagOrHash"
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/proof/transaction/{txHash}/receipt:
+    get:
+      tags:
+        - verifiable
+      summary: Get Transaction Receipt
+      description: >
+        Returns the receipt of a transaction along with a Merkle Proof of its inclusion.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getTransactionReceipt` RPC method.
+
+        ### How to verify response?
+
+        - RLP encode the given receipt and keccak-256 hash it.
+
+        - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf.
+      parameters:
+        - name: txHash
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/hash32"
+          description: The hash of the transaction.
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionReceiptResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/proof/logs:
+    get:
+      tags:
+        - verifiable
+      summary: Get Logs
+      description: >
+        Returns an array of all logs matching the given filter object.
+
+        Corresponding to each log, it also returns the transaction receipt and a Merkle Proof of its inclusion.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getLogs` RPC method.
+
+        ### How to verify response?
+
+        For each log:
+
+        - Find the corresponding transaction receipt for the log from the `receiptProofs` field. Let’s call this `receipt`.
+
+        - Ensure that this log entry is included in the `receipt.logs` array.
+
+        - RLP encode the `receipt` and keccak-256 hash it.
+
+        - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf.
+      parameters:
+        - name: fromBlock
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/uint"
+          description: Starting block number or tag.
+        - name: toBlock
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/uint"
+          description: Ending block number or tag.
+        - name: blockHash
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/hash32"
+          description: Block hash. If present, fromBlock and toBlock are not allowed.
+        - name: address
+          in: query
+          required: false
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/address"
+              - $ref: "#/components/schemas/addresses"
+          description: Contract address or a list of addresses from which logs should originate.
+        - name: topic0
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FilterTopic"
+          description: 32 Bytes DATA topic(s).
+        - name: topic1
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FilterTopic"
+          description: 32 Bytes DATA topic(s).
+        - name: topic2
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FilterTopic"
+          description: 32 Bytes DATA topic(s).
+        - name: topic3
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/FilterTopic"
+          description: 32 Bytes DATA topic(s).
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogsResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/proof/filterLogs/{filterId}:
+    get:
+      tags:
+        - verifiable
+      summary: Get Filter Logs
+      description: >
+        Returns an array of all logs matching the filter with given id.
+
+        Corresponding to each log, it also returns the transaction receipt and a Merkle Proof of its inclusion.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getFilterLogs` RPC method.
+
+        ### How to verify response?
+
+        For each log:
+
+        - Find the corresponding transaction receipt for the log from the `receiptProofs` field. Let’s call this `receipt`.
+
+        - Ensure that this log entry is included in the `receipt.logs` array.
+
+        - RLP encode the `receipt` and keccak-256 hash it.
+
+        - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf.
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/uint"
+          description: Filter identifier
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterLogsResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/proof/filterChanges/{filterId}:
+    get:
+      tags:
+        - verifiable
+      summary: Get Filter Changes
+      description: >
+        Returns the changes since the last poll for a given filter id. If filter is of logs type, then corresponding to each log, it also returns the transaction receipt and a Merkle Proof of its inclusion.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getFilterChanges` RPC method.
+
+        ### How to verify response?
+
+        > Note: Only applicable for filters of logs type.
+
+
+        For each log:
+
+        - Find the corresponding transaction receipt for the log from the `receiptProofs` field. Let’s call this `receipt`.
+
+        - Ensure that this log entry is included in the `receipt.logs` array.
+
+        - RLP encode the `receipt` and keccak-256 hash it.
+
+        - Verify the given `receiptProof` against the trusted block's receipt root with the given receipt's hash as the leaf
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/uint"
+          description: Filter identifier
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterChangesResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/proof/createExtendedAccessList:
+    post:
+      tags:
+        - verifiable
+      summary: Create Extended Access List
+      description: >
+        Returns a list of all addresses and storage keys (along with their EIP-1186 proofs) that are accessed by a given transaction.
+
+
+        It's an extended list because it includes the `from`, `to` and `block.beneficiary` addresses as well.
+
+        ### Why is this useful?
+
+        Replaces the `eth_createAccessList` RPC method.
+
+        ### How to verify response?
+
+        For each account:
+
+        - RLP encode the `TrieAccount` struct and keccak-256 hash it.
+
+        - Verify the given `accountProof` against the trusted block's state root using the address as the key (path) and the hashed account as the value (leaf).
+
+        - For each item in `storageProof`: verify the given leaf’s Merkle Proof against the `storageHash`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendedAccessListRequest"
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtendedAccessListResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/chainId:
+    get:
+      summary: Get Chain ID
+      description: >
+        Returns the chain id of the network of the underlying RPC node.
+
+        ### Why is this useful?
+
+        Replaces the `eth_chainId` RPC method.
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainIdResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/block/{blockId}:
+    get:
+      summary: Get Block Information
+      description: >
+        Returns information about a block.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getBlockByNumber` and `eth_getBlockByHash` RPC methods.
+      parameters:
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/BlockNumberOrTagOrHash"
+        - name: transactionDetailFlag
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: A flag indicating whether to include full transaction details or just the hashes.
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/block/{blockId}/receipts:
+    get:
+      summary: Get Block Receipts
+      description: >
+        Returns all transaction receipts for a given block.
+
+        ### Why is this useful?
+
+        Replaces the `eth_getBlockReceipts` RPC method.
+
+        ### How to verify response?
+
+        - RLP encode each receipt and keccak-256 hash these encoded receipts.
+
+        - Construct a Merkle Patricia Trie (MPT) from these hashes.
+
+        - Verify the root of the constructed MPT against the trusted block's receipt root.
+      parameters:
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/BlockNumberOrTagOrHash"
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockReceiptsResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/sendRawTransaction:
+    post:
+      summary: Send Raw Transaction
+      description: >
+        Creates a new message call transaction or a contract creation for signed transactions.
+
+        ### Why is this useful?
+
+        Replaces the `eth_sendRawTransaction` RPC method.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendRawTxRequest"
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendRawTxResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/filter:
+    post:
+      summary: Create New Filter
+      description: >
+        Creates a filter in the node, to notify when the state changes.
+
+
+        State changes can be of three types: logs, new blocks and pending transactions.
+
+
+        To check if the state has changed, query `/filterChanges/{filterId}`.
+
+        ### Why is this useful?
+
+        Replaces the `eth_newFilter`, `eth_newBlockFilter` and `eth_newPendingTransactionFilter` RPC methods.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewFilterRequest"
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewFilterResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /eth/v1/filter/{filterId}:
+    delete:
+      summary: Uninstall a filter
+      description: >
+        Uninstalls a filter with given id.
+
+        ### Why is this useful?
+
+        Replaces the `eth_uninstallFilter` RPC method.
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/uint"
+          description: Filter identifier
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UninstallFilterResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    AccountResponse:
+      type: object
+      properties:
+        account:
+          type: object
+          properties:
+            address:
+              $ref: "#/components/schemas/address"
+            balance:
+              $ref: "#/components/schemas/uint256"
+            nonce:
+              $ref: "#/components/schemas/uint64"
+            codeHash:
+              $ref: "#/components/schemas/hash32"
+            storageHash:
+              $ref: "#/components/schemas/hash32"
+        code:
+          $ref: "#/components/schemas/bytes"
+        accountProof:
+          type: array
+          items:
+            $ref: "#/components/schemas/bytes"
+        storageProof:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageProof"
+    TransactionReceiptResponse:
+      type: object
+      properties:
+        receipt:
+          $ref: "#/components/schemas/TransactionReceipt"
+        receiptProof:
+          type: array
+          items:
+            $ref: "#/components/schemas/bytes"
+    ReceiptProofsMap:
+      type: object
+      additionalProperties:
+        $ref: "#/components/schemas/TransactionReceiptResponse"
+      description: Key is tx hash, value is TransactionReceiptResponse
+    LogsResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Log"
+        receiptProofs:
+          $ref: "#/components/schemas/ReceiptProofsMap"
+    FilterLogsResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Log"
+        receiptProofs:
+          $ref: "#/components/schemas/ReceiptProofsMap"
+    FilterChangesResponse:
+      type: object
+      oneOf:
+        - $ref: "#/components/schemas/FilterLogsResponse"
+        - properties:
+            hashes:
+              type: array
+              items:
+                $ref: "#/components/schemas/hash32"
+    ExtendedAccessListRequest:
+      type: object
+      properties:
+        tx:
+          $ref: "#/components/schemas/GenericTransaction"
+        block:
+          $ref: "#/components/schemas/BlockNumberOrTagOrHash"
+    ExtendedAccessListResponse:
+      type: object
+      properties:
+        accounts:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AccountResponse"
+          description: Map of address to AccountResponse.
+    ChainIdResponse:
+      type: object
+      properties:
+        chainId:
+          $ref: "#/components/schemas/uint"
+    BlockResponse:
+      $ref: "#/components/schemas/Block"
+    BlockReceiptsResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/TransactionReceipt"
+    SendRawTxRequest:
+      type: object
+      properties:
+        bytes:
+          $ref: "#/components/schemas/bytes"
+    SendRawTxResponse:
+      type: object
+      properties:
+        hash:
+          $ref: "#/components/schemas/hash32"
+    NewFilterRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - Logs
+            - NewBlocks
+            - NewPendingTransactions
+        filter:
+          $ref: "#/components/schemas/Filter"
+    NewFilterResponse:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/uint"
+          description: Filter identifier
+        kind:
+          type: string
+          enum:
+            - Logs
+            - NewBlocks
+            - NewPendingTransactions
+    UninstallFilterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+    address:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/address
+    addresses:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/addresses
+    byte:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/byte
+    bytes:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/bytes
+    bytes8:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/bytes8
+    bytes32:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/bytes32
+    bytesMax32:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/bytesMax32
+    bytes256:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/bytes256
+    uint:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/uint
+    uint64:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/uint64
+    uint256:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/uint256
+    hash32:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/base-types.yaml#/hash32
+    BlockTag:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/block.yaml#/BlockTag
+    BlockNumberOrTagOrHash:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/block.yaml#/BlockNumberOrTagOrHash
+    FilterTopic:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/filter.yaml#/FilterTopic
+    FilterTopics:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/filter.yaml#/FilterTopics
+    Filter:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/filter.yaml#/Filter
+    StorageProof:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/state.yaml#/StorageProof
+    Withdrawal:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/withdrawal.yaml#/Withdrawal
+    AccessListEntry:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/transaction.yaml#/AccessListEntry
+    AccessList:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/transaction.yaml#/AccessList
+    AuthorizationList:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/transaction.yaml#/AuthorizationList
+    Log:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/receipt.yaml#/Log
+    TransactionReceipt:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/receipt.yaml#/ReceiptInfo
+    Block:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/block.yaml#/Block
+    TransactionInfo:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/transaction.yaml#/TransactionInfo
+    GenericTransaction:
+      $ref: https://raw.githubusercontent.com/ethereum/execution-apis/refs/heads/main/src/schemas/transaction.yaml#/GenericTransaction
