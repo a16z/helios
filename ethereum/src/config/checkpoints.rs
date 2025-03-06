@@ -26,10 +26,11 @@ pub struct RawSlotResponseData {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Slot {
-    #[serde(deserialize_with = "deserialize_slot")]
+    #[serde(deserialize_with = "deserialize_number")]
     pub slot: u64,
     pub block_root: Option<B256>,
     pub state_root: Option<B256>,
+    #[serde(deserialize_with = "deserialize_number")]
     pub epoch: u64,
     pub time: StartEndTime,
 }
@@ -168,6 +169,7 @@ impl CheckpointFallback {
                 let service = service.clone();
                 match Self::query_service(&service.endpoint).await {
                     Some(raw) => {
+                        println!("{:?}", raw);
                         if raw.data.slots.is_empty() {
                             return Err(eyre::eyre!("no slots"));
                         }
@@ -195,6 +197,8 @@ impl CheckpointFallback {
             })
             .filter(|s| s.block_root.is_some())
             .collect::<Vec<_>>();
+
+        println!("{:#?}", slots);
 
         // Get the max epoch
         let max_epoch_slot = slots.iter().max_by_key(|x| x.epoch).ok_or(eyre::eyre!(
@@ -299,16 +303,20 @@ impl CheckpointFallback {
     }
 }
 
-fn deserialize_slot<'de, D>(deserializer: D) -> Result<u64, D::Error>
+fn deserialize_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: de::Deserializer<'de>,
 {
-    let s: &str = de::Deserialize::deserialize(deserializer)?;
-    let s = if s.starts_with('"') {
-        &s[1..s.len() - 1]
-    } else {
-        s
-    };
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrNumber {
+        String(String),
+        Number(u64),
+    }
 
-    s.parse().map_err(D::Error::custom)
+    let value: StringOrNumber = de::Deserialize::deserialize(deserializer)?;
+    match value {
+        StringOrNumber::String(s) => s.parse().map_err(D::Error::custom),
+        StringOrNumber::Number(v) => Ok(v),
+    }
 }
