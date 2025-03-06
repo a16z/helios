@@ -398,7 +398,7 @@ pub struct DepositRequest {
     amount: u64,
     signature: Signature,
     #[serde(with = "serde_utils::u64")]
-    slot: u64,
+    index: u64,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
