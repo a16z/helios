@@ -169,7 +169,6 @@ impl CheckpointFallback {
                 let service = service.clone();
                 match Self::query_service(&service.endpoint).await {
                     Some(raw) => {
-                        println!("{:?}", raw);
                         if raw.data.slots.is_empty() {
                             return Err(eyre::eyre!("no slots"));
                         }
@@ -197,8 +196,6 @@ impl CheckpointFallback {
             })
             .filter(|s| s.block_root.is_some())
             .collect::<Vec<_>>();
-
-        println!("{:#?}", slots);
 
         // Get the max epoch
         let max_epoch_slot = slots.iter().max_by_key(|x| x.epoch).ok_or(eyre::eyre!(
