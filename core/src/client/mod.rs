@@ -14,7 +14,7 @@ use crate::consensus::Consensus;
 use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::time::interval;
-use crate::types::BlockTag;
+use crate::types::{BlockTag, SubEventRx};
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]
@@ -58,6 +58,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         }
 
         Ok(())
+    }
+
+    pub async fn subscribe(&self, event_type: String) -> Result<SubEventRx<N>> {
+        self.node.subscribe(event_type).await
     }
 
     pub async fn shutdown(&self) {
