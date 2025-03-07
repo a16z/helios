@@ -161,6 +161,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
     async fn create_extended_access_list(
         &self,
         tx: N::TransactionRequest,
+        validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
         let block_id = block_id.unwrap_or_default();
@@ -188,7 +189,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
             },
             tag,
         );
-        let res = evm.create_access_list(&tx).await?;
+        let res = evm.create_access_list(&tx, validate_tx).await?;
 
         Ok(ExtendedAccessListResponse {
             accounts: res.accounts,
@@ -312,7 +313,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ApiService<N, R> {
 
 #[cfg(test)]
 mod tests {
-    use alloy::{network::TransactionBuilder, rpc::types::TransactionRequest};
+    use alloy::rpc::types::TransactionRequest;
     use helios_core::execution::rpc::mock_rpc::MockRpc;
     use helios_ethereum::spec::Ethereum as EthereumSpec;
     use helios_test_utils::*;
@@ -476,18 +477,13 @@ mod tests {
         let service = get_service();
         let address = rpc_proof().address;
         let block = rpc_block();
-        let mut tx = TransactionRequest::default()
+        let tx = TransactionRequest::default()
             .from(block.header.beneficiary)
             .to(address)
-            .gas_limit(block.header.gas_limit)
             .value(U256::from(0));
-        <TransactionRequest as TransactionBuilder<EthereumSpec>>::set_gas_price(
-            &mut tx,
-            (block.header.base_fee_per_gas.unwrap()).into(),
-        );
 
         let response = service
-            .create_extended_access_list(tx, BlockId::latest().into())
+            .create_extended_access_list(tx, false, BlockId::latest().into())
             .await
             .unwrap();
 

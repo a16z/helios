@@ -246,9 +246,12 @@ impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
     async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
+        validate_tx: bool,
         block: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
-        self.client.create_extended_access_list(tx, block).await
+        self.client
+            .create_extended_access_list(tx, validate_tx, block)
+            .await
     }
 
     async fn chain_id(&self) -> Result<u64> {

@@ -120,6 +120,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
     async fn create_extended_access_list(
         &self,
         tx: N::TransactionRequest,
+        validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
         let url = format!("{}/eth/v1/proof/createExtendedAccessList", self.base_url);
@@ -128,6 +129,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
             .post(&url)
             .json(&ExtendedAccessListRequest::<N> {
                 tx,
+                validate_tx,
                 block: block_id,
             })
             .send()

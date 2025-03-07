@@ -52,6 +52,7 @@ pub enum FilterChangesResponse<N: NetworkSpec> {
 #[serde(rename_all = "camelCase")]
 pub struct ExtendedAccessListRequest<N: NetworkSpec> {
     pub tx: N::TransactionRequest,
+    pub validate_tx: bool,
     pub block: Option<BlockId>,
 }
 

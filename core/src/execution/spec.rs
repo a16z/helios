@@ -30,6 +30,7 @@ pub trait ExecutionSpec<N: NetworkSpec>: Send + Sync + 'static {
     async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
+        validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>>;
     async fn chain_id(&self) -> Result<u64>;

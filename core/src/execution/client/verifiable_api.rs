@@ -125,6 +125,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
     async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
+        validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
         let block_id = block_id.unwrap_or_default();
@@ -138,7 +139,7 @@ impl<N: NetworkSpec, A: VerifiableApi<N>> ExecutionSpec<N>
 
         let ExtendedAccessListResponse { accounts } = self
             .api
-            .create_extended_access_list(tx.clone(), Some(block_id))
+            .create_extended_access_list(tx.clone(), validate_tx, Some(block_id))
             .await?;
 
         for (address, account) in &accounts {
@@ -473,7 +474,7 @@ mod tests {
         let tx = TransactionRequest::default().from(address).to(address);
 
         let response = client
-            .create_extended_access_list(&tx, BlockId::latest().into())
+            .create_extended_access_list(&tx, false, BlockId::latest().into())
             .await
             .unwrap();
 

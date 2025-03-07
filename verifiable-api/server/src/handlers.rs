@@ -280,6 +280,7 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// ## Path Parameters
 ///
 /// - `tx` - The transaction call object to create the access list for.
+/// - `validateTx` - A flag indicating whether to validate the transaction (such as enforcing gas limit).
 /// - `block` - The block number, tag or hash to simulate the transaction at.
 ///
 /// ## Why is this useful?
@@ -294,10 +295,14 @@ pub async fn get_filter_changes<N: NetworkSpec, R: ExecutionRpc<N>>(
 /// - For each item in `storageProof`: verify the given leaf’s Merkle Proof against the `storageHash`.
 pub async fn create_extended_access_list<N: NetworkSpec, R: ExecutionRpc<N>>(
     State(ApiState { api_service }): State<ApiState<N, R>>,
-    Json(ExtendedAccessListRequest { tx, block }): Json<ExtendedAccessListRequest<N>>,
+    Json(ExtendedAccessListRequest {
+        tx,
+        validate_tx,
+        block,
+    }): Json<ExtendedAccessListRequest<N>>,
 ) -> Response<ExtendedAccessListResponse> {
     api_service
-        .create_extended_access_list(tx, block)
+        .create_extended_access_list(tx, validate_tx, block)
         .await
         .map(Json)
         .map_err(map_server_err)

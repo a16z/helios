@@ -656,6 +656,9 @@ components:
       properties:
         tx:
           $ref: "#/components/schemas/GenericTransaction"
+        validateTx:
+          type: boolean
+          description: A flag indicating whether to validate the transaction (such as enforcing gas limit).
         block:
           $ref: "#/components/schemas/BlockNumberOrTagOrHash"
     ExtendedAccessListResponse:

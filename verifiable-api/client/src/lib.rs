@@ -38,6 +38,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + 'static {
     async fn create_extended_access_list(
         &self,
         tx: N::TransactionRequest,
+        validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse>;
     // Methods just for compatibility (acts as a proxy)

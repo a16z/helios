@@ -109,7 +109,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         );
 
         let res = evm
-            .create_access_list(tx)
+            .create_access_list(tx, true)
             .await
             .map_err(ClientError::EvmError)?;
 

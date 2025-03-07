@@ -138,6 +138,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionSpec<N> for ExecutionInnerRpcC
     async fn create_extended_access_list(
         &self,
         tx: &N::TransactionRequest,
+        _validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<HashMap<Address, Account>> {
         let block_id = block_id.unwrap_or_default();
@@ -534,7 +535,7 @@ mod tests {
             .value(U256::ZERO);
 
         let response = client
-            .create_extended_access_list(&tx, BlockId::latest().into())
+            .create_extended_access_list(&tx, false, BlockId::latest().into())
             .await
             .unwrap();
 

@@ -118,6 +118,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
     async fn create_extended_access_list(
         &self,
         _tx: N::TransactionRequest,
+        _validate_tx: bool,
         _block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
         let json_str = read_to_string(self.path.join("verifiable_api/access_list.json"))?;

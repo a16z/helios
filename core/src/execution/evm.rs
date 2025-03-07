@@ -48,7 +48,7 @@ impl<N: NetworkSpec> Evm<N> {
     }
 
     pub async fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
-        let (result, ..) = self.call_inner(tx, true).await?;
+        let (result, ..) = self.call_inner(tx, false).await?;
 
         match result {
             ExecutionResult::Success { output, .. } => Ok(output.into_data()),
@@ -60,7 +60,7 @@ impl<N: NetworkSpec> Evm<N> {
     }
 
     pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
-        let (result, ..) = self.call_inner(tx, false).await?;
+        let (result, ..) = self.call_inner(tx, true).await?;
 
         match result {
             ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -72,8 +72,9 @@ impl<N: NetworkSpec> Evm<N> {
     pub async fn create_access_list(
         &mut self,
         tx: &N::TransactionRequest,
+        validate_tx: bool,
     ) -> Result<AccessListResultWithAccounts, EvmError> {
-        let (result, accounts) = self.call_inner(tx, false).await?;
+        let (result, accounts) = self.call_inner(tx, validate_tx).await?;
 
         Ok(AccessListResultWithAccounts {
             access_list_result: AccessListResult {
@@ -103,12 +104,12 @@ impl<N: NetworkSpec> Evm<N> {
     async fn call_inner(
         &mut self,
         tx: &N::TransactionRequest,
-        simulate_call: bool,
+        validate_tx: bool,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
         let mut db = ProofDB::new(self.tag, self.execution.clone());
-        _ = db.state.prefetch_state(tx).await;
+        _ = db.state.prefetch_state(tx, validate_tx).await;
 
-        let env = Box::new(self.get_env(tx, self.tag, simulate_call).await);
+        let env = Box::new(self.get_env(tx, self.tag, validate_tx).await);
         let evm = Revm::builder().with_db(db).with_env(env).build();
         let mut ctx = evm.into_context_with_handler_cfg();
 
@@ -133,7 +134,7 @@ impl<N: NetworkSpec> Evm<N> {
         tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
     }
 
-    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag, simulate_call: bool) -> Env {
+    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag, validate_tx: bool) -> Env {
         let block = self
             .execution
             .get_block(tag.into(), false)
@@ -144,9 +145,9 @@ impl<N: NetworkSpec> Evm<N> {
 
         let mut cfg = CfgEnv::default();
         cfg.chain_id = self.chain_id;
-        cfg.disable_block_gas_limit = simulate_call;
-        cfg.disable_eip3607 = simulate_call;
-        cfg.disable_base_fee = simulate_call;
+        cfg.disable_block_gas_limit = !validate_tx;
+        cfg.disable_eip3607 = !validate_tx;
+        cfg.disable_base_fee = !validate_tx;
 
         Env {
             tx: N::tx_env(tx),
@@ -265,11 +266,15 @@ impl<N: NetworkSpec> EvmState<N> {
         }
     }
 
-    pub async fn prefetch_state(&mut self, tx: &N::TransactionRequest) -> Result<()> {
+    pub async fn prefetch_state(
+        &mut self,
+        tx: &N::TransactionRequest,
+        validate_tx: bool,
+    ) -> Result<()> {
         let block_id = Some(self.block.into());
         let account_map = self
             .execution
-            .create_extended_access_list(tx, block_id)
+            .create_extended_access_list(tx, validate_tx, block_id)
             .await
             .map_err(EvmError::RpcError)?;
 
