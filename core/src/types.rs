@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use serde::{de::Error, Deserialize};
+use crate::network_spec::NetworkSpec;
+use serde::{de::Error, Deserialize, Serialize};
+use tokio::sync::broadcast::Receiver;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BlockTag {
@@ -49,3 +51,11 @@ impl<'de> Deserialize<'de> for BlockTag {
         Ok(block_tag)
     }
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum SubscriptionEvent<N: NetworkSpec> {
+    NewHeads(N::BlockResponse),
+}
+
+pub type SubEventRx<N> = Receiver<SubscriptionEvent<N>>;

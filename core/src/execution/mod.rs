@@ -14,7 +14,7 @@ use tracing::warn;
 
 use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use crate::types::{BlockTag, SubEventRx};
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
@@ -488,6 +488,16 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             }
         }
         Ok(())
+    }
+
+    pub async fn subscribe(&self, event_type: String) -> Result<SubEventRx<N>> {
+        match event_type.as_str() {
+            "newHeads" => Ok(self.state.subscribe_blocks().await),
+            _ => Err(eyre::eyre!(
+                "Unsupported subscription event: {:?}",
+                event_type
+            )),
+        }
     }
 }
 

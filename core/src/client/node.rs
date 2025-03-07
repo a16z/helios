@@ -16,7 +16,7 @@ use crate::execution::ExecutionClient;
 use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::time::{SystemTime, UNIX_EPOCH};
-use crate::types::BlockTag;
+use crate::types::{BlockTag, SubEventRx};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
@@ -320,5 +320,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
             BlockTag::Finalized => Ok(()),
             BlockTag::Number(_) => Ok(()),
         }
+    }
+
+    pub async fn subscribe(&self, event_type: String) -> Result<SubEventRx<N>> {
+        self.execution.subscribe(event_type).await
     }
 }
