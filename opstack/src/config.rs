@@ -45,6 +45,7 @@ pub enum Network {
     Base,
     Worldchain,
     Zora,
+    OpSepolia,
 }
 
 impl Display for Network {
@@ -54,6 +55,7 @@ impl Display for Network {
             Self::Base => f.write_str("base"),
             Self::Worldchain => f.write_str("worldchain"),
             Self::Zora => f.write_str("zora"),
+            Self::OpSepolia => f.write_str("op-sepolia"),
         }
     }
 }
@@ -67,6 +69,7 @@ impl FromStr for Network {
             "base" => Ok(Self::Base),
             "worldchain" => Ok(Self::Worldchain),
             "zora" => Ok(Self::Zora),
+            "op-sepolia" => Ok(Self::OpSepolia),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -100,15 +103,11 @@ impl From<Network> for NetworkConfig {
                 verify_unsafe_signer: false,
             },
             Network::Worldchain => NetworkConfig {
-                consensus_rpc: Some(
-                    "https://worldchain.operationsolarstorm.org"
-                        .parse()
-                        .unwrap(),
-                ),
+                consensus_rpc: Some("https://worldchain.operationsolarstorm.org".parse().unwrap()),
                 chain: ChainConfig {
-                    chain_id: 480,
-                    unsafe_signer: address!("2270d6eC8E760daA317DD978cFB98C8f144B1f3A"),
-                    system_config_contract: address!("6ab0777fD0e609CE58F939a7F70Fe41F5Aa6300A"),
+                    chain_id: 59144,
+                    unsafe_signer: address!("6F54Ca6F6Ede96662024Ffd61BFd18f3f4e34DFf"),
+                    system_config_contract: address!("F46a3e64CD3b30D36D7E3F4C60c6a5Fb2C4Fa24D"),
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
@@ -117,9 +116,19 @@ impl From<Network> for NetworkConfig {
                 consensus_rpc: Some("https://zora.operationsolarstorm.org".parse().unwrap()),
                 chain: ChainConfig {
                     chain_id: 7777777,
-                    unsafe_signer: address!("3Dc8Dfd0709C835cAd15a6A27e089FF4cF4C9228"),
-                    system_config_contract: address!("A3cAB0126d5F504B071b81a3e8A2BBBF17930d86"),
+                    unsafe_signer: address!("5050F69a9786F081C3d9F8fE2573e1e7F6A3c236"),
+                    system_config_contract: address!("F80Fb7FD87D3D14e265A0DFd1121C465891F9A23"),
                     eth_network: EthNetwork::Mainnet,
+                },
+                verify_unsafe_signer: false,
+            },
+            Network::OpSepolia => NetworkConfig {
+                consensus_rpc: Some("https://op-sepolia.operationsolarstorm.org".parse().unwrap()),
+                chain: ChainConfig {
+                    chain_id: 11155420,
+                    unsafe_signer: address!("6887246668a3b87F54DeB3b94Ba47a6f63F32985"),
+                    system_config_contract: address!("4200000000000000000000000000000000000070"),
+                    eth_network: EthNetwork::Sepolia,
                 },
                 verify_unsafe_signer: false,
             },
