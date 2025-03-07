@@ -302,7 +302,7 @@ impl StatusArgs {
             .transport(Http::new(Url::parse(&self.rpc_url)?))
             .build()?;
         
-        // Проверяем, синхронизирован ли клиент
+        // Check if the client is syncing
         let sync_status = client.eth_syncing().await?;
         
         match sync_status {
@@ -324,13 +324,13 @@ impl StatusArgs {
             SyncStatus::NotSyncing => {
                 info!(target: "helios::status", "Client is fully synced");
                 
-                // Получаем текущий номер блока
+                // Get current block number
                 let block_number = client.eth_block_number().await?;
                 info!(target: "helios::status", "Current block number: {}", block_number);
             }
         }
         
-        // Проверяем, доступен ли RPC
+        // Check if RPC is available
         let chain_id = client.eth_chain_id().await?;
         info!(target: "helios::status", "Connected to chain ID: {}", chain_id);
         
