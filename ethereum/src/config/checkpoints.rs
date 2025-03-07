@@ -254,7 +254,7 @@ impl CheckpointFallback {
     ///
     /// ### Warning
     ///
-    /// These services are not healthchecked **nor** trustworthy and may act with malice by returning invalid checkpoints.
+    /// These services are not health-checked **nor** trustworthy and may act with malice by returning invalid checkpoints.
     pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
         self.services[network]
             .iter()
