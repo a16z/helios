@@ -97,7 +97,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
             }
         };
 
-        tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
+        tx_res.map_err(|e| EvmError::TransactionError(format!("Failed to execute transaction: {}", e)))
     }
 
     async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
