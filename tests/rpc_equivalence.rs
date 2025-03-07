@@ -110,31 +110,46 @@ async fn get_transaction_by_hash() {
     }
 
     let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = providers[0].clone();
+    let helios_rpc = providers[1].clone();
+    let provider = providers[2].clone();
 
-    let block = providers[0]
+    let block_api = helios_api
+        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .await
+        .unwrap()
+        .unwrap();
+    let block_rpc = helios_rpc
         .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
         .await
         .unwrap()
         .unwrap();
 
-    let tx_hash = block.transactions.hashes().next().unwrap();
+    let tx_hash = block_api.transactions.hashes().next().unwrap();
+    let tx = helios_api
+        .get_transaction_by_hash(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = provider
+        .get_transaction_by_hash(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tx, expected);
 
-    let results = join_all(
-        providers
-            .into_iter()
-            .map(|provider| async move {
-                provider
-                    .get_transaction_by_hash(tx_hash)
-                    .await
-                    .unwrap()
-                    .unwrap()
-            })
-            .collect::<Vec<_>>(),
-    )
-    .await;
-
-    assert_eq!(results[0], results[1]);
-    assert_eq!(results[0], results[2]);
+    let tx_hash = block_rpc.transactions.hashes().next().unwrap();
+    let tx = helios_rpc
+        .get_transaction_by_hash(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = provider
+        .get_transaction_by_hash(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tx, expected);
 }
 
 // #[tokio::test]
@@ -163,31 +178,46 @@ async fn get_transaction_receipt() {
     }
 
     let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = providers[0].clone();
+    let helios_rpc = providers[1].clone();
+    let provider = providers[2].clone();
 
-    let block = providers[0]
+    let block_api = helios_api
+        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .await
+        .unwrap()
+        .unwrap();
+    let block_rpc = helios_rpc
         .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
         .await
         .unwrap()
         .unwrap();
 
-    let tx_hash = block.transactions.hashes().next().unwrap();
+    let tx_hash = block_api.transactions.hashes().next().unwrap();
+    let receipt = helios_api
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = provider
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(receipt, expected);
 
-    let results = join_all(
-        providers
-            .into_iter()
-            .map(|provider| async move {
-                provider
-                    .get_transaction_receipt(tx_hash)
-                    .await
-                    .unwrap()
-                    .unwrap()
-            })
-            .collect::<Vec<_>>(),
-    )
-    .await;
-
-    assert_eq!(results[0], results[1]);
-    assert_eq!(results[0], results[2]);
+    let tx_hash = block_rpc.transactions.hashes().next().unwrap();
+    let receipt = helios_rpc
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = provider
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(receipt, expected);
 }
 
 #[tokio::test]
@@ -197,25 +227,36 @@ async fn get_block_receipts() {
     }
 
     let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = providers[0].clone();
+    let helios_rpc = providers[1].clone();
+    let provider = providers[2].clone();
 
-    let block_num = providers[0].get_block_number().await.unwrap();
+    let helios_api_block_num = helios_api.get_block_number().await.unwrap();
+    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap();
 
-    let results = join_all(
-        providers
-            .into_iter()
-            .map(|provider| async move {
-                provider
-                    .get_block_receipts(block_num.into())
-                    .await
-                    .unwrap()
-                    .unwrap()
-            })
-            .collect::<Vec<_>>(),
-    )
-    .await;
+    let receipts = helios_api
+        .get_block_receipts(helios_api_block_num.into())
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = provider
+        .get_block_receipts(helios_api_block_num.into())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(receipts, expected);
 
-    assert_eq!(results[0], results[1]);
-    assert_eq!(results[0], results[2]);
+    let receipts = helios_rpc
+        .get_block_receipts(helios_rpc_block_num.into())
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = provider
+        .get_block_receipts(helios_rpc_block_num.into())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(receipts, expected);
 }
 
 #[tokio::test]
@@ -225,27 +266,38 @@ async fn get_balance() {
     }
 
     let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = providers[0].clone();
+    let helios_rpc = providers[1].clone();
+    let provider = providers[2].clone();
 
-    let block_num = providers[0].get_block_number().await.unwrap();
+    let helios_api_block_num = helios_api.get_block_number().await.unwrap();
+    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap();
 
     let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
 
-    let results = join_all(
-        providers
-            .into_iter()
-            .map(|provider| async move {
-                provider
-                    .get_balance(address)
-                    .block_id(block_num.into())
-                    .await
-                    .unwrap()
-            })
-            .collect::<Vec<_>>(),
-    )
-    .await;
+    let balance = helios_api
+        .get_balance(address)
+        .block_id(helios_api_block_num.into())
+        .await
+        .unwrap();
+    let expected = provider
+        .get_balance(address)
+        .block_id(helios_api_block_num.into())
+        .await
+        .unwrap();
+    assert_eq!(balance, expected);
 
-    assert_eq!(results[0], results[1]);
-    assert_eq!(results[0], results[2]);
+    let balance = helios_rpc
+        .get_balance(address)
+        .block_id(helios_rpc_block_num.into())
+        .await
+        .unwrap();
+    let expected = provider
+        .get_balance(address)
+        .block_id(helios_rpc_block_num.into())
+        .await
+        .unwrap();
+    assert_eq!(balance, expected);
 }
 
 #[tokio::test]
@@ -255,8 +307,12 @@ async fn call() {
     }
 
     let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = providers[0].clone();
+    let helios_rpc = providers[1].clone();
+    let provider = providers[2].clone();
 
-    let block_num = providers[0].get_block_number().await.unwrap();
+    let helios_api_block_num = helios_api.get_block_number().await.unwrap();
+    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap();
 
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let user = address!("99C9fc46f92E8a1c0deC1b1747d010903E884bE1");
@@ -268,25 +324,41 @@ async fn call() {
         }
     }
 
-    let results = join_all(
-        providers
-            .into_iter()
-            .map(|provider| async move {
-                let token = ERC20::new(usdc, provider);
-                token
-                    .balanceOf(user)
-                    .block(block_num.into())
-                    .call()
-                    .await
-                    .unwrap()
-                    ._0
-            })
-            .collect::<Vec<_>>(),
-    )
-    .await;
+    let token_api = ERC20::new(usdc, helios_api);
+    let token_rpc = ERC20::new(usdc, helios_rpc);
+    let token_provider = ERC20::new(usdc, provider);
 
-    assert_eq!(results[0], results[1]);
-    assert_eq!(results[0], results[2]);
+    let balance = token_api
+        .balanceOf(user)
+        .block(helios_api_block_num.into())
+        .call()
+        .await
+        .unwrap()
+        ._0;
+    let expected = token_provider
+        .balanceOf(user)
+        .block(helios_api_block_num.into())
+        .call()
+        .await
+        .unwrap()
+        ._0;
+    assert_eq!(balance, expected);
+
+    let balance = token_rpc
+        .balanceOf(user)
+        .block(helios_rpc_block_num.into())
+        .call()
+        .await
+        .unwrap()
+        ._0;
+    let expected = token_provider
+        .balanceOf(user)
+        .block(helios_rpc_block_num.into())
+        .call()
+        .await
+        .unwrap()
+        ._0;
+    assert_eq!(balance, expected);
 }
 
 #[tokio::test]
@@ -296,23 +368,28 @@ async fn get_logs() {
     }
 
     let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = providers[0].clone();
+    let helios_rpc = providers[1].clone();
+    let provider = providers[2].clone();
 
-    let block = providers[0]
+    let block_api = helios_api
+        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .await
+        .unwrap()
+        .unwrap();
+    let block_rpc = helios_rpc
         .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
         .await
         .unwrap()
         .unwrap();
 
-    let filter = Filter::new().at_block_hash(block.header.hash);
+    let filter = Filter::new().at_block_hash(block_api.header.hash);
+    let logs = helios_api.get_logs(&filter).await.unwrap();
+    let expected = provider.get_logs(&filter).await.unwrap();
+    assert_eq!(logs, expected);
 
-    let results = join_all(
-        providers
-            .iter()
-            .map(|provider| async { provider.get_logs(&filter).await.unwrap() })
-            .collect::<Vec<_>>(),
-    )
-    .await;
-
-    assert_eq!(results[0], results[1]);
-    assert_eq!(results[0], results[2]);
+    let filter = Filter::new().at_block_hash(block_rpc.header.hash);
+    let logs = helios_rpc.get_logs(&filter).await.unwrap();
+    let expected = provider.get_logs(&filter).await.unwrap();
+    assert_eq!(logs, expected);
 }
