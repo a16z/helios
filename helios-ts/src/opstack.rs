@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
-use helios_core::types::BlockTag;
+use helios_common::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
 use helios_opstack::OpStackClientBuilder;
 
@@ -24,7 +24,11 @@ pub struct OpStackClient {
 #[wasm_bindgen]
 impl OpStackClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(execution_rpc: String, network: String) -> Result<OpStackClient, JsError> {
+    pub fn new(
+        execution_rpc: Option<String>,
+        execution_verifiable_api: Option<String>,
+        network: String,
+    ) -> Result<OpStackClient, JsError> {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
@@ -41,7 +45,8 @@ impl OpStackClient {
             .ok_or(JsError::new("consensus rpc not found"))?;
 
         let config = Config {
-            execution_rpc: execution_rpc.parse()?,
+            execution_rpc,
+            execution_verifiable_api,
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,
@@ -197,6 +202,28 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_proof(
+        &self,
+        address: JsValue,
+        storage_keys: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let address: Address = serde_wasm_bindgen::from_value(address)?;
+        let storage_keys: Vec<U256> = serde_wasm_bindgen::from_value(storage_keys)?;
+        let storage_keys = storage_keys
+            .into_iter()
+            .map(|k| k.into())
+            .collect::<Vec<_>>();
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let proof = map_err(
+            self.inner
+                .get_proof(address, Some(&storage_keys), block)
+                .await,
+        )?;
+        Ok(serde_wasm_bindgen::to_value(&proof)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
         let opts: OpTransactionRequest = serde_wasm_bindgen::from_value(opts)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
@@ -205,9 +232,22 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
-    pub async fn estimate_gas(&self, opts: JsValue) -> Result<u32, JsError> {
+    pub async fn estimate_gas(&self, opts: JsValue, block: JsValue) -> Result<u32, JsError> {
         let opts: OpTransactionRequest = serde_wasm_bindgen::from_value(opts)?;
-        Ok(map_err(self.inner.estimate_gas(&opts).await)? as u32)
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        Ok(map_err(self.inner.estimate_gas(&opts, block).await)? as u32)
+    }
+
+    #[wasm_bindgen]
+    pub async fn create_access_list(
+        &self,
+        opts: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let opts: OpTransactionRequest = serde_wasm_bindgen::from_value(opts)?;
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let access_list_result = map_err(self.inner.create_access_list(&opts, block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&access_list_result)?)
     }
 
     #[wasm_bindgen]

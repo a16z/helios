@@ -1,20 +1,20 @@
-use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
 use alloy::rpc::types::{
-    BlockId, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges, Log,
+    BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges,
+    Log,
 };
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
-use eyre::{eyre, Result};
+use eyre::Result;
 use reqwest::Client;
 use revm::primitives::AccessList;
 
+use helios_common::network_spec::NetworkSpec;
+
 use crate::errors::RpcError;
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 use super::ExecutionRpc;
 
@@ -64,14 +64,8 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessList> {
-        let block = match block {
-            BlockTag::Latest => BlockId::latest(),
-            BlockTag::Finalized => BlockId::finalized(),
-            BlockTag::Number(num) => BlockId::number(num),
-        };
-
         let list = self
             .provider
             .create_access_list(tx)
@@ -82,11 +76,11 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(list.access_list)
     }
 
-    async fn get_code(&self, address: Address, block: u64) -> Result<Vec<u8>> {
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Vec<u8>> {
         let code = self
             .provider
             .get_code_at(address)
-            .block_id(block.into())
+            .block_id(block)
             .await
             .map_err(|e| RpcError::new("get_code", e))?;
 
@@ -113,17 +107,10 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(receipt)
     }
 
-    async fn get_block_receipts(&self, block: BlockTag) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let block = match block {
-            BlockTag::Latest => BlockNumberOrTag::Latest,
-            BlockTag::Finalized => BlockNumberOrTag::Finalized,
-            BlockTag::Number(num) => BlockNumberOrTag::Number(num),
-        };
-
-        let block_id = BlockId::from(block);
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = self
             .provider
-            .get_block_receipts(block_id)
+            .get_block_receipts(block)
             .await
             .map_err(|e| RpcError::new("get_block_receipts", e))?;
 
@@ -215,10 +202,15 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .map_err(|e| RpcError::new("fee_history", e))?)
     }
 
-    async fn get_block(&self, hash: B256) -> Result<N::BlockResponse> {
-        self.provider
-            .raw_request::<_, Option<N::BlockResponse>>("eth_getBlockByHash".into(), (hash, true))
-            .await?
-            .ok_or(eyre!("block not found"))
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        txs_kind: BlockTransactionsKind,
+    ) -> Result<Option<N::BlockResponse>> {
+        Ok(self
+            .provider
+            .get_block(block_id, txs_kind)
+            .await
+            .map_err(|e| RpcError::new("get_block", e))?)
     }
 }

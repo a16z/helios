@@ -1,10 +1,9 @@
 use eyre::Report;
 use thiserror::Error;
 
-use crate::{
-    execution::errors::{EvmError, ExecutionError},
-    types::BlockTag,
-};
+use helios_common::types::BlockTag;
+
+use crate::execution::errors::{EvmError, ExecutionError};
 
 #[derive(Debug, Error)]
 pub enum ClientError {

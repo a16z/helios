@@ -704,7 +704,6 @@ mod tests {
         let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
-            execution_rpc: String::new(),
             chain: base_config.chain,
             forks: base_config.forks,
             strict_checkpoint_age,

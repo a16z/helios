@@ -1,42 +1,40 @@
-use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap, mem, sync::Arc};
 
 use alloy::{
-    consensus::BlockHeader,
-    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
+    network::{primitives::HeaderResponse, BlockResponse},
+    rpc::types::{AccessListResult, EIP1186StorageProof},
 };
 use eyre::{Report, Result};
-use futures::future::join_all;
 use revm::{
     primitives::{
         address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env,
-        ExecutionResult, ResultAndState, B256, U256,
+        ExecutionResult, B256, U256,
     },
     Database, Evm as Revm,
 };
 use tracing::trace;
 
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
-use crate::{
-    execution::{
-        constants::PARALLEL_QUERY_BATCH_SIZE,
-        errors::{EvmError, ExecutionError},
-        rpc::ExecutionRpc,
-        ExecutionClient,
-    },
+use helios_common::{
     fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
 };
 
-pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
-    execution: Arc<ExecutionClient<N, R>>,
+use super::{
+    errors::{EvmError, ExecutionError},
+    spec::ExecutionSpec,
+};
+
+pub struct Evm<N: NetworkSpec> {
+    execution: Arc<dyn ExecutionSpec<N>>,
     chain_id: u64,
     tag: BlockTag,
     fork_schedule: ForkSchedule,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
+impl<N: NetworkSpec> Evm<N> {
     pub fn new(
-        execution: Arc<ExecutionClient<N, R>>,
+        execution: Arc<dyn ExecutionSpec<N>>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
         tag: BlockTag,
@@ -50,9 +48,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
     }
 
     pub async fn call(&mut self, tx: &N::TransactionRequest) -> Result<Bytes, EvmError> {
-        let tx = self.call_inner(tx).await?;
+        let (result, ..) = self.call_inner(tx, false).await?;
 
-        match tx.result {
+        match result {
             ExecutionResult::Success { output, .. } => Ok(output.into_data()),
             ExecutionResult::Revert { output, .. } => {
                 Err(EvmError::Revert(Some(output.to_vec().into())))
@@ -62,20 +60,56 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
     }
 
     pub async fn estimate_gas(&mut self, tx: &N::TransactionRequest) -> Result<u64, EvmError> {
-        let tx = self.call_inner(tx).await?;
+        let (result, ..) = self.call_inner(tx, true).await?;
 
-        match tx.result {
+        match result {
             ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
             ExecutionResult::Revert { gas_used, .. } => Ok(gas_used),
             ExecutionResult::Halt { gas_used, .. } => Ok(gas_used),
         }
     }
 
-    async fn call_inner(&mut self, tx: &N::TransactionRequest) -> Result<ResultAndState, EvmError> {
-        let mut db = ProofDB::new(self.tag, self.execution.clone());
-        _ = db.state.prefetch_state(tx).await;
+    pub async fn create_access_list(
+        &mut self,
+        tx: &N::TransactionRequest,
+        validate_tx: bool,
+    ) -> Result<AccessListResultWithAccounts, EvmError> {
+        let (result, accounts) = self.call_inner(tx, validate_tx).await?;
 
-        let env = Box::new(self.get_env(tx, self.tag).await);
+        Ok(AccessListResultWithAccounts {
+            access_list_result: AccessListResult {
+                access_list: accounts
+                    .iter()
+                    .map(|(address, account)| {
+                        let storage_keys = account
+                            .storage_proof
+                            .iter()
+                            .map(|EIP1186StorageProof { key, .. }| key.as_b256())
+                            .collect();
+                        AccessListItem {
+                            address: *address,
+                            storage_keys,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+                gas_used: U256::from(result.gas_used()),
+                error: matches!(result, ExecutionResult::Revert { .. })
+                    .then_some(result.output().unwrap().to_string()),
+            },
+            accounts,
+        })
+    }
+
+    async fn call_inner(
+        &mut self,
+        tx: &N::TransactionRequest,
+        validate_tx: bool,
+    ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
+        let mut db = ProofDB::new(self.tag, self.execution.clone());
+        _ = db.state.prefetch_state(tx, validate_tx).await;
+
+        let env = Box::new(self.get_env(tx, self.tag, validate_tx).await);
         let evm = Revm::builder().with_db(db).with_env(env).build();
         let mut ctx = evm.into_context_with_handler_cfg();
 
@@ -93,26 +127,27 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
             let needs_update = db.state.needs_update();
 
             if res.is_ok() || !needs_update {
-                break res;
+                break res.map(|res| (res.result, mem::take(&mut db.state.accounts)));
             }
         };
 
         tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
     }
 
-    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
+    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag, validate_tx: bool) -> Env {
         let block = self
             .execution
-            .get_block(tag, false)
+            .get_block(tag.into(), false)
             .await
+            .unwrap()
             .ok_or(ExecutionError::BlockNotFound(tag))
             .unwrap();
 
         let mut cfg = CfgEnv::default();
         cfg.chain_id = self.chain_id;
-        cfg.disable_block_gas_limit = true;
-        cfg.disable_eip3607 = true;
-        cfg.disable_base_fee = true;
+        cfg.disable_block_gas_limit = !validate_tx;
+        cfg.disable_eip3607 = !validate_tx;
+        cfg.disable_base_fee = !validate_tx;
 
         Env {
             tx: N::tx_env(tx),
@@ -122,13 +157,13 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
     }
 }
 
-struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
-    state: EvmState<N, R>,
+struct ProofDB<N: NetworkSpec> {
+    state: EvmState<N>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ProofDB<N, R> {
-    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R>>) -> Self {
-        let state = EvmState::new(execution.clone(), tag);
+impl<N: NetworkSpec> ProofDB<N> {
+    pub fn new(tag: BlockTag, execution: Arc<dyn ExecutionSpec<N>>) -> Self {
+        let state = EvmState::new(execution, tag);
         ProofDB { state }
     }
 }
@@ -139,66 +174,54 @@ enum StateAccess {
     Storage(Address, U256),
 }
 
-struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>> {
-    basic: HashMap<Address, AccountInfo>,
+struct EvmState<N: NetworkSpec> {
+    accounts: HashMap<Address, Account>,
     block_hash: HashMap<u64, B256>,
-    storage: HashMap<Address, HashMap<U256, U256>>,
     block: BlockTag,
     access: Option<StateAccess>,
-    execution: Arc<ExecutionClient<N, R>>,
+    execution: Arc<dyn ExecutionSpec<N>>,
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
-    pub fn new(execution: Arc<ExecutionClient<N, R>>, block: BlockTag) -> Self {
+impl<N: NetworkSpec> EvmState<N> {
+    pub fn new(execution: Arc<dyn ExecutionSpec<N>>, block: BlockTag) -> Self {
         Self {
             execution,
             block,
-            basic: HashMap::new(),
-            storage: HashMap::new(),
+            accounts: HashMap::new(),
             block_hash: HashMap::new(),
             access: None,
         }
     }
 
     pub async fn update_state(&mut self) -> Result<()> {
-        if let Some(access) = &self.access.take() {
+        if let Some(access) = self.access.take() {
             match access {
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(*address, None, self.block)
+                        .get_account(address, None, self.block, true)
                         .await?;
 
-                    self.basic.insert(
-                        *address,
-                        AccountInfo::new(
-                            account.balance,
-                            account.nonce,
-                            account.code_hash,
-                            Bytecode::new_raw(account.code.into()),
-                        ),
-                    );
+                    self.accounts.insert(address, account);
                 }
                 StateAccess::Storage(address, slot) => {
-                    let slot_bytes = B256::from(*slot);
+                    let slot_bytes = B256::from(slot);
                     let account = self
                         .execution
-                        .get_account(*address, Some(&[slot_bytes]), self.block)
+                        .get_account(address, Some(&[slot_bytes]), self.block, true)
                         .await?;
 
-                    let storage = self.storage.entry(*address).or_default();
-                    let value = *account.slots.get(&slot_bytes).unwrap();
-                    storage.insert(*slot, value);
+                    self.accounts.insert(address, account);
                 }
                 StateAccess::BlockHash(number) => {
-                    let tag = BlockTag::Number(*number);
+                    let tag = BlockTag::Number(number);
                     let block = self
                         .execution
-                        .get_block(tag, false)
-                        .await
+                        .get_block(tag.into(), false)
+                        .await?
                         .ok_or(ExecutionError::BlockNotFound(tag))?;
 
-                    self.block_hash.insert(*number, block.header().hash());
+                    self.block_hash.insert(number, block.header().hash());
                 }
             }
         }
@@ -211,8 +234,13 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
     }
 
     pub fn get_basic(&mut self, address: Address) -> Result<AccountInfo> {
-        if let Some(account) = self.basic.get(&address) {
-            Ok(account.clone())
+        if let Some(account) = self.accounts.get(&address) {
+            Ok(AccountInfo::new(
+                account.account.balance,
+                account.account.nonce,
+                account.account.code_hash,
+                Bytecode::new_raw(account.code.as_ref().unwrap().clone()),
+            ))
         } else {
             self.access = Some(StateAccess::Basic(address));
             eyre::bail!("state missing");
@@ -220,13 +248,13 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
     }
 
     pub fn get_storage(&mut self, address: Address, slot: U256) -> Result<U256> {
-        let storage = self.storage.entry(address).or_default();
-        if let Some(slot) = storage.get(&slot) {
-            Ok(*slot)
-        } else {
-            self.access = Some(StateAccess::Storage(address, slot));
-            eyre::bail!("state missing");
+        if let Some(account) = self.accounts.get(&address) {
+            if let Some(value) = account.get_storage_value(B256::from(slot)) {
+                return Ok(value);
+            }
         }
+        self.access = Some(StateAccess::Storage(address, slot));
+        eyre::bail!("state missing");
     }
 
     pub fn get_block_hash(&mut self, block: u64) -> Result<B256> {
@@ -238,96 +266,27 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
         }
     }
 
-    pub async fn prefetch_state(&mut self, tx: &N::TransactionRequest) -> Result<()> {
-        let mut list = self
+    pub async fn prefetch_state(
+        &mut self,
+        tx: &N::TransactionRequest,
+        validate_tx: bool,
+    ) -> Result<()> {
+        let block_id = Some(self.block.into());
+        let account_map = self
             .execution
-            .rpc
-            .create_access_list(tx, self.block)
+            .create_extended_access_list(tx, validate_tx, block_id)
             .await
-            .map_err(EvmError::RpcError)?
-            .0;
-
-        let from_access_entry = AccessListItem {
-            address: tx.from().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-
-        let to_access_entry = AccessListItem {
-            address: tx.to().unwrap_or_default(),
-            storage_keys: Vec::default(),
-        };
-
-        let coinbase = self
-            .execution
-            .get_block(self.block, false)
-            .await
-            .ok_or(ExecutionError::BlockNotFound(self.block))?
-            .header()
-            .beneficiary();
-        let producer_access_entry = AccessListItem {
-            address: coinbase,
-            storage_keys: Vec::default(),
-        };
-
-        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
-
-        if !list_addresses.contains(&from_access_entry.address) {
-            list.push(from_access_entry)
-        }
-
-        if !list_addresses.contains(&to_access_entry.address) {
-            list.push(to_access_entry)
-        }
-
-        if !list_addresses.contains(&producer_access_entry.address) {
-            list.push(producer_access_entry)
-        }
-
-        let mut account_map = HashMap::new();
-        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
-            let account_chunk_futs = chunk.iter().map(|account| {
-                let account_fut = self.execution.get_account(
-                    account.address,
-                    Some(account.storage_keys.as_slice()),
-                    self.block,
-                );
-                async move { (account.address, account_fut.await) }
-            });
-
-            let account_chunk = join_all(account_chunk_futs).await;
-
-            account_chunk
-                .into_iter()
-                .filter(|i| i.1.is_ok())
-                .for_each(|(key, value)| {
-                    account_map.insert(key, value.ok().unwrap());
-                });
-        }
+            .map_err(EvmError::RpcError)?;
 
         for (address, account) in account_map {
-            self.basic.insert(
-                address,
-                AccountInfo::new(
-                    account.balance,
-                    account.nonce,
-                    account.code_hash,
-                    Bytecode::new_raw(account.code.into()),
-                ),
-            );
-
-            for (slot, value) in account.slots {
-                self.storage
-                    .entry(address)
-                    .or_default()
-                    .insert(slot.into(), value);
-            }
+            self.accounts.insert(address, account);
         }
 
         Ok(())
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> Database for ProofDB<N, R> {
+impl<N: NetworkSpec> Database for ProofDB<N> {
     type Error = Report;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Report> {
@@ -361,6 +320,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Database for ProofDB<N, R> {
 
 fn is_precompile(address: &Address) -> bool {
     address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
+}
+pub struct AccessListResultWithAccounts {
+    pub access_list_result: AccessListResult,
+    pub accounts: HashMap<Address, Account>,
 }
 
 // #[cfg(test)]

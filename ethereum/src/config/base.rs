@@ -3,12 +3,11 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 
 use alloy::primitives::B256;
-use helios_core::fork_schedule::ForkSchedule;
 use serde::Serialize;
 
-use helios_consensus_core::types::Forks;
-
 use crate::config::types::ChainConfig;
+use helios_common::fork_schedule::ForkSchedule;
+use helios_consensus_core::types::Forks;
 
 /// The base configuration for a network.
 #[derive(Serialize)]
