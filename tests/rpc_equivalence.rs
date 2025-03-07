@@ -57,7 +57,7 @@ async fn setup() -> (
     };
 
     // Start Verifiable API server that'd wrap the given RPC
-    let api_port = rng.gen_range(0..=65535);
+    let api_port = rng.gen_range(1024..=65535);
     let mut api_server = VerifiableApiServer::new(ApiNetwork::Ethereum(ServerArgs {
         server_address: format!("127.0.0.1:{api_port}").parse().unwrap(),
         execution_rpc: Url::parse(&execution_rpc).unwrap(),
@@ -66,7 +66,7 @@ async fn setup() -> (
 
     // Helios provider (Verifiable API)
     let (helios_client_api, helios_provider_api) = {
-        let port = rng.gen_range(0..=65535);
+        let port = rng.gen_range(1024..=65535);
         let mut helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .execution_verifiable_api(&format!("http://localhost:{api_port}"))
