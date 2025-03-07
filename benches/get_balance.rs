@@ -1,6 +1,6 @@
 use alloy::primitives::Address;
 use criterion::{criterion_group, criterion_main, Criterion};
-use helios_core::types::BlockTag;
+use alloy::rpc::types::BlockId;
 use std::str::FromStr;
 
 mod harness;
@@ -27,7 +27,7 @@ pub fn bench_mainnet_get_balance(c: &mut Criterion) {
 
         // Get the beacon chain deposit contract address.
         let addr = Address::from_str("0x00000000219ab540356cbb839cbe05303d7705fa").unwrap();
-        let block = BlockTag::Latest;
+        let block = BlockId::Latest;
 
         // Execute the benchmark asynchronously.
         b.to_async(rt).iter(|| async {
@@ -59,7 +59,7 @@ pub fn bench_goerli_get_balance(c: &mut Criterion) {
 
         // Get the beacon chain deposit contract address.
         let addr = Address::from_str("0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6").unwrap();
-        let block = BlockTag::Latest;
+        let block = BlockId::Latest;
 
         // Execute the benchmark asynchronously.
         b.to_async(rt).iter(|| async {

@@ -1,15 +1,14 @@
 use eyre::Report;
 use thiserror::Error;
-
+use alloy::rpc::types::BlockId;
 use crate::{
     execution::errors::{EvmError, ExecutionError},
-    types::BlockTag,
 };
 
 #[derive(Debug, Error)]
 pub enum ClientError {
     #[error("block not found: {0}")]
-    BlockNotFound(BlockTag),
+    BlockNotFound(BlockId),
     #[error("out of sync: {0} seconds behind")]
     OutOfSync(u64),
     #[error("execution error: {0}")]

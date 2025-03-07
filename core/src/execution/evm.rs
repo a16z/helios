@@ -16,7 +16,7 @@ use revm::{
 use tracing::trace;
 
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
+use alloy::rpc::types::BlockId
 use crate::{
     execution::{
         constants::PARALLEL_QUERY_BATCH_SIZE,
@@ -30,7 +30,7 @@ use crate::{
 pub struct Evm<N: NetworkSpec, R: ExecutionRpc<N>> {
     execution: Arc<ExecutionClient<N, R>>,
     chain_id: u64,
-    tag: BlockTag,
+    tag: BlockId,
     fork_schedule: ForkSchedule,
 }
 
@@ -39,7 +39,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
         execution: Arc<ExecutionClient<N, R>>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
-        tag: BlockTag,
+        tag: BlockId,
     ) -> Self {
         Evm {
             execution,
@@ -100,7 +100,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> Evm<N, R> {
         tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
     }
 
-    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag) -> Env {
+    async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockId) -> Env {
         let block = self
             .execution
             .get_block(tag, false)
@@ -127,7 +127,7 @@ struct ProofDB<N: NetworkSpec, R: ExecutionRpc<N>> {
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ProofDB<N, R> {
-    pub fn new(tag: BlockTag, execution: Arc<ExecutionClient<N, R>>) -> Self {
+    pub fn new(tag: BlockId, execution: Arc<ExecutionClient<N, R>>) -> Self {
         let state = EvmState::new(execution.clone(), tag);
         ProofDB { state }
     }
@@ -143,13 +143,13 @@ struct EvmState<N: NetworkSpec, R: ExecutionRpc<N>> {
     basic: HashMap<Address, AccountInfo>,
     block_hash: HashMap<u64, B256>,
     storage: HashMap<Address, HashMap<U256, U256>>,
-    block: BlockTag,
+    block: BlockId,
     access: Option<StateAccess>,
     execution: Arc<ExecutionClient<N, R>>,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
-    pub fn new(execution: Arc<ExecutionClient<N, R>>, block: BlockTag) -> Self {
+    pub fn new(execution: Arc<ExecutionClient<N, R>>, block: BlockId) -> Self {
         Self {
             execution,
             block,
@@ -191,7 +191,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> EvmState<N, R> {
                     storage.insert(*slot, value);
                 }
                 StateAccess::BlockHash(number) => {
-                    let tag = BlockTag::Number(*number);
+                    let tag = BlockId::Number(*number);
                     let block = self
                         .execution
                         .get_block(tag, false)
@@ -383,7 +383,7 @@ fn is_precompile(address: &Address) -> bool {
 //     async fn test_proof_db() {
 //         // Construct proofdb params
 //         let execution = get_client();
-//         let tag = BlockTag::Latest;
+//         let tag = BlockId::Latest;
 //
 //         // Construct the proof database with the given client
 //         let mut proof_db = ProofDB::new(tag, Arc::new(execution));

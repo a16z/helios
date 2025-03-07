@@ -9,7 +9,6 @@ use eyre::{eyre, Result};
 
 use super::ExecutionRpc;
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 #[derive(Clone)]
 pub struct MockRpc {
@@ -37,7 +36,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
     async fn create_access_list(
         &self,
         _opts: &N::TransactionRequest,
-        _block: BlockTag,
+        _block: BlockId,
     ) -> Result<AccessList> {
         Err(eyre!("not implemented"))
     }
@@ -58,7 +57,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for MockRpc {
 
     async fn get_block_receipts(
         &self,
-        _block: BlockTag,
+        _block: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let receipts = read_to_string(self.path.join("receipts.json"))?;
         Ok(serde_json::from_str(&receipts)?)

@@ -5,7 +5,7 @@ use alloy::network::primitives::HeaderResponse;
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Address, B256, U256};
 use alloy::rlp;
-use alloy::rpc::types::{BlockTransactions, Filter, FilterChanges, Log};
+use alloy::rpc::types::{BlockTransactions,BlockId, Filter, FilterChanges, Log};
 use alloy_trie::root::ordered_trie_root_with_encoder;
 use eyre::Result;
 use futures::future::try_join_all;
@@ -14,7 +14,6 @@ use tracing::warn;
 
 use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
 use self::errors::ExecutionError;
@@ -60,7 +59,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         &self,
         address: Address,
         slots: Option<&[B256]>,
-        tag: BlockTag,
+        tag: BlockId,
     ) -> Result<Account> {
         let slots = slots.unwrap_or(&[]);
         let block = self
@@ -108,7 +107,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         &self,
         address: Address,
         slot: U256,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<B256> {
         let storage_key = slot.into();
 
@@ -127,7 +126,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         self.rpc.send_raw_transaction(bytes).await
     }
 
-    pub async fn get_block(&self, tag: BlockTag, full_tx: bool) -> Option<N::BlockResponse> {
+    pub async fn get_block(&self, tag: BlockId, full_tx: bool) -> Option<N::BlockResponse> {
         let block = self.state.get_block(tag).await;
         if block.is_none() {
             warn!(target: "helios::execution", "requested block not found in state: {}", tag);
@@ -143,7 +142,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         Some(block)
     }
 
-    pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {
+    pub async fn blob_base_fee(&self, block: BlockId) -> U256 {
         let block = self.state.get_block(block).await;
         let Some(block) = block else {
             warn!(target: "helios::execution", "requested block not found");
@@ -190,7 +189,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
     pub async fn get_transaction_by_block_number_and_index(
         &self,
-        tag: BlockTag,
+        tag: BlockId,
         index: u64,
     ) -> Option<N::TransactionResponse> {
         self.state
@@ -209,7 +208,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         let receipt = receipt.unwrap();
 
         let block_number = receipt.block_number().unwrap();
-        let tag = BlockTag::Number(block_number);
+        let tag = BlockId::Number(block_number);
 
         let block = self.state.get_block(tag).await;
         let block = if let Some(block) = block {
@@ -246,7 +245,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
     pub async fn get_block_receipts(
         &self,
-        tag: BlockTag,
+        tag: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let block = self.state.get_block(tag).await;
         let block = if let Some(block) = block {
@@ -255,7 +254,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             return Ok(None);
         };
 
-        let tag = BlockTag::Number(block.header().number());
+        let tag = BlockId::Number(block.header().number());
 
         let receipts = self
             .rpc
@@ -330,7 +329,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
             Some(FilterType::NewBlock(last_block_num)) => {
                 let blocks = self
                     .state
-                    .get_blocks_after(BlockTag::Number(*last_block_num))
+                    .get_blocks_after(BlockId::Number(*last_block_num))
                     .await;
                 if !blocks.is_empty() {
                     // keep track of the last block number in state
@@ -447,7 +446,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
 
         // Collect all (proven) tx receipts for all block numbers
         let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
-            let tag = BlockTag::Number(block_num);
+            let tag = BlockId::Number(block_num);
             let receipts = self.get_block_receipts(tag).await;
             receipts?.ok_or_else(|| eyre::eyre!(ExecutionError::NoReceiptsForBlock(tag)))
         });

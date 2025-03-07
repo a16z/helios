@@ -3,7 +3,7 @@ use std::sync::Arc;
 use alloy::consensus::BlockHeader;
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncInfo, SyncStatus};
+use alloy::rpc::types::{Filter, BlockId , FilterChanges, Log, SyncInfo, SyncStatus};
 use eyre::{eyre, Result};
 
 use crate::consensus::Consensus;
@@ -16,7 +16,7 @@ use crate::execution::ExecutionClient;
 use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::time::{SystemTime, UNIX_EPOCH};
-use crate::types::BlockTag;
+use crate::types::BlockId;
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,
@@ -54,7 +54,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     pub async fn call(
         &self,
         tx: &N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Bytes, ClientError> {
         self.check_blocktag_age(&block).await?;
 
@@ -74,20 +74,20 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
             self.execution.clone(),
             self.chain_id(),
             self.fork_schedule,
-            BlockTag::Latest,
+            BlockId::Latest,
         );
 
         evm.estimate_gas(tx).await.map_err(ClientError::EvmError)
     }
 
-    pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
+    pub async fn get_balance(&self, address: Address, tag: BlockId) -> Result<U256> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
         Ok(account.balance)
     }
 
-    pub async fn get_nonce(&self, address: Address, tag: BlockTag) -> Result<u64> {
+    pub async fn get_nonce(&self, address: Address, tag: BlockId) -> Result<u64> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
@@ -101,13 +101,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_block_transaction_count_by_number(
         &self,
-        tag: BlockTag,
+        tag: BlockId,
     ) -> Result<Option<u64>> {
         let block = self.execution.get_block(tag, false).await;
         Ok(block.map(|block| block.transactions().hashes().len() as u64))
     }
 
-    pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
+    pub async fn get_code(&self, address: Address, tag: BlockId) -> Result<Bytes> {
         self.check_blocktag_age(&tag).await?;
 
         let account = self.execution.get_account(address, None, tag).await?;
@@ -118,7 +118,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         &self,
         address: Address,
         slot: U256,
-        tag: BlockTag,
+        tag: BlockId,
     ) -> Result<B256> {
         self.check_blocktag_age(&tag).await?;
 
@@ -138,7 +138,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_block_receipts(
         &self,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
         self.check_blocktag_age(&block).await?;
 
@@ -161,7 +161,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_transaction_by_block_number_and_index(
         &self,
-        block: BlockTag,
+        block: BlockId,
         index: u64,
     ) -> Result<Option<N::TransactionResponse>> {
         self.check_blocktag_age(&block).await?;
@@ -211,15 +211,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let block = self
             .execution
-            .get_block(BlockTag::Latest, false)
+            .get_block(BlockId::Latest, false)
             .await
-            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+            .ok_or(eyre!(ClientError::BlockNotFound(BlockId::Latest)))?;
         let base_fee = block.header().base_fee_per_gas().unwrap_or(0_u64);
         let tip = 10_u64.pow(9);
         Ok(U256::from(base_fee + tip))
     }
 
-    pub async fn blob_base_fee(&self, block: BlockTag) -> Result<U256> {
+    pub async fn blob_base_fee(&self, block: BlockId) -> Result<U256> {
         Ok(self.execution.blob_base_fee(block).await)
     }
 
@@ -234,15 +234,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let block = self
             .execution
-            .get_block(BlockTag::Latest, false)
+            .get_block(BlockId::Latest, false)
             .await
-            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+            .ok_or(eyre!(ClientError::BlockNotFound(BlockId::Latest)))?;
         Ok(U256::from(block.header().number()))
     }
 
     pub async fn get_block_by_number(
         &self,
-        tag: BlockTag,
+        tag: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
         self.check_blocktag_age(&tag).await?;
@@ -285,9 +285,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let block = self
             .execution
-            .get_block(BlockTag::Latest, false)
+            .get_block(BlockId::Latest, false)
             .await
-            .ok_or(eyre!(ClientError::BlockNotFound(BlockTag::Latest)))?;
+            .ok_or(eyre!(ClientError::BlockNotFound(BlockId::Latest)))?;
 
         Ok(block.header().beneficiary())
     }
@@ -300,7 +300,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         let block_timestamp = self
             .execution
-            .get_block(BlockTag::Latest, false)
+            .get_block(BlockId::Latest, false)
             .await
             .ok_or_else(|| ClientError::OutOfSync(timestamp))?
             .header()
@@ -314,11 +314,11 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         Ok(())
     }
 
-    async fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), ClientError> {
+    async fn check_blocktag_age(&self, block: &BlockId) -> Result<(), ClientError> {
         match block {
-            BlockTag::Latest => self.check_head_age().await,
-            BlockTag::Finalized => Ok(()),
-            BlockTag::Number(_) => Ok(()),
+            BlockId::Latest => self.check_head_age().await,
+            BlockId::Finalized => Ok(()),
+            BlockId::Number(_) => Ok(()),
         }
     }
 }

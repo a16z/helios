@@ -14,7 +14,6 @@ use revm::primitives::AccessList;
 
 use crate::errors::RpcError;
 use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 use super::ExecutionRpc;
 
@@ -64,12 +63,12 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessList> {
         let block = match block {
-            BlockTag::Latest => BlockId::latest(),
-            BlockTag::Finalized => BlockId::finalized(),
-            BlockTag::Number(num) => BlockId::number(num),
+            BlockId::Latest => BlockId::latest(),
+            BlockId::Finalized => BlockId::finalized(),
+            BlockId::Number(num) => BlockId::number(num),
         };
 
         let list = self
@@ -113,11 +112,11 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
         Ok(receipt)
     }
 
-    async fn get_block_receipts(&self, block: BlockTag) -> Result<Option<Vec<N::ReceiptResponse>>> {
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>> {
         let block = match block {
-            BlockTag::Latest => BlockNumberOrTag::Latest,
-            BlockTag::Finalized => BlockNumberOrTag::Finalized,
-            BlockTag::Number(num) => BlockNumberOrTag::Number(num),
+            BlockId::Latest => BlockNumberOrTag::Latest,
+            BlockId::Finalized => BlockNumberOrTag::Finalized,
+            BlockId::Number(num) => BlockNumberOrTag::Number(num),
         };
 
         let block_id = BlockId::from(block);
@@ -171,7 +170,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     }
 
     async fn new_filter(&self, filter: &Filter) -> Result<U256> {
-        Ok(self
+        Ok(selfBlockId
             .provider
             .new_filter(filter)
             .await

@@ -3,13 +3,12 @@
 use std::path::PathBuf;
 
 use alloy::primitives::{Address, Bytes};
-use alloy::rpc::types::TransactionRequest;
+use alloy::rpc::types::{TransactionRequest, BlockId};
 use dotenv::dotenv;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::core::types::BlockTag;
 use helios::ethereum::{
     config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
 };
@@ -67,7 +66,7 @@ async fn main() -> eyre::Result<()> {
         ..Default::default()
     };
 
-    let result = client.call(&tx, BlockTag::Latest).await?;
+    let result = client.call(&tx, BlockId::Latest).await?;
     info!("[HELIOS] DAI total supply: {:?}", result);
 
     Ok(())
