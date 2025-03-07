@@ -9,7 +9,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 # self crates
-helios-common = { path = "../../common" }
-helios-core = { path = "../../core" }
-helios-ethereum = { path = "../../ethereum" }
-helios-verifiable-api-types = { path = "../../verifiable-api/types" }
+helios-common.workspace = true
+helios-core.workspace = true
+helios-ethereum.workspace = true
+helios-verifiable-api-types.workspace = true

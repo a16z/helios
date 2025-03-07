@@ -10,10 +10,10 @@ tree_hash.workspace = true
 revm.workspace = true
 
 # config
-figment = { version = "0.10.7", features = ["toml", "env"] }
-serde_yaml = "0.9.14"
-strum = { version = "0.26.2", features = ["derive"] }
-url = {version = "2.5.0", features = ["serde"] }
+figment = { workspace = true, features = ["toml", "env"] }
+serde_yaml.workspace = true
+strum = { workspace = true, features = ["derive"] }
+url = { workspace = true, features = ["serde"] }
 
 # async/futures
 tokio.workspace = true
@@ -37,9 +37,9 @@ retri.workspace = true
 typenum.workspace = true
 
 # self crates
-helios-common = { path = "../common" }
-helios-core = { path = "../core" }
-helios-consensus-core = { path = "consensus-core" }
+helios-common.workspace = true
+helios-core.workspace = true
+helios-consensus-core.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.37"
