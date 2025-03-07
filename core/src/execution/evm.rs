@@ -75,34 +75,29 @@ impl<N: NetworkSpec> Evm<N> {
     ) -> Result<AccessListResultWithAccounts, EvmError> {
         let (result, accounts) = self.call_inner(tx, false).await?;
 
-        match result {
-            ExecutionResult::Success { .. } => Ok(AccessListResultWithAccounts {
-                access_list_result: AccessListResult {
-                    access_list: accounts
-                        .iter()
-                        .map(|(address, account)| {
-                            let storage_keys = account
-                                .storage_proof
-                                .iter()
-                                .map(|EIP1186StorageProof { key, .. }| key.as_b256())
-                                .collect();
-                            AccessListItem {
-                                address: *address,
-                                storage_keys,
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .into(),
-                    gas_used: U256::from(result.gas_used()),
-                    error: None,
-                },
-                accounts,
-            }),
-            ExecutionResult::Revert { output, .. } => {
-                Err(EvmError::Revert(Some(output.to_vec().into())))
-            }
-            ExecutionResult::Halt { .. } => Err(EvmError::Revert(None)),
-        }
+        Ok(AccessListResultWithAccounts {
+            access_list_result: AccessListResult {
+                access_list: accounts
+                    .iter()
+                    .map(|(address, account)| {
+                        let storage_keys = account
+                            .storage_proof
+                            .iter()
+                            .map(|EIP1186StorageProof { key, .. }| key.as_b256())
+                            .collect();
+                        AccessListItem {
+                            address: *address,
+                            storage_keys,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+                gas_used: U256::from(result.gas_used()),
+                error: matches!(result, ExecutionResult::Revert { .. })
+                    .then_some(result.output().unwrap().to_string()),
+            },
+            accounts,
+        })
     }
 
     async fn call_inner(

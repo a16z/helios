@@ -312,7 +312,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ApiService<N, R> {
 
 #[cfg(test)]
 mod tests {
-    use alloy::rpc::types::TransactionRequest;
+    use alloy::{network::TransactionBuilder, rpc::types::TransactionRequest};
     use helios_core::execution::rpc::mock_rpc::MockRpc;
     use helios_ethereum::spec::Ethereum as EthereumSpec;
     use helios_test_utils::*;
@@ -475,11 +475,16 @@ mod tests {
     async fn test_create_extended_access_list() {
         let service = get_service();
         let address = rpc_proof().address;
-        let block_beneficiary = rpc_block().header.beneficiary;
-        let tx = TransactionRequest::default()
-            .from(address)
-            .to(block_beneficiary)
-            .value(U256::ZERO);
+        let block = rpc_block();
+        let mut tx = TransactionRequest::default()
+            .from(block.header.beneficiary)
+            .to(address)
+            .gas_limit(block.header.gas_limit)
+            .value(U256::from(0));
+        <TransactionRequest as TransactionBuilder<EthereumSpec>>::set_gas_price(
+            &mut tx,
+            (block.header.base_fee_per_gas.unwrap()).into(),
+        );
 
         let response = service
             .create_extended_access_list(tx, BlockId::latest().into())
@@ -489,7 +494,7 @@ mod tests {
         assert_eq!(response.accounts.len(), 2);
         assert_eq!(response.accounts.get(&address).unwrap(), &rpc_account());
         assert_eq!(
-            response.accounts.get(&block_beneficiary).unwrap(),
+            response.accounts.get(&block.header.beneficiary).unwrap(),
             &rpc_block_miner_account()
         );
     }
