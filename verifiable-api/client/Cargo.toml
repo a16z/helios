@@ -12,5 +12,5 @@ reqwest.workspace = true
 async-trait.workspace = true
 
 # self crates
-helios-verifiable-api-types = { path = "../types" }
-helios-common = { path = "../../common" }
+helios-verifiable-api-types.workspace = true
+helios-common.workspace = true

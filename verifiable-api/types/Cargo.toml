@@ -9,4 +9,4 @@ serde.workspace = true
 serde_json.workspace = true
 
 # self crates
-helios-common = { path = "../../common" }
+helios-common.workspace = true

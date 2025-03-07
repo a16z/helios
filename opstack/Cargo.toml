@@ -14,7 +14,7 @@ tracing.workspace = true
 hex.workspace = true
 serde.workspace = true
 typenum.workspace = true
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 reqwest.workspace = true
 url.workspace = true
 futures.workspace = true
@@ -27,20 +27,20 @@ sha2.workspace = true
 ethereum_ssz_derive.workspace = true
 ethereum_ssz.workspace = true
 ssz_types.workspace = true
-alloy-rlp = "0.3.0"
-op-alloy-network = "0.9.0"
-op-alloy-consensus = "0.9.0"
+alloy-rlp.workspace = true
+op-alloy-network.workspace = true
+op-alloy-consensus.workspace = true
 op-alloy-rpc-types.workspace = true
-snap = "1"
+snap.workspace = true
 
 # config
-figment = { version = "0.10.7", features = ["toml", "env"] }
+figment = { workspace = true, features = ["toml", "env"] }
 
 # self crates
-helios-common = { path = "../common" }
-helios-core = { path = "../core" }
-helios-ethereum = { path = "../ethereum" }
-helios-consensus-core = { path = "../ethereum/consensus-core" }
+helios-common.workspace = true
+helios-core.workspace = true
+helios-ethereum.workspace = true
+helios-consensus-core.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # server

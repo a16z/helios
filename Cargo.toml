@@ -82,24 +82,53 @@ openssl = { version = "0.10", features = ["vendored"] }
 zduny-wasm-timer = "0.2.8"
 retri = "0.1.0"
 typenum = "1.17.0"
+alloy-rlp = "0.3.10"
+axum = "0.8.1"
+axum-extra = "0.10.0"
+clap = "4.5.4"
+console_error_panic_hook = "0.1.7"
+ctrlc = "3.2.3"
+dirs = "5.0.1"
+dotenv = "0.15.0"
+figment = "0.10.7"
+helios-common = { path = "common" }
+helios-consensus-core = { path = "ethereum/consensus-core" }
+helios-core = { path = "core" }
+helios-ethereum = { path = "ethereum" }
+helios-opstack = { path = "opstack" }
+helios-test-utils = { path = "tests/test-utils" }
+helios-verifiable-api-client = { path = "verifiable-api/client" }
+helios-verifiable-api-server = { path = "verifiable-api/server" }
+helios-verifiable-api-types = { path = "verifiable-api/types" }
+op-alloy-consensus = "0.9.0"
+op-alloy-network = "0.9.0"
+serde-wasm-bindgen = "0.6.5"
+serde_yaml = "0.9.34"
+snap = "1"
+strum = "0.26.2"
+tracing-subscriber = "0.3.17"
+wasm-bindgen = "0.2.84"
+wasm-bindgen-futures = "0.4.33"
+wasm-bindgen-test = "0.3.0"
+web-sys = "0.3"
 
 ######################################
 # Top Level Dependencies
 ######################################
 
 [dependencies]
-helios-common = { path = "./common" }
-helios-core = { path = "./core" }
-helios-ethereum = { path = "./ethereum" }
-helios-opstack = { path = "./opstack" }
+helios-common.workspace = true
+helios-core.workspace = true
+helios-ethereum.workspace = true
+helios-opstack.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
 futures.workspace = true
 url.workspace = true
 serde.workspace = true
-dotenv = "0.15.0"
-helios-verifiable-api-server = { path = "verifiable-api/server" }
+dotenv.workspace = true
+helios-verifiable-api-server.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 alloy = { version = "0.9.1", features = ["full"] }
