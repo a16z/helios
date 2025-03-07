@@ -41,6 +41,10 @@ pub enum EvmError {
     #[error("execution reverted: {}", display_revert(.0))]
     Revert(Option<Bytes>),
 
+    /// Error that occurs during transaction execution with detailed failure reason
+    #[error("transaction error: {0}")]
+    TransactionError(String),
+
     #[error("evm error: {0:?}")]
     Generic(String),
 
