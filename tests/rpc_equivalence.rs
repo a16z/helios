@@ -37,7 +37,7 @@ async fn setup() -> (
 
     // Helios provider (RPC)
     let (helios_client, helios_provider) = {
-        let port = rng.gen_range(0..=65535);
+        let port = rng.gen_range(1024..=65535);
         let mut helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .execution_rpc(&execution_rpc)
