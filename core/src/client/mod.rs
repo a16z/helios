@@ -249,7 +249,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     }
 
     pub async fn get_coinbase(&self) -> Result<Address> {
-        self.node.get_coinbase().await
+        Ok(Address::Zero)
     }
 
     pub async fn wait_synced(&self) {

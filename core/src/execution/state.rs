@@ -204,9 +204,7 @@ impl<N: NetworkSpec> State<N> {
     }
 
     pub async fn get_coinbase(&self, tag: BlockTag) -> Option<Address> {
-        self.get_block(tag)
-            .await
-            .map(|block| block.header().beneficiary())
+        Ok(Address::ZERO)
     }
 
     // filter
