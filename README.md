@@ -42,7 +42,7 @@ To run Helios on an OP Stack chain, run the command below, replacing `$ETH_RPC_U
 helios opstack --network $NETWORK --execution-rpc $ETH_RPC_URL
 ```
 
-Currently supported network values are `op-mainnet` and `base`, with more to come soon.
+Currently supported network values are `op-mainnet`, `base`, `worldchain`, `zora`, and `op-sepolia`, with more to come soon.
 
 ### Additional Ethereum CLI Options <a id="additional-cli-options"></a>
 
@@ -73,7 +73,29 @@ This can be run like so: `helios --load-external-fallback` (or `helios -l` with 
 
 `--strict-checkpoint-age` or `-s` enables strict checkpoint age checking. If the checkpoint is over two weeks old and this flag is enabled, Helios will error. Without this flag, Helios will instead surface a warning to the user and continue. If the checkpoint is greater than two weeks old, there are theoretical attacks that can cause Helios and over light clients to sync incorrectly. These attacks are complex and expensive, so Helios disables this by default.
 
+`--max-logs` sets the maximum number of logs that can be fetched in a single request. This is used to prevent the client from being overwhelmed by large log requests. The default value is 100 logs. If a request would return more logs than this limit, an error will be returned.
+
 `--help` or `-h` prints the help message.
+
+### Checking Client Status
+
+To check the status of a running Helios client, use the `status` command:
+
+```
+helios status
+```
+
+By default, this command will check the status of a client running at `http://127.0.0.1:8545`. You can specify a different RPC URL using the `--rpc-url` flag:
+
+```
+helios status --rpc-url http://192.168.1.100:8545
+```
+
+The status command will show:
+- Whether the client is syncing or fully synced
+- Current block number
+- Sync progress (if syncing)
+- Chain ID
 
 ### Configuration Files <a id="configuration-files"></a>
 
