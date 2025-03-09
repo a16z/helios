@@ -18,6 +18,7 @@ pub struct CliConfig {
     pub fallback: Option<String>,
     pub load_external_fallback: Option<bool>,
     pub strict_checkpoint_age: Option<bool>,
+    pub max_logs: Option<usize>,
 }
 
 impl CliConfig {
@@ -58,6 +59,10 @@ impl CliConfig {
 
         if let Some(s) = self.strict_checkpoint_age {
             user_dict.insert("strict_checkpoint_age", Value::from(s));
+        }
+
+        if let Some(max_logs) = self.max_logs {
+            user_dict.insert("max_logs", Value::from(max_logs));
         }
 
         Serialized::from(user_dict, network)
