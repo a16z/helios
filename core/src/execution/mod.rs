@@ -16,7 +16,7 @@ use crate::fork_schedule::ForkSchedule;
 use crate::network_spec::NetworkSpec;
 use crate::types::BlockTag;
 
-use self::constants::MAX_SUPPORTED_LOGS_NUMBER;
+use self::constants::DEFAULT_MAX_SUPPORTED_LOGS;
 use self::errors::ExecutionError;
 use self::proof::{verify_account_proof, verify_storage_proof};
 use self::rpc::ExecutionRpc;
@@ -36,15 +36,18 @@ pub struct ExecutionClient<N: NetworkSpec, R: ExecutionRpc<N>> {
     pub rpc: R,
     state: State<N, R>,
     fork_schedule: ForkSchedule,
+    max_logs: usize,
 }
 
 impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
-    pub fn new(rpc: &str, state: State<N, R>, fork_schedule: ForkSchedule) -> Result<Self> {
+    pub fn new(rpc: &str, state: State<N, R>, fork_schedule: ForkSchedule, config: Config) -> Result<Self> {
         let rpc: R = ExecutionRpc::new(rpc)?;
+        let max_logs = config.max_logs.unwrap_or(DEFAULT_MAX_SUPPORTED_LOGS);
         Ok(ExecutionClient::<N, R> {
             rpc,
             state,
             fork_schedule,
+            max_logs,
         })
     }
 
@@ -294,9 +297,9 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         };
 
         let logs = self.rpc.get_logs(&filter).await?;
-        if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+        if logs.len() > self.max_logs {
             return Err(
-                ExecutionError::TooManyLogsToProve(logs.len(), MAX_SUPPORTED_LOGS_NUMBER).into(),
+                ExecutionError::TooManyLogsToProve(logs.len(), self.max_logs).into(),
             );
         }
         ensure_logs_match_filter(&logs, &filter)?;
@@ -316,10 +319,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
                 // underlying RPC takes care of keeping track of changes
                 let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
                 let logs = filter_changes.as_logs().unwrap_or(&[]);
-                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                if logs.len() > self.max_logs {
                     return Err(ExecutionError::TooManyLogsToProve(
                         logs.len(),
-                        MAX_SUPPORTED_LOGS_NUMBER,
+                        self.max_logs,
                     )
                     .into());
                 }
@@ -360,10 +363,10 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> ExecutionClient<N, R> {
         match &filter_type {
             Some(FilterType::Logs(filter)) => {
                 let logs = self.rpc.get_filter_logs(filter_id).await?;
-                if logs.len() > MAX_SUPPORTED_LOGS_NUMBER {
+                if logs.len() > self.max_logs {
                     return Err(ExecutionError::TooManyLogsToProve(
                         logs.len(),
-                        MAX_SUPPORTED_LOGS_NUMBER,
+                        self.max_logs,
                     )
                     .into());
                 }
