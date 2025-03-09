@@ -43,6 +43,9 @@ async fn main() -> Result<()> {
             start_client(&mut client).await;
             register_shutdown_handler(client);
         }
+        Command::Status(status) => {
+            status.check_status();
+        }
     }
 
     std::future::pending().await
@@ -114,6 +117,8 @@ enum Command {
     Ethereum(EthereumArgs),
     #[clap(name = "opstack")]
     OpStack(OpStackArgs),
+    #[clap(name = "status", about = "Check the status of a running Helios client")]
+    Status(StatusArgs),
 }
 
 #[derive(Args)]
@@ -138,6 +143,8 @@ struct EthereumArgs {
     load_external_fallback: bool,
     #[clap(short = 's', long, env)]
     strict_checkpoint_age: bool,
+    #[clap(long, env, help = "Maximum number of logs to fetch in a single request")]
+    max_logs: Option<usize>,
 }
 
 impl EthereumArgs {
@@ -172,6 +179,7 @@ impl EthereumArgs {
             fallback: self.fallback.clone(),
             load_external_fallback: true_or_none(self.load_external_fallback),
             strict_checkpoint_age: true_or_none(self.strict_checkpoint_age),
+            max_logs: self.max_logs,
         }
     }
 }
@@ -265,4 +273,70 @@ fn true_or_none(b: bool) -> Option<bool> {
 
 fn parse_url(s: &str) -> Result<Url, url::ParseError> {
     Url::parse(s)
+}
+
+#[derive(Args, Debug)]
+struct StatusArgs {
+    #[clap(short, long, default_value = "http://127.0.0.1:8545")]
+    rpc_url: String,
+}
+
+impl StatusArgs {
+    fn check_status(&self) {
+        info!(target: "helios::status", "Checking status of Helios client at {}", self.rpc_url);
+        
+        match block_on(self.fetch_status()) {
+            Ok(_) => {
+                info!(target: "helios::status", "Status check completed successfully");
+            }
+            Err(e) => {
+                error!(target: "helios::status", "Failed to check status: {}", e);
+                exit(1);
+            }
+        }
+    }
+    
+    async fn fetch_status(&self) -> Result<()> {
+        use alloy::rpc::client::ClientBuilder;
+        use alloy::rpc::types::eth::SyncStatus;
+        use alloy::transports::http::Http;
+        
+        let client = ClientBuilder::default()
+            .transport(Http::new(Url::parse(&self.rpc_url)?))
+            .build()?;
+        
+        // Check if the client is syncing
+        let sync_status = client.eth_syncing().await?;
+        
+        match sync_status {
+            SyncStatus::IsSyncing(sync_info) => {
+                info!(
+                    target: "helios::status",
+                    "Client is syncing: current block: {}, highest block: {}",
+                    sync_info.current_block,
+                    sync_info.highest_block
+                );
+                
+                let progress = (sync_info.current_block as f64 / sync_info.highest_block as f64) * 100.0;
+                info!(
+                    target: "helios::status",
+                    "Sync progress: {:.2}%",
+                    progress
+                );
+            }
+            SyncStatus::NotSyncing => {
+                info!(target: "helios::status", "Client is fully synced");
+                
+                // Get current block number
+                let block_number = client.eth_block_number().await?;
+                info!(target: "helios::status", "Current block number: {}", block_number);
+            }
+        }
+        
+        // Check if RPC is available
+        let chain_id = client.eth_chain_id().await?;
+        info!(target: "helios::status", "Connected to chain ID: {}", chain_id);
+        
+        Ok(())
+    }
 }
