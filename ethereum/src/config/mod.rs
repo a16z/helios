@@ -41,6 +41,7 @@ pub struct Config {
     pub load_external_fallback: bool,
     pub strict_checkpoint_age: bool,
     pub database_type: Option<String>,
+    pub max_logs: Option<usize>,
 }
 
 impl Config {
@@ -113,6 +114,7 @@ impl From<BaseConfig> for Config {
             load_external_fallback: base.load_external_fallback,
             strict_checkpoint_age: base.strict_checkpoint_age,
             database_type: None,
+            max_logs: None,
         }
     }
 }
