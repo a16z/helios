@@ -78,3 +78,5 @@ All configuration options below are available on a per-network level, where netw
 
 - `load_external_fallback` - If no checkpoint is provided, or the checkpoint is too old, Helios will attempt to dynamically fetch a checkpoint from a maintained list of checkpoint sync apis. NOTE: This is an insecure feature and not recommended for production use. Checkpoint manipulation is possible.
 
+- `max_logs` - The maximum number of logs that can be fetched in a single request. This is used to prevent the client from being overwhelmed by large log requests. The default value is 100 logs. If a request would return more logs than this limit, an error will be returned.
+
