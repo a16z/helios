@@ -10,8 +10,10 @@ use eyre::Result;
 use tracing::{info, warn};
 
 use helios_common::{
-    execution_mode::ExecutionMode, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
-    types::BlockTag,
+    execution_mode::ExecutionMode,
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{BlockTag, SubEventRx},
 };
 
 use crate::client::node::Node;
@@ -62,6 +64,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         }
 
         Ok(())
+    }
+
+    pub async fn subscribe(&self, event_type: String) -> Result<SubEventRx<N>> {
+        self.node.subscribe(event_type).await
     }
 
     pub async fn shutdown(&self) {

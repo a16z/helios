@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+import { v4 as uuidv4 } from "uuid";
 import initWasm, { EthereumClient, OpStackClient } from "./pkg/index";
 
 export async function init() {
@@ -10,6 +12,7 @@ export async function init() {
 export class HeliosProvider {
   #client;
   #chainId;
+  #eventEmitter;
 
   /// Do not use this constructor. Instead use the createHeliosProvider function.
   constructor(config: Config, kind: "ethereum" | "opstack") {
@@ -39,6 +42,7 @@ export class HeliosProvider {
     }
 
     this.#chainId = this.#client.chain_id();
+    this.#eventEmitter = new EventEmitter();
   }
 
   async sync() {
@@ -173,10 +177,50 @@ export class HeliosProvider {
       case "web3_clientVersion": {
         return this.#client.client_version();
       }
+      case "eth_subscribe": {
+        return this.#handleSubscribe(req);
+      }
+      case "eth_unsubscribe": {
+        return this.#client.unsubscribe(req.params[0]);
+      }
       default: {
         throw `method not implemented: ${req.method}`;
       }
     }
+  }
+
+  async #handleSubscribe(req: Request) {
+    try {
+      let id = uuidv4();
+      await this.#client.subscribe(req.params[0], id, (data: any, id: string) => {
+        let result = data instanceof Map ? mapToObj(data) : data;
+        let payload = {
+          type: 'eth_subscription',
+          data: {
+            subscription: id,
+            result,
+          },
+        };
+        this.#eventEmitter.emit("message", payload);
+      });
+      return id;
+    } catch (err) {
+      throw new Error(err.toString());
+    }
+  }
+
+  on(
+    eventName: string,
+    handler: (data: any) => void
+  ): void {
+    this.#eventEmitter.on(eventName, handler);
+  }
+
+  removeListener(
+    eventName: string,
+    handler: (data: any) => void
+  ): void {
+    this.#eventEmitter.off(eventName, handler);
   }
 }
 

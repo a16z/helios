@@ -8,14 +8,17 @@ use alloy::rpc::types::{
 };
 use eyre::Result;
 use jsonrpsee::{
-    core::{async_trait, server::Methods},
+    core::{async_trait, server::Methods, SubscriptionResult},
     proc_macros::rpc,
-    server::{ServerBuilder, ServerHandle},
+    server::{PendingSubscriptionSink, ServerBuilder, ServerHandle, SubscriptionMessage},
     types::error::{ErrorObject, ErrorObjectOwned},
 };
 use tracing::info;
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{BlockTag, SubEventRx},
+};
 
 use crate::client::node::Node;
 use crate::consensus::Consensus;
@@ -167,6 +170,8 @@ trait EthRpc<
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncStatus, ErrorObjectOwned>;
+    #[subscription(name = "subscribe", unsubscribe = "unsubscribe", item = String)]
+    async fn subscribe(&self, event_type: String) -> SubscriptionResult;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -416,6 +421,16 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
 
         convert_err(self.node.get_proof(address, Some(&slots), block).await)
     }
+
+    async fn subscribe(
+        &self,
+        pending: PendingSubscriptionSink,
+        event_type: String,
+    ) -> SubscriptionResult {
+        let maybe_rx = self.node.subscribe(event_type).await;
+
+        handle_subscription(pending, maybe_rx).await
+    }
 }
 
 #[async_trait]
@@ -454,4 +469,36 @@ async fn start<N: NetworkSpec, C: Consensus<N::BlockResponse>>(
 
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, ErrorObjectOwned> {
     res.map_err(|err| ErrorObject::owned(1, err.to_string(), None::<()>))
+}
+
+/// Helper function to handle subscription acceptance/rejection and message forwarding
+async fn handle_subscription<N: NetworkSpec>(
+    pending: PendingSubscriptionSink,
+    maybe_rx: Result<SubEventRx<N>>,
+) -> SubscriptionResult {
+    match maybe_rx {
+        Ok(mut stream) => {
+            let sink = pending.accept().await?;
+
+            tokio::spawn(async move {
+                while let Ok(message) = stream.recv().await {
+                    let msg = SubscriptionMessage::from_json(&message).unwrap();
+                    if sink.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+            });
+            Ok(())
+        }
+        Err(e) => {
+            pending
+                .reject(ErrorObject::owned(
+                    2000,
+                    "Subscription failed",
+                    Some(e.to_string()),
+                ))
+                .await;
+            Ok(())
+        }
+    }
 }

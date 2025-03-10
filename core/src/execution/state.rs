@@ -13,11 +13,14 @@ use alloy::{
 use eyre::{eyre, Result};
 use tokio::{
     select,
-    sync::{mpsc::Receiver, watch, RwLock},
+    sync::{broadcast, mpsc::Receiver, watch, RwLock},
 };
 use tracing::{info, warn};
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{BlockTag, SubEventRx, SubscriptionEvent},
+};
 
 use super::spec::ExecutionSpec;
 
@@ -234,10 +237,15 @@ impl<N: NetworkSpec> State<N> {
         let inner = self.inner.read().await;
         inner.blocks.first_key_value().map(|entry| *entry.0)
     }
+
+    pub async fn subscribe_blocks(&self) -> SubEventRx<N> {
+        self.inner.read().await.blocks_broadcast.subscribe()
+    }
 }
 
 pub struct Inner<N: NetworkSpec> {
     blocks: BTreeMap<u64, N::BlockResponse>,
+    blocks_broadcast: broadcast::Sender<SubscriptionEvent<N>>,
     finalized_block: Option<N::BlockResponse>,
     hashes: HashMap<B256, u64>,
     txs: HashMap<B256, TransactionLocation>,
@@ -247,8 +255,10 @@ pub struct Inner<N: NetworkSpec> {
 
 impl<N: NetworkSpec> Inner<N> {
     pub fn new(history_length: usize) -> Self {
+        let (blocks_broadcast, _) = broadcast::channel(100);
         Self {
             blocks: BTreeMap::default(),
+            blocks_broadcast,
             finalized_block: None,
             hashes: HashMap::default(),
             txs: HashMap::default(),
@@ -259,7 +269,7 @@ impl<N: NetworkSpec> Inner<N> {
 
     pub async fn push_block(&mut self, block: N::BlockResponse, client: Arc<dyn ExecutionSpec<N>>) {
         let block_number = block.header().number();
-        if self.try_insert_tip(block) {
+        if self.try_insert_tip(block.clone()) {
             let mut n = block_number;
 
             loop {
@@ -285,6 +295,10 @@ impl<N: NetworkSpec> Inner<N> {
             }
 
             self.prune();
+
+            let _ = self
+                .blocks_broadcast
+                .send(SubscriptionEvent::NewHeads(block));
         }
     }
 

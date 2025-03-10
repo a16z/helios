@@ -1,24 +1,29 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::Filter;
 use wasm_bindgen::prelude::*;
+use web_sys::js_sys::Function;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
 use helios_common::types::BlockTag;
 use helios_opstack::config::{Config, Network, NetworkConfig};
+use helios_opstack::spec::OpStack;
 use helios_opstack::OpStackClientBuilder;
 
 use crate::map_err;
+use crate::subscription::Subscription;
 
 #[wasm_bindgen]
 pub struct OpStackClient {
     inner: helios_opstack::OpStackClient,
     chain_id: u64,
+    active_subscriptions: HashMap<String, Subscription<OpStack>>,
 }
 
 #[wasm_bindgen]
@@ -57,7 +62,11 @@ impl OpStackClient {
 
         let inner = map_err(OpStackClientBuilder::new().config(config).build())?;
 
-        Ok(Self { inner, chain_id })
+        Ok(Self {
+            inner,
+            chain_id,
+            active_subscriptions: HashMap::new(),
+        })
     }
 
     #[wasm_bindgen]
@@ -333,5 +342,27 @@ impl OpStackClient {
     #[wasm_bindgen]
     pub async fn client_version(&self) -> String {
         self.inner.client_version().await
+    }
+
+    #[wasm_bindgen]
+    pub async fn subscribe(
+        &mut self,
+        event_type: String,
+        id: String,
+        callback: Function,
+    ) -> Result<bool, JsError> {
+        let rx = map_err(self.inner.subscribe(event_type.clone()).await)?;
+
+        let subscription = Subscription::<OpStack>::new(id.clone());
+
+        subscription.listen(rx, callback).await;
+        self.active_subscriptions.insert(id, subscription);
+
+        Ok(true)
+    }
+
+    #[wasm_bindgen]
+    pub fn unsubscribe(&mut self, id: String) -> Result<bool, JsError> {
+        Ok(self.active_subscriptions.remove(&id).is_some())
     }
 }

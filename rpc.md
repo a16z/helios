@@ -37,4 +37,5 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getProof` | `get_proof` | Returns the merkle proof for a given account and optionally some storage keys. | `client.get_proof(&self, address: &str, slots: [H256], block: BlockTag)` |
 | `eth_coinbase` | `get_coinbase` | Returns the client coinbase address. | `client.get_coinbase(&self)` |
 | `eth_syncing` | `syncing` | Returns an object with data about the sync status or false. | `client.syncing(&self)` |
+| `eth_subscribe` | `subscribe` | Subscribes to events. Only "newHeads" is currently supported. | `client.subscribe(&self, event_type: &str)` |
 | `web3_clientVersion` | `client_version` | Returns the current version of the chain client. | `client.client_version(&self)` |
