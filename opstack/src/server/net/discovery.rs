@@ -29,7 +29,9 @@ pub fn start(addr: SocketAddr, chain_id: u64) -> Result<Receiver<SocketAddr>> {
     let (sender, recv) = mpsc::channel::<SocketAddr>(256);
 
     tokio::spawn(async move {
-        bootnodes.into_iter().for_each(|enr| _ = disc.add_enr(enr));
+        bootnodes.into_iter().for_each(|enr| {
+            disc.add_enr(enr);
+        });
         disc.start().await.unwrap();
 
         tracing::info!("started peer discovery");
@@ -92,7 +94,7 @@ fn create_disc(addr: SocketAddr, chain_id: u64) -> Result<Discv5> {
     let config = ConfigBuilder::new(listen_config).build();
     let key = CombinedKey::generate_secp256k1();
     let enr = Builder::default()
-        .add_value_rlp("opstack", opstack_data.into())
+        .add_value_rlp("opstack", opstack_data)
         .build(&key)?;
 
     Discv5::new(enr, key, config).map_err(|_| eyre::eyre!("could not create disc service"))
