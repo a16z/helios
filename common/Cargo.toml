@@ -9,3 +9,4 @@ serde.workspace = true
 serde_json.workspace = true
 revm.workspace = true
 eyre.workspace = true
+tokio.workspace = true

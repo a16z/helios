@@ -15,7 +15,7 @@ use tracing::warn;
 use helios_common::{
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{Account, BlockTag},
+    types::{Account, BlockTag, SubEventRx},
 };
 
 use self::client::ExecutionInner;
@@ -142,6 +142,16 @@ impl<N: NetworkSpec> ExecutionClient<N> {
 
     pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {
         self.state.get_transaction(hash).await
+    }
+
+    pub async fn subscribe(&self, event_type: String) -> Result<SubEventRx<N>> {
+        match event_type.as_str() {
+            "newHeads" => Ok(self.state.subscribe_blocks().await),
+            _ => Err(eyre::eyre!(
+                "Unsupported subscription event: {:?}",
+                event_type
+            )),
+        }
     }
 }
 

@@ -8,6 +8,9 @@ use alloy::{
 };
 use eyre::{eyre, Report, Result};
 use serde::{de::Error, Deserialize, Serialize};
+use tokio::sync::broadcast::Receiver;
+
+use crate::network_spec::NetworkSpec;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -124,3 +127,11 @@ impl TryFrom<BlockId> for BlockTag {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum SubscriptionEvent<N: NetworkSpec> {
+    NewHeads(N::BlockResponse),
+}
+
+pub type SubEventRx<N> = Receiver<SubscriptionEvent<N>>;

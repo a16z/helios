@@ -1,6 +1,7 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use alloy::hex::FromHex;
@@ -8,14 +9,17 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
+use web_sys::js_sys::Function;
 
 use helios_common::types::BlockTag;
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::database::{ConfigDB, Database};
+use helios_ethereum::spec::Ethereum;
 use helios_ethereum::EthereumClientBuilder;
 
 use crate::map_err;
 use crate::storage::LocalStorageDB;
+use crate::subscription::Subscription;
 
 #[derive(Clone)]
 pub enum DatabaseType {
@@ -52,6 +56,7 @@ impl Database for DatabaseType {
 pub struct EthereumClient {
     inner: helios_ethereum::EthereumClient<DatabaseType>,
     chain_id: u64,
+    active_subscriptions: HashMap<String, Subscription<Ethereum>>,
 }
 
 #[wasm_bindgen]
@@ -106,12 +111,38 @@ impl EthereumClient {
 
         let inner = map_err(EthereumClientBuilder::new().config(config).build())?;
 
-        Ok(Self { inner, chain_id })
+        Ok(Self {
+            inner,
+            chain_id,
+            active_subscriptions: HashMap::new(),
+        })
     }
 
     #[wasm_bindgen]
     pub async fn sync(&mut self) -> Result<(), JsError> {
         map_err(self.inner.start().await)
+    }
+
+    #[wasm_bindgen]
+    pub async fn subscribe(
+        &mut self,
+        event_type: String,
+        id: String,
+        callback: Function,
+    ) -> Result<bool, JsError> {
+        let rx = map_err(self.inner.subscribe(event_type.clone()).await)?;
+
+        let subscription = Subscription::<Ethereum>::new(id.clone());
+
+        subscription.listen(rx, callback).await;
+        self.active_subscriptions.insert(id, subscription);
+
+        Ok(true)
+    }
+
+    #[wasm_bindgen]
+    pub fn unsubscribe(&mut self, id: String) -> Result<bool, JsError> {
+        Ok(self.active_subscriptions.remove(&id).is_some())
     }
 
     #[wasm_bindgen]
