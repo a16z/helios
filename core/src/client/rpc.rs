@@ -17,7 +17,7 @@ use tracing::info;
 
 use helios_common::{
     network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx},
+    types::{BlockTag, SubEventRx, SubscriptionType},
 };
 
 use crate::client::node::Node;
@@ -171,7 +171,7 @@ trait EthRpc<
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncStatus, ErrorObjectOwned>;
     #[subscription(name = "subscribe", unsubscribe = "unsubscribe", item = String)]
-    async fn subscribe(&self, event_type: String) -> SubscriptionResult;
+    async fn subscribe(&self, event_type: SubscriptionType) -> SubscriptionResult;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -425,7 +425,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
     async fn subscribe(
         &self,
         pending: PendingSubscriptionSink,
-        event_type: String,
+        event_type: SubscriptionType,
     ) -> SubscriptionResult {
         let maybe_rx = self.node.subscribe(event_type).await;
 

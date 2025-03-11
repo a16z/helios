@@ -12,7 +12,7 @@ use helios_common::{
     execution_mode::ExecutionMode,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx},
+    types::{BlockTag, SubEventRx, SubscriptionType},
 };
 use helios_verifiable_api_client::http::HttpVerifiableApi;
 
@@ -382,7 +382,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         }
     }
 
-    pub async fn subscribe(&self, event_type: String) -> Result<SubEventRx<N>> {
-        self.execution.subscribe(event_type).await
+    pub async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>> {
+        self.execution.subscribe(sub_type).await
     }
 }

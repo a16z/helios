@@ -128,6 +128,14 @@ impl TryFrom<BlockId> for BlockTag {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SubscriptionType {
+    NewHeads,
+    NewPendingTransactions,
+    Logs,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum SubscriptionEvent<N: NetworkSpec> {

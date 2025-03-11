@@ -11,7 +11,7 @@ use web_sys::js_sys::Function;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
-use helios_common::types::BlockTag;
+use helios_common::types::{BlockTag, SubscriptionType};
 use helios_opstack::config::{Config, Network, NetworkConfig};
 use helios_opstack::spec::OpStack;
 use helios_opstack::OpStackClientBuilder;
@@ -347,11 +347,12 @@ impl OpStackClient {
     #[wasm_bindgen]
     pub async fn subscribe(
         &mut self,
-        event_type: String,
+        sub_type: JsValue,
         id: String,
         callback: Function,
     ) -> Result<bool, JsError> {
-        let rx = map_err(self.inner.subscribe(event_type.clone()).await)?;
+        let sub_type: SubscriptionType = serde_wasm_bindgen::from_value(sub_type)?;
+        let rx = map_err(self.inner.subscribe(sub_type).await)?;
 
         let subscription = Subscription::<OpStack>::new(id.clone());
 

@@ -11,7 +11,7 @@ use eyre::Result;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
 
-use helios_common::types::BlockTag;
+use helios_common::types::{BlockTag, SubscriptionType};
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::database::{ConfigDB, Database};
 use helios_ethereum::spec::Ethereum;
@@ -126,11 +126,12 @@ impl EthereumClient {
     #[wasm_bindgen]
     pub async fn subscribe(
         &mut self,
-        event_type: String,
+        sub_type: JsValue,
         id: String,
         callback: Function,
     ) -> Result<bool, JsError> {
-        let rx = map_err(self.inner.subscribe(event_type.clone()).await)?;
+        let sub_type: SubscriptionType = serde_wasm_bindgen::from_value(sub_type)?;
+        let rx = map_err(self.inner.subscribe(sub_type).await)?;
 
         let subscription = Subscription::<Ethereum>::new(id.clone());
 
