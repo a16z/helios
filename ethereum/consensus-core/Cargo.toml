@@ -4,15 +4,8 @@ name = "helios-consensus-core"
 edition = "2021"
 
 [dependencies]
-alloy = { version = "0.9.1", features = [
-    "consensus",
-    "rpc-types",
-    "ssz",
-    "rlp",
-    "k256",
-    "eips",
-] }
-alloy-rlp = "0.3.10"
+alloy = { workspace = true, features = ["consensus", "rpc-types", "ssz", "rlp", "k256", "eips"] }
+alloy-rlp.workspace = true
 bls12_381.workspace = true
 ssz_types.workspace = true
 ethereum_ssz_derive.workspace = true
@@ -33,6 +26,6 @@ getrandom = { version = "0.2", features = ["js"] }
 wasmtimer = "0.2.0"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
-snap = "1"
-serde_yaml = "0.9.34"
+tokio = { workspace = true, features = ["full"] }
+snap.workspace = true
+serde_yaml.workspace = true
