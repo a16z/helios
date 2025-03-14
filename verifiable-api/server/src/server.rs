@@ -80,17 +80,17 @@ impl VerifiableApiServer {
 
 #[derive(Subcommand)]
 pub enum Network {
-    #[clap(name = "ethereum")]
+    #[command(name = "ethereum")]
     Ethereum(ServerArgs),
-    #[clap(name = "opstack")]
+    #[command(name = "opstack")]
     OpStack(ServerArgs),
 }
 
 #[derive(Args)]
 pub struct ServerArgs {
-    #[clap(short, long, default_value = "127.0.0.1:4000")]
+    #[arg(short, long, default_value = "127.0.0.1:4000")]
     pub server_address: SocketAddr,
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub execution_rpc: Url,
 }
 
