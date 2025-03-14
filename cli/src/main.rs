@@ -112,7 +112,7 @@ fn register_shutdown_handler<N: NetworkSpec, C: Consensus<N::BlockResponse>>(cli
 }
 
 #[derive(Parser)]
-#[clap(version, about)]
+#[command(version, about)]
 /// Helios is a fast, secure, and portable multichain light client
 struct Cli {
     #[command(subcommand)]
@@ -121,9 +121,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    #[clap(name = "ethereum")]
+    #[command(name = "ethereum")]
     Ethereum(EthereumArgs),
-    #[clap(name = "opstack")]
+    #[command(name = "opstack")]
     OpStack(OpStackArgs),
     #[clap(name = "linea")]
     Linea(LineaArgs),
@@ -131,27 +131,27 @@ enum Command {
 
 #[derive(Args)]
 struct EthereumArgs {
-    #[clap(short, long, default_value = "mainnet")]
+    #[arg(short, long, default_value = "mainnet")]
     network: String,
-    #[clap(short = 'b', long, env)]
+    #[arg(short = 'b', long, env)]
     rpc_bind_ip: Option<IpAddr>,
-    #[clap(short = 'p', long, env)]
+    #[arg(short = 'p', long, env)]
     rpc_port: Option<u16>,
-    #[clap(short = 'w', long, env)]
+    #[arg(short = 'w', long, env)]
     checkpoint: Option<B256>,
-    #[clap(short, long, env, value_parser = parse_url)]
+    #[arg(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
-    #[clap(long, env, value_parser = parse_url)]
+    #[arg(long, env, value_parser = parse_url)]
     execution_verifiable_api: Option<Url>,
-    #[clap(short, long, env, value_parser = parse_url)]
+    #[arg(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
-    #[clap(short, long, env)]
+    #[arg(short, long, env)]
     data_dir: Option<String>,
-    #[clap(short = 'f', long, env)]
+    #[arg(short = 'f', long, env)]
     fallback: Option<String>,
-    #[clap(short = 'l', long, env)]
+    #[arg(short = 'l', long, env)]
     load_external_fallback: bool,
-    #[clap(short = 's', long, env)]
+    #[arg(short = 's', long, env)]
     strict_checkpoint_age: bool,
 }
 
@@ -194,26 +194,26 @@ impl EthereumArgs {
 
 #[derive(Args, Debug)]
 struct OpStackArgs {
-    #[clap(short, long)]
+    #[arg(short, long)]
     network: String,
-    #[clap(short = 'b', long, env, default_value = "127.0.0.1")]
+    #[arg(short = 'b', long, env, default_value = "127.0.0.1")]
     rpc_bind_ip: Option<IpAddr>,
-    #[clap(short = 'p', long, env, default_value = "8545")]
+    #[arg(short = 'p', long, env, default_value = "8545")]
     rpc_port: Option<u16>,
-    #[clap(short, long, env, value_parser = parse_url)]
+    #[arg(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
-    #[clap(long, env, value_parser = parse_url)]
+    #[arg(long, env, value_parser = parse_url)]
     execution_verifiable_api: Option<Url>,
-    #[clap(short, long, env, value_parser = parse_url)]
+    #[arg(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
-    #[clap(
+    #[arg(
         short = 'w',
         long = "ethereum-checkpoint",
         env = "ETHEREUM_CHECKPOINT",
         help = "Set custom weak subjectivity checkpoint for chosen Ethereum network. Helios uses this to sync and trustlessly fetch the correct unsafe signer address used by <NETWORK>"
     )]
     checkpoint: Option<B256>,
-    #[clap(
+    #[arg(
         short = 'l',
         long = "ethereum-load-external-fallback",
         env = "ETHEREUM_LOAD_EXTERNAL_FALLBACK",
