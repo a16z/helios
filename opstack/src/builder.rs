@@ -66,11 +66,13 @@ impl OpStackClientBuilder {
         let config = if let Some(config) = self.config {
             config
         } else {
-            let Some(network) = self.network else {
+            if let Some(network) = self.network {
+            } else {
                 eyre::bail!("network required");
             };
 
-            let Some(consensus_rpc) = self.consensus_rpc else {
+            if let Some(consensus_rpc) = self.consensus_rpc {
+            } else {
                 eyre::bail!("consensus rpc required");
             };
 
