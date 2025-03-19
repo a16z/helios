@@ -2,6 +2,21 @@
 
 Helios provides a variety of RPC methods for interacting with the Ethereum network. These methods are exposed via the `Client` struct.  The RPC methods follow the [Ethereum JSON RPC Spec](https://ethereum.github.io/execution-apis/api-documentation). See [examples](./examples) of running remote procedure calls with Helios.
 
+## Overview
+
+Helios's RPC implementation allows developers to interact with the Ethereum blockchain in a trustless manner through a light client. The key advantage of using Helios rather than a traditional RPC provider is that responses are verified against the local consensus data, providing security guarantees that centralized providers cannot.
+
+When using Helios, you can be confident that the data you receive is consistent with the Ethereum blockchain as verified by your local light client.
+
+## API Usage
+
+There are two ways to use Helios's RPC capabilities:
+
+1. **Directly as a library** - Import Helios into your Rust project and use the client functions (see the [examples](./examples) directory)
+2. **As a local RPC server** - Run Helios as a standalone process and connect to the JSON-RPC server at `http://127.0.0.1:8545` (default)
+
+For users seeking even stronger verifiability guarantees, check out the [verifiable-api](./verifiable-api/README.md) which provides a more comprehensive verification approach.
+
 ## RPC Methods
 
 | RPC Method | Client Function | Description | Example |
@@ -39,3 +54,33 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_syncing` | `syncing` | Returns an object with data about the sync status or false. | `client.syncing(&self)` |
 | `eth_subscribe` | `subscribe` | Subscribes to events. Only "newHeads" is currently supported. | `client.subscribe(&self, event_type: &str)` |
 | `web3_clientVersion` | `client_version` | Returns the current version of the chain client. | `client.client_version(&self)` |
+
+## Data Types
+
+When interacting with the RPC methods, you'll frequently encounter the following data types:
+
+### BlockTag
+
+Many methods accept a `BlockTag` parameter, which can be:
+- A block number (e.g., `12345`)
+- A block hash (e.g., `0x...`)
+- One of these special tags:
+  - `latest`: The most recent block that has been finalized
+  - `safe`: A block that is unlikely to be re-orged
+  - `pending`: The current pending block (not yet mined)
+  - `finalized`: The most recent block that has been finalized
+
+### Address
+
+Ethereum addresses are represented as hex strings prefixed with `0x` and containing 40 hex characters (20 bytes). For example: `0x742d35Cc6634C0532925a3b844Bc454e4438f44e`.
+
+### H256 (Hash)
+
+Hashes in Ethereum are 32 bytes (256 bits) and represented as hex strings prefixed with `0x` and containing 64 hex characters. For example: `0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2`.
+
+## Additional Resources
+
+- [Ethereum JSON-RPC Specification](https://ethereum.github.io/execution-apis/api-documentation/)
+- [Helios Examples](./examples)
+- [Helios Verifiable API](./verifiable-api/README.md)
+- [Configuration Options](./config.md)
