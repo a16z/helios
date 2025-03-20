@@ -1,12 +1,14 @@
 #![allow(dead_code)]
+use std::{path::PathBuf, str::FromStr};
+
 use alloy::primitives::{Address, B256, U256};
-use helios_core::types::BlockTag;
+
+use helios_common::types::BlockTag;
 use helios_ethereum::{
     config::{checkpoints, networks},
     database::FileDB,
     EthereumClient, EthereumClientBuilder,
 };
-use std::{path::PathBuf, str::FromStr};
 
 /// Fetches the latest mainnet checkpoint from the fallback service.
 ///
@@ -111,8 +113,8 @@ pub fn get_balance(
     })
 }
 
-// h/t @ https://github.com/smrpn
-// rev: https://github.com/smrpn/casbin-rs/commit/7a0a75d8075440ee65acdac3ee9c0de6fcbd5c48
+// h/t @ https://github.com/0xethsign
+// rev: https://github.com/0xethsign/casbin-rs/commit/7a0a75d8075440ee65acdac3ee9c0de6fcbd5c48
 pub fn await_future<F: std::future::Future<Output = T>, T>(future: F) -> T {
     tokio::runtime::Runtime::new().unwrap().block_on(future)
 }

@@ -9,14 +9,16 @@ use figment::{
     value::Value,
     Figment,
 };
-use helios_ethereum::config::networks::Network as EthNetwork;
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use helios_ethereum::config::networks::Network as EthNetwork;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub consensus_rpc: Url,
-    pub execution_rpc: Url,
+    pub execution_rpc: Option<String>,
+    pub execution_verifiable_api: Option<String>,
     pub rpc_socket: Option<SocketAddr>,
     pub chain: ChainConfig,
     pub load_external_fallback: Option<bool>,

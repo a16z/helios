@@ -1,0 +1,15 @@
+[package]
+name = "helios-test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+# self crates
+helios-common = { path = "../../common" }
+helios-core = { path = "../../core" }
+helios-ethereum = { path = "../../ethereum" }
+helios-verifiable-api-types = { path = "../../verifiable-api/types" }

@@ -1,9 +1,13 @@
 [package]
 name = "helios-core"
-version = "0.8.1"
+version = "0.8.3"
 edition = "2021"
 
 [dependencies]
+# self crates
+helios-common = { path = "../common" }
+helios-verifiable-api-client = { path = "../verifiable-api/client" }
+
 # execution
 alloy.workspace = true
 alloy-trie.workspace = true
@@ -36,3 +40,7 @@ wasmtimer = "0.2.0"
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }
+
+[dev-dependencies]
+helios-test-utils = { path = "../tests/test-utils" }
+helios-ethereum = { path = "../ethereum" }

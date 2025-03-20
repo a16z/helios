@@ -1,6 +1,7 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use alloy::hex::FromHex;
@@ -8,14 +9,17 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
+use web_sys::js_sys::Function;
 
-use helios_core::types::BlockTag;
+use helios_common::types::{BlockTag, SubscriptionType};
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::database::{ConfigDB, Database};
+use helios_ethereum::spec::Ethereum;
 use helios_ethereum::EthereumClientBuilder;
 
 use crate::map_err;
 use crate::storage::LocalStorageDB;
+use crate::subscription::Subscription;
 
 #[derive(Clone)]
 pub enum DatabaseType {
@@ -52,13 +56,15 @@ impl Database for DatabaseType {
 pub struct EthereumClient {
     inner: helios_ethereum::EthereumClient<DatabaseType>,
     chain_id: u64,
+    active_subscriptions: HashMap<String, Subscription<Ethereum>>,
 }
 
 #[wasm_bindgen]
 impl EthereumClient {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        execution_rpc: String,
+        execution_rpc: Option<String>,
+        execution_verifiable_api: Option<String>,
         consensus_rpc: Option<String>,
         network: String,
         checkpoint: Option<String>,
@@ -92,6 +98,7 @@ impl EthereumClient {
 
         let config = Config {
             execution_rpc,
+            execution_verifiable_api,
             consensus_rpc,
             checkpoint,
 
@@ -104,12 +111,39 @@ impl EthereumClient {
 
         let inner = map_err(EthereumClientBuilder::new().config(config).build())?;
 
-        Ok(Self { inner, chain_id })
+        Ok(Self {
+            inner,
+            chain_id,
+            active_subscriptions: HashMap::new(),
+        })
     }
 
     #[wasm_bindgen]
     pub async fn sync(&mut self) -> Result<(), JsError> {
         map_err(self.inner.start().await)
+    }
+
+    #[wasm_bindgen]
+    pub async fn subscribe(
+        &mut self,
+        sub_type: JsValue,
+        id: String,
+        callback: Function,
+    ) -> Result<bool, JsError> {
+        let sub_type: SubscriptionType = serde_wasm_bindgen::from_value(sub_type)?;
+        let rx = map_err(self.inner.subscribe(sub_type).await)?;
+
+        let subscription = Subscription::<Ethereum>::new(id.clone());
+
+        subscription.listen(rx, callback).await;
+        self.active_subscriptions.insert(id, subscription);
+
+        Ok(true)
+    }
+
+    #[wasm_bindgen]
+    pub fn unsubscribe(&mut self, id: String) -> Result<bool, JsError> {
+        Ok(self.active_subscriptions.remove(&id).is_some())
     }
 
     #[wasm_bindgen]
@@ -220,6 +254,13 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_block_by_hash(&self, hash: String, full_tx: bool) -> Result<JsValue, JsError> {
+        let hash = B256::from_str(&hash)?;
+        let block = map_err(self.inner.get_block_by_hash(hash, full_tx).await)?;
+        Ok(serde_wasm_bindgen::to_value(&block)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn get_code(&self, addr: JsValue, block: JsValue) -> Result<String, JsError> {
         let addr: Address = serde_wasm_bindgen::from_value(addr)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
@@ -242,6 +283,28 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
+    pub async fn get_proof(
+        &self,
+        address: JsValue,
+        storage_keys: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let address: Address = serde_wasm_bindgen::from_value(address)?;
+        let storage_keys: Vec<U256> = serde_wasm_bindgen::from_value(storage_keys)?;
+        let storage_keys = storage_keys
+            .into_iter()
+            .map(|k| k.into())
+            .collect::<Vec<_>>();
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let proof = map_err(
+            self.inner
+                .get_proof(address, Some(&storage_keys), block)
+                .await,
+        )?;
+        Ok(serde_wasm_bindgen::to_value(&proof)?)
+    }
+
+    #[wasm_bindgen]
     pub async fn call(&self, opts: JsValue, block: JsValue) -> Result<String, JsError> {
         let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
         let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
@@ -250,9 +313,22 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
-    pub async fn estimate_gas(&self, opts: JsValue) -> Result<u32, JsError> {
+    pub async fn estimate_gas(&self, opts: JsValue, block: JsValue) -> Result<u32, JsError> {
         let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
-        Ok(map_err(self.inner.estimate_gas(&opts).await)? as u32)
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        Ok(map_err(self.inner.estimate_gas(&opts, block).await)? as u32)
+    }
+
+    #[wasm_bindgen]
+    pub async fn create_access_list(
+        &self,
+        opts: JsValue,
+        block: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
+        let block: BlockTag = serde_wasm_bindgen::from_value(block)?;
+        let access_list_result = map_err(self.inner.create_access_list(&opts, block).await)?;
+        Ok(serde_wasm_bindgen::to_value(&access_list_result)?)
     }
 
     #[wasm_bindgen]

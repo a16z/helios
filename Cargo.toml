@@ -1,6 +1,6 @@
 [package]
 name = "helios"
-version = "0.8.1"
+version = "0.8.3"
 edition = "2021"
 autobenches = false
 exclude = ["benches"]
@@ -8,11 +8,16 @@ exclude = ["benches"]
 [workspace]
 members = [
     "cli",
+    "common",
     "core",
     "ethereum",
     "ethereum/consensus-core",
     "opstack",
     "helios-ts",
+    "tests/test-utils",        # ToDo(@eshaan7): find a better way to include this
+    "verifiable-api/client",
+    "verifiable-api/server",
+    "verifiable-api/types",
 ]
 
 default-members = ["cli"]
@@ -83,14 +88,18 @@ typenum = "1.17.0"
 ######################################
 
 [dependencies]
+helios-common = { path = "./common" }
 helios-core = { path = "./core" }
 helios-ethereum = { path = "./ethereum" }
 helios-opstack = { path = "./opstack" }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio.workspace = true
+futures.workspace = true
+url.workspace = true
+serde.workspace = true
 dotenv = "0.15.0"
-serde = { version = "1.0.154", features = ["derive"] }
+helios-verifiable-api-server = { path = "verifiable-api/server" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 alloy = { version = "0.9.1", features = ["full"] }

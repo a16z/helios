@@ -3,20 +3,25 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{Filter, FilterChanges, Log, SyncStatus};
+use alloy::rpc::types::{
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+};
 use eyre::Result;
 use jsonrpsee::{
-    core::{async_trait, server::Methods},
+    core::{async_trait, server::Methods, SubscriptionResult},
     proc_macros::rpc,
-    server::{ServerBuilder, ServerHandle},
+    server::{PendingSubscriptionSink, ServerBuilder, ServerHandle, SubscriptionMessage},
     types::error::{ErrorObject, ErrorObjectOwned},
 };
 use tracing::info;
 
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{BlockTag, SubEventRx, SubscriptionType},
+};
+
 use crate::client::node::Node;
 use crate::consensus::Consensus;
-use crate::network_spec::NetworkSpec;
-use crate::types::BlockTag;
 
 pub struct Rpc<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,
@@ -83,7 +88,13 @@ trait EthRpc<
     #[method(name = "call")]
     async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, tx: TXR) -> Result<U64, ErrorObjectOwned>;
+    async fn estimate_gas(&self, tx: TXR, block: BlockTag) -> Result<U64, ErrorObjectOwned>;
+    #[method(name = "createAccessList")]
+    async fn create_access_list(
+        &self,
+        tx: TXR,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ErrorObjectOwned>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "gasPrice")]
@@ -148,10 +159,19 @@ trait EthRpc<
         slot: U256,
         block: BlockTag,
     ) -> Result<B256, ErrorObjectOwned>;
+    #[method(name = "getProof")]
+    async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<U256>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncStatus, ErrorObjectOwned>;
+    #[subscription(name = "subscribe", unsubscribe = "unsubscribe", item = String)]
+    async fn subscribe(&self, event_type: SubscriptionType) -> SubscriptionResult;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -241,10 +261,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
         convert_err(self.node.call(&tx, block).await)
     }
 
-    async fn estimate_gas(&self, tx: N::TransactionRequest) -> Result<U64, ErrorObjectOwned> {
-        let res = self.node.estimate_gas(&tx).await.map(U64::from);
+    async fn estimate_gas(
+        &self,
+        tx: N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<U64, ErrorObjectOwned> {
+        let res = self.node.estimate_gas(&tx, block).await.map(U64::from);
 
         convert_err(res)
+    }
+
+    async fn create_access_list(
+        &self,
+        tx: N::TransactionRequest,
+        block: BlockTag,
+    ) -> Result<AccessListResult, ErrorObjectOwned> {
+        convert_err(self.node.create_access_list(&tx, block).await)
     }
 
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned> {
@@ -375,6 +407,30 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>>
     ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.node.get_storage_at(address, slot, block).await)
     }
+
+    async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<U256>,
+        block: BlockTag,
+    ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned> {
+        let slots = storage_keys
+            .into_iter()
+            .map(|k| k.into())
+            .collect::<Vec<_>>();
+
+        convert_err(self.node.get_proof(address, Some(&slots), block).await)
+    }
+
+    async fn subscribe(
+        &self,
+        pending: PendingSubscriptionSink,
+        event_type: SubscriptionType,
+    ) -> SubscriptionResult {
+        let maybe_rx = self.node.subscribe(event_type).await;
+
+        handle_subscription(pending, maybe_rx).await
+    }
 }
 
 #[async_trait]
@@ -413,4 +469,36 @@ async fn start<N: NetworkSpec, C: Consensus<N::BlockResponse>>(
 
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, ErrorObjectOwned> {
     res.map_err(|err| ErrorObject::owned(1, err.to_string(), None::<()>))
+}
+
+/// Helper function to handle subscription acceptance/rejection and message forwarding
+async fn handle_subscription<N: NetworkSpec>(
+    pending: PendingSubscriptionSink,
+    maybe_rx: Result<SubEventRx<N>>,
+) -> SubscriptionResult {
+    match maybe_rx {
+        Ok(mut stream) => {
+            let sink = pending.accept().await?;
+
+            tokio::spawn(async move {
+                while let Ok(message) = stream.recv().await {
+                    let msg = SubscriptionMessage::from_json(&message).unwrap();
+                    if sink.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+            });
+            Ok(())
+        }
+        Err(e) => {
+            pending
+                .reject(ErrorObject::owned(
+                    2000,
+                    "Subscription failed",
+                    Some(e.to_string()),
+                ))
+                .await;
+            Ok(())
+        }
+    }
 }

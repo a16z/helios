@@ -1,6 +1,6 @@
 [package]
 name = "helios-ethereum"
-version = "0.8.1"
+version = "0.8.3"
 edition = "2021"
 
 [dependencies]
@@ -36,6 +36,8 @@ superstruct.workspace = true
 retri.workspace = true
 typenum.workspace = true
 
+# self crates
+helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-consensus-core = { path = "consensus-core" }
 

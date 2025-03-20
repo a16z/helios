@@ -1,7 +1,8 @@
 use eyre::Result;
-use helios_core::fork_schedule::ForkSchedule;
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
+
+use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
 
 use crate::{
     config::Network,
@@ -15,9 +16,10 @@ pub struct OpStackClientBuilder {
     config: Option<Config>,
     network: Option<Network>,
     consensus_rpc: Option<Url>,
-    execution_rpc: Option<Url>,
+    execution_rpc: Option<String>,
+    execution_verifiable_api: Option<String>,
     rpc_socket: Option<SocketAddr>,
-    verify_unsafe_singer: Option<bool>,
+    verify_unsafe_signer: Option<bool>,
 }
 
 impl OpStackClientBuilder {
@@ -35,8 +37,13 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
-        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
+    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
+        self.execution_rpc = Some(execution_rpc.to_string());
+        self
+    }
+
+    pub fn execution_verifiable_api(mut self, execution_verifiable_api: &str) -> Self {
+        self.execution_verifiable_api = Some(execution_verifiable_api.to_string());
         self
     }
 
@@ -50,8 +57,8 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn verify_unsafe_singer(mut self, value: bool) -> Self {
-        self.verify_unsafe_singer = Some(value);
+    pub fn verify_unsafe_signer(mut self, value: bool) -> Self {
+        self.verify_unsafe_signer = Some(value);
         self
     }
 
@@ -67,28 +74,29 @@ impl OpStackClientBuilder {
                 eyre::bail!("consensus rpc required");
             };
 
-            let Some(execution_rpc) = self.execution_rpc else {
-                eyre::bail!("execution rpc required");
-            };
-
             Config {
                 consensus_rpc,
-                execution_rpc,
+                execution_rpc: self.execution_rpc,
+                execution_verifiable_api: self.execution_verifiable_api,
                 rpc_socket: self.rpc_socket,
                 chain: NetworkConfig::from(network).chain,
                 load_external_fallback: None,
                 checkpoint: None,
-                verify_unsafe_signer: self.verify_unsafe_singer.unwrap_or_default(),
+                verify_unsafe_signer: self.verify_unsafe_signer.unwrap_or_default(),
             }
         };
 
+        let execution_mode = ExecutionMode::from_urls(
+            config.execution_rpc.clone(),
+            config.execution_verifiable_api.clone(),
+        );
+        let consensus = ConsensusClient::new(&config);
         let fork_schedule = ForkSchedule {
             prague_timestamp: u64::MAX,
         };
 
-        let consensus = ConsensusClient::new(&config);
         OpStackClient::new(
-            config.execution_rpc.as_ref(),
+            execution_mode,
             consensus,
             fork_schedule,
             #[cfg(not(target_arch = "wasm32"))]

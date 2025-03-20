@@ -71,7 +71,7 @@ Note: this is a community-maintained list and thus no security guarantees are pr
 This is not recommended as malicious checkpoints can be returned from the listed apis, even if they are considered _healthy_.
 This can be run like so: `helios --load-external-fallback` (or `helios -l` with the shorthand).
 
-`--strict-checkpoint-age` or `-s` enables strict checkpoint age checking. If the checkpoint is over two weeks old and this flag is enabled, Helios will error. Without this flag, Helios will instead surface a warning to the user and continue. If the checkpoint is greater than two weeks old, there are theoretical attacks that can cause Helios and over light clients to sync incorrectly. These attacks are complex and expensive, so Helios disables this by default.
+`--strict-checkpoint-age` or `-s` enables strict checkpoint age checking. If the checkpoint is over two weeks old and this flag is enabled, Helios will error. Without this flag, Helios will instead surface a warning to the user and continue. If the checkpoint is greater than two weeks old, there are theoretical attacks that can cause Helios and other light clients to sync incorrectly. These attacks are complex and expensive, so Helios disables this by default.
 
 `--help` or `-h` prints the help message.
 

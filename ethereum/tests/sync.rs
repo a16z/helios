@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use alloy::primitives::b256;
+
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::{consensus::ConsensusClient, database::ConfigDB, rpc::mock_rpc::MockRpc};
@@ -9,7 +10,6 @@ async fn setup() -> ConsensusClient<MainnetConsensusSpec, MockRpc, ConfigDB> {
     let base_config = networks::mainnet();
     let config = Config {
         consensus_rpc: String::new(),
-        execution_rpc: String::new(),
         chain: base_config.chain,
         forks: base_config.forks,
         max_checkpoint_age: 123123123,

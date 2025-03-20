@@ -291,7 +291,7 @@ pub struct AttesterSlashing<S: ConsensusSpec> {
 struct IndexedAttestation<S: ConsensusSpec> {
     #[serde(with = "quoted_u64_var_list")]
     #[superstruct(only(Base), partial_getter(rename = "attesting_indices_base"))]
-    attesting_indices: VariableList<u64, S::MaxValidatorsPerCommitee>,
+    attesting_indices: VariableList<u64, S::MaxValidatorsPerCommittee>,
     #[serde(with = "quoted_u64_var_list")]
     #[superstruct(only(Electra), partial_getter(rename = "attesting_indices_electra"))]
     attesting_indices: VariableList<u64, S::MaxValidatorsPerSlot>,
@@ -319,7 +319,7 @@ impl<S: ConsensusSpec> Default for IndexedAttestation<S> {
 #[tree_hash(enum_behaviour = "transparent")]
 pub struct Attestation<S: ConsensusSpec> {
     #[superstruct(only(Base), partial_getter(rename = "aggregation_bits_base"))]
-    aggregation_bits: BitList<S::MaxValidatorsPerCommitee>,
+    aggregation_bits: BitList<S::MaxValidatorsPerCommittee>,
     #[superstruct(only(Electra), partial_getter(rename = "aggregation_bits_electra"))]
     aggregation_bits: BitList<S::MaxValidatorsPerSlot>,
     data: AttestationData,
@@ -398,7 +398,7 @@ pub struct DepositRequest {
     amount: u64,
     signature: Signature,
     #[serde(with = "serde_utils::u64")]
-    slot: u64,
+    index: u64,
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
