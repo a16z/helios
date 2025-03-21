@@ -262,7 +262,7 @@ impl CheckpointFallback {
             .collect()
     }
 
-    /// Returns a list of healthchecked checkpoint fallback endpoints.
+    /// Returns a list of health-checked checkpoint fallback endpoints.
     ///
     /// ### Warning
     ///
@@ -275,7 +275,7 @@ impl CheckpointFallback {
             .collect()
     }
 
-    /// Returns a list of healthchecked checkpoint fallback services.
+    /// Returns a list of health-checked checkpoint fallback services.
     ///
     /// ### Warning
     ///
