@@ -168,6 +168,7 @@ impl<N: NetworkSpec> ProofDB<N> {
     }
 }
 
+#[derive(Debug)]
 enum StateAccess {
     Basic(Address),
     BlockHash(u64),
@@ -211,7 +212,17 @@ impl<N: NetworkSpec> EvmState<N> {
                         .get_account(address, Some(&[slot_bytes]), self.block, true)
                         .await?;
 
-                    self.accounts.insert(address, account);
+                    if let Some(stored_account) = self.accounts.get_mut(&address) {
+                        if stored_account.code.is_none() {
+                            stored_account.code = account.code;
+                        }
+
+                        for storage_proof in account.storage_proof {
+                            stored_account.storage_proof.push(storage_proof);
+                        }
+                    } else {
+                        self.accounts.insert(address, account);
+                    }
                 }
                 StateAccess::BlockHash(number) => {
                     let tag = BlockTag::Number(number);
