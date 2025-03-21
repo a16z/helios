@@ -168,7 +168,6 @@ impl<N: NetworkSpec> ProofDB<N> {
     }
 }
 
-#[derive(Debug)]
 enum StateAccess {
     Basic(Address),
     BlockHash(u64),
