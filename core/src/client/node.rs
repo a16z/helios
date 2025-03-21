@@ -338,16 +338,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     }
 
     pub async fn get_coinbase(&self) -> Result<Address> {
-        self.check_head_age().await?;
-        let tag = BlockTag::Latest;
-
-        let block = self
-            .execution
-            .get_block(tag.into(), false)
-            .await?
-            .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
-
-        Ok(block.header().beneficiary())
+        Ok(Address::ZERO)
     }
 
     async fn check_head_age(&self) -> Result<(), ClientError> {
