@@ -502,7 +502,7 @@ fn safety_threshold<S: ConsensusSpec>(store: &LightClientStore<S>) -> u64 {
 fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> bool {
     let epoch = header.beacon().slot / S::slots_per_epoch();
 
-    // This deviates from the spec in that it dos not check that the blob fields are unset prior to
+    // This deviates from the spec in that it does not check that the blob fields are unset prior to
     // deneb. This is fine since an honest sync committee will never sign an invalid block, which
     // includes blocks that have the blob fields set pre-deneb.
     if epoch < forks.capella.epoch {
