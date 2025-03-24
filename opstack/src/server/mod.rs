@@ -11,6 +11,8 @@ use axum::{
     Json, Router,
 };
 use eyre::Result;
+use libp2p::Multiaddr;
+use op_alloy_rpc_types_engine::{OpExecutionPayload, OpNetworkPayloadEnvelope};
 use tokio::{
     sync::{
         mpsc::{channel, Receiver},
@@ -19,10 +21,12 @@ use tokio::{
     time::sleep,
 };
 use url::Url;
+use kona_p2p::NetworkBuilder;
+use ssz::Encode;
 
 use crate::{types::ExecutionPayload, SequencerCommitment};
 
-use self::net::{block_handler::BlockHandler, gossip::GossipService};
+// use self::net::{block_handler::BlockHandler, gossip::GossipService};
 use helios_core::execution::rpc::{http_rpc::HttpRpc, ExecutionRpc};
 use helios_ethereum::spec::Ethereum;
 use std::str::FromStr;
@@ -105,7 +109,7 @@ async fn unsafe_signer_proof_handler(
 }
 struct ServerState {
     chain_id: u64,
-    commitment_recv: Receiver<SequencerCommitment>,
+    block_recv: Receiver<OpNetworkPayloadEnvelope>,
     latest_commitment: Option<(SequencerCommitment, u64)>,
     execution_rpc: Url,
     system_config_contract: Address,
@@ -117,18 +121,24 @@ impl ServerState {
         chain_id: u64,
         signer: Address,
         system_config_contract: Address,
-        replica_urls: Vec<Url>,
+        _replica_urls: Vec<Url>,
         execution_rpc: Url,
     ) -> Result<Self> {
-        let (send, commitment_recv) = channel(256);
-        poller::start(replica_urls, signer, chain_id, send.clone());
-        let handler = BlockHandler::new(signer, chain_id, send);
-        let gossip = GossipService::new(addr, chain_id, handler);
-        gossip.start()?;
+        let mut gossip_addr = Multiaddr::from(addr.ip());
+        gossip_addr.push(libp2p::multiaddr::Protocol::Tcp(addr.port()));
+        let mut network = NetworkBuilder::new()
+            .with_chain_id(chain_id)
+            .with_unsafe_block_signer(signer)
+            .with_discovery_address("0.0.0.0:44491".parse().unwrap())
+            .with_gossip_address(gossip_addr)
+            .build()?;
+
+        let block_recv = network.take_unsafe_block_recv().unwrap();
+        network.start()?;
 
         Ok(Self {
             chain_id,
-            commitment_recv,
+            block_recv,
             latest_commitment: None,
             execution_rpc,
             system_config_contract,
@@ -136,14 +146,15 @@ impl ServerState {
     }
 
     pub fn update(&mut self) {
-        while let Ok(commitment) = self.commitment_recv.try_recv() {
-            if let Ok(payload) = ExecutionPayload::try_from(&commitment) {
-                if self.is_latest_commitment(payload.block_number) {
-                    tracing::info!("new commitment for block: {}", payload.block_number);
-                    self.latest_commitment = Some((commitment, payload.block_number));
-                }
+        while let Ok(block) = self.block_recv.try_recv() {
+            let block_number = block.payload.block_number();
+            let commitment = encode_payload_envelope(block);
+            if self.is_latest_commitment(block_number) {
+                tracing::info!("new commitment for block: {}", block_number);
+                self.latest_commitment = Some((commitment, block_number));
             }
         }
+        println!("finished update");
     }
 
     fn is_latest_commitment(&self, block_number: u64) -> bool {
@@ -152,5 +163,22 @@ impl ServerState {
         } else {
             true
         }
+    }
+}
+
+fn encode_payload_envelope(value: OpNetworkPayloadEnvelope) -> SequencerCommitment {
+    let parent_root = value.parent_beacon_block_root.unwrap();
+    let payload = match value.payload {
+        OpExecutionPayload::V1(value) => value.as_ssz_bytes(),
+        OpExecutionPayload::V2(value) => value.as_ssz_bytes(),
+        OpExecutionPayload::V3(value) => value.as_ssz_bytes(),
+        OpExecutionPayload::V4(value) => value.as_ssz_bytes(),
+    };
+
+    let data = [parent_root.as_slice(), &payload].concat();
+
+    SequencerCommitment {
+        data: data.into(),
+        signature: value.signature,
     }
 }

@@ -46,11 +46,13 @@ helios-consensus-core = { path = "../ethereum/consensus-core" }
 # server
 axum = "0.7.6"
 clap = { version = "4.5.4", features = ["derive", "env"] }
+op-alloy-rpc-types-engine = "0.11.2"
 # networking
-libp2p = { version = "0.51.3", features = ["macros", "tokio", "tcp", "mplex", "noise", "gossipsub", "ping"] }
+libp2p = { version = "0.55.0", features = ["macros", "tokio", "tcp", "noise", "gossipsub", "ping"] }
 discv5 = "0.7.0"
 libp2p-identity = { version = "0.1.2", features = ["secp256k1"] }
 unsigned-varint = "0.7.1"
+kona-p2p = { git = "https://github.com/op-rs/kona", rev = "dbf273cbe308e9e7093fcaf51c0b787814df4fa4" }
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }
