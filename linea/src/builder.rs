@@ -106,8 +106,8 @@ impl LineaClientBuilder {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        let socket = if rpc_bind_ip.is_some() && rpc_port.is_some() {
-            Some(SocketAddr::new(rpc_bind_ip.unwrap(), rpc_port.unwrap()))
+        let socket = if let (Some(ip), Some(port)) = (rpc_bind_ip, rpc_port) {
+            Some(SocketAddr::new(ip, port))
         } else {
             None
         };
