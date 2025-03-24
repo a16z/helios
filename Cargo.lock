@@ -3106,6 +3106,7 @@ dependencies = [
  "helios-common",
  "helios-core",
  "helios-ethereum",
+ "helios-linea",
  "helios-opstack",
  "tokio",
  "tracing",
@@ -3215,6 +3216,23 @@ dependencies = [
  "typenum",
  "url",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "helios-linea"
+version = "0.8.4"
+dependencies = [
+ "alloy",
+ "eyre",
+ "figment",
+ "helios-common",
+ "helios-core",
+ "helios-ethereum",
+ "serde",
+ "strum",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

@@ -17,7 +17,7 @@ members = [
     "tests/test-utils",        # ToDo(@eshaan7): find a better way to include this
     "verifiable-api/client",
     "verifiable-api/server",
-    "verifiable-api/types",
+    "verifiable-api/types", "linea",
 ]
 
 default-members = ["cli"]
