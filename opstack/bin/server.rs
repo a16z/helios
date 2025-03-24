@@ -63,14 +63,14 @@ fn enable_tracing() {
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Parser)]
 struct Cli {
-    #[clap(short, long)]
+    #[arg(short, long)]
     network: Network,
-    #[clap(short, long, default_value = "127.0.0.1:3000")]
+    #[arg(short, long, default_value = "127.0.0.1:3000")]
     server_address: SocketAddr,
-    #[clap(short, long, default_value = "0.0.0.0:9876")]
+    #[arg(short, long, default_value = "0.0.0.0:9876")]
     gossip_address: SocketAddr,
-    #[clap(short, long, value_delimiter = ',')]
+    #[arg(short, long, value_delimiter = ',')]
     replica_urls: Option<Vec<Url>>,
-    #[clap(short, long)]
+    #[arg(short, long)]
     execution_rpc: Url,
 }

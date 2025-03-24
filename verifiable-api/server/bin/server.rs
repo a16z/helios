@@ -32,7 +32,7 @@ fn enable_tracing() {
 }
 
 #[derive(Parser)]
-#[clap(version, about)]
+#[command(version, about)]
 /// Helios' Verifiable API server
 struct Cli {
     #[command(subcommand)]
