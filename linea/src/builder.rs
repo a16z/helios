@@ -115,10 +115,7 @@ impl LineaClientBuilder {
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config);
 
-        let execution_mode = ExecutionMode::from_urls(
-            Some(config.execution_rpc.clone()),
-            None,
-        );
+        let execution_mode = ExecutionMode::from_urls(Some(config.execution_rpc.clone()), None);
 
         let fork_schedule = ForkSchedule {
             prague_timestamp: u64::MAX,

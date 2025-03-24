@@ -28,8 +28,10 @@ use helios_ethereum::database::FileDB;
 use helios_ethereum::{EthereumClient, EthereumClientBuilder};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 
-use helios_linea::{config::Config as LineaConfig, types::LineaClient, builder::LineaClientBuilder, config::CliConfig as LineaCliConfig};
-
+use helios_linea::{
+    builder::LineaClientBuilder, config::CliConfig as LineaCliConfig,
+    config::Config as LineaConfig, types::LineaClient,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -310,7 +312,6 @@ impl LineaArgs {
         }
     }
 }
-
 
 fn true_or_none(b: bool) -> Option<bool> {
     if b {
