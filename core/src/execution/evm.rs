@@ -131,7 +131,7 @@ impl<N: NetworkSpec> Evm<N> {
             }
         };
 
-        tx_res.map_err(|_| EvmError::Generic("evm error".to_string()))
+        tx_res.map_err(|err| EvmError::Generic(format!("generic: {}", err)))
     }
 
     async fn get_env(&self, tx: &N::TransactionRequest, tag: BlockTag, validate_tx: bool) -> Env {

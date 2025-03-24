@@ -116,7 +116,8 @@ impl NetworkSpec for Ethereum {
         let blob_excess_gas_and_price = block
             .header
             .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague));
+            .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
+            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
 
         BlockEnv {
             number: U256::from(block.header.number()),
@@ -126,7 +127,7 @@ impl NetworkSpec for Ethereum {
             basefee: U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64)),
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
-            blob_excess_gas_and_price,
+            blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
         }
     }
 }
