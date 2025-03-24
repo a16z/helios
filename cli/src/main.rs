@@ -279,7 +279,7 @@ impl OpStackArgs {
 
 #[derive(Args, Debug)]
 struct LineaArgs {
-    #[clap(short, long, default_value = "mainnet")]
+    #[clap(short, long, default_value = "linea")]
     network: String,
     #[clap(short = 'b', long, env)]
     rpc_bind_ip: Option<IpAddr>,

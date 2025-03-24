@@ -41,8 +41,8 @@ impl FromStr for Network {
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            "mainnet" => Ok(Self::Mainnet),
-            "sepolia" => Ok(Self::Sepolia),
+            "linea" => Ok(Self::Mainnet),
+            "linea-sepolia" => Ok(Self::Sepolia),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
