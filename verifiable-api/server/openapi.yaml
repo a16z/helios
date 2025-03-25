@@ -6,7 +6,7 @@ info:
     Helios Verifiable API for Ethereum Execution Layer.
 
 
-    GitHub: [https://github.com/a16z/helios/tree/master/verifiable-api]([https://github.com/a16z/helios/tree/master/verifiable-api)
+    GitHub: [https://github.com/a16z/helios/tree/master/verifiable-api](https://github.com/a16z/helios/tree/master/verifiable-api)
 paths:
   /eth/v1/proof/account/{address}:
     get:
