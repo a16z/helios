@@ -30,6 +30,7 @@ default-members = ["cli"]
 # consensus
 ssz_types = "0.10"
 ethereum_ssz_derive = "0.8"
+openssl = { version = "0.10" }
 ethereum_ssz = "0.8"
 tree_hash_derive = "0.9.0"
 tree_hash = "0.9.0"
@@ -78,7 +79,6 @@ tracing = "0.1.37"
 chrono = "0.4.23"
 thiserror = "1.0.37"
 superstruct = "0.7.0"
-openssl = { version = "0.10", features = ["vendored"] }
 zduny-wasm-timer = "0.2.8"
 retri = "0.1.0"
 typenum = "1.17.0"
