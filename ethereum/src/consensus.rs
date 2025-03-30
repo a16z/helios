@@ -3,7 +3,7 @@ use std::process;
 use std::sync::Arc;
 
 use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
-use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
+use alloy::consensus::{Header as ConsensusHeader, TxEnvelope};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
 use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
 use alloy::rlp::Decodable;
