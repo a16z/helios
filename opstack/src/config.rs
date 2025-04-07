@@ -47,6 +47,7 @@ pub enum Network {
     Base,
     Worldchain,
     Zora,
+    Phala,
 }
 
 impl Display for Network {
@@ -56,6 +57,7 @@ impl Display for Network {
             Self::Base => f.write_str("base"),
             Self::Worldchain => f.write_str("worldchain"),
             Self::Zora => f.write_str("zora"),
+            Self::Phala => f.write_str("phala"),
         }
     }
 }
@@ -69,6 +71,7 @@ impl FromStr for Network {
             "base" => Ok(Self::Base),
             "worldchain" => Ok(Self::Worldchain),
             "zora" => Ok(Self::Zora),
+            "phala" => Ok(Self::Phala),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -121,6 +124,16 @@ impl From<Network> for NetworkConfig {
                     chain_id: 7777777,
                     unsafe_signer: address!("3Dc8Dfd0709C835cAd15a6A27e089FF4cF4C9228"),
                     system_config_contract: address!("A3cAB0126d5F504B071b81a3e8A2BBBF17930d86"),
+                    eth_network: EthNetwork::Mainnet,
+                },
+                verify_unsafe_signer: false,
+            },
+            Network::Phala => NetworkConfig {
+                consensus_rpc: Some("http://127.0.0.1:3000".parse().unwrap()),
+                chain: ChainConfig {
+                    chain_id: 2035,
+                    unsafe_signer: address!("F63ccBA1929a3eC32248B26c5a22D7C4c9bd3EEC"),
+                    system_config_contract: address!("eBf5859b7646ca9cf8A981613569bF28394F2571"),
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
