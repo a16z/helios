@@ -130,7 +130,7 @@
       };
 
       let opMainnetProvider = new helios.HeliosProvider(configOpMainnet, "opstack");
-      opMainnetProvider .sync().then(() => {
+      opMainnetProvider.sync().then(() => {
         window.heliosOpMainnet = new ethers.providers.Web3Provider(opMainnetProvider);
       });
 
