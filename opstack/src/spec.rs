@@ -135,9 +135,7 @@ impl NetworkSpec for OpStack {
             gas_priority_fee:
                 <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
                     .map(U256::from),
-            max_fee_per_blob_gas:
-                <OpTransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx)
-                    .map(U256::from),
+            max_fee_per_blob_gas: None,
             blob_hashes: tx
                 .as_ref()
                 .blob_versioned_hashes
@@ -148,12 +146,11 @@ impl NetworkSpec for OpStack {
         }
     }
 
-    fn block_env(block: &Self::BlockResponse, fork_schedule: &ForkSchedule) -> BlockEnv {
-        let is_prague = block.header.timestamp >= fork_schedule.prague_timestamp;
-        let blob_excess_gas_and_price = block
-            .header
-            .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague));
+    fn block_env(block: &Self::BlockResponse, _fork_schedule: &ForkSchedule) -> BlockEnv {
+        let blob_excess_gas_and_price = Some(BlobExcessGasAndPrice {
+            excess_blob_gas: 0,
+            blob_gasprice: 0,
+        });
 
         BlockEnv {
             number: U256::from(block.header.number()),

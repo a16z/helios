@@ -99,9 +99,7 @@ impl NetworkSpec for Ethereum {
             gas_priority_fee:
                 <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
                     .map(U256::from),
-            max_fee_per_blob_gas:
-                <TransactionRequest as TransactionBuilder<Self>>::max_fee_per_gas(tx)
-                    .map(U256::from),
+            max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(U256::from),
             blob_hashes: tx
                 .blob_versioned_hashes
                 .as_ref()
