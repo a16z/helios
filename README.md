@@ -110,7 +110,7 @@ Checkpoints may be obtained from the following links:
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
-For example, to obtain a recent checkpoint for Holesky Testnet go to https://holesky.beaconcha.in/ and get the block hash of the first block in any finalized epoch. At the time of writing, the [first block hash in epoch 78425](https://holesky.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://holesky.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
+For example, to obtain a recent checkpoint for Holesky Testnet go to https://light-holesky.beaconcha.in/ and get the block hash of the first block in any finalized epoch. At the time of writing, the [first block hash in epoch 78425](https://holesky.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://holesky.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
 
 This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Holesky Testnet:
 ```bash
