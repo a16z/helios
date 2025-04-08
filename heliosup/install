@@ -11,7 +11,7 @@ INSTALLER_NAME=${NAME}up
 DIR=$HOME/.$NAME
 BIN_DIR=$DIR/bin
 
-BIN_URL="https://raw.githubusercontent.com/$REPO/master/$INSTALLER_NAME/$INSTALLER_NAME"
+BIN_URL="https://github.com//$REPO/master/$INSTALLER_NAME/$INSTALLER_NAME"
 BIN_PATH="$BIN_DIR/$INSTALLER_NAME"
 
 # Create the bin directory and binary if it doesn't exist.
