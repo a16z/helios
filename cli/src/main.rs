@@ -18,10 +18,10 @@ use futures::executor::block_on;
 use helios_core::client::Client;
 use helios_core::consensus::Consensus;
 use helios_core::network_spec::NetworkSpec;
-use helios_ethereum::builder::GnosisClientBuilder;
+use helios_ethereum::builder::CoreClientBuilder;
 use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
 use helios_ethereum::database::FileDB;
-use helios_ethereum::{EthereumClient, EthereumClientBuilder, GnosisClient};
+use helios_ethereum::{EthereumClient, EthereumClientBuilder, CoreClient};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -43,8 +43,8 @@ async fn main() -> Result<()> {
             start_client(&mut client).await;
             register_shutdown_handler(client);
         }
-        Command::Gnosis(gnosis) => {
-            let mut client = gnosis.make_client();
+        Command::Core(core) => {
+            let mut client = core.make_client();
             start_client(&mut client).await;
             register_shutdown_handler(client);
         }
@@ -123,8 +123,8 @@ enum Command {
     Ethereum(EthereumArgs),
     #[clap(name = "opstack")]
     OpStack(OpStackArgs),
-    #[clap(name = "gnosis")]
-    Gnosis(GnosisArgs),
+    #[clap(name = "core")]
+    Core(CoreArgs),
 }
 
 #[derive(Args)]
@@ -267,8 +267,8 @@ impl OpStackArgs {
 }
 
 #[derive(Args)]
-struct GnosisArgs {
-    #[clap(short, long, default_value = "gnosis")]
+struct CoreArgs {
+    #[clap(short, long, default_value = "core")]
     network: String,
     #[clap(short = 'b', long, env)]
     rpc_bind_ip: Option<IpAddr>,
@@ -290,14 +290,14 @@ struct GnosisArgs {
     strict_checkpoint_age: bool,
 }
 
-impl GnosisArgs {
-    fn make_client(&self) -> GnosisClient<FileDB> {
+impl CoreArgs {
+    fn make_client(&self) -> CoreClient<FileDB> {
         let config_path = home_dir().unwrap().join(".helios/helios.toml");
         let cli_config = self.as_cli_config();
         // reuse the EthereumConfig struct
         let config = EthereumConfig::from_file(&config_path, &self.network, &cli_config);
 
-        match GnosisClientBuilder::new().config(config).build::<FileDB>() {
+        match CoreClientBuilder::new().config(config).build::<FileDB>() {
             Ok(client) => client,
             Err(err) => {
                 error!(target: "helios::runner", error = %err);

@@ -53,9 +53,9 @@ impl ConsensusSpec for MainnetConsensusSpec {
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
-pub struct GnosisConsensusSpec;
-// Here is the modified version for Gnosis Chain
-impl ConsensusSpec for GnosisConsensusSpec {
+pub struct CoreConsensusSpec;
+// Here is the modified version for Core Chain
+impl ConsensusSpec for CoreConsensusSpec {
     type MaxProposerSlashings = typenum::U16;
     type MaxAttesterSlashings = typenum::U2;
     type MaxAttestations = typenum::U128;

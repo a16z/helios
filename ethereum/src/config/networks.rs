@@ -23,7 +23,7 @@ pub enum Network {
     GOERLI,
     SEPOLIA,
     HOLESKY,
-    GNOSIS,
+    CORE,
 }
 
 impl FromStr for Network {
@@ -35,7 +35,7 @@ impl FromStr for Network {
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
             "holesky" => Ok(Self::HOLESKY),
-            "gnosis" => Ok(Self::GNOSIS),
+            "core" => Ok(Self::CORE),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -48,7 +48,7 @@ impl Display for Network {
             Self::GOERLI => "goerli",
             Self::SEPOLIA => "sepolia",
             Self::HOLESKY => "holesky",
-            Self::GNOSIS => "gnosis",
+            Self::CORE => "core",
         };
 
         f.write_str(str)
@@ -62,7 +62,7 @@ impl Network {
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
             Self::HOLESKY => holesky(),
-            Self::GNOSIS => gnosis(),
+            Self::CORE => core(),
         }
     }
 
@@ -72,7 +72,7 @@ impl Network {
             5 => Ok(Network::GOERLI),
             11155111 => Ok(Network::SEPOLIA),
             17000 => Ok(Network::HOLESKY),
-            100 => Ok(Network::GNOSIS),
+            1116 => Ok(Network::CORE),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -89,7 +89,6 @@ pub fn mainnet() -> BaseConfig {
             chain_id: 1,
             genesis_time: 1606824023,
             genesis_root: b256!("4b363db94e286120d76eb905340fdd4e54bfe9f06bf33ff6cf5ad27f511bfe95"),
-            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -131,7 +130,6 @@ pub fn goerli() -> BaseConfig {
             chain_id: 5,
             genesis_time: 1616508000,
             genesis_root: b256!("043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb"),
-            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -173,7 +171,6 @@ pub fn sepolia() -> BaseConfig {
             chain_id: 11155111,
             genesis_time: 1655733600,
             genesis_root: b256!("d8ea171f3c94aea21ebc42a1ed61052acf3f9209c00e4efbaaddac09ed9b8078"),
-            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -215,7 +212,6 @@ pub fn holesky() -> BaseConfig {
             chain_id: 17000,
             genesis_time: 1695902400,
             genesis_root: b256!("9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1"),
-            block_time: 12,
         },
         forks: Forks {
             genesis: Fork {
@@ -246,18 +242,17 @@ pub fn holesky() -> BaseConfig {
     }
 }
 
-pub fn gnosis() -> BaseConfig {
+pub fn core() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
-            "535cfeb9ffb0796cf39647cae4b84c44af087cd7c2bd347148d5de9454101515" // https://checkpoint.gnosischain.com/
+            "535cfeb9ffb0796cf39647cae4b84c44af087cd7c2bd347148d5de9454101515"
         ),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
-            chain_id: 100,
-            genesis_time: 1638968400,
-            genesis_root: b256!("f5dcb5564e829aab27264b9becd5dfaa017085611224cb3036f573368dbb9d47"),
-            block_time: 5,
+            chain_id: 1116,
+            genesis_time: 1673266820,
+            genesis_root: b256!("a705014fcbd00e291767bda7479b41ecdd9b5b20604d061e19acb01b95a9153d"),
         },
         forks: Forks {
             genesis: Fork {
@@ -283,7 +278,7 @@ pub fn gnosis() -> BaseConfig {
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::GNOSIS)),
+        data_dir: Some(data_dir(Network::CORE)),
         ..std::default::Default::default()
     }
 }

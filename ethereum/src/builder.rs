@@ -7,7 +7,7 @@ use std::sync::Arc;
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
 
-use helios_consensus_core::consensus_spec::GnosisConsensusSpec;
+use helios_consensus_core::consensus_spec::CoreConsensusSpec;
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::client::Client;
 
@@ -17,7 +17,7 @@ use crate::consensus::ConsensusClient;
 use crate::database::Database;
 use crate::rpc::http_rpc::HttpRpc;
 use crate::spec::Ethereum;
-use crate::{EthereumClient, GnosisClient};
+use crate::{EthereumClient, CoreClient};
 
 #[derive(Default)]
 pub struct EthereumClientBuilder {
@@ -234,7 +234,7 @@ impl EthereumClientBuilder {
 }
 
 #[derive(Default)]
-pub struct GnosisClientBuilder {
+pub struct CoreClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
@@ -251,7 +251,7 @@ pub struct GnosisClientBuilder {
     strict_checkpoint_age: bool,
 }
 
-impl GnosisClientBuilder {
+impl CoreClientBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -314,7 +314,7 @@ impl GnosisClientBuilder {
         self
     }
 
-    pub fn build<DB: Database>(self) -> Result<GnosisClient<DB>> {
+    pub fn build<DB: Database>(self) -> Result<CoreClient<DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -439,7 +439,7 @@ impl GnosisClientBuilder {
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
 
-        Client::<Ethereum, ConsensusClient<GnosisConsensusSpec, HttpRpc, DB>>::new(
+        Client::<Ethereum, ConsensusClient<CoreConsensusSpec, HttpRpc, DB>>::new(
             &config.execution_rpc.clone(),
             consensus,
             #[cfg(not(target_arch = "wasm32"))]

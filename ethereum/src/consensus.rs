@@ -188,7 +188,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
     pub fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
 
-        expected_current_slot(now, self.genesis_time, self.config.chain.block_time)
+        expected_current_slot(now, self.genesis_time)
     }
 }
 
@@ -351,7 +351,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         Ok(payloads)
     }
 
-    // Gnosis: entry point
+    // Core: entry point
     pub async fn sync(&mut self, checkpoint: B256) -> Result<()> {
         self.store = LightClientStore::default();
         self.last_checkpoint = None;
@@ -558,13 +558,12 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         expected_current_slot(
             now,
-            self.config.chain.genesis_time,
-            self.config.chain.block_time,
+            self.config.chain.genesis_time
         )
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
-        slot * self.config.chain.block_time + self.config.chain.genesis_time
+        slot * 3 + self.config.chain.genesis_time
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old
