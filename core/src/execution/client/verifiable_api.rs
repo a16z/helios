@@ -573,6 +573,6 @@ mod tests {
 
         let response = client.uninstall_filter(rpc_filter_id_logs()).await.unwrap();
 
-        assert_eq!(response, true);
+        assert!(response);
     }
 }

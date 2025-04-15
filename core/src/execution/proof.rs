@@ -232,8 +232,10 @@ mod tests {
 
     #[test]
     fn test_verify_code_hash_proof_empty_keccak() {
-        let mut proof = EIP1186AccountProofResponse::default();
-        proof.code_hash = KECCAK_EMPTY;
+        let proof = EIP1186AccountProofResponse {
+            code_hash: KECCAK_EMPTY,
+            ..Default::default()
+        };
         let code = Bytes::new();
 
         let result = verify_code_hash_proof(&proof, &code);
