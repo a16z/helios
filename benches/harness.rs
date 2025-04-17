@@ -21,7 +21,7 @@ pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {
         .build()
         .await
         .unwrap();
-    cf.fetch_latest_checkpoint(&networks::Network::MAINNET)
+    cf.fetch_latest_checkpoint(&networks::Network::Mainnet)
         .await
 }
 
@@ -41,7 +41,7 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<EthereumClient<Fil
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
 
     let mut client = EthereumClientBuilder::new()
-        .network(networks::Network::MAINNET)
+        .network(networks::Network::Mainnet)
         .consensus_rpc("https://www.lightclientdata.org")
         .execution_rpc(&benchmark_rpc_url)
         .load_external_fallback()
@@ -57,7 +57,7 @@ pub async fn construct_mainnet_client_with_checkpoint(
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
 
     let mut client = EthereumClientBuilder::new()
-        .network(networks::Network::MAINNET)
+        .network(networks::Network::Mainnet)
         .consensus_rpc("https://www.lightclientdata.org")
         .execution_rpc(&benchmark_rpc_url)
         .checkpoint(checkpoint)

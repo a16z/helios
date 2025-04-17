@@ -381,15 +381,10 @@ mod tests {
         let expected_response = verifiable_api_logs_response();
         assert_eq!(response.logs, expected_response.logs);
         assert_eq!(
-            response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>(),
+            response.receipt_proofs.into_iter().collect::<Vec<_>>(),
             expected_response
                 .receipt_proofs
                 .into_iter()
-                .map(|(k, v)| (k, v))
                 .collect::<Vec<_>>()
         );
     }
@@ -404,15 +399,10 @@ mod tests {
         let expected_response = verifiable_api_logs_response();
         assert_eq!(response.logs, expected_response.logs);
         assert_eq!(
-            response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>(),
+            response.receipt_proofs.into_iter().collect::<Vec<_>>(),
             expected_response
                 .receipt_proofs
                 .into_iter()
-                .map(|(k, v)| (k, v))
                 .collect::<Vec<_>>()
         );
     }
@@ -431,15 +421,10 @@ mod tests {
         let expected_response = verifiable_api_logs_response();
         assert_eq!(response.logs, expected_response.logs);
         assert_eq!(
-            response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>(),
+            response.receipt_proofs.into_iter().collect::<Vec<_>>(),
             expected_response
                 .receipt_proofs
                 .into_iter()
-                .map(|(k, v)| (k, v))
                 .collect::<Vec<_>>()
         );
     }
@@ -578,6 +563,6 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.ok, true);
+        assert!(response.ok);
     }
 }

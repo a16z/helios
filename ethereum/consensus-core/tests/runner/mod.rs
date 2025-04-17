@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use alloy::primitives::{fixed_bytes, B256};
 use serde::Deserialize;
@@ -51,7 +51,7 @@ pub fn run<P: Into<PathBuf>>(test_data_dir: P, with_electra: bool) {
 }
 
 fn process_update(
-    test_data_dir: &PathBuf,
+    test_data_dir: &Path,
     step: &Mapping,
     store: &mut LightClientStore<MinimalConsensusSpec>,
     genesis_root: B256,
@@ -66,9 +66,9 @@ fn process_update(
     let update_res = verify_generic_update::<MinimalConsensusSpec>(
         &update,
         current_slot,
-        &store,
+        store,
         genesis_root,
-        &forks,
+        forks,
     );
 
     if update_res.is_ok() {
@@ -97,7 +97,7 @@ fn process_force_update(step: &Mapping, store: &mut LightClientStore<MinimalCons
     println!("force update success");
 }
 
-fn get_bootstrap(test_data_dir: &PathBuf) -> Bootstrap<MinimalConsensusSpec> {
+fn get_bootstrap(test_data_dir: &Path) -> Bootstrap<MinimalConsensusSpec> {
     let path = test_data_dir.join("bootstrap.ssz_snappy");
     let data = std::fs::read(path).unwrap();
     let mut decoder = snap::raw::Decoder::new();
@@ -151,7 +151,7 @@ struct MetaConfig {
     trusted_block_root: B256,
 }
 
-fn get_meta_config(test_data_dir: &PathBuf) -> MetaConfig {
+fn get_meta_config(test_data_dir: &Path) -> MetaConfig {
     let file = test_data_dir.join("meta.yaml");
     let meta = std::fs::read_to_string(file).unwrap();
     serde_yaml::from_str(&meta).unwrap()
