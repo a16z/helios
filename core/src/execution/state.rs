@@ -7,7 +7,7 @@ use alloy::{
     consensus::BlockHeader,
     eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse},
-    primitives::{Address, B256, U256},
+    primitives::{B256, U256},
     rpc::types::{BlockTransactions, Filter},
 };
 use eyre::{eyre, Result};
@@ -204,12 +204,6 @@ impl<N: NetworkSpec> State<N> {
         self.get_block(tag)
             .await
             .map(|block| block.header().base_fee_per_gas())
-    }
-
-    pub async fn get_coinbase(&self, tag: BlockTag) -> Option<Address> {
-        self.get_block(tag)
-            .await
-            .map(|block| block.header().beneficiary())
     }
 
     // filter
