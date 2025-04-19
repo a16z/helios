@@ -7,7 +7,7 @@ on:
 
 env:
   MAINNET_EXECUTION_RPC: ${{ secrets.MAINNET_EXECUTION_RPC }}
-  GOERLI_EXECUTION_RPC: ${{ secrets.GOERLI_EXECUTION_RPC }}
+  SEPOLIA_EXECUTION_RPC: ${{ secrets.SEPOLIA_EXECUTION_RPC }}
 
 jobs:
   benches:
@@ -23,4 +23,4 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
-          command: bench
+          command: bench --package helios

@@ -21,7 +21,7 @@ pub async fn fetch_mainnet_checkpoint() -> eyre::Result<B256> {
         .build()
         .await
         .unwrap();
-    cf.fetch_latest_checkpoint(&networks::Network::MAINNET)
+    cf.fetch_latest_checkpoint(&networks::Network::Mainnet)
         .await
 }
 
@@ -41,13 +41,17 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<EthereumClient<Fil
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
 
     let mut client = EthereumClientBuilder::new()
-        .network(networks::Network::MAINNET)
+        .network(networks::Network::Mainnet)
         .consensus_rpc("https://www.lightclientdata.org")
         .execution_rpc(&benchmark_rpc_url)
         .load_external_fallback()
         .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
     client.start().await?;
+
+    // Wait for the client to be synced.
+    client.wait_synced().await;
+
     Ok(client)
 }
 
@@ -57,12 +61,17 @@ pub async fn construct_mainnet_client_with_checkpoint(
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
 
     let mut client = EthereumClientBuilder::new()
-        .network(networks::Network::MAINNET)
+        .network(networks::Network::Mainnet)
         .consensus_rpc("https://www.lightclientdata.org")
         .execution_rpc(&benchmark_rpc_url)
         .checkpoint(checkpoint)
+        .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
     client.start().await?;
+
+    // Wait for the client to be synced.
+    client.wait_synced().await;
+
     Ok(client)
 }
 
@@ -78,24 +87,29 @@ pub fn construct_runtime() -> tokio::runtime::Runtime {
         .unwrap()
 }
 
-/// Constructs a goerli client for benchmark usage.
+/// Constructs a sepolia client for benchmark usage.
 ///
 /// Requires a [Runtime](tokio::runtime::Runtime) to be passed in by reference.
 /// The client is parameterized with a [FileDB](client::FileDB).
-/// It will also use the environment variable `GOERLI_EXECUTION_RPC` to connect to a mainnet node.
-/// The client will use `http://testing.prater.beacon-api.nimbus.team` as the consensus RPC.
-pub fn construct_goerli_client(
+/// It will also use the environment variable `SEPOLIA_EXECUTION_RPC` to connect to a mainnet node.
+/// The client will use `http://unstable.sepolia.beacon-api.nimbus.team/` as the consensus RPC.
+pub fn construct_sepolia_client(
     rt: &tokio::runtime::Runtime,
 ) -> eyre::Result<EthereumClient<FileDB>> {
     rt.block_on(async {
-        let benchmark_rpc_url = std::env::var("GOERLI_EXECUTION_RPC")?;
+        let benchmark_rpc_url = std::env::var("SEPOLIA_EXECUTION_RPC")?;
         let mut client = EthereumClientBuilder::new()
-            .network(networks::Network::GOERLI)
-            .consensus_rpc("http://testing.prater.beacon-api.nimbus.team")
+            .network(networks::Network::Sepolia)
+            .consensus_rpc("http://unstable.sepolia.beacon-api.nimbus.team/")
             .execution_rpc(&benchmark_rpc_url)
+            .data_dir(PathBuf::from("/tmp/helios"))
             .load_external_fallback()
             .build()?;
         client.start().await?;
+
+        // Wait for the client to be synced.
+        client.wait_synced().await;
+
         Ok(client)
     })
 }

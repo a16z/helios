@@ -236,7 +236,7 @@ export type Config = {
 
 export enum Network {
   MAINNET = "mainnet",
-  GOERLI = "goerli",
+  SEPOLIA = "sepolia",
 }
 
 type Request = {
