@@ -116,12 +116,20 @@ hex = "0.4.3"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Use wasm-compatible replacements for problematic dependencies
+wasm-bindgen-futures = "0.4.33"
+gloo-timers = "0.3.0"
+zduny-wasm-timer = "0.2.8"
+
 ######################################
 # Dependency Patches
 ######################################
 
 [patch.crates-io]
 ethereum_hashing = { git = "https://github.com/ncitron/ethereum_hashing", rev = "7ee70944ed4fabe301551da8c447e4f4ae5e6c35" }
+# Patch mio for wasm32 target compatibility
+mio = { git = "https://github.com/mitsuhiko/mio", branch = "feature/wasm-support", optional = true }
 
 ######################################
 # Profiles
