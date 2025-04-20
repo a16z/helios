@@ -90,4 +90,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          arg: --target wasm32-unknown-unknown --workspace --exclude helios-cli
+          args: --target wasm32-unknown-unknown --workspace --exclude helios-cli
