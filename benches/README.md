@@ -2,7 +2,7 @@
 
 Helios performance is measured using [criterion](https://github.com/bheisler/criterion.rs) for comprehensive statistics-driven benchmarking.
 
-Benchmarks are defined in the [benches](./) subdirectory and can be run using the cargo `bench` subcommand (eg `cargo bench`). To run a specific benchmark, you can use `cargo bench --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](./Cargo.toml) file under a `[[bench]]` section.
+Benchmarks are defined in the [benches](./) subdirectory and can be run using the cargo `bench` subcommand (eg `cargo bench`). To run a specific benchmark, you can use `cargo bench --package helios --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](./Cargo.toml) file under a `[[bench]]` section.
 
 
 #### Flamegraphs
