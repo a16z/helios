@@ -77,7 +77,7 @@ pub struct CheckpointFallback {
     /// Services Map
     pub services: HashMap<networks::Network, Vec<CheckpointFallbackService>>,
     /// A list of supported networks to build.
-    /// Default: [mainnet, sepolia]
+    /// Default: [mainnet, goerli]
     pub networks: Vec<networks::Network>,
 }
 

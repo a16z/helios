@@ -1,7 +1,7 @@
 name: benchmarks
 
 on:
-  workflow_bench:
+  workflow_dispatch:
   # push:
   #   branches: [ "master" ]
 
