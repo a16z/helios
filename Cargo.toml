@@ -1,9 +1,12 @@
 [package]
 name = "helios"
-version = "0.8.5"
+version.workspace = true
 edition = "2021"
 autobenches = false
 exclude = ["benches"]
+
+[workspace.package]
+version = "0.8.6"
 
 [workspace]
 members = [
