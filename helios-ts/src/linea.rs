@@ -11,9 +11,9 @@ use web_sys::js_sys::Function;
 
 use helios_common::types::{BlockTag, SubscriptionType};
 
-use helios_linea::LineaClientBuilder;
-use helios_linea::spec::Linea;
 use helios_linea::config::Config;
+use helios_linea::spec::Linea;
+use helios_linea::LineaClientBuilder;
 
 use crate::map_err;
 use crate::subscription::Subscription;
@@ -28,10 +28,7 @@ pub struct LineaClient {
 #[wasm_bindgen]
 impl LineaClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(
-        execution_rpc: Option<String>,
-        network: String,
-    ) -> Result<LineaClient, JsError> {
+    pub fn new(execution_rpc: Option<String>, network: String) -> Result<LineaClient, JsError> {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
