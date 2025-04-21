@@ -23,7 +23,6 @@ pub enum Network {
     Mainnet,
     Sepolia,
     Holesky,
-    PectraDevnet,
 }
 
 impl FromStr for Network {
@@ -34,7 +33,6 @@ impl FromStr for Network {
             "mainnet" => Ok(Self::Mainnet),
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
-            "pectra-devnet" => Ok(Self::PectraDevnet),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -46,7 +44,6 @@ impl Display for Network {
             Self::Mainnet => "mainnet",
             Self::Sepolia => "sepolia",
             Self::Holesky => "holesky",
-            Self::PectraDevnet => "pectra-devnet",
         };
 
         f.write_str(str)
@@ -59,7 +56,6 @@ impl Network {
             Self::Mainnet => mainnet(),
             Self::Sepolia => sepolia(),
             Self::Holesky => holesky(),
-            Self::PectraDevnet => pectra_devnet(),
         }
     }
 
@@ -213,54 +209,6 @@ pub fn holesky() -> BaseConfig {
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Holesky)),
-        ..std::default::Default::default()
-    }
-}
-
-pub fn pectra_devnet() -> BaseConfig {
-    BaseConfig {
-        default_checkpoint: b256!(
-            "f52e8522f1abc34fa91f4a0c6560cce6f9d557cfec083f1bc325a74c6060df84"
-        ),
-        rpc_port: 8545,
-        consensus_rpc: None,
-        chain: ChainConfig {
-            chain_id: 7072151312,
-            genesis_time: 1738603860,
-            genesis_root: b256!("5c074f81fbc78dc7ba47460572a4286fffe989e9921abfd50791e01e4044d274"),
-        },
-        forks: Forks {
-            genesis: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("10585557"),
-            },
-            altair: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("20585557"),
-            },
-            bellatrix: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("30585557"),
-            },
-            capella: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("40585557"),
-            },
-            deneb: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("50585557"),
-            },
-            electra: Fork {
-                epoch: 10,
-                fork_version: fixed_bytes!("60585557"),
-            },
-        },
-        execution_forks: ForkSchedule {
-            prague_timestamp: 1738607700,
-        },
-        max_checkpoint_age: 1_209_600, // 14 days
-        #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::PectraDevnet)),
         ..std::default::Default::default()
     }
 }
