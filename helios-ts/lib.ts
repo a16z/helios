@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
-import initWasm, { EthereumClient, OpStackClient } from "./pkg/index";
+import initWasm, { EthereumClient, OpStackClient, LineaClient } from "./pkg/index";
 
 export async function init() {
   const wasmData = require("./pkg/index_bg.wasm");
@@ -35,8 +35,10 @@ export class HeliosProvider {
       );
     } else if (kind === "opstack") {
       const network = config.network;
-
       this.#client = new OpStackClient(executionRpc, executionVerifiableApi, network);
+    } else if (kind === "linea") {
+      const network = config.network;
+      this.#client = new LineaClient(executionRpc, network);
     } else {
       throw new Error("Invalid kind: must be 'ethereum' or 'opstack'");
     }

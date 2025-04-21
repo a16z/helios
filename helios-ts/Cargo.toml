@@ -27,6 +27,7 @@ serde_json = "1.0.85"
 helios-common = { path = "../common" }
 helios-ethereum = { path = "../ethereum" }
 helios-opstack = { path = "../opstack" }
+helios-linea = { path = "../linea" }
 
 [dependencies.web-sys]
 version = "0.3"

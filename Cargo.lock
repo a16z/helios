@@ -3233,6 +3233,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -3299,6 +3300,7 @@ dependencies = [
  "eyre",
  "helios-common",
  "helios-ethereum",
+ "helios-linea",
  "helios-opstack",
  "hex",
  "op-alloy-rpc-types",
