@@ -1,6 +1,6 @@
 [package]
 name = "helios-core"
-version = "0.8.5"
+version.workspace = true
 edition = "2021"
 
 [dependencies]
