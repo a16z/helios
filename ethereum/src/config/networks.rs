@@ -107,12 +107,12 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: fixed_bytes!("04000000"),
             },
             electra: Fork {
-                epoch: u64::MAX,
+                epoch: 364032,
                 fork_version: fixed_bytes!("05000000"),
             },
         },
         execution_forks: ForkSchedule {
-            prague_timestamp: u64::MAX,
+            prague_timestamp: 1746612311,
         },
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
