@@ -9,7 +9,7 @@ on:
 
 env:
   MAINNET_EXECUTION_RPC: ${{ secrets.MAINNET_EXECUTION_RPC }}
-  GOERLI_EXECUTION_RPC: ${{ secrets.GOERLI_EXECUTION_RPC }}
+  SEPOLIA_EXECUTION_RPC: ${{ secrets.SEPOLIA_EXECUTION_RPC }}
 
 jobs:
   check:
