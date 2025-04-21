@@ -1,7 +1,6 @@
 use eyre::{eyre, Result};
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
-#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
 
 use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
@@ -19,7 +18,6 @@ pub struct LineaClientBuilder {
     rpc_bind_ip: Option<IpAddr>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
-    #[cfg(not(target_arch = "wasm32"))]
     config: Option<Config>,
 }
 

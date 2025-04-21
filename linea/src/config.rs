@@ -51,8 +51,8 @@ impl FromStr for Network {
 impl Display for Network {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            Self::Mainnet => "mainnet",
-            Self::Sepolia => "sepolia",
+            Self::Mainnet => "linea-mainnet",
+            Self::Sepolia => "linea-sepolia",
         };
 
         f.write_str(str)
