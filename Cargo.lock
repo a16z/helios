@@ -5982,9 +5982,9 @@ dependencies = [
 
 [[package]]
 name = "revm"
-version = "19.5.0"
+version = "19.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfc5bef3c95fadf3b6a24a253600348380c169ef285f9780a793bb7090c8990d"
+checksum = "c175ecec83bba464aa8406502fe5bf670491c2ace81a153264891d43bc7fa332"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -6007,9 +6007,9 @@ dependencies = [
 
 [[package]]
 name = "revm-precompile"
-version = "16.1.0"
+version = "16.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6caa1a7ff2cc4a09a263fcf9de99151706f323d30f33d519ed329f017a02b046"
+checksum = "99743c3a2cac341084cc15ac74286c4bf34a0941ebf60aa420cfdb9f81f72f9f"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
