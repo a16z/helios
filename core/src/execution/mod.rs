@@ -26,7 +26,6 @@ use self::state::{FilterType, State};
 pub mod client;
 pub mod constants;
 pub mod errors;
-// pub mod evm;
 pub mod proof;
 pub mod rpc;
 // pub mod spec;
