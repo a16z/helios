@@ -13,6 +13,7 @@ use revm::primitives::BlobExcessGasAndPrice;
 use tracing::warn;
 
 use helios_common::{
+    execution_spec::ExecutionSpec,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{Account, BlockTag, SubEventRx, SubscriptionType},
@@ -20,16 +21,15 @@ use helios_common::{
 
 use self::client::ExecutionInner;
 use self::errors::ExecutionError;
-use self::spec::ExecutionSpec;
 use self::state::{FilterType, State};
 
 pub mod client;
 pub mod constants;
 pub mod errors;
-pub mod evm;
+// pub mod evm;
 pub mod proof;
 pub mod rpc;
-pub mod spec;
+// pub mod spec;
 pub mod state;
 
 #[derive(Clone)]
@@ -117,6 +117,7 @@ impl<N: NetworkSpec> ExecutionClient<N> {
 
         let excess_blob_gas = parent_block.unwrap().header().excess_blob_gas().unwrap();
         let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
+
         U256::from(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice)
     }
 

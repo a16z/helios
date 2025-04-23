@@ -18,11 +18,10 @@ use tokio::{
 use tracing::{info, warn};
 
 use helios_common::{
+    execution_spec::ExecutionSpec,
     network_spec::NetworkSpec,
     types::{BlockTag, SubEventRx, SubscriptionEvent},
 };
-
-use super::spec::ExecutionSpec;
 
 pub fn start_state_updater<N: NetworkSpec>(
     state: State<N>,

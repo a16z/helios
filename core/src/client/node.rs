@@ -10,6 +10,7 @@ use eyre::{eyre, Result};
 
 use helios_common::{
     execution_mode::ExecutionMode,
+    execution_spec::ExecutionSpec,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{BlockTag, SubEventRx, SubscriptionType},
@@ -20,9 +21,7 @@ use crate::consensus::Consensus;
 use crate::errors::ClientError;
 use crate::execution::client::ExecutionInnerClient;
 use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
-use crate::execution::evm::Evm;
 use crate::execution::rpc::http_rpc::HttpRpc;
-use crate::execution::spec::ExecutionSpec;
 use crate::execution::state::{start_state_updater, State};
 use crate::execution::ExecutionClient;
 use crate::time::{SystemTime, UNIX_EPOCH};
@@ -70,13 +69,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<Bytes, ClientError> {
         self.check_blocktag_age(&block).await?;
 
-        let mut evm = Evm::new(
+        N::call(
+            tx,
             self.execution.clone(),
             self.chain_id(),
             self.fork_schedule,
             block,
-        );
-        evm.call(tx).await.map_err(ClientError::EvmError)
+        )
+        .await
+        .map_err(ClientError::EvmError)
     }
 
     pub async fn estimate_gas(
@@ -86,14 +87,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<u64, ClientError> {
         self.check_blocktag_age(&block).await?;
 
-        let mut evm = Evm::new(
+        N::estimate_gas(
+            tx,
             self.execution.clone(),
             self.chain_id(),
             self.fork_schedule,
             block,
-        );
-
-        evm.estimate_gas(tx).await.map_err(ClientError::EvmError)
+        )
+        .await
+        .map_err(ClientError::EvmError)
     }
 
     pub async fn create_access_list(
@@ -103,17 +105,16 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
     ) -> Result<AccessListResult, ClientError> {
         self.check_blocktag_age(&block).await?;
 
-        let mut evm = Evm::new(
+        let res = N::create_access_list(
+            tx,
+            true,
             self.execution.clone(),
             self.chain_id(),
             self.fork_schedule,
             block,
-        );
-
-        let res = evm
-            .create_access_list(tx, true)
-            .await
-            .map_err(ClientError::EvmError)?;
+        )
+        .await
+        .map_err(ClientError::EvmError)?;
 
         Ok(res.access_list_result)
     }

@@ -15,16 +15,13 @@ use revm::{
 use tracing::trace;
 
 use helios_common::{
+    execution_spec::ExecutionSpec,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{Account, BlockTag},
+    types::{AccessListResultWithAccounts, Account, BlockTag, EvmError},
 };
 
-use super::{
-    errors::{EvmError, ExecutionError},
-    spec::ExecutionSpec,
-};
-
+use super::errors::ExecutionError;
 pub struct Evm<N: NetworkSpec> {
     execution: Arc<dyn ExecutionSpec<N>>,
     chain_id: u64,
@@ -331,10 +328,10 @@ impl<N: NetworkSpec> Database for ProofDB<N> {
 fn is_precompile(address: &Address) -> bool {
     address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
 }
-pub struct AccessListResultWithAccounts {
-    pub access_list_result: AccessListResult,
-    pub accounts: HashMap<Address, Account>,
-}
+// pub struct AccessListResultWithAccounts {
+//     pub access_list_result: AccessListResult,
+//     pub accounts: HashMap<Address, Account>,
+// }
 
 // #[cfg(test)]
 // mod tests {

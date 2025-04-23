@@ -2,15 +2,14 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
 use alloy::rpc::types::{
-    BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges,
-    Log,
+    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
+    FilterChanges, Log,
 };
 use alloy::transports::http::Http;
 use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
 use eyre::Result;
 use reqwest::Client;
-use revm::primitives::AccessList;
 
 use helios_common::network_spec::NetworkSpec;
 
