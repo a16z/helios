@@ -2,7 +2,7 @@
 
 Helios performance is measured using [criterion](https://github.com/bheisler/criterion.rs) for comprehensive statistics-driven benchmarking.
 
-Benchmarks are defined in the [benches](./) subdirectory and can be run using the cargo `bench` subcommand (eg `cargo bench`). To run a specific benchmark, you can use `cargo bench --package helios --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](./Cargo.toml) file under a `[[bench]]` section.
+Benchmarks are defined in the [benches](./) subdirectory and can be run using the cargo `bench` subcommand (eg `cargo bench`). To run a specific benchmark, you can use `cargo bench --package helios --bench <name>`, where `<name>` is one of the benchmarks defined in the [Cargo.toml](../Cargo.toml) file under a `[[bench]]` section.
 
 
 #### Flamegraphs
@@ -11,7 +11,7 @@ Benchmarks are defined in the [benches](./) subdirectory and can be run using th
 
 Check out Brendan Gregg's [Flame Graphs](http://www.brendangregg.com/flamegraphs.html) blog post if you're interested in learning more about flamegraphs and performance visualizations in general.
 
-To generate a flamegraph for helios, you can use the `cargo flamegraph` subcommand. For example, to generate a flamegraph for the [`client`](./examples/client.rs) example, you can run:
+To generate a flamegraph for helios, you can use the `cargo flamegraph` subcommand. For example, to generate a flamegraph for the [`client`](../examples/client.rs) example, you can run:
 
 ```bash
 cargo flamegraph --example client -o ./flamegraphs/client.svg
