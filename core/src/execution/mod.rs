@@ -28,7 +28,6 @@ pub mod constants;
 pub mod errors;
 pub mod proof;
 pub mod rpc;
-// pub mod spec;
 pub mod state;
 
 #[derive(Clone)]

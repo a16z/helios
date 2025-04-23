@@ -384,10 +384,6 @@ impl<N: NetworkSpec> Database for ProofDB<N> {
 fn is_precompile(address: &Address) -> bool {
     address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
 }
-// pub struct AccessListResultWithAccounts {
-//     pub access_list_result: AccessListResult,
-//     pub accounts: HashMap<Address, Account>,
-// }
 
 // #[cfg(test)]
 // mod tests {
