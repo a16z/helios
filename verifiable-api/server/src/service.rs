@@ -18,7 +18,6 @@ use helios_core::execution::{
     client::{rpc::ExecutionInnerRpcClient, ExecutionInner},
     constants::MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS,
     errors::ExecutionError,
-    evm::Evm,
     proof::create_receipt_proof,
     rpc::ExecutionRpc,
     state::State,
@@ -181,15 +180,17 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         state.push_block(block, client.clone()).await;
 
         // call EVM with the transaction, collect accounts and storage keys
-        let mut evm = Evm::new(
+        let res = N::create_access_list(
+            &tx,
+            validate_tx,
             client,
             self.rpc.chain_id().await?,
             ForkSchedule {
                 prague_timestamp: u64::MAX,
             },
             tag,
-        );
-        let res = evm.create_access_list(&tx, validate_tx).await?;
+        )
+        .await?;
 
         Ok(ExtendedAccessListResponse {
             accounts: res.accounts,
