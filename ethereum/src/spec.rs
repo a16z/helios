@@ -1,19 +1,27 @@
 use alloy::{
     consensus::{
         proofs::{calculate_transaction_root, calculate_withdrawals_root},
-        BlockHeader, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
+        Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
     },
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
-use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
+use async_trait::async_trait;
 
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
+use helios_common::{
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{AccessListResultWithAccounts, EvmError},
+};
+
+use crate::evm::Evm;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ethereum;
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl NetworkSpec for Ethereum {
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
         let tx_type = receipt.transaction_type();
@@ -78,55 +86,38 @@ impl NetworkSpec for Ethereum {
         receipt.inner.logs().to_vec()
     }
 
-    fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
-        TxEnv {
-            caller: tx.from.unwrap_or_default(),
-            gas_limit: <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
-                .unwrap_or(u64::MAX),
-            gas_price: <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-                .map(U256::from)
-                .unwrap_or_default(),
-            transact_to: tx.to.unwrap_or_default(),
-            value: tx.value.unwrap_or_default(),
-            data: <TransactionRequest as TransactionBuilder<Self>>::input(tx)
-                .unwrap_or_default()
-                .clone(),
-            nonce: <TransactionRequest as TransactionBuilder<Self>>::nonce(tx),
-            chain_id: <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx),
-            access_list: <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-                .map(|v| v.to_vec())
-                .unwrap_or_default(),
-            gas_priority_fee:
-                <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
-                    .map(U256::from),
-            max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(U256::from),
-            blob_hashes: tx
-                .blob_versioned_hashes
-                .as_ref()
-                .map(|v| v.to_vec())
-                .unwrap_or_default(),
-            authorization_list: None,
-        }
+    async fn call(
+        tx: &Self::TransactionRequest,
+        execution: std::sync::Arc<dyn helios_common::execution_spec::ExecutionSpec<Self>>,
+        chain_id: u64,
+        fork_schedule: ForkSchedule,
+        tag: helios_common::types::BlockTag,
+    ) -> Result<Bytes, EvmError> {
+        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        evm.call(tx).await
     }
 
-    fn block_env(block: &Self::BlockResponse, fork_schedule: &ForkSchedule) -> BlockEnv {
-        let is_prague = block.header.timestamp >= fork_schedule.prague_timestamp;
-        let blob_excess_gas_and_price = block
-            .header
-            .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
-            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
+    async fn estimate_gas(
+        tx: &Self::TransactionRequest,
+        execution: std::sync::Arc<dyn helios_common::execution_spec::ExecutionSpec<Self>>,
+        chain_id: u64,
+        fork_schedule: ForkSchedule,
+        tag: helios_common::types::BlockTag,
+    ) -> Result<u64, EvmError> {
+        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        evm.estimate_gas(tx).await
+    }
 
-        BlockEnv {
-            number: U256::from(block.header.number()),
-            coinbase: block.header.beneficiary(),
-            timestamp: U256::from(block.header.timestamp()),
-            gas_limit: U256::from(block.header.gas_limit()),
-            basefee: U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64)),
-            difficulty: block.header.difficulty(),
-            prevrandao: block.header.mix_hash(),
-            blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
-        }
+    async fn create_access_list(
+        tx: &Self::TransactionRequest,
+        validate_tx: bool,
+        execution: std::sync::Arc<dyn helios_common::execution_spec::ExecutionSpec<Self>>,
+        chain_id: u64,
+        fork_schedule: ForkSchedule,
+        tag: helios_common::types::BlockTag,
+    ) -> Result<AccessListResultWithAccounts, EvmError> {
+        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        evm.create_access_list(tx, validate_tx).await
     }
 }
 

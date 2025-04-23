@@ -9,6 +9,7 @@ path = "./bin/server.rs"
 
 [dependencies]
 tokio.workspace = true
+async-trait.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 hex.workspace = true

@@ -11,6 +11,8 @@ pub mod database;
 pub mod rpc;
 pub mod spec;
 
+pub(crate) mod evm;
+
 mod constants;
 
 pub use builder::EthereumClientBuilder;
