@@ -92,7 +92,16 @@ impl OpStackClientBuilder {
         );
         let consensus = ConsensusClient::new(&config);
         let fork_schedule = ForkSchedule {
-            prague_timestamp: u64::MAX,
+            bedrock_timestamp: 1686068903,
+            regolith_timestamp: 0,
+            canyon_timestamp: 1704992401,
+            ecotone_timestamp: 1710374401,
+            fjord_timestamp: 1720627201,
+            granite_timestamp: 1726070401,
+            holocene_timestamp: 1736445601,
+            isthmus_timestamp: u64::MAX, // Isthmus is not yet decided
+
+            ..Default::default()
         };
 
         OpStackClient::new(

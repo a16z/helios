@@ -42,6 +42,7 @@ helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 helios-consensus-core = { path = "../ethereum/consensus-core" }
+helios-revm-utils = { path = "../revm-utils" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # server

@@ -20,8 +20,6 @@ pub mod server;
 pub mod spec;
 pub mod types;
 
-pub(crate) mod evm;
-
 pub use builder::OpStackClientBuilder;
 pub type OpStackClient = Client<OpStack, ConsensusClient>;
 

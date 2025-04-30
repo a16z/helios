@@ -12,6 +12,7 @@ use helios_common::{
     network_spec::NetworkSpec,
     types::{AccessListResultWithAccounts, EvmError},
 };
+use helios_revm_utils::{evm::RevmExecutor, types::RevmNetwork};
 use op_alloy_consensus::{
     OpDepositReceipt, OpDepositReceiptWithBloom, OpReceiptEnvelope, OpTxEnvelope, OpTxType,
     OpTypedTransaction,
@@ -22,8 +23,6 @@ use op_alloy_network::{
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
 
 use async_trait::async_trait;
-
-use crate::evm::Evm;
 
 #[derive(Clone, Copy, Debug)]
 pub struct OpStack;
@@ -127,7 +126,13 @@ impl NetworkSpec for OpStack {
         fork_schedule: ForkSchedule,
         tag: helios_common::types::BlockTag,
     ) -> Result<Bytes, EvmError> {
-        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        let mut evm = RevmExecutor::new(
+            execution,
+            chain_id,
+            tag,
+            RevmNetwork::OpStack,
+            fork_schedule,
+        );
         evm.call(tx).await
     }
 
@@ -138,7 +143,13 @@ impl NetworkSpec for OpStack {
         fork_schedule: ForkSchedule,
         tag: helios_common::types::BlockTag,
     ) -> Result<u64, EvmError> {
-        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        let mut evm = RevmExecutor::new(
+            execution,
+            chain_id,
+            tag,
+            RevmNetwork::OpStack,
+            fork_schedule,
+        );
         evm.estimate_gas(tx).await
     }
 
@@ -150,7 +161,13 @@ impl NetworkSpec for OpStack {
         fork_schedule: ForkSchedule,
         tag: helios_common::types::BlockTag,
     ) -> Result<AccessListResultWithAccounts, EvmError> {
-        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        let mut evm = RevmExecutor::new(
+            execution,
+            chain_id,
+            tag,
+            RevmNetwork::OpStack,
+            fork_schedule,
+        );
         evm.create_access_list(tx, validate_tx).await
     }
 }

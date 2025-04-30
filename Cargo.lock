@@ -3200,6 +3200,7 @@ dependencies = [
  "helios-common",
  "helios-consensus-core",
  "helios-core",
+ "helios-revm-utils",
  "hex",
  "openssl",
  "parking_lot 0.12.3",
@@ -3259,6 +3260,7 @@ dependencies = [
  "helios-consensus-core",
  "helios-core",
  "helios-ethereum",
+ "helios-revm-utils",
  "hex",
  "libp2p",
  "libp2p-identity",
@@ -3279,6 +3281,19 @@ dependencies = [
  "unsigned-varint",
  "url",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "helios-revm-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "eyre",
+ "helios-common",
+ "helios-core",
+ "hex",
+ "revm",
+ "tracing",
 ]
 
 [[package]]
@@ -5214,6 +5229,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
+name = "p256"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
+dependencies = [
+ "ecdsa",
+ "elliptic-curve",
+ "primeorder",
+ "sha2 0.10.8",
+]
+
+[[package]]
 name = "pairing"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5556,6 +5583,15 @@ checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
 dependencies = [
  "diff",
  "yansi",
+]
+
+[[package]]
+name = "primeorder"
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
+dependencies = [
+ "elliptic-curve",
 ]
 
 [[package]]
@@ -5992,6 +6028,7 @@ dependencies = [
  "auto_impl",
  "cfg-if",
  "dyn-clone",
+ "once_cell",
  "revm-interpreter",
  "revm-precompile",
  "serde",
@@ -6019,6 +6056,7 @@ dependencies = [
  "cfg-if",
  "k256",
  "once_cell",
+ "p256",
  "revm-primitives",
  "ripemd",
  "secp256k1",

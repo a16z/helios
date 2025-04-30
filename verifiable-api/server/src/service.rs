@@ -185,9 +185,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
             validate_tx,
             client,
             self.rpc.chain_id().await?,
-            ForkSchedule {
-                prague_timestamp: u64::MAX,
-            },
+            ForkSchedule::default(),
             tag,
         )
         .await?;

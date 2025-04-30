@@ -14,8 +14,7 @@ use helios_common::{
     network_spec::NetworkSpec,
     types::{AccessListResultWithAccounts, EvmError},
 };
-
-use crate::evm::Evm;
+use helios_revm_utils::{evm::RevmExecutor, types::RevmNetwork};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ethereum;
@@ -93,7 +92,13 @@ impl NetworkSpec for Ethereum {
         fork_schedule: ForkSchedule,
         tag: helios_common::types::BlockTag,
     ) -> Result<Bytes, EvmError> {
-        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        let mut evm = RevmExecutor::new(
+            execution,
+            chain_id,
+            tag,
+            RevmNetwork::Ethereum,
+            fork_schedule,
+        );
         evm.call(tx).await
     }
 
@@ -104,7 +109,13 @@ impl NetworkSpec for Ethereum {
         fork_schedule: ForkSchedule,
         tag: helios_common::types::BlockTag,
     ) -> Result<u64, EvmError> {
-        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        let mut evm = RevmExecutor::new(
+            execution,
+            chain_id,
+            tag,
+            RevmNetwork::Ethereum,
+            fork_schedule,
+        );
         evm.estimate_gas(tx).await
     }
 
@@ -116,7 +127,13 @@ impl NetworkSpec for Ethereum {
         fork_schedule: ForkSchedule,
         tag: helios_common::types::BlockTag,
     ) -> Result<AccessListResultWithAccounts, EvmError> {
-        let mut evm = Evm::new(execution.clone(), chain_id, fork_schedule, tag);
+        let mut evm = RevmExecutor::new(
+            execution,
+            chain_id,
+            tag,
+            RevmNetwork::Ethereum,
+            fork_schedule,
+        );
         evm.create_access_list(tx, validate_tx).await
     }
 }
