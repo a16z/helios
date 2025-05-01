@@ -2,11 +2,10 @@ use eyre::Result;
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
 
-use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
+use helios_common::execution_mode::ExecutionMode;
 
 use crate::{
-    config::Network,
-    config::{Config, NetworkConfig},
+    config::{Config, Network, NetworkConfig},
     consensus::ConsensusClient,
     OpStackClient,
 };
@@ -80,6 +79,7 @@ impl OpStackClientBuilder {
                 execution_verifiable_api: self.execution_verifiable_api,
                 rpc_socket: self.rpc_socket,
                 chain: NetworkConfig::from(network).chain,
+                execution_forks: NetworkConfig::from(network).execution_forks,
                 load_external_fallback: None,
                 checkpoint: None,
                 verify_unsafe_signer: self.verify_unsafe_signer.unwrap_or_default(),
@@ -91,23 +91,11 @@ impl OpStackClientBuilder {
             config.execution_verifiable_api.clone(),
         );
         let consensus = ConsensusClient::new(&config);
-        let fork_schedule = ForkSchedule {
-            bedrock_timestamp: 1686068903,
-            regolith_timestamp: 0,
-            canyon_timestamp: 1704992401,
-            ecotone_timestamp: 1710374401,
-            fjord_timestamp: 1720627201,
-            granite_timestamp: 1726070401,
-            holocene_timestamp: 1736445601,
-            isthmus_timestamp: u64::MAX, // Isthmus is not yet decided
-
-            ..Default::default()
-        };
 
         OpStackClient::new(
             execution_mode,
             consensus,
-            fork_schedule,
+            config.execution_forks.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             config.rpc_socket,
         )

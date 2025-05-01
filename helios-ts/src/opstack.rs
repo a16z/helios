@@ -55,6 +55,7 @@ impl OpStackClient {
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,
+            execution_forks: network_config.execution_forks,
             load_external_fallback: None,
             checkpoint: None,
             verify_unsafe_signer: false,

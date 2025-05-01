@@ -153,6 +153,7 @@ impl<N: NetworkSpec> RevmExecutor<N> {
             .ok_or(ExecutionError::BlockNotFound(self.tag))
             .unwrap();
 
+        let is_optimism = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
         let spec_id = get_spec_id_for_block(
             &self.network,
             &self.fork_schedule,
@@ -161,7 +162,7 @@ impl<N: NetworkSpec> RevmExecutor<N> {
         let spec_id = spec_id.unwrap_or(SpecId::LATEST);
         let handler_cfg = HandlerCfg {
             spec_id,
-            is_optimism: false,
+            is_optimism,
         };
 
         let mut cfg = CfgEnv::default();

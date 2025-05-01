@@ -9,6 +9,7 @@ use figment::{
     value::Value,
     Figment,
 };
+use helios_common::fork_schedule::ForkSchedule;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -21,6 +22,7 @@ pub struct Config {
     pub execution_verifiable_api: Option<String>,
     pub rpc_socket: Option<SocketAddr>,
     pub chain: ChainConfig,
+    pub execution_forks: ForkSchedule,
     pub load_external_fallback: Option<bool>,
     pub checkpoint: Option<B256>,
     pub verify_unsafe_signer: bool,
@@ -39,6 +41,7 @@ pub struct NetworkConfig {
     pub consensus_rpc: Option<Url>,
     pub chain: ChainConfig,
     pub verify_unsafe_signer: bool,
+    pub execution_forks: ForkSchedule,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -90,6 +93,7 @@ impl From<Network> for NetworkConfig {
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
+                execution_forks: SuperchainForkSchedule::mainnet(),
             },
             Network::Base => NetworkConfig {
                 consensus_rpc: Some("https://base.operationsolarstorm.org".parse().unwrap()),
@@ -100,6 +104,7 @@ impl From<Network> for NetworkConfig {
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
+                execution_forks: SuperchainForkSchedule::mainnet(),
             },
             Network::Worldchain => NetworkConfig {
                 consensus_rpc: Some(
@@ -114,6 +119,7 @@ impl From<Network> for NetworkConfig {
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
+                execution_forks: SuperchainForkSchedule::mainnet(),
             },
             Network::Zora => NetworkConfig {
                 consensus_rpc: Some("https://zora.operationsolarstorm.org".parse().unwrap()),
@@ -124,6 +130,7 @@ impl From<Network> for NetworkConfig {
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
+                execution_forks: SuperchainForkSchedule::mainnet(),
             },
         }
     }
@@ -170,6 +177,25 @@ impl Config {
                 }
                 exit(1);
             }
+        }
+    }
+}
+
+pub struct SuperchainForkSchedule;
+
+impl SuperchainForkSchedule {
+    pub fn mainnet() -> ForkSchedule {
+        ForkSchedule {
+            bedrock_timestamp: 1686068903,
+            regolith_timestamp: 0,
+            canyon_timestamp: 1704992401,
+            ecotone_timestamp: 1710374401,
+            fjord_timestamp: 1720627201,
+            granite_timestamp: 1726070401,
+            holocene_timestamp: 1736445601,
+            isthmus_timestamp: u64::MAX, // Isthmus is not yet decided
+
+            ..Default::default()
         }
     }
 }
