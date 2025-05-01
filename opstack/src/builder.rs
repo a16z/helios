@@ -95,7 +95,7 @@ impl OpStackClientBuilder {
         OpStackClient::new(
             execution_mode,
             consensus,
-            config.execution_forks.clone(),
+            config.execution_forks,
             #[cfg(not(target_arch = "wasm32"))]
             config.rpc_socket,
         )

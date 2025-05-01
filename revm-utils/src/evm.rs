@@ -153,7 +153,7 @@ impl<N: NetworkSpec> RevmExecutor<N> {
             .ok_or(ExecutionError::BlockNotFound(self.tag))
             .unwrap();
 
-        let is_optimism = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
+        let is_optimism = matches!(self.network, RevmNetwork::OpStack);
         let spec_id = get_spec_id_for_block(
             &self.network,
             &self.fork_schedule,
@@ -173,7 +173,7 @@ impl<N: NetworkSpec> RevmExecutor<N> {
 
         let env = Env {
             tx: Self::tx_env(tx),
-            block: Self::block_env(&block, &self.fork_schedule),
+            block: Self::block_env(&block, &self.fork_schedule, is_optimism),
             cfg,
         };
 
@@ -181,7 +181,7 @@ impl<N: NetworkSpec> RevmExecutor<N> {
     }
 
     fn tx_env(tx: &N::TransactionRequest) -> TxEnv {
-        // TODO: Handle the Tx fields based on networks
+        // TODO: Handle `max_fee_per_blob_gas`,`blob_hashes` and `optimism` fields
         TxEnv {
             caller: tx.from().unwrap_or_default(),
             gas_limit: tx.gas_limit().unwrap_or(u64::MAX),
@@ -194,26 +194,28 @@ impl<N: NetworkSpec> RevmExecutor<N> {
             access_list: tx.access_list().map(|v| v.to_vec()).unwrap_or_default(),
             gas_priority_fee: tx.max_priority_fee_per_gas().map(U256::from),
             max_fee_per_blob_gas: None,
-            //max_fee_per_blob_gas = tx.max_fee_per_blob_gas().map(U256::from);
             blob_hashes: Vec::new(),
-            //blob_hashes = tx
-            //     .blob_versioned_hashes()
-            //     .as_ref()
-            //     .map(|v| v.to_vec())
-            //     .unwrap_or_default();
             authorization_list: None,
             optimism: OptimismFields::default(),
         }
     }
 
-    fn block_env(block: &N::BlockResponse, fork_schedule: &ForkSchedule) -> BlockEnv {
-        // Check only required in Certain network cases
+    fn block_env(
+        block: &N::BlockResponse,
+        fork_schedule: &ForkSchedule,
+        is_optimism: bool,
+    ) -> BlockEnv {
         let is_prague = block.header().timestamp() >= fork_schedule.prague_timestamp;
-        let blob_excess_gas_and_price = block
-            .header()
-            .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
-            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
+
+        let blob_excess_gas_and_price = if is_optimism {
+            block
+                .header()
+                .excess_blob_gas()
+                .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
+                .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague))
+        } else {
+            BlobExcessGasAndPrice::new(0, is_prague)
+        };
 
         BlockEnv {
             number: U256::from(block.header().number()),
