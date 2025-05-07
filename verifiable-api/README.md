@@ -52,7 +52,7 @@ $ cargo run -- opstack --execution-rpc https://base-rpc.publicnode.com
 
 ## Client Usage
 
-See [helios-verifiable-api-client](verifiable-api/client) crate.
+See [helios-verifiable-api-client](./client) crate.
 
 ## JSON-RPC to REST API map
 
