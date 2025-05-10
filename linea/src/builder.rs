@@ -116,7 +116,8 @@ impl LineaClientBuilder {
         let execution_mode = ExecutionMode::from_urls(Some(config.execution_rpc.clone()), None);
 
         let fork_schedule = ForkSchedule {
-            prague_timestamp: u64::MAX,
+            london_timestamp: 1688655600,
+            ..Default::default()
         };
 
         LineaClient::new(

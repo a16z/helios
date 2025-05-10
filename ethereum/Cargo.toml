@@ -40,6 +40,7 @@ typenum.workspace = true
 helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-consensus-core = { path = "consensus-core" }
+helios-revm-utils = { path = "../revm-utils" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.37"

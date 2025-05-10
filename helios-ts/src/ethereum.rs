@@ -104,6 +104,7 @@ impl EthereumClient {
 
             chain: base.chain,
             forks: base.forks,
+            execution_forks: base.execution_forks,
 
             database_type: Some(db_type),
             ..Default::default()

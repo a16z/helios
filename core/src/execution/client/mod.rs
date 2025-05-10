@@ -4,11 +4,12 @@ use async_trait::async_trait;
 use eyre::Result;
 use tracing::info;
 
-use helios_common::{execution_mode::ExecutionMode, network_spec::NetworkSpec};
+use helios_common::{
+    execution_mode::ExecutionMode, execution_spec::ExecutionSpec, network_spec::NetworkSpec,
+};
 use helios_verifiable_api_client::VerifiableApi;
 
 use super::rpc::ExecutionRpc;
-use super::spec::ExecutionSpec;
 use super::state::State;
 
 pub mod rpc;

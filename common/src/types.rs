@@ -1,13 +1,16 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use alloy::{
     consensus::Account as TrieAccount,
     eips::{BlockId, BlockNumberOrTag},
-    primitives::{Bytes, B256, U256},
-    rpc::types::EIP1186StorageProof,
+    primitives::{Address, Bytes, B256, U256},
+    rpc::types::{AccessListResult, EIP1186StorageProof},
+    sol_types::decode_revert_reason,
 };
 use eyre::{eyre, Report, Result};
 use serde::{de::Error, Deserialize, Serialize};
+use thiserror::Error;
 use tokio::sync::broadcast::Receiver;
 
 use crate::network_spec::NetworkSpec;
@@ -143,3 +146,28 @@ pub enum SubscriptionEvent<N: NetworkSpec> {
 }
 
 pub type SubEventRx<N> = Receiver<SubscriptionEvent<N>>;
+
+// TODO: Might have to generalise this for other VM
+#[derive(Debug, Error)]
+pub enum EvmError {
+    #[error("execution reverted: {}", display_revert(.0))]
+    Revert(Option<Bytes>),
+
+    #[error("evm error: {0:?}")]
+    Generic(String),
+
+    #[error("rpc error: {0:?}")]
+    RpcError(Report),
+}
+
+fn display_revert(output: &Option<Bytes>) -> String {
+    match output {
+        Some(bytes) => decode_revert_reason(bytes.as_ref()).unwrap_or(hex::encode(bytes)),
+        None => "execution halted".to_string(),
+    }
+}
+
+pub struct AccessListResultWithAccounts {
+    pub access_list_result: AccessListResult,
+    pub accounts: HashMap<Address, Account>,
+}

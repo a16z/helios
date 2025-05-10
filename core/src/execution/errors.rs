@@ -1,6 +1,4 @@
-use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::sol_types::decode_revert_reason;
-use eyre::Report;
+use alloy::primitives::{Address, B256, U256};
 use thiserror::Error;
 
 use helios_common::types::BlockTag;
@@ -33,24 +31,4 @@ pub enum ExecutionError {
     FilterNotFound(U256),
     #[error("log does not match filter")]
     LogFilterMismatch(),
-}
-
-/// Errors that can occur during evm.rs calls
-#[derive(Debug, Error)]
-pub enum EvmError {
-    #[error("execution reverted: {}", display_revert(.0))]
-    Revert(Option<Bytes>),
-
-    #[error("evm error: {0:?}")]
-    Generic(String),
-
-    #[error("rpc error: {0:?}")]
-    RpcError(Report),
-}
-
-fn display_revert(output: &Option<Bytes>) -> String {
-    match output {
-        Some(bytes) => decode_revert_reason(bytes.as_ref()).unwrap_or(hex::encode(bytes)),
-        None => "execution halted".to_string(),
-    }
 }

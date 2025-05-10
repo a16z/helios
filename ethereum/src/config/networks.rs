@@ -107,9 +107,7 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: fixed_bytes!("05000000"),
             },
         },
-        execution_forks: ForkSchedule {
-            prague_timestamp: 1746612311,
-        },
+        execution_forks: EthereumForkSchedule::mainnet(),
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Mainnet)),
@@ -155,9 +153,7 @@ pub fn sepolia() -> BaseConfig {
                 fork_version: fixed_bytes!("90000074"),
             },
         },
-        execution_forks: ForkSchedule {
-            prague_timestamp: 1741159776,
-        },
+        execution_forks: EthereumForkSchedule::sepolia(),
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Sepolia)),
@@ -203,9 +199,7 @@ pub fn holesky() -> BaseConfig {
                 fork_version: fixed_bytes!("06017000"),
             },
         },
-        execution_forks: ForkSchedule {
-            prague_timestamp: 1740434112,
-        },
+        execution_forks: EthereumForkSchedule::holesky(),
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Holesky)),
@@ -218,4 +212,83 @@ fn data_dir(network: Network) -> PathBuf {
     home_dir()
         .unwrap()
         .join(format!(".helios/data/{}", network))
+}
+
+pub struct EthereumForkSchedule;
+
+impl EthereumForkSchedule {
+    fn mainnet() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 1438226773,
+            homestead_timestamp: 1457938193,
+            dao_timestamp: 1468977640,
+            tangerine_timestamp: 1476753571,
+            spurious_dragon_timestamp: 1479788144,
+            byzantium_timestamp: 1508131331,
+            constantinople_timestamp: 1551340324,
+            petersburg_timestamp: 1551340324,
+            istanbul_timestamp: 1575807909,
+            muir_glacier_timestamp: 1577953849,
+            berlin_timestamp: 1618481223,
+            london_timestamp: 1628166822,
+            arrow_glacier_timestamp: 1639036523,
+            gray_glacier_timestamp: 1656586444,
+            paris_timestamp: 1663224162,
+            shanghai_timestamp: 1681338455,
+            cancun_timestamp: 1710338135,
+            prague_timestamp: 1746612311,
+
+            ..Default::default()
+        }
+    }
+
+    fn sepolia() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 1633267481,
+            homestead_timestamp: 1633267481,
+            dao_timestamp: 1633267481,
+            tangerine_timestamp: 1633267481,
+            spurious_dragon_timestamp: 1633267481,
+            byzantium_timestamp: 1633267481,
+            constantinople_timestamp: 1633267481,
+            petersburg_timestamp: 1633267481,
+            istanbul_timestamp: 1633267481,
+            muir_glacier_timestamp: 1633267481,
+            berlin_timestamp: 1633267481,
+            london_timestamp: 1633267481,
+            arrow_glacier_timestamp: 1633267481,
+            gray_glacier_timestamp: 1633267481,
+            paris_timestamp: 1633267481,
+            shanghai_timestamp: 1677557088,
+            cancun_timestamp: 1706655072,
+            prague_timestamp: 1741159776,
+
+            ..Default::default()
+        }
+    }
+
+    fn holesky() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 1695902100,
+            homestead_timestamp: 1695902100,
+            dao_timestamp: 1695902100,
+            tangerine_timestamp: 1695902100,
+            spurious_dragon_timestamp: 1695902100,
+            byzantium_timestamp: 1695902100,
+            constantinople_timestamp: 1695902100,
+            petersburg_timestamp: 1695902100,
+            istanbul_timestamp: 1695902100,
+            muir_glacier_timestamp: 1695902100,
+            berlin_timestamp: 1695902100,
+            london_timestamp: 1695902100,
+            arrow_glacier_timestamp: 1695902100,
+            gray_glacier_timestamp: 1695902100,
+            paris_timestamp: 1695902100,
+            shanghai_timestamp: 1696000704,
+            cancun_timestamp: 1707305664,
+            prague_timestamp: 1740434112,
+
+            ..Default::default()
+        }
+    }
 }

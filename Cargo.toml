@@ -21,6 +21,7 @@ members = [
     "verifiable-api/client",
     "verifiable-api/server",
     "verifiable-api/types", "linea",
+    "revm-utils",
 ]
 
 default-members = ["cli"]
@@ -60,6 +61,7 @@ revm = { version = "19.7.0", default-features = false, features = [
     "optional_block_gas_limit",
     "optional_eip3607",
     "optional_no_base_fee",
+    "optimism"
 ] }
 
 # async/futures
