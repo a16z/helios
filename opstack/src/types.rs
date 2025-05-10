@@ -22,6 +22,7 @@ pub struct ExecutionPayload {
     pub withdrawals: VariableList<Withdrawal, typenum::U16>,
     pub blob_gas_used: u64,
     pub excess_blob_gas: u64,
+    pub withdrawals_root: B256,
 }
 
 pub type Transaction = VariableList<u8, typenum::U1073741824>;
