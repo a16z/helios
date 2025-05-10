@@ -122,7 +122,7 @@ impl Inner {
         let commitment = reqwest::get(req)
             .await?
             .json::<SequencerCommitment>()
-            .await.unwrap();
+            .await?;
 
         let curr_signer = *self
             .unsafe_signer
