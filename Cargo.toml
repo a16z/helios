@@ -10,17 +10,18 @@ version = "0.8.7"
 
 [workspace]
 members = [
- "cli",
- "common",
- "core",
- "ethereum",
- "ethereum/consensus-core",
- "opstack",
- "helios-ts",
- "tests/test-utils", # ToDo(@eshaan7): find a better way to include this
- "verifiable-api/client",
- "verifiable-api/server",
- "verifiable-api/types", "linea",
+    "cli",
+    "common",
+    "core",
+    "ethereum",
+    "ethereum/consensus-core",
+    "opstack",
+    "helios-ts",
+    "tests/test-utils", # ToDo(@eshaan7): find a better way to include this
+    "verifiable-api/client",
+    "verifiable-api/server",
+    "verifiable-api/types",
+    "linea",
 ]
 
 default-members = ["cli"]
@@ -41,16 +42,16 @@ bls12_381 = { version = "0.8.0", features = ["experimental"] }
 
 # execution
 alloy = { version = "0.9.1", features = [
- "rpc-types",
- "consensus",
- "rlp",
- "k256",
- "provider-http",
- "sol-types",
- "network",
- "ssz",
- "json-rpc",
- "signers",
+    "rpc-types",
+    "consensus",
+    "rlp",
+    "k256",
+    "provider-http",
+    "sol-types",
+    "network",
+    "ssz",
+    "json-rpc",
+    "signers",
 ] }
 alloy-trie = "0.7.8"
 op-alloy-consensus = "0.9.0"
@@ -58,11 +59,11 @@ op-alloy-network = "0.9.0"
 op-alloy-rpc-types = "0.9.0"
 alloy-rlp = "0.3.10"
 revm = { version = "19.7.0", default-features = false, features = [
- "std",
- "serde",
- "optional_block_gas_limit",
- "optional_eip3607",
- "optional_no_base_fee",
+    "std",
+    "serde",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
 ] }
 
 # async/futures
