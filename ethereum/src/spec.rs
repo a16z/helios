@@ -7,9 +7,8 @@ use alloy::{
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
-use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
-
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
+use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ethereum;

@@ -1,14 +1,15 @@
-use eyre::{eyre, Result};
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
+use eyre::{eyre, Result};
 use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
 
-use crate::config::Config;
-use crate::config::Network;
-use crate::consensus::ConsensusClient;
-use crate::types::LineaClient;
+use crate::{
+    config::{Config, Network},
+    consensus::ConsensusClient,
+    types::LineaClient,
+};
 
 #[derive(Default)]
 pub struct LineaClientBuilder {

@@ -1,28 +1,30 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use alloy::consensus::BlockHeader;
-use alloy::eips::BlockId;
-use alloy::network::{BlockResponse, ReceiptResponse};
-use alloy::primitives::{Address, B256, U256};
-use alloy::rlp;
-use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
+use alloy::{
+    consensus::BlockHeader,
+    eips::BlockId,
+    network::{BlockResponse, ReceiptResponse},
+    primitives::{Address, B256, U256},
+    rlp,
+    rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log},
+};
 use async_trait::async_trait;
 use eyre::Result;
-
 use helios_common::{
     network_spec::NetworkSpec,
     types::{Account, BlockTag},
 };
 use helios_verifiable_api_client::{types::*, VerifiableApi};
 
-use crate::execution::errors::ExecutionError;
-use crate::execution::proof::{
-    verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_receipt_proof,
-    verify_storage_proof,
-};
-use crate::execution::state::State;
-
 use super::{ExecutionInner, ExecutionSpec};
+use crate::execution::{
+    errors::ExecutionError,
+    proof::{
+        verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_receipt_proof,
+        verify_storage_proof,
+    },
+    state::State,
+};
 
 #[derive(Clone)]
 pub struct ExecutionInnerVerifiableApiClient<N: NetworkSpec, A: VerifiableApi<N>> {

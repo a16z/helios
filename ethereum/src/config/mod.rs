@@ -1,21 +1,20 @@
-use std::net::{IpAddr, Ipv4Addr};
-use std::str::FromStr;
-use std::{path::PathBuf, process::exit};
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
+    process::exit,
+    str::FromStr,
+};
 
 use alloy::primitives::B256;
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use serde::Deserialize;
-
 use helios_common::fork_schedule::ForkSchedule;
 use helios_consensus_core::types::Forks;
+use serde::Deserialize;
 
-use self::base::BaseConfig;
-use self::cli::CliConfig;
-use self::networks::Network;
-use self::types::ChainConfig;
+use self::{base::BaseConfig, cli::CliConfig, networks::Network, types::ChainConfig};
 
 pub mod checkpoints;
 pub mod cli;

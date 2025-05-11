@@ -1,7 +1,6 @@
 use eyre::Report;
-use thiserror::Error;
-
 use helios_common::types::BlockTag;
+use thiserror::Error;
 
 use crate::execution::errors::{EvmError, ExecutionError};
 

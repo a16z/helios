@@ -1,34 +1,37 @@
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
-use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
-use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
-use alloy::rlp::Decodable;
-use alloy::rpc::types::{
-    Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
+use alloy::{
+    consensus::{
+        proofs::{calculate_transaction_root, calculate_withdrawals_root},
+        Header as ConsensusHeader, Transaction as TxTrait,
+    },
+    eips::eip4895::{Withdrawal, Withdrawals},
+    primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256},
+    rlp::Decodable,
+    rpc::types::{Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction},
 };
 use eyre::{eyre, OptionExt, Result};
+use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
+use helios_core::{
+    consensus::Consensus,
+    execution::proof::{verify_account_proof, verify_mpt_proof},
+    time::{interval, SystemTime, UNIX_EPOCH},
+};
+use helios_ethereum::{
+    consensus::ConsensusClient as EthConsensusClient, database::ConfigDB, rpc::http_rpc::HttpRpc,
+};
 use op_alloy_consensus::OpTxEnvelope;
 use op_alloy_network::primitives::BlockTransactions;
 use op_alloy_rpc_types::Transaction;
-use tokio::sync::mpsc::Sender;
 use tokio::sync::{
-    mpsc::{channel, Receiver},
+    mpsc::{channel, Receiver, Sender},
     watch,
 };
 use tracing::{error, info, warn};
-
-use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
-use helios_core::consensus::Consensus;
-use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
-use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
-use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
-
-use helios_ethereum::database::ConfigDB;
-use helios_ethereum::rpc::http_rpc::HttpRpc;
 
 use crate::{config::Config, types::ExecutionPayload, SequencerCommitment};
 

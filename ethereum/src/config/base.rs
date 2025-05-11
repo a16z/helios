@@ -1,13 +1,15 @@
-use std::default::Default;
-use std::net::{IpAddr, Ipv4Addr};
-use std::path::PathBuf;
+use std::{
+    default::Default,
+    net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
+};
 
 use alloy::primitives::B256;
+use helios_common::fork_schedule::ForkSchedule;
+use helios_consensus_core::types::Forks;
 use serde::Serialize;
 
 use crate::config::types::ChainConfig;
-use helios_common::fork_schedule::ForkSchedule;
-use helios_consensus_core::types::Forks;
 
 /// The base configuration for a network.
 #[derive(Serialize)]

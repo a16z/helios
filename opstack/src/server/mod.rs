@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 
 use alloy::{
     primitives::{Address, FixedBytes, B256},
@@ -11,6 +11,8 @@ use axum::{
     Json, Router,
 };
 use eyre::Result;
+use helios_core::execution::rpc::{http_rpc::HttpRpc, ExecutionRpc};
+use helios_ethereum::spec::Ethereum;
 use tokio::{
     sync::{
         mpsc::{channel, Receiver},
@@ -20,12 +22,8 @@ use tokio::{
 };
 use url::Url;
 
-use crate::{types::ExecutionPayload, SequencerCommitment};
-
 use self::net::{block_handler::BlockHandler, gossip::GossipService};
-use helios_core::execution::rpc::{http_rpc::HttpRpc, ExecutionRpc};
-use helios_ethereum::spec::Ethereum;
-use std::str::FromStr;
+use crate::{types::ExecutionPayload, SequencerCommitment};
 
 pub mod net;
 mod poller;

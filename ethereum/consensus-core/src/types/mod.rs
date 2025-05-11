@@ -9,12 +9,11 @@ use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVecto
 use superstruct::superstruct;
 use tree_hash_derive::TreeHash;
 
-use crate::consensus_spec::ConsensusSpec;
-
 use self::{
     bls::{PublicKey, Signature},
     bytes::{ByteList, ByteVector},
 };
+use crate::consensus_spec::ConsensusSpec;
 
 pub mod bls;
 pub mod bytes;

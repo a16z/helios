@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use alloy::consensus::BlockHeader;
-use alloy::network::BlockResponse;
-use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{
-    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncInfo, SyncStatus,
+use alloy::{
+    consensus::BlockHeader,
+    network::BlockResponse,
+    primitives::{Address, Bytes, B256, U256},
+    rpc::types::{
+        AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncInfo,
+        SyncStatus,
+    },
 };
 use eyre::{eyre, Result};
-
 use helios_common::{
     execution_mode::ExecutionMode,
     fork_schedule::ForkSchedule,
@@ -16,16 +18,20 @@ use helios_common::{
 };
 use helios_verifiable_api_client::http::HttpVerifiableApi;
 
-use crate::consensus::Consensus;
-use crate::errors::ClientError;
-use crate::execution::client::ExecutionInnerClient;
-use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
-use crate::execution::evm::Evm;
-use crate::execution::rpc::http_rpc::HttpRpc;
-use crate::execution::spec::ExecutionSpec;
-use crate::execution::state::{start_state_updater, State};
-use crate::execution::ExecutionClient;
-use crate::time::{SystemTime, UNIX_EPOCH};
+use crate::{
+    consensus::Consensus,
+    errors::ClientError,
+    execution::{
+        client::ExecutionInnerClient,
+        constants::MAX_STATE_HISTORY_LENGTH,
+        evm::Evm,
+        rpc::http_rpc::HttpRpc,
+        spec::ExecutionSpec,
+        state::{start_state_updater, State},
+        ExecutionClient,
+    },
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     pub consensus: C,

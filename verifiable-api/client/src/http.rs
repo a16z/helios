@@ -5,11 +5,10 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
-use reqwest::{Client, Response};
-use serde::de::DeserializeOwned;
-
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
+use reqwest::{Client, Response};
+use serde::de::DeserializeOwned;
 
 use super::VerifiableApi;
 

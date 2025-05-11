@@ -5,7 +5,6 @@ use alloy::{
     primitives::{B256, U256},
     rpc::types::{EIP1186AccountProofResponse, Log, TransactionReceipt},
 };
-
 use helios_common::types::Account;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 use helios_verifiable_api_types::{

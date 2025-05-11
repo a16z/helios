@@ -2,13 +2,16 @@ use std::{path::PathBuf, str::FromStr};
 
 use alloy::primitives::{utils::format_ether, Address};
 use eyre::Result;
+use helios::{
+    common::types::BlockTag,
+    ethereum::{
+        config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
+    },
+};
 use tracing::info;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
-
-use helios::common::types::BlockTag;
-use helios::ethereum::{
-    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    FmtSubscriber,
 };
 
 #[tokio::main]

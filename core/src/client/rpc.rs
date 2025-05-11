@@ -1,12 +1,20 @@
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
-use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
-use alloy::primitives::{Address, Bytes, B256, U256, U64};
-use alloy::rpc::json_rpc::RpcObject;
-use alloy::rpc::types::{
-    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+use alloy::{
+    network::{BlockResponse, ReceiptResponse, TransactionResponse},
+    primitives::{Address, Bytes, B256, U256, U64},
+    rpc::{
+        json_rpc::RpcObject,
+        types::{
+            AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+        },
+    },
 };
 use eyre::Result;
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{BlockTag, SubEventRx, SubscriptionType},
+};
 use jsonrpsee::{
     core::{async_trait, server::Methods, SubscriptionResult},
     proc_macros::rpc,
@@ -15,13 +23,7 @@ use jsonrpsee::{
 };
 use tracing::info;
 
-use helios_common::{
-    network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx, SubscriptionType},
-};
-
-use crate::client::node::Node;
-use crate::consensus::Consensus;
+use crate::{client::node::Node, consensus::Consensus};
 
 pub struct Rpc<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
     node: Arc<Node<N, C>>,

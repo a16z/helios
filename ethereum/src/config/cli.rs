@@ -1,10 +1,9 @@
-use std::net::IpAddr;
-use std::{collections::HashMap, path::PathBuf};
-use url::Url;
+use std::{collections::HashMap, net::IpAddr, path::PathBuf};
 
 use alloy::primitives::B256;
 use figment::{providers::Serialized, value::Value};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 /// Cli Config
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

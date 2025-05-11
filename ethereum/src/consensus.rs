@@ -1,25 +1,18 @@
-use std::marker::PhantomData;
-use std::process;
-use std::sync::Arc;
+use std::{marker::PhantomData, process, sync::Arc};
 
-use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
-use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
-use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
-use alloy::rlp::Decodable;
-use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
+use alloy::{
+    consensus::{
+        proofs::{calculate_transaction_root, calculate_withdrawals_root},
+        Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope,
+    },
+    eips::eip4895::{Withdrawal, Withdrawals},
+    primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256},
+    rlp::Decodable,
+    rpc::types::{Block, BlockTransactions, Header, Transaction},
+};
 use chrono::Duration;
-use eyre::eyre;
-use eyre::Result;
+use eyre::{eyre, Result};
 use futures::future::join_all;
-use tracing::{debug, error, info, warn};
-use tree_hash::TreeHash;
-
-use tokio::sync::mpsc::channel;
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::mpsc::Sender;
-use tokio::sync::watch;
-
 use helios_consensus_core::{
     apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
     consensus_spec::ConsensusSpec,
@@ -28,15 +21,23 @@ use helios_consensus_core::{
     types::{ExecutionPayload, FinalityUpdate, LightClientStore, Update},
     verify_bootstrap, verify_finality_update, verify_update,
 };
-use helios_core::consensus::Consensus;
-use helios_core::time::{interval_at, Instant, SystemTime, UNIX_EPOCH};
+use helios_core::{
+    consensus::Consensus,
+    time::{interval_at, Instant, SystemTime, UNIX_EPOCH},
+};
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    watch,
+};
+use tracing::{debug, error, info, warn};
+use tree_hash::TreeHash;
 
-use crate::config::checkpoints::CheckpointFallback;
-use crate::config::networks::Network;
-use crate::config::Config;
-use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-use crate::database::Database;
-use crate::rpc::ConsensusRpc;
+use crate::{
+    config::{checkpoints::CheckpointFallback, networks::Network, Config},
+    constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
+    database::Database,
+    rpc::ConsensusRpc,
+};
 
 pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub block_recv: Option<Receiver<Block<Transaction>>>,
@@ -682,17 +683,19 @@ mod tests {
     use std::sync::Arc;
 
     use alloy::primitives::b256;
+    use helios_consensus_core::{
+        consensus_spec::MainnetConsensusSpec,
+        errors::ConsensusError,
+        types::{
+            bls::{PublicKey, Signature},
+            Update,
+        },
+    };
     use tokio::sync::{mpsc::channel, watch};
-
-    use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
-    use helios_consensus_core::errors::ConsensusError;
-    use helios_consensus_core::types::bls::{PublicKey, Signature};
-    use helios_consensus_core::types::Update;
 
     use crate::{
         config::{networks, Config},
-        consensus::calc_sync_period,
-        consensus::Inner,
+        consensus::{calc_sync_period, Inner},
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };

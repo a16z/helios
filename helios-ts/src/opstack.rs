@@ -1,23 +1,23 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
-use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::Filter;
+use alloy::{
+    primitives::{Address, B256, U256},
+    rpc::types::Filter,
+};
+use helios_common::types::{BlockTag, SubscriptionType};
+use helios_opstack::{
+    config::{Config, Network, NetworkConfig},
+    spec::OpStack,
+    OpStackClientBuilder,
+};
+use op_alloy_rpc_types::OpTransactionRequest;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
 
-use op_alloy_rpc_types::OpTransactionRequest;
-
-use helios_common::types::{BlockTag, SubscriptionType};
-use helios_opstack::config::{Config, Network, NetworkConfig};
-use helios_opstack::spec::OpStack;
-use helios_opstack::OpStackClientBuilder;
-
-use crate::map_err;
-use crate::subscription::Subscription;
+use crate::{map_err, subscription::Subscription};
 
 #[wasm_bindgen]
 pub struct OpStackClient {

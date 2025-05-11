@@ -4,7 +4,6 @@ pub mod mock_rpc;
 use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
-
 use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
     types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update},

@@ -1,5 +1,4 @@
 use eyre::Result;
-
 // From helios::config
 use helios::ethereum::config::{checkpoints, networks};
 

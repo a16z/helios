@@ -1,25 +1,25 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
-use alloy::hex::FromHex;
-use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{Filter, TransactionRequest};
+use alloy::{
+    hex::FromHex,
+    primitives::{Address, B256, U256},
+    rpc::types::{Filter, TransactionRequest},
+};
 use eyre::Result;
+use helios_common::types::{BlockTag, SubscriptionType};
+use helios_ethereum::{
+    config::{networks, Config},
+    database::{ConfigDB, Database},
+    spec::Ethereum,
+    EthereumClientBuilder,
+};
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
 
-use helios_common::types::{BlockTag, SubscriptionType};
-use helios_ethereum::config::{networks, Config};
-use helios_ethereum::database::{ConfigDB, Database};
-use helios_ethereum::spec::Ethereum;
-use helios_ethereum::EthereumClientBuilder;
-
-use crate::map_err;
-use crate::storage::LocalStorageDB;
-use crate::subscription::Subscription;
+use crate::{map_err, storage::LocalStorageDB, subscription::Subscription};
 
 #[derive(Clone)]
 pub enum DatabaseType {

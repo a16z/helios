@@ -1,8 +1,7 @@
 use clap::Parser;
+use helios_verifiable_api_server::server::{Network, VerifiableApiServer};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
-
-use helios_verifiable_api_server::server::{Network, VerifiableApiServer};
 
 #[tokio::main]
 async fn main() {

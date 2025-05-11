@@ -1,19 +1,19 @@
 use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
-use alloy::network::TransactionResponse;
-use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{
-    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
-    FilterChanges, Log,
+use alloy::{
+    network::TransactionResponse,
+    primitives::{Address, B256, U256},
+    rpc::types::{
+        AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory,
+        Filter, FilterChanges, Log,
+    },
 };
 use async_trait::async_trait;
 use eyre::{Ok, Result};
-
 use helios_common::{network_spec::NetworkSpec, types::Account};
 
-use crate::execution::errors::ExecutionError;
-
 use super::ExecutionRpc;
+use crate::execution::errors::ExecutionError;
 
 #[derive(Clone)]
 pub struct MockRpc {

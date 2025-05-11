@@ -1,26 +1,23 @@
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::rpc::types::{
-    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+use alloy::{
+    primitives::{Address, Bytes, B256, U256},
+    rpc::types::{
+        AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+    },
 };
 use eyre::Result;
-use tracing::{info, warn};
-
 use helios_common::{
     execution_mode::ExecutionMode,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{BlockTag, SubEventRx, SubscriptionType},
 };
+use tracing::{info, warn};
 
-use crate::client::node::Node;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;
-use crate::consensus::Consensus;
-use crate::time::interval;
+use crate::{client::node::Node, consensus::Consensus, time::interval};
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]

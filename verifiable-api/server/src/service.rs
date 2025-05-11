@@ -1,6 +1,8 @@
-use std::collections::{HashMap, HashSet};
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 
 use alloy::{
     consensus::{Account as TrieAccount, BlockHeader},
@@ -12,7 +14,6 @@ use alloy::{
 use async_trait::async_trait;
 use eyre::{Ok, OptionExt, Report, Result};
 use futures::future::try_join_all;
-
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
 use helios_core::execution::{
     client::{rpc::ExecutionInnerRpcClient, ExecutionInner},

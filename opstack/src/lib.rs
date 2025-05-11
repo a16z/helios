@@ -2,14 +2,12 @@ use alloy::{
     primitives::{keccak256, Address, Bytes, B256},
     signers::Signature,
 };
+use consensus::ConsensusClient;
 use eyre::Result;
+use helios_core::client::Client;
 use serde::{Deserialize, Serialize};
 use spec::OpStack;
 use ssz::Decode;
-
-use helios_core::client::Client;
-
-use consensus::ConsensusClient;
 use types::ExecutionPayload;
 
 mod builder;

@@ -2,7 +2,6 @@
 use std::{path::PathBuf, str::FromStr};
 
 use alloy::primitives::{Address, B256, U256};
-
 use helios_common::types::BlockTag;
 use helios_ethereum::{
     config::{checkpoints, networks},

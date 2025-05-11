@@ -8,19 +8,16 @@ use std::{
     str::FromStr,
 };
 
+use alloy::primitives::{address, Address};
+use eyre::Result;
 use figment::{
     providers::{Format, Serialized, Toml},
     value::Value,
     Figment,
 };
-
 use serde::{Deserialize, Serialize};
-
-use eyre::Result;
 use strum::EnumIter;
 use url::Url;
-
-use alloy::primitives::{address, Address};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct ChainConfig {

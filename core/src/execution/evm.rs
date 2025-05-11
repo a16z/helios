@@ -5,6 +5,11 @@ use alloy::{
     rpc::types::{AccessListResult, EIP1186StorageProof},
 };
 use eyre::{Report, Result};
+use helios_common::{
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{Account, BlockTag},
+};
 use revm::{
     primitives::{
         address, AccessListItem, AccountInfo, Address, Bytecode, Bytes, CfgEnv, Env,
@@ -13,12 +18,6 @@ use revm::{
     Database, Evm as Revm,
 };
 use tracing::trace;
-
-use helios_common::{
-    fork_schedule::ForkSchedule,
-    network_spec::NetworkSpec,
-    types::{Account, BlockTag},
-};
 
 use super::{
     errors::{EvmError, ExecutionError},

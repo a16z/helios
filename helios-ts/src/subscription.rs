@@ -1,11 +1,8 @@
-use std::cell::Cell;
-use std::marker::PhantomData;
-use std::rc::Rc;
+use std::{cell::Cell, marker::PhantomData, rc::Rc};
+
+use helios_common::{network_spec::NetworkSpec, types::SubEventRx};
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
-
-use helios_common::network_spec::NetworkSpec;
-use helios_common::types::SubEventRx;
 
 pub struct Subscription<N: NetworkSpec> {
     id: String,

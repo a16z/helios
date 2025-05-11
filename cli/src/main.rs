@@ -1,37 +1,37 @@
-use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
 use std::{
+    collections::HashMap,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     process::exit,
     str::FromStr,
     sync::{Arc, Mutex},
 };
 
-use alloy::primitives::hex;
-use alloy::primitives::B256;
+use alloy::primitives::{hex, B256};
 use clap::{Args, Parser, Subcommand};
 use dirs::home_dir;
 use eyre::Result;
-use figment::providers::Serialized;
-use figment::value::Value;
+use figment::{providers::Serialized, value::Value};
 use futures::executor::block_on;
-use tracing::{error, info};
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
-use url::Url;
-
 use helios_common::network_spec::NetworkSpec;
-use helios_core::client::Client;
-use helios_core::consensus::Consensus;
-use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
-use helios_ethereum::database::FileDB;
-use helios_ethereum::{EthereumClient, EthereumClientBuilder};
-use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
-
-use helios_linea::{
-    builder::LineaClientBuilder, config::CliConfig as LineaCliConfig,
-    config::Config as LineaConfig, types::LineaClient,
+use helios_core::{client::Client, consensus::Consensus};
+use helios_ethereum::{
+    config::{cli::CliConfig, Config as EthereumConfig},
+    database::FileDB,
+    EthereumClient, EthereumClientBuilder,
 };
+use helios_linea::{
+    builder::LineaClientBuilder,
+    config::{CliConfig as LineaCliConfig, Config as LineaConfig},
+    types::LineaClient,
+};
+use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
+use tracing::{error, info};
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    FmtSubscriber,
+};
+use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<()> {

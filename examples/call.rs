@@ -2,16 +2,21 @@
 
 use std::path::PathBuf;
 
-use alloy::primitives::{Address, Bytes};
-use alloy::rpc::types::TransactionRequest;
+use alloy::{
+    primitives::{Address, Bytes},
+    rpc::types::TransactionRequest,
+};
 use dotenv::dotenv;
+use helios::{
+    common::types::BlockTag,
+    ethereum::{
+        config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
+    },
+};
 use tracing::info;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::FmtSubscriber;
-
-use helios::common::types::BlockTag;
-use helios::ethereum::{
-    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    FmtSubscriber,
 };
 
 #[tokio::main]

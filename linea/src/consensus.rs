@@ -10,18 +10,15 @@ use alloy::{
     rpc::types::{Block, BlockTransactionsKind, Transaction},
     transports::http::reqwest::Url,
 };
-
-use tokio::sync::{
-    mpsc::{channel, Receiver, Sender},
-    watch,
-};
-
+use eyre::{eyre, Result};
 use helios_core::{
     consensus::Consensus,
     time::{interval, SystemTime, UNIX_EPOCH},
 };
-
-use eyre::{eyre, Result};
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    watch,
+};
 use tracing::error;
 
 use crate::config::Config;

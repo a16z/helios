@@ -10,20 +10,22 @@ use tree_hash::TreeHash;
 #[cfg(target_arch = "wasm32")]
 use wasmtimer::std::{SystemTime, UNIX_EPOCH};
 
-use crate::consensus_spec::ConsensusSpec;
-use crate::errors::ConsensusError;
-use crate::proof::{
-    is_current_committee_proof_valid, is_execution_payload_proof_valid, is_finality_proof_valid,
-    is_next_committee_proof_valid,
-};
-use crate::types::bls::{PublicKey, Signature};
-use crate::types::{
-    BeaconBlockHeader, Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate,
-    LightClientHeader, LightClientStore, OptimisticUpdate, Update,
-};
-use crate::utils::{
-    calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
-    get_participating_keys,
+use crate::{
+    consensus_spec::ConsensusSpec,
+    errors::ConsensusError,
+    proof::{
+        is_current_committee_proof_valid, is_execution_payload_proof_valid,
+        is_finality_proof_valid, is_next_committee_proof_valid,
+    },
+    types::{
+        bls::{PublicKey, Signature},
+        BeaconBlockHeader, Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate,
+        LightClientHeader, LightClientStore, OptimisticUpdate, Update,
+    },
+    utils::{
+        calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
+        get_participating_keys,
+    },
 };
 
 pub fn verify_bootstrap<S: ConsensusSpec>(

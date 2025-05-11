@@ -2,14 +2,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eyre::Result;
-use tracing::info;
-
 use helios_common::{execution_mode::ExecutionMode, network_spec::NetworkSpec};
 use helios_verifiable_api_client::VerifiableApi;
+use tracing::info;
 
-use super::rpc::ExecutionRpc;
-use super::spec::ExecutionSpec;
-use super::state::State;
+use super::{rpc::ExecutionRpc, spec::ExecutionSpec, state::State};
 
 pub mod rpc;
 pub mod verifiable_api;

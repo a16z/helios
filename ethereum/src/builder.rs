@@ -6,18 +6,18 @@ use std::sync::Arc;
 
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
-
 use helios_common::execution_mode::ExecutionMode;
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::client::Client;
 
-use crate::config::networks::Network;
-use crate::config::Config;
-use crate::consensus::ConsensusClient;
-use crate::database::Database;
-use crate::rpc::http_rpc::HttpRpc;
-use crate::spec::Ethereum;
-use crate::EthereumClient;
+use crate::{
+    config::{networks::Network, Config},
+    consensus::ConsensusClient,
+    database::Database,
+    rpc::http_rpc::HttpRpc,
+    spec::Ethereum,
+    EthereumClient,
+};
 
 #[derive(Default)]
 pub struct EthereumClientBuilder {

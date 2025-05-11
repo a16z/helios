@@ -1,11 +1,6 @@
 use std::path::PathBuf;
 
 use alloy::primitives::{fixed_bytes, B256};
-use serde::Deserialize;
-use serde_yaml::{Mapping, Value};
-use ssz::Decode;
-use tree_hash::TreeHash;
-
 use helios_consensus_core::{
     apply_bootstrap, apply_generic_update,
     consensus_spec::MinimalConsensusSpec,
@@ -16,6 +11,10 @@ use helios_consensus_core::{
     },
     verify_bootstrap, verify_generic_update,
 };
+use serde::Deserialize;
+use serde_yaml::{Mapping, Value};
+use ssz::Decode;
+use tree_hash::TreeHash;
 
 pub fn run<P: Into<PathBuf>>(test_data_dir: P, with_electra: bool) {
     let test_data_dir: PathBuf = test_data_dir.into();

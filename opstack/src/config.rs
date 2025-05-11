@@ -9,10 +9,9 @@ use figment::{
     value::Value,
     Figment,
 };
+use helios_ethereum::config::networks::Network as EthNetwork;
 use serde::{Deserialize, Serialize};
 use url::Url;
-
-use helios_ethereum::config::networks::Network as EthNetwork;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {

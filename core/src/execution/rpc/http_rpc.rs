@@ -1,22 +1,26 @@
-use alloy::primitives::{Address, B256, U256};
-use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::rpc::client::ClientBuilder;
-use alloy::rpc::types::{
-    BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges,
-    Log,
+use alloy::{
+    primitives::{Address, B256, U256},
+    providers::{Provider, ProviderBuilder, RootProvider},
+    rpc::{
+        client::ClientBuilder,
+        types::{
+            BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
+            FilterChanges, Log,
+        },
+    },
+    transports::{
+        http::Http,
+        layers::{RetryBackoffLayer, RetryBackoffService},
+    },
 };
-use alloy::transports::http::Http;
-use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
 use async_trait::async_trait;
 use eyre::Result;
+use helios_common::network_spec::NetworkSpec;
 use reqwest::Client;
 use revm::primitives::AccessList;
 
-use helios_common::network_spec::NetworkSpec;
-
-use crate::errors::RpcError;
-
 use super::ExecutionRpc;
+use crate::errors::RpcError;
 
 pub struct HttpRpc<N: NetworkSpec> {
     url: String,

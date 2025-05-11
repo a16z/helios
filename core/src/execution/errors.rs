@@ -1,9 +1,10 @@
-use alloy::primitives::{Address, Bytes, B256, U256};
-use alloy::sol_types::decode_revert_reason;
+use alloy::{
+    primitives::{Address, Bytes, B256, U256},
+    sol_types::decode_revert_reason,
+};
 use eyre::Report;
-use thiserror::Error;
-
 use helios_common::types::BlockTag;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {

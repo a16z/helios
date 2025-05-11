@@ -1,11 +1,12 @@
-use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{
-    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
-    FilterChanges, Log,
+use alloy::{
+    primitives::{Address, B256, U256},
+    rpc::types::{
+        AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory,
+        Filter, FilterChanges, Log,
+    },
 };
 use async_trait::async_trait;
 use eyre::Result;
-
 use helios_common::network_spec::NetworkSpec;
 
 pub mod http_rpc;

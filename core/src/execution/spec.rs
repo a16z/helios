@@ -7,7 +7,6 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::Result;
-
 use helios_common::{
     network_spec::NetworkSpec,
     types::{Account, BlockTag},

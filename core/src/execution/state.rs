@@ -11,16 +11,15 @@ use alloy::{
     rpc::types::{BlockTransactions, Filter},
 };
 use eyre::{eyre, Result};
+use helios_common::{
+    network_spec::NetworkSpec,
+    types::{BlockTag, SubEventRx, SubscriptionEvent},
+};
 use tokio::{
     select,
     sync::{broadcast, mpsc::Receiver, watch, RwLock},
 };
 use tracing::{info, warn};
-
-use helios_common::{
-    network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx, SubscriptionEvent},
-};
 
 use super::spec::ExecutionSpec;
 

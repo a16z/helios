@@ -12,12 +12,11 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use eyre::{eyre, OptionExt, Report, Result};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
 use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::{errors::ExecutionError, rpc::ExecutionRpc};
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::state::ApiState;
 

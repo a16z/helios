@@ -1,20 +1,17 @@
-use std::fmt::Display;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use alloy::primitives::{b256, fixed_bytes};
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
+use helios_common::fork_schedule::ForkSchedule;
+use helios_consensus_core::types::{Fork, Forks};
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
-use helios_common::fork_schedule::ForkSchedule;
-use helios_consensus_core::types::{Fork, Forks};
-
-use crate::config::base::BaseConfig;
-use crate::config::types::ChainConfig;
+use crate::config::{base::BaseConfig, types::ChainConfig};
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,

@@ -1,16 +1,16 @@
-use alloy::consensus::BlockHeader;
-use alloy::network::{BlockResponse, ReceiptResponse};
-use alloy::primitives::{keccak256, Bytes, B256, U256};
-use alloy::rlp;
-use alloy::rpc::types::EIP1186AccountProofResponse;
-use alloy_trie::root::ordered_trie_root_with_encoder;
+use alloy::{
+    consensus::BlockHeader,
+    network::{BlockResponse, ReceiptResponse},
+    primitives::{keccak256, Bytes, B256, U256},
+    rlp,
+    rpc::types::EIP1186AccountProofResponse,
+};
 use alloy_trie::{
     proof::{verify_proof, ProofRetainer},
-    root::adjust_index_for_rlp,
+    root::{adjust_index_for_rlp, ordered_trie_root_with_encoder},
     HashBuilder, Nibbles, TrieAccount, KECCAK_EMPTY,
 };
 use eyre::{eyre, Result};
-
 use helios_common::{network_spec::NetworkSpec, types::BlockTag};
 
 use super::errors::ExecutionError;
@@ -185,7 +185,6 @@ pub fn ordered_trie_root_noop_encoder(items: &[Vec<u8>]) -> B256 {
 #[cfg(test)]
 mod tests {
     use alloy::primitives::b256;
-
     use helios_ethereum::spec::Ethereum as EthereumSpec;
     use helios_test_utils::*;
 

@@ -1,27 +1,28 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use alloy::consensus::BlockHeader;
-use alloy::eips::BlockId;
-use alloy::network::primitives::HeaderResponse;
-use alloy::network::BlockResponse;
-use alloy::primitives::{Address, B256, U256};
-use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
+use alloy::{
+    consensus::BlockHeader,
+    eips::BlockId,
+    network::{primitives::HeaderResponse, BlockResponse},
+    primitives::{Address, B256, U256},
+    rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log},
+};
 use async_trait::async_trait;
 use eyre::Result;
-use revm::primitives::BlobExcessGasAndPrice;
-use tracing::warn;
-
 use helios_common::{
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{Account, BlockTag, SubEventRx, SubscriptionType},
 };
+use revm::primitives::BlobExcessGasAndPrice;
+use tracing::warn;
 
-use self::client::ExecutionInner;
-use self::errors::ExecutionError;
-use self::spec::ExecutionSpec;
-use self::state::{FilterType, State};
+use self::{
+    client::ExecutionInner,
+    errors::ExecutionError,
+    spec::ExecutionSpec,
+    state::{FilterType, State},
+};
 
 pub mod client;
 pub mod constants;

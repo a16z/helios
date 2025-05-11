@@ -1,33 +1,33 @@
 use std::collections::{HashMap, HashSet};
 
-use alloy::consensus::{Account as TrieAccount, BlockHeader};
-use alloy::eips::BlockId;
-use alloy::network::{BlockResponse, ReceiptResponse, TransactionBuilder};
-use alloy::primitives::{Address, B256, U256};
-use alloy::rlp;
-use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
+use alloy::{
+    consensus::{Account as TrieAccount, BlockHeader},
+    eips::BlockId,
+    network::{BlockResponse, ReceiptResponse, TransactionBuilder},
+    primitives::{Address, B256, U256},
+    rlp,
+    rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log},
+};
 use async_trait::async_trait;
 use eyre::Result;
 use futures::future::{join_all, try_join_all};
-use revm::primitives::AccessListItem;
-
 use helios_common::{
     network_spec::NetworkSpec,
     types::{Account, BlockTag},
 };
-
-use crate::execution::constants::{
-    MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS, PARALLEL_QUERY_BATCH_SIZE,
-};
-use crate::execution::errors::ExecutionError;
-use crate::execution::proof::{
-    ordered_trie_root_noop_encoder, verify_account_proof, verify_block_receipts,
-    verify_code_hash_proof, verify_storage_proof,
-};
-use crate::execution::rpc::ExecutionRpc;
-use crate::execution::state::State;
+use revm::primitives::AccessListItem;
 
 use super::{ExecutionInner, ExecutionSpec};
+use crate::execution::{
+    constants::{MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS, PARALLEL_QUERY_BATCH_SIZE},
+    errors::ExecutionError,
+    proof::{
+        ordered_trie_root_noop_encoder, verify_account_proof, verify_block_receipts,
+        verify_code_hash_proof, verify_storage_proof,
+    },
+    rpc::ExecutionRpc,
+    state::State,
+};
 
 #[derive(Clone)]
 pub struct ExecutionInnerRpcClient<N: NetworkSpec, R: ExecutionRpc<N>> {
@@ -373,12 +373,11 @@ mod tests {
     use std::sync::Arc;
 
     use alloy::rpc::types::TransactionRequest;
-
-    use crate::execution::rpc::mock_rpc::MockRpc;
     use helios_ethereum::spec::Ethereum as EthereumSpec;
     use helios_test_utils::*;
 
     use super::*;
+    use crate::execution::rpc::mock_rpc::MockRpc;
 
     async fn get_client() -> ExecutionInnerRpcClient<EthereumSpec, MockRpc> {
         let base_path = testdata_dir().join("rpc/");

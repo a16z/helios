@@ -1,24 +1,24 @@
 use std::env;
 
-use alloy::eips::BlockNumberOrTag;
-use alloy::network::primitives::BlockTransactionsKind;
-use alloy::primitives::address;
-use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::rpc::client::ClientBuilder as AlloyClientBuilder;
-use alloy::rpc::types::Filter;
-use alloy::sol;
-use alloy::transports::http::{Client as ReqwestClient, Http};
+use alloy::{
+    eips::BlockNumberOrTag,
+    network::primitives::BlockTransactionsKind,
+    primitives::address,
+    providers::{Provider, ProviderBuilder, RootProvider},
+    rpc::{client::ClientBuilder as AlloyClientBuilder, types::Filter},
+    sol,
+    transports::http::{Client as ReqwestClient, Http},
+};
 use futures::future::join_all;
-use pretty_assertions::assert_eq;
-use rand::Rng;
-use url::Url;
-
 use helios::ethereum::{
     config::networks::Network, database::ConfigDB, EthereumClient, EthereumClientBuilder,
 };
 use helios_verifiable_api_server::server::{
     Network as ApiNetwork, ServerArgs, VerifiableApiServer,
 };
+use pretty_assertions::assert_eq;
+use rand::Rng;
+use url::Url;
 
 async fn setup() -> (
     EthereumClient<ConfigDB>,

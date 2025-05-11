@@ -3,14 +3,13 @@ use std::cmp;
 use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
-use retri::{retry, BackoffSettings};
-use serde::{de::DeserializeOwned, Deserialize};
-
 use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
     types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
 };
 use helios_core::errors::RpcError;
+use retri::{retry, BackoffSettings};
+use serde::{de::DeserializeOwned, Deserialize};
 
 use super::ConsensusRpc;
 use crate::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;

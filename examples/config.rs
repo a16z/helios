@@ -1,6 +1,5 @@
 use dirs::home_dir;
 use eyre::Result;
-
 use helios::ethereum::config::{cli::CliConfig, Config};
 
 #[tokio::main]

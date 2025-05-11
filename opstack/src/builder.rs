@@ -1,12 +1,11 @@
-use eyre::Result;
-use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
 
+use eyre::Result;
 use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
+use reqwest::{IntoUrl, Url};
 
 use crate::{
-    config::Network,
-    config::{Config, NetworkConfig},
+    config::{Config, Network, NetworkConfig},
     consensus::ConsensusClient,
     OpStackClient,
 };

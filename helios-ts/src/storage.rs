@@ -3,9 +3,8 @@ extern crate web_sys;
 
 use alloy::{hex::FromHex, primitives::B256};
 use eyre::Result;
-use wasm_bindgen::prelude::*;
-
 use helios_ethereum::{config::Config, database::Database};
+use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]
 pub struct LocalStorageDB;

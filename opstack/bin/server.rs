@@ -3,14 +3,13 @@ use std::net::SocketAddr;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use eyre::Result;
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
-use url::Url;
-
 #[cfg(not(target_arch = "wasm32"))]
 use helios_opstack::{
     config::{Network, NetworkConfig},
     server::start_server,
 };
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use url::Url;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]

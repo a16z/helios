@@ -5,9 +5,8 @@ use alloy::{
     primitives::{Address, Bytes, B256, U256},
     rpc::types::{Filter, Log},
 };
-use serde::{Deserialize, Serialize};
-
 use helios_common::{network_spec::NetworkSpec, types::Account};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct ErrorResponse {
