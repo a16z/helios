@@ -14,7 +14,7 @@ eyre.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url.workspace = true
 futures.workspace = true
 async-trait.workspace = true
@@ -27,9 +27,10 @@ helios-core = { path = "../../core" }
 helios-ethereum = { path = "../../ethereum" }
 helios-opstack = { path = "../../opstack" }
 
-axum = "0.8.1"
-axum-extra = { version = "0.10.0", features = ["query"] }
-clap = { version = "4.5.4", features = ["derive", "env"] }
+axum.workspace = true
+axum-extra = { workspace = true, features = ["query"] }
+clap = { workspace = true, features = ["derive", "env"] }
 
 [dev-dependencies]
 helios-test-utils = { path = "../../tests/test-utils" }
+tokio.workspace = true

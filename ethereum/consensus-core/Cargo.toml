@@ -4,7 +4,7 @@ version.workspace = true
 edition = "2021"
 
 [dependencies]
-alloy = { version = "0.9.1", features = [
+alloy = { workspace = true, features = [
     "consensus",
     "rpc-types",
     "ssz",
@@ -12,7 +12,7 @@ alloy = { version = "0.9.1", features = [
     "k256",
     "eips",
 ] }
-alloy-rlp = "0.3.10"
+alloy-rlp.workspace = true
 bls12_381.workspace = true
 ssz_types.workspace = true
 ethereum_ssz_derive.workspace = true
@@ -29,10 +29,10 @@ tracing.workspace = true
 zduny-wasm-timer.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
-wasmtimer = "0.2.0"
+getrandom = { workspace = true, features = ["js"] }
+wasmtimer.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
-snap = "1"
-serde_yaml = "0.9.34"
+tokio = { workspace = true, features = ["full"] }
+snap.workspace = true
+serde_yaml.workspace = true

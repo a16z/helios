@@ -8,3 +8,4 @@ helios-ts/helios-*.tgz
 helios-ts/pkg
 
 .vscode
+.idea

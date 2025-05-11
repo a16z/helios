@@ -10,17 +10,17 @@ version = "0.8.7"
 
 [workspace]
 members = [
-    "cli",
-    "common",
-    "core",
-    "ethereum",
-    "ethereum/consensus-core",
-    "opstack",
-    "helios-ts",
-    "tests/test-utils",        # ToDo(@eshaan7): find a better way to include this
-    "verifiable-api/client",
-    "verifiable-api/server",
-    "verifiable-api/types", "linea",
+ "cli",
+ "common",
+ "core",
+ "ethereum",
+ "ethereum/consensus-core",
+ "opstack",
+ "helios-ts",
+ "tests/test-utils", # ToDo(@eshaan7): find a better way to include this
+ "verifiable-api/client",
+ "verifiable-api/server",
+ "verifiable-api/types", "linea",
 ]
 
 default-members = ["cli"]
@@ -41,25 +41,28 @@ bls12_381 = { version = "0.8.0", features = ["experimental"] }
 
 # execution
 alloy = { version = "0.9.1", features = [
-    "rpc-types",
-    "consensus",
-    "rlp",
-    "k256",
-    "provider-http",
-    "sol-types",
-    "network",
-    "ssz",
-    "json-rpc",
-    "signers",
+ "rpc-types",
+ "consensus",
+ "rlp",
+ "k256",
+ "provider-http",
+ "sol-types",
+ "network",
+ "ssz",
+ "json-rpc",
+ "signers",
 ] }
 alloy-trie = "0.7.8"
+op-alloy-consensus = "0.9.0"
+op-alloy-network = "0.9.0"
 op-alloy-rpc-types = "0.9.0"
+alloy-rlp = "0.3.10"
 revm = { version = "19.7.0", default-features = false, features = [
-    "std",
-    "serde",
-    "optional_block_gas_limit",
-    "optional_eip3607",
-    "optional_no_base_fee",
+ "std",
+ "serde",
+ "optional_block_gas_limit",
+ "optional_eip3607",
+ "optional_no_base_fee",
 ] }
 
 # async/futures
@@ -85,6 +88,35 @@ openssl = { version = "0.10", features = ["vendored"] }
 zduny-wasm-timer = "0.2.8"
 retri = "0.1.0"
 typenum = "1.17.0"
+figment = "0.10.7"
+clap = "4.5.4"
+tracing-subscriber = "0.3.17"
+dirs = "5.0.1"
+ctrlc = "3.2.3"
+snap = "1"
+strum = "0.26.2"
+serde_yaml = "0.9.34"
+
+# web/server
+axum = "0.8.1"
+axum-extra = "0.10.0"
+jsonrpsee = "0.19.0"
+libp2p = "0.51.3"
+libp2p-identity = "0.1.2"
+discv5 = "0.7.0"
+unsigned-varint = "0.7.1"
+
+# wasm related
+wasm-bindgen = "0.2.84"
+wasm-bindgen-futures = "0.4.37"
+wasm-bindgen-test = "0.3.0"
+serde-wasm-bindgen = "0.6.5"
+console_error_panic_hook = "0.1.7"
+gloo-timers = "0.3.0"
+wasmtimer = "0.2.0"
+parking_lot = "0.12.2"
+getrandom = "0.2.1"
+web-sys = "0.3"
 
 ######################################
 # Top Level Dependencies
@@ -105,12 +137,12 @@ dotenv = "0.15.0"
 helios-verifiable-api-server = { path = "verifiable-api/server" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-alloy = { version = "0.9.1", features = ["full"] }
-tokio = { version = "1", features = ["full"] }
-eyre = "0.6.8"
-dirs = "5.0.1"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-tracing = "0.1.37"
+alloy = { workspace = true, features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
+eyre.workspace = true
+dirs.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing.workspace = true
 tracing-test = "0.2.4"
 criterion = { version = "0.5.1", features = ["async_tokio", "plotters"] }
 plotters = "0.3.4"

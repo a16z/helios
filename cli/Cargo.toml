@@ -13,13 +13,14 @@ eyre.workspace = true
 tracing.workspace = true
 futures.workspace = true
 alloy.workspace = true
-figment = { version = "0.10.7", features = ["toml", "env"] }
 
-clap = { version = "4.5.4", features = ["derive", "env"] }
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-dirs = "5.0.1"
-ctrlc = "3.2.3"
-url = "2.5.0"
+dirs.workspace = true
+ctrlc.workspace = true
+url.workspace = true
+
+figment = { workspace = true, features = ["toml", "env"] }
+clap = { workspace = true, features = ["derive", "env"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # self crates
 helios-common = { path = "../common" }

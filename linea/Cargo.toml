@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # config
-figment = { version = "0.10.7", features = ["toml", "env"] }
+figment = { workspace = true, features = ["toml", "env"] }
 
 # async/futures
 tokio.workspace = true
@@ -17,12 +17,12 @@ serde.workspace = true
 alloy.workspace = true
 eyre.workspace = true
 tracing.workspace = true
-strum = { version = "0.26.2", features = ["derive"] }
-url = "2.5.0"
+strum = { workspace = true, features = ["derive"] }
+url.workspace = true
 
 helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4.37"
+wasm-bindgen-futures.workspace = true

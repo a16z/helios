@@ -30,16 +30,16 @@ tracing.workspace = true
 thiserror.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-jsonrpsee = { version = "0.19.0", features = ["full"] }
+jsonrpsee = { workspace = true, features = ["full"] }
 openssl.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4.33"
-gloo-timers = "0.3.0"
-wasmtimer = "0.2.0"
+wasm-bindgen-futures.workspace = true
+gloo-timers.workspace = true
+wasmtimer.workspace = true
 
 [target.wasm32-unknown-unknown.dependencies]
-parking_lot = { version = "0.12.2" }
+parking_lot.workspace = true
 
 [dev-dependencies]
 helios-test-utils = { path = "../tests/test-utils" }
