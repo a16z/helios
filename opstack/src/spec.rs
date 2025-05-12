@@ -87,7 +87,7 @@ impl NetworkSpec for OpStack {
         }
 
         if let Some(withdrawals) = &block.withdrawals {
-            if withdrawals.0.len() != 0 {
+            if !withdrawals.0.is_empty() {
                 return false;
             }
             // TODO: handle L2ToL1MessagePasser storage root check
