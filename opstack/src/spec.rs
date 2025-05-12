@@ -1,7 +1,7 @@
 use alloy::{
     consensus::{
-        proofs::{calculate_transaction_root, calculate_withdrawals_root},
-        BlockHeader, Receipt, ReceiptWithBloom, TxReceipt, TxType,
+        proofs::calculate_transaction_root, BlockHeader, Receipt, ReceiptWithBloom, TxReceipt,
+        TxType,
     },
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
@@ -87,11 +87,10 @@ impl NetworkSpec for OpStack {
         }
 
         if let Some(withdrawals) = &block.withdrawals {
-            let withdrawals_root =
-                calculate_withdrawals_root(&withdrawals.iter().cloned().collect::<Vec<_>>());
-            if Some(withdrawals_root) != block.header.withdrawals_root {
+            if withdrawals.0.len() != 0 {
                 return false;
             }
+            // TODO: handle L2ToL1MessagePasser storage root check
         }
 
         true
