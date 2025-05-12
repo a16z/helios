@@ -47,6 +47,7 @@ pub enum Network {
     Base,
     Worldchain,
     Zora,
+    Unichain,
 }
 
 impl Display for Network {
@@ -56,6 +57,7 @@ impl Display for Network {
             Self::Base => f.write_str("base"),
             Self::Worldchain => f.write_str("worldchain"),
             Self::Zora => f.write_str("zora"),
+            Self::Unichain => f.write_str("unichain"),
         }
     }
 }
@@ -69,6 +71,7 @@ impl FromStr for Network {
             "base" => Ok(Self::Base),
             "worldchain" => Ok(Self::Worldchain),
             "zora" => Ok(Self::Zora),
+            "unichain" => Ok(Self::Unichain),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -121,6 +124,16 @@ impl From<Network> for NetworkConfig {
                     chain_id: 7777777,
                     unsafe_signer: address!("3Dc8Dfd0709C835cAd15a6A27e089FF4cF4C9228"),
                     system_config_contract: address!("A3cAB0126d5F504B071b81a3e8A2BBBF17930d86"),
+                    eth_network: EthNetwork::Mainnet,
+                },
+                verify_unsafe_signer: false,
+            },
+            Network::Unichain => NetworkConfig {
+                consensus_rpc: Some("https://unichain.operationsolarstorm.org".parse().unwrap()),
+                chain: ChainConfig {
+                    chain_id: 130,
+                    unsafe_signer: address!("0x833C6f278474A78658af91aE8edC926FE33a230e"),
+                    system_config_contract: address!("c407398d063f942feBbcC6F80a156b47F3f1BDA6"),
                     eth_network: EthNetwork::Mainnet,
                 },
                 verify_unsafe_signer: false,
