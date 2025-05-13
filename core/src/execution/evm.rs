@@ -152,6 +152,7 @@ impl<N: NetworkSpec> Evm<N> {
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
         cfg.disable_base_fee = !validate_tx;
+        cfg.disable_nonce_check = !validate_tx;
 
         Context::mainnet()
             .with_tx(N::tx_env(tx))
