@@ -1,6 +1,7 @@
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::sol_types::decode_revert_reason;
 use eyre::Report;
+use revm::context::DBErrorMarker;
 use thiserror::Error;
 
 use helios_common::types::BlockTag;
@@ -47,6 +48,16 @@ pub enum EvmError {
     #[error("rpc error: {0:?}")]
     RpcError(Report),
 }
+
+#[derive(Debug, Error)]
+pub enum DatabaseError {
+    #[error("state missing")]
+    StateMissing,
+    #[error("should never be called")]
+    Unimplemented,
+}
+
+impl DBErrorMarker for DatabaseError {}
 
 fn display_revert(output: &Option<Bytes>) -> String {
     match output {

@@ -1,13 +1,10 @@
 use std::env;
 
 use alloy::eips::BlockNumberOrTag;
-use alloy::network::primitives::BlockTransactionsKind;
 use alloy::primitives::address;
-use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::rpc::client::ClientBuilder as AlloyClientBuilder;
+use alloy::providers::{Provider, RootProvider};
 use alloy::rpc::types::Filter;
 use alloy::sol;
-use alloy::transports::http::{Client as ReqwestClient, Http};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::Rng;
@@ -24,7 +21,7 @@ async fn setup() -> (
     EthereumClient<ConfigDB>,
     EthereumClient<ConfigDB>,
     VerifiableApiServer,
-    Vec<RootProvider<Http<ReqwestClient>>>,
+    Vec<RootProvider>,
 ) {
     let execution_rpc = env::var("MAINNET_EXECUTION_RPC").unwrap();
     let consensus_rpc = "https://www.lightclientdata.org";
@@ -32,8 +29,7 @@ async fn setup() -> (
     let mut rng = rand::thread_rng();
 
     // Direct provider
-    let client = AlloyClientBuilder::default().http(execution_rpc.parse().unwrap());
-    let provider = ProviderBuilder::new().on_client(client);
+    let provider = RootProvider::new_http(execution_rpc.parse().unwrap());
 
     // Helios provider (RPC)
     let (helios_client, helios_provider) = {
@@ -41,7 +37,7 @@ async fn setup() -> (
         let mut helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .execution_rpc(&execution_rpc)
-            .consensus_rpc(&consensus_rpc)
+            .consensus_rpc(consensus_rpc)
             .load_external_fallback()
             .strict_checkpoint_age()
             .rpc_port(port)
@@ -51,7 +47,7 @@ async fn setup() -> (
         helios_client.start().await.unwrap();
 
         let url = format!("http://localhost:{}", port).parse().unwrap();
-        let helios_provider = ProviderBuilder::new().on_http(url);
+        let helios_provider = RootProvider::new_http(url);
 
         (helios_client, helios_provider)
     };
@@ -70,7 +66,7 @@ async fn setup() -> (
         let mut helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .execution_verifiable_api(&format!("http://localhost:{api_port}"))
-            .consensus_rpc(&consensus_rpc)
+            .consensus_rpc(consensus_rpc)
             .load_external_fallback()
             .strict_checkpoint_age()
             .rpc_port(port)
@@ -80,7 +76,7 @@ async fn setup() -> (
         helios_client.start().await.unwrap();
 
         let url = format!("http://localhost:{}", port).parse().unwrap();
-        let helios_provider = ProviderBuilder::new().on_http(url);
+        let helios_provider = RootProvider::new_http(url);
 
         (helios_client, helios_provider)
     };
@@ -115,12 +111,12 @@ async fn get_transaction_by_hash() {
     let provider = providers[2].clone();
 
     let block_api = helios_api
-        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await
         .unwrap()
         .unwrap();
     let block_rpc = helios_rpc
-        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await
         .unwrap()
         .unwrap();
@@ -183,12 +179,12 @@ async fn get_transaction_receipt() {
     let provider = providers[2].clone();
 
     let block_api = helios_api
-        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await
         .unwrap()
         .unwrap();
     let block_rpc = helios_rpc
-        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await
         .unwrap()
         .unwrap();
@@ -333,15 +329,13 @@ async fn call() {
         .block(helios_api_block_num.into())
         .call()
         .await
-        .unwrap()
-        ._0;
+        .unwrap();
     let expected = token_provider
         .balanceOf(user)
         .block(helios_api_block_num.into())
         .call()
         .await
-        .unwrap()
-        ._0;
+        .unwrap();
     assert_eq!(balance, expected);
 
     let balance = token_rpc
@@ -349,15 +343,13 @@ async fn call() {
         .block(helios_rpc_block_num.into())
         .call()
         .await
-        .unwrap()
-        ._0;
+        .unwrap();
     let expected = token_provider
         .balanceOf(user)
         .block(helios_rpc_block_num.into())
         .call()
         .await
-        .unwrap()
-        ._0;
+        .unwrap();
     assert_eq!(balance, expected);
 }
 
@@ -373,12 +365,12 @@ async fn get_logs() {
     let provider = providers[2].clone();
 
     let block_api = helios_api
-        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await
         .unwrap()
         .unwrap();
     let block_rpc = helios_rpc
-        .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await
         .unwrap()
         .unwrap();

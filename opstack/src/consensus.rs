@@ -265,57 +265,27 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
             let tx_bytes = tx_bytes.to_vec();
             let mut tx_bytes_slice = tx_bytes.as_slice();
             let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice).unwrap();
-
             let base_fee = tx_envelope.effective_gas_price(Some(value.base_fee_per_gas.to()));
+            let recovered = tx_envelope.try_into_recovered()?;
 
-            let mut inner_tx = EthTransaction {
-                inner: tx_envelope.clone(),
+            let inner_tx = EthTransaction {
+                inner: recovered,
                 block_hash: Some(value.block_hash),
                 block_number: Some(value.block_number),
                 transaction_index: Some(i as u64),
                 effective_gas_price: Some(base_fee),
-                from: Address::ZERO,
             };
 
-            Ok(match tx_envelope {
-                OpTxEnvelope::Legacy(inner) => {
-                    inner_tx.from = inner.recover_signer()?;
-
-                    Transaction {
-                        inner: inner_tx,
-                        deposit_nonce: None,
-                        deposit_receipt_version: None,
-                    }
-                }
-                OpTxEnvelope::Eip2930(inner) => {
-                    inner_tx.from = inner.recover_signer()?;
-
-                    Transaction {
-                        inner: inner_tx,
-                        deposit_nonce: None,
-                        deposit_receipt_version: None,
-                    }
-                }
-                OpTxEnvelope::Eip1559(inner) => {
-                    inner_tx.from = inner.recover_signer()?;
-
-                    Transaction {
-                        inner: inner_tx,
-                        deposit_nonce: None,
-                        deposit_receipt_version: None,
-                    }
-                }
-                OpTxEnvelope::Eip7702(inner) => {
-                    inner_tx.from = inner.recover_signer()?;
-
-                    Transaction {
-                        inner: inner_tx,
-                        deposit_nonce: None,
-                        deposit_receipt_version: None,
-                    }
-                }
+            Ok(match inner_tx.inner.inner() {
+                OpTxEnvelope::Legacy(_)
+                | OpTxEnvelope::Eip2930(_)
+                | OpTxEnvelope::Eip1559(_)
+                | OpTxEnvelope::Eip7702(_) => Transaction {
+                    inner: inner_tx,
+                    deposit_nonce: None,
+                    deposit_receipt_version: None,
+                },
                 OpTxEnvelope::Deposit(inner) => {
-                    inner_tx.from = inner.inner().from;
                     let deposit_nonce = Some(inner.inner().nonce());
 
                     Transaction {
@@ -324,7 +294,6 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
                         deposit_receipt_version: None,
                     }
                 }
-                _ => unreachable!("new tx type"),
             })
         })
         .collect::<Result<Vec<Transaction>>>()?;

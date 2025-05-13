@@ -104,7 +104,7 @@ fn is_proof_valid<T: TreeHash>(
             hasher.update(node);
         }
 
-        derived_root = B256::from_slice(&hasher.finalize_reset());
+        derived_root = B256::from_slice(hasher.finalize_reset().as_slice());
     }
 
     derived_root == root

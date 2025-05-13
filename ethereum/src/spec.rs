@@ -7,9 +7,12 @@ use alloy::{
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
-use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
+use revm::{
+    context::{BlockEnv, TxEnv},
+    context_interface::block::BlobExcessGasAndPrice,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ethereum;
@@ -80,32 +83,31 @@ impl NetworkSpec for Ethereum {
 
     fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
         TxEnv {
+            tx_type: tx.transaction_type.unwrap_or_default(),
             caller: tx.from.unwrap_or_default(),
             gas_limit: <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
                 .unwrap_or(u64::MAX),
             gas_price: <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-                .map(U256::from)
                 .unwrap_or_default(),
-            transact_to: tx.to.unwrap_or_default(),
+            kind: tx.to.unwrap_or_default(),
             value: tx.value.unwrap_or_default(),
             data: <TransactionRequest as TransactionBuilder<Self>>::input(tx)
                 .unwrap_or_default()
                 .clone(),
-            nonce: <TransactionRequest as TransactionBuilder<Self>>::nonce(tx),
+            nonce: <TransactionRequest as TransactionBuilder<Self>>::nonce(tx).unwrap_or_default(),
             chain_id: <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx),
             access_list: <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-                .map(|v| v.to_vec())
+                .cloned()
                 .unwrap_or_default(),
             gas_priority_fee:
-                <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
-                    .map(U256::from),
-            max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(U256::from),
+                <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx),
+            max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap_or_default(),
             blob_hashes: tx
                 .blob_versioned_hashes
                 .as_ref()
                 .map(|v| v.to_vec())
                 .unwrap_or_default(),
-            authorization_list: None,
+            authorization_list: vec![],
         }
     }
 
@@ -118,11 +120,11 @@ impl NetworkSpec for Ethereum {
             .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
 
         BlockEnv {
-            number: U256::from(block.header.number()),
-            coinbase: block.header.beneficiary(),
-            timestamp: U256::from(block.header.timestamp()),
-            gas_limit: U256::from(block.header.gas_limit()),
-            basefee: U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64)),
+            number: block.header.number(),
+            beneficiary: block.header.beneficiary(),
+            timestamp: block.header.timestamp(),
+            gas_limit: block.header.gas_limit(),
+            basefee: block.header.base_fee_per_gas().unwrap_or_default(),
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
