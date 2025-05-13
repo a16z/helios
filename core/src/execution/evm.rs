@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 
 use alloy::{
     network::{primitives::HeaderResponse, BlockResponse},
@@ -21,19 +21,20 @@ use helios_common::{
 
 use super::{
     errors::{DatabaseError, EvmError, ExecutionError},
-    spec::ExecutionSpec,
+    providers::ExecutionProivder,
 };
 
-pub struct Evm<N: NetworkSpec> {
-    execution: Arc<dyn ExecutionSpec<N>>,
+pub struct Evm<N: NetworkSpec, E: ExecutionProivder<N>> {
+    execution: Arc<E>,
     chain_id: u64,
     tag: BlockTag,
     fork_schedule: ForkSchedule,
+    phantom: PhantomData<N>,
 }
 
-impl<N: NetworkSpec> Evm<N> {
+impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
     pub fn new(
-        execution: Arc<dyn ExecutionSpec<N>>,
+        execution: Arc<E>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
         tag: BlockTag,
@@ -43,6 +44,7 @@ impl<N: NetworkSpec> Evm<N> {
             chain_id,
             tag,
             fork_schedule,
+            phantom: PhantomData::default(),
         }
     }
 
@@ -161,12 +163,12 @@ impl<N: NetworkSpec> Evm<N> {
     }
 }
 
-struct ProofDB<N: NetworkSpec> {
-    state: EvmState<N>,
+struct ProofDB<N: NetworkSpec, E: ExecutionProivder<N>> {
+    state: EvmState<N, E>,
 }
 
-impl<N: NetworkSpec> ProofDB<N> {
-    pub fn new(tag: BlockTag, execution: Arc<dyn ExecutionSpec<N>>) -> Self {
+impl<N: NetworkSpec, E: ExecutionProivder<N>> ProofDB<N, E> {
+    pub fn new(tag: BlockTag, execution: Arc<E>) -> Self {
         let state = EvmState::new(execution, tag);
         ProofDB { state }
     }
@@ -178,22 +180,24 @@ enum StateAccess {
     Storage(Address, U256),
 }
 
-struct EvmState<N: NetworkSpec> {
+struct EvmState<N: NetworkSpec, E: ExecutionProivder<N>> {
     accounts: HashMap<Address, Account>,
     block_hash: HashMap<u64, B256>,
     block: BlockTag,
     access: Option<StateAccess>,
-    execution: Arc<dyn ExecutionSpec<N>>,
+    execution: Arc<E>,
+    phantom: PhantomData<N>,
 }
 
-impl<N: NetworkSpec> EvmState<N> {
-    pub fn new(execution: Arc<dyn ExecutionSpec<N>>, block: BlockTag) -> Self {
+impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
+    pub fn new(execution: Arc<E>, block: BlockTag) -> Self {
         Self {
             execution,
             block,
             accounts: HashMap::new(),
             block_hash: HashMap::new(),
             access: None,
+            phantom: PhantomData::default(),
         }
     }
 
@@ -203,7 +207,7 @@ impl<N: NetworkSpec> EvmState<N> {
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(address, None, self.block, true)
+                        .get_account(address, &[], true, self.block.into())
                         .await?;
 
                     self.accounts.insert(address, account);
@@ -212,7 +216,7 @@ impl<N: NetworkSpec> EvmState<N> {
                     let slot_bytes = B256::from(slot);
                     let account = self
                         .execution
-                        .get_account(address, Some(&[slot_bytes]), self.block, true)
+                        .get_account(address, &[slot_bytes], true, self.block.into())
                         .await?;
 
                     if let Some(stored_account) = self.accounts.get_mut(&address) {
@@ -285,10 +289,10 @@ impl<N: NetworkSpec> EvmState<N> {
         tx: &N::TransactionRequest,
         validate_tx: bool,
     ) -> Result<()> {
-        let block_id = Some(self.block.into());
+        let block_id = self.block.into();
         let account_map = self
             .execution
-            .create_extended_access_list(tx, validate_tx, block_id)
+            .get_execution_hint(tx, validate_tx, block_id)
             .await
             .map_err(EvmError::RpcError)?;
 
@@ -300,7 +304,7 @@ impl<N: NetworkSpec> EvmState<N> {
     }
 }
 
-impl<N: NetworkSpec> Database for ProofDB<N> {
+impl<N: NetworkSpec, E: ExecutionProivder<N>> Database for ProofDB<N, E> {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, DatabaseError> {

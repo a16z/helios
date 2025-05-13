@@ -14,4 +14,5 @@ pub mod spec;
 mod constants;
 
 pub use builder::EthereumClientBuilder;
-pub type EthereumClient<DB> = Client<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>>;
+pub type EthereumClient<E, DB> =
+    Client<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>, E>;

@@ -3,36 +3,47 @@ use std::collections::{HashMap, HashSet};
 use alloy::{
     consensus::BlockHeader,
     eips::BlockId,
-    network::{BlockResponse, ReceiptResponse, TransactionBuilder, TransactionResponse},
+    network::{
+        primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
+        TransactionResponse,
+    },
     primitives::{Address, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
     rlp,
-    rpc::{client::ClientBuilder, types::{Filter, Log}},
-    transports::{
-        http::Http,
-        layers::{RetryBackoffLayer, RetryBackoffService},
+    rpc::{
+        client::ClientBuilder,
+        types::{AccessListItem, Filter, Log},
     },
+    transports::layers::RetryBackoffLayer,
 };
 use alloy_trie::TrieAccount;
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 use futures::future::{join_all, try_join_all};
-use reqwest::{Client, Url};
+use reqwest::Url;
 
 use helios_common::{network_spec::NetworkSpec, types::Account};
-use revm::primitives::AccessListItem;
 
 use crate::execution::{
-    constants::PARALLEL_QUERY_BATCH_SIZE, errors::ExecutionError, proof::{
+    constants::PARALLEL_QUERY_BATCH_SIZE,
+    errors::ExecutionError,
+    proof::{
         verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
-    }
+    },
+    providers::{
+        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider,
+        ReceiptProvider, TransactionProvider,
+    },
 };
 
-use super::{AccountProvider, BlockProvider, ExecutionHintProvider, LogProvider, ReceiptProvider, TransactionProvider};
-
 pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>> {
-    provider: RootProvider<RetryBackoffService<Http<Client>>, N>,
+    provider: RootProvider<N>,
     block_provider: B,
+}
+
+impl<N: NetworkSpec, B: BlockProvider<N> + 'static> ExecutionProivder<N>
+    for RpcExecutionProvider<N, B>
+{
 }
 
 impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
@@ -41,7 +52,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);
 
-        let provider = ProviderBuilder::new().network::<N>().on_client(client);
+        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
 
         Self {
             provider,
@@ -122,7 +133,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N> for RpcExecutionPro
         let proof = self
             .provider
             .get_proof(address, slots.to_vec())
-            .block_id(block_id)
+            .block_id(block.header().hash().into())
             .await?;
 
         verify_account_proof(&proof, block.header().state_root())?;
@@ -161,8 +172,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvi
         self.block_provider.get_block(block_id, full_tx).await
     }
 
-    async fn push_block(&self, block: N::BlockResponse) {
-        self.block_provider.push_block(block).await
+    async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {
+        self.block_provider.push_block(block, block_id).await
     }
 }
 
@@ -189,12 +200,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutio
     async fn get_transaction_by_location(
         &self,
         block_id: BlockId,
-        index: u64
+        index: u64,
     ) -> Result<Option<N::TransactionResponse>> {
-        let block = self
-            .block_provider
-            .get_block(block_id.into(), true)
-            .await?;
+        let block = self.block_provider.get_block(block_id.into(), true).await?;
 
         let block = block.ok_or(eyre!("block not found"))?;
         let txs = block.transactions().clone().into_transactions_vec();
@@ -253,21 +261,20 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvider<N, B> {
-    async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>> {
-        let logs = self.provider.get_logs(&filter).await?;
+    async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+        let logs = self.provider.get_logs(filter).await?;
         self.verify_logs(&logs).await?;
         ensure_logs_match_filter(&logs, &filter)?;
         Ok(logs)
     }
 }
 
-
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N> for RpcExecutionProvider<N, B> {
     async fn get_execution_hint(
         &self,
-        tx: N::TransactionRequest,
+        tx: &N::TransactionRequest,
         _validate: bool,
         block_id: BlockId,
     ) -> Result<HashMap<Address, Account>> {
@@ -277,7 +284,13 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N> for RpcExecut
             .await?
             .ok_or(eyre!("block not found"))?;
 
-        let mut list = self.provider.create_access_list(&tx).block_id(block_id).await?.access_list.0;
+        let mut list = self
+            .provider
+            .create_access_list(tx)
+            .block_id(block_id)
+            .await?
+            .access_list
+            .0;
 
         let from_access_entry = AccessListItem {
             address: tx.from().unwrap_or_default(),
@@ -307,12 +320,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N> for RpcExecut
         let mut account_map = HashMap::new();
         for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
             let account_chunk_futs = chunk.iter().map(|account| {
-                let account_fut = self.get_account(
-                    account.address,
-                    &account.storage_keys,
-                    true,
-                    block_id,
-                );
+                let account_fut =
+                    self.get_account(account.address, &account.storage_keys, true, block_id);
                 async move { (account.address, account_fut.await) }
             });
 

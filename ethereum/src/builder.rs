@@ -7,9 +7,11 @@ use std::sync::Arc;
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
 
-use helios_common::execution_mode::ExecutionMode;
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::client::Client;
+use helios_core::execution::providers::block_cache::BlockCache;
+use helios_core::execution::providers::rpc::RpcExecutionProvider;
+use helios_core::execution::providers::ExecutionProivder;
 
 use crate::config::networks::Network;
 use crate::config::Config;
@@ -106,7 +108,9 @@ impl EthereumClientBuilder {
         self
     }
 
-    pub fn build<DB: Database>(self) -> Result<EthereumClient<DB>> {
+    pub fn build<DB: Database>(
+        self,
+    ) -> Result<EthereumClient<RpcExecutionProvider<Ethereum, BlockCache<Ethereum>>, DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -231,16 +235,17 @@ impl EthereumClientBuilder {
             None
         };
 
-        let execution_mode = ExecutionMode::from_urls(
-            config.execution_rpc.clone(),
-            config.execution_verifiable_api.clone(),
-        );
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
+        let block_provider = BlockCache::<Ethereum>::new();
+        let execution = RpcExecutionProvider::new(
+            config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+            block_provider,
+        );
 
-        Client::<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>>::new(
-            execution_mode,
+        Client::<Ethereum, ConsensusClient<MainnetConsensusSpec, HttpRpc, DB>, _>::new(
             consensus,
+            execution,
             config.execution_forks,
             #[cfg(not(target_arch = "wasm32"))]
             socket,

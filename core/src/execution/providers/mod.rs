@@ -10,6 +10,7 @@ use eyre::Result;
 
 use helios_common::{network_spec::NetworkSpec, types::Account};
 
+pub mod block_cache;
 pub mod rpc;
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -23,6 +24,7 @@ pub trait ExecutionProivder<N: NetworkSpec>:
     + ExecutionHintProvider<N>
     + Send
     + Sync
+    + 'static
 {
 }
 
@@ -43,14 +45,18 @@ pub trait AccountProvider<N: NetworkSpec> {
 pub trait BlockProvider<N: NetworkSpec>: Send + Sync {
     async fn get_block(&self, block_id: BlockId, full_tx: bool)
         -> Result<Option<N::BlockResponse>>;
-    async fn push_block(&self, block: N::BlockResponse);
+    async fn push_block(&self, block: N::BlockResponse, block_id: BlockId);
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait TransactionProvider<N: NetworkSpec> {
     async fn get_transaction(&self, hash: B256) -> Result<Option<N::TransactionResponse>>;
-    async fn get_transaction_by_location(&self, block_id: BlockId, index: u64) -> Result<Option<N::TransactionResponse>>;
+    async fn get_transaction_by_location(
+        &self,
+        block_id: BlockId,
+        index: u64,
+    ) -> Result<Option<N::TransactionResponse>>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -63,7 +69,7 @@ pub trait ReceiptProvider<N: NetworkSpec> {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait LogProvider<N: NetworkSpec> {
-    async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>>;
+    async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -71,7 +77,7 @@ pub trait LogProvider<N: NetworkSpec> {
 pub trait ExecutionHintProvider<N: NetworkSpec> {
     async fn get_execution_hint(
         &self,
-        call: N::TransactionRequest,
+        call: &N::TransactionRequest,
         validate: bool,
         block_id: BlockId,
     ) -> Result<HashMap<Address, Account>>;

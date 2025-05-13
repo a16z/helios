@@ -10,7 +10,6 @@ use eyre::Result;
 use tracing::{info, warn};
 
 use helios_common::{
-    execution_mode::ExecutionMode,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{BlockTag, SubEventRx, SubscriptionType},
@@ -20,30 +19,31 @@ use crate::client::node::Node;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::client::rpc::Rpc;
 use crate::consensus::Consensus;
+use crate::execution::providers::ExecutionProivder;
 use crate::time::interval;
 
 pub mod node;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rpc;
 
-pub struct Client<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
-    node: Arc<Node<N, C>>,
+pub struct Client<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> {
+    node: Arc<Node<N, C, E>>,
     #[cfg(not(target_arch = "wasm32"))]
-    rpc: Option<Rpc<N, C>>,
+    rpc: Option<Rpc<N, C, E>>,
 }
 
-impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> Client<N, C, E> {
     pub fn new(
-        execution_mode: ExecutionMode,
         consensus: C,
+        execution: E,
         fork_schedule: ForkSchedule,
         #[cfg(not(target_arch = "wasm32"))] rpc_address: Option<SocketAddr>,
     ) -> Result<Self> {
-        let node = Node::new(execution_mode, consensus, fork_schedule)?;
+        let node = Node::new(consensus, execution, fork_schedule)?;
         let node = Arc::new(node);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let mut rpc: Option<Rpc<N, C>> = None;
+        let mut rpc: Option<Rpc<N, C, E>> = None;
 
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(rpc_address) = rpc_address {
@@ -134,7 +134,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
     pub async fn get_proof(
         &self,
         address: Address,
-        slots: Option<&[B256]>,
+        slots: &[B256],
         block: BlockTag,
     ) -> Result<EIP1186AccountProofResponse> {
         self.node.get_proof(address, slots, block).await
@@ -151,14 +151,14 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         self.node.get_transaction_receipt(tx_hash).await
     }
 
-    pub async fn get_block_receipts(
-        &self,
-        block: BlockTag,
-    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+    pub async fn get_block_receipts(&self, block: BlockTag) -> Result<Vec<N::ReceiptResponse>> {
         self.node.get_block_receipts(block).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<N::TransactionResponse> {
+    pub async fn get_transaction_by_hash(
+        &self,
+        tx_hash: B256,
+    ) -> Result<Option<N::TransactionResponse>> {
         self.node.get_transaction_by_hash(tx_hash).await
     }
 
@@ -230,7 +230,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Client<N, C> {
         &self,
         block_hash: B256,
         index: u64,
-    ) -> Option<N::TransactionResponse> {
+    ) -> Result<Option<N::TransactionResponse>> {
         self.node
             .get_transaction_by_block_hash_and_index(block_hash, index)
             .await
