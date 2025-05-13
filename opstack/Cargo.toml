@@ -29,7 +29,7 @@ ethereum_ssz.workspace = true
 ssz_types.workspace = true
 alloy-rlp = "0.3.0"
 op-alloy-network = "0.14.0"
-op-alloy-consensus = "0.14.0"
+op-alloy-consensus = { version = "0.14.0", features = ["k256"] }
 op-alloy-rpc-types.workspace = true
 snap = "1"
 

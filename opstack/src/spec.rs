@@ -6,7 +6,6 @@ use alloy::{
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
-use revm::primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv};
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
 use op_alloy_consensus::{
@@ -17,6 +16,10 @@ use op_alloy_network::{
     BuildResult, Ethereum, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError,
 };
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
+use revm::{
+    context::{BlockEnv, TxEnv},
+    context_interface::block::BlobExcessGasAndPrice,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct OpStack;
@@ -113,36 +116,35 @@ impl NetworkSpec for OpStack {
 
     fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
         TxEnv {
+            tx_type: <OpTransactionRequest as TransactionBuilder<Self>>::output_tx_type(tx).into(),
             caller: <OpTransactionRequest as TransactionBuilder<Self>>::from(tx)
                 .unwrap_or_default(),
             gas_limit: <OpTransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
                 .unwrap_or(u64::MAX),
             gas_price: <OpTransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-                .map(U256::from)
                 .unwrap_or_default(),
-            transact_to: <OpTransactionRequest as TransactionBuilder<Self>>::kind(tx)
-                .unwrap_or_default(),
+            kind: <OpTransactionRequest as TransactionBuilder<Self>>::kind(tx).unwrap_or_default(),
             value: <OpTransactionRequest as TransactionBuilder<Self>>::value(tx)
                 .unwrap_or_default(),
             data: <OpTransactionRequest as TransactionBuilder<Self>>::input(tx)
                 .unwrap_or_default()
                 .clone(),
-            nonce: <OpTransactionRequest as TransactionBuilder<Self>>::nonce(tx),
+            nonce: <OpTransactionRequest as TransactionBuilder<Self>>::nonce(tx)
+                .unwrap_or_default(),
             chain_id: <OpTransactionRequest as TransactionBuilder<Self>>::chain_id(tx),
             access_list: <OpTransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-                .map(|v| v.to_vec())
+                .cloned()
                 .unwrap_or_default(),
             gas_priority_fee:
-                <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx)
-                    .map(U256::from),
-            max_fee_per_blob_gas: None,
+                <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx),
+            max_fee_per_blob_gas: 0,
             blob_hashes: tx
                 .as_ref()
                 .blob_versioned_hashes
                 .as_ref()
                 .map(|v| v.to_vec())
                 .unwrap_or_default(),
-            authorization_list: None,
+            authorization_list: vec![],
         }
     }
 
@@ -153,11 +155,11 @@ impl NetworkSpec for OpStack {
         });
 
         BlockEnv {
-            number: U256::from(block.header.number()),
-            coinbase: block.header.beneficiary(),
-            timestamp: U256::from(block.header.timestamp()),
-            gas_limit: U256::from(block.header.gas_limit()),
-            basefee: U256::from(block.header.base_fee_per_gas().unwrap_or(0_u64)),
+            number: block.header.number(),
+            beneficiary: block.header.beneficiary(),
+            timestamp: block.header.timestamp(),
+            gas_limit: block.header.gas_limit(),
+            basefee: block.header.base_fee_per_gas().unwrap_or(0_u64),
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price,

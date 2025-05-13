@@ -5,9 +5,10 @@ use std::{
 
 use alloy::{
     eips::BlockNumberOrTag,
-    primitives::{Address, PrimitiveSignature, B256},
+    primitives::{Address, B256},
     providers::{Provider, ProviderBuilder},
-    rpc::types::{Block, BlockTransactionsKind, Transaction},
+    rpc::types::{Block, Transaction},
+    signers::Signature,
     transports::http::reqwest::Url,
 };
 
@@ -108,7 +109,8 @@ impl Inner {
         let provider = ProviderBuilder::new().on_http(rpc_url);
 
         let block = provider
-            .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Full)
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .full()
             .await?
             .unwrap();
 
@@ -159,7 +161,7 @@ fn verify_block(curr_signer: Address, block: &Block<Transaction>) -> Result<()> 
         .expect("Failed to extract s component from signature");
     let p = signature_bytes[64];
 
-    let signature = PrimitiveSignature::from_scalars_and_parity(r, s, p == 1);
+    let signature = Signature::from_scalars_and_parity(r, s, p == 1);
 
     let mut header = block.header.inner.clone();
     header.extra_data = prefix;
