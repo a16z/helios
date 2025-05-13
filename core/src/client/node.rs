@@ -157,7 +157,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
 
     pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
         self.check_blocktag_age(&tag).await?;
-        let account = self.execution.get_account(address, &[], true, tag.into()).await?;
+        let account = self
+            .execution
+            .get_account(address, &[], true, tag.into())
+            .await?;
         account
             .code
             .ok_or(eyre!("Failed to fetch code for address"))
@@ -170,8 +173,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         tag: BlockTag,
     ) -> Result<B256> {
         self.check_blocktag_age(&tag).await?;
-        self
-            .execution
+        self.execution
             .get_account(address, &[slot.into()], false, tag.into())
             .await?
             .get_storage_value(slot.into())
@@ -186,7 +188,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         block: BlockTag,
     ) -> Result<EIP1186AccountProofResponse> {
         self.check_blocktag_age(&block).await?;
-        let account = self.execution.get_account(address, slots, false, block.into()).await?;
+        let account = self
+            .execution
+            .get_account(address, slots, false, block.into())
+            .await?;
         Ok(EIP1186AccountProofResponse {
             address,
             balance: account.account.balance,
@@ -212,15 +217,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         self.execution.get_receipt(tx_hash).await
     }
 
-    pub async fn get_block_receipts(
-        &self,
-        block: BlockTag,
-    ) -> Result<Vec<N::ReceiptResponse>> {
+    pub async fn get_block_receipts(&self, block: BlockTag) -> Result<Vec<N::ReceiptResponse>> {
         self.check_blocktag_age(&block).await?;
         self.execution.get_block_receipts(block.into()).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Result<Option<N::TransactionResponse>> {
+    pub async fn get_transaction_by_hash(
+        &self,
+        tx_hash: B256,
+    ) -> Result<Option<N::TransactionResponse>> {
         self.execution.get_transaction(tx_hash).await
     }
 

@@ -208,6 +208,11 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutio
         let txs = block.transactions().clone().into_transactions_vec();
         Ok(txs.get(index as usize).cloned())
     }
+
+    async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
+        let tx = self.provider.send_raw_transaction(bytes).await?;
+        Ok(*tx.tx_hash())
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
