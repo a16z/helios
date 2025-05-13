@@ -328,7 +328,7 @@ impl<N: NetworkSpec> Database for ProofDB<N> {
     }
 
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, DatabaseError> {
-        unimplemented!("should never be called")
+        Err(DatabaseError::Unimplemented)
     }
 }
 

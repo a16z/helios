@@ -53,6 +53,8 @@ pub enum EvmError {
 pub enum DatabaseError {
     #[error("state missing")]
     StateMissing,
+    #[error("should never be called")]
+    Unimplemented,
 }
 
 impl DBErrorMarker for DatabaseError {}
