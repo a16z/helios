@@ -294,7 +294,6 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
                         deposit_receipt_version: None,
                     }
                 }
-                _ => unreachable!("new tx type"),
             })
         })
         .collect::<Result<Vec<Transaction>>>()?;

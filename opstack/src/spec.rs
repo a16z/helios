@@ -64,7 +64,6 @@ impl NetworkSpec for OpStack {
                 let rwb = OpDepositReceiptWithBloom::new(r, bloom);
                 alloy::rlp::encode(rwb)
             }
-            _ => panic!("unreachable"),
         };
 
         match tx_type {
