@@ -20,6 +20,7 @@ use helios_common::{
 
 use self::client::ExecutionInner;
 use self::errors::ExecutionError;
+use self::providers::ExecutionProivder;
 use self::spec::ExecutionSpec;
 use self::state::{FilterType, State};
 
@@ -28,36 +29,35 @@ pub mod constants;
 pub mod errors;
 pub mod evm;
 pub mod proof;
+pub mod providers;
 pub mod rpc;
 pub mod spec;
 pub mod state;
 
-#[derive(Clone)]
-pub struct ExecutionClient<N: NetworkSpec> {
-    client: Arc<dyn ExecutionInner<N>>,
-    state: State<N>,
+// #[derive(Clone)]
+pub struct ExecutionClient<N: NetworkSpec, E: ExecutionProivder<N>> {
+    provider: E,
     fork_schedule: ForkSchedule,
 }
 
-impl<N: NetworkSpec> ExecutionClient<N> {
-    pub fn new(
-        client: Arc<dyn ExecutionInner<N>>,
-        state: State<N>,
-        fork_schedule: ForkSchedule,
-    ) -> Result<Self> {
-        Ok(Self {
-            client,
-            state,
+impl<N: NetworkSpec, E: ExecutionProivder<N>> ExecutionClient<N, E> {
+    pub fn new(provider: E, fork_schedule: ForkSchedule) -> Self {
+        Self {
+            provider,
             fork_schedule,
-        })
+        }
     }
 
-    pub async fn check_rpc(&self, chain_id: u64) -> Result<()> {
-        if self.chain_id().await? != chain_id {
-            Err(ExecutionError::IncorrectRpcNetwork().into())
-        } else {
-            Ok(())
-        }
+    async fn get_account(
+        &self,
+        address: Address,
+        slots: &[B256],
+        include_code: bool,
+        block_id: BlockId,
+    ) -> Result<Account> {
+        self.provider
+            .get_account(address, slots, include_code, block_id)
+            .await
     }
 
     pub async fn get_storage_at(
@@ -82,12 +82,12 @@ impl<N: NetworkSpec> ExecutionClient<N> {
     pub async fn get_proof(
         &self,
         address: Address,
-        slots: Option<&[B256]>,
+        slots: &[B256],
         block: BlockTag,
     ) -> Result<EIP1186AccountProofResponse> {
         let account = self
-            .client
-            .get_account(address, slots, block, false)
+            .provider
+            .get_account(address, slots, false, block.into())
             .await?;
 
         Ok(EIP1186AccountProofResponse {
@@ -101,55 +101,49 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         })
     }
 
-    pub async fn blob_base_fee(&self, block: BlockTag) -> U256 {
-        let block = self.state.get_block(block).await;
-        let Some(block) = block else {
-            warn!(target: "helios::execution", "requested block not found");
-            return U256::from(0);
-        };
+    pub async fn blob_base_fee(&self, _block: BlockTag) -> U256 {
+        // TODO: fix
+        U256::ZERO
+        
+        // let block = self.provider.get_block(block.into(), false).await;
+        // let Ok(Some(block)) = block else {
+        //     warn!(target: "helios::execution", "requested block not found");
+        //     return U256::from(0);
+        // };
 
-        let parent_hash = block.header().parent_hash();
-        let parent_block = self.state.get_block_by_hash(parent_hash).await;
-        if parent_block.is_none() {
-            warn!(target: "helios::execution", "requested parent block not found");
-            return U256::from(0);
-        };
+        // let parent_hash = block.header().parent_hash();
+        // let parent_block = self.state.get_block_by_hash(parent_hash).await;
+        // if parent_block.is_none() {
+        //     warn!(target: "helios::execution", "requested parent block not found");
+        //     return U256::from(0);
+        // };
 
-        let excess_blob_gas = parent_block.unwrap().header().excess_blob_gas().unwrap();
-        let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
-        U256::from(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice)
+        // let excess_blob_gas = parent_block.unwrap().header().excess_blob_gas().unwrap();
+        // let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
+        // U256::from(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice)
     }
 
-    pub async fn get_transaction_by_block_hash_and_index(
+    pub async fn get_transaction_by_location(
         &self,
-        block_hash: B256,
+        block_tag: BlockTag,
         index: u64,
-    ) -> Option<N::TransactionResponse> {
-        self.state
-            .get_transaction_by_block_hash_and_index(block_hash, index)
-            .await
-    }
-
-    pub async fn get_transaction_by_block_number_and_index(
-        &self,
-        tag: BlockTag,
-        index: u64,
-    ) -> Option<N::TransactionResponse> {
-        self.state
-            .get_transaction_by_block_and_index(tag, index)
+    ) -> Result<Option<N::TransactionResponse>> {
+        self.provider
+            .get_transaction_by_location(block_tag.into(), index)
             .await
     }
 
     pub async fn get_transaction(&self, hash: B256) -> Option<N::TransactionResponse> {
-        self.state.get_transaction(hash).await
+        self.provider.get_transaction(hash).await
     }
 
-    pub async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>> {
-        match sub_type {
-            SubscriptionType::NewHeads => Ok(self.state.subscribe_blocks().await),
-            _ => Err(eyre::eyre!("Unsupported subscription type: {:?}", sub_type)),
-        }
-    }
+    // TODO: fixme
+    // pub async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>> {
+    //     match sub_type {
+    //         SubscriptionType::NewHeads => Ok(self.state.subscribe_blocks().await),
+    //         _ => Err(eyre::eyre!("Unsupported subscription type: {:?}", sub_type)),
+    //     }
+    // }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -348,47 +342,3 @@ impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
     }
 }
 
-/// Ensure that each log entry in the given array of logs match the given filter.
-fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
-    fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
-        if let Some(block_hash) = filter.get_block_hash() {
-            if log.block_hash.unwrap() != block_hash {
-                return false;
-            }
-        }
-        if let Some(from_block) = filter.get_from_block() {
-            if log.block_number.unwrap() < from_block {
-                return false;
-            }
-        }
-        if let Some(to_block) = filter.get_to_block() {
-            if log.block_number.unwrap() > to_block {
-                return false;
-            }
-        }
-        if !filter.address.matches(&log.address()) {
-            return false;
-        }
-        for (i, filter_topic) in filter.topics.iter().enumerate() {
-            if !filter_topic.is_empty() {
-                if let Some(log_topic) = log.topics().get(i) {
-                    if !filter_topic.matches(log_topic) {
-                        return false;
-                    }
-                } else {
-                    // if filter topic is not present in log, it's a mismatch
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
-    for log in logs {
-        if !log_matches_filter(log, filter) {
-            return Err(ExecutionError::LogFilterMismatch().into());
-        }
-    }
-
-    Ok(())
-}

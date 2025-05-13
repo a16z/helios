@@ -1,0 +1,373 @@
+use std::collections::{HashMap, HashSet};
+
+use alloy::{
+    consensus::BlockHeader,
+    eips::BlockId,
+    network::{BlockResponse, ReceiptResponse, TransactionBuilder, TransactionResponse},
+    primitives::{Address, B256, U256},
+    providers::{Provider, ProviderBuilder, RootProvider},
+    rlp,
+    rpc::{client::ClientBuilder, types::{Filter, Log}},
+    transports::{
+        http::Http,
+        layers::{RetryBackoffLayer, RetryBackoffService},
+    },
+};
+use alloy_trie::TrieAccount;
+use async_trait::async_trait;
+use eyre::{eyre, Result};
+use futures::future::{join_all, try_join_all};
+use reqwest::{Client, Url};
+
+use helios_common::{network_spec::NetworkSpec, types::Account};
+use revm::primitives::AccessListItem;
+
+use crate::execution::{
+    constants::PARALLEL_QUERY_BATCH_SIZE, errors::ExecutionError, proof::{
+        verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
+    }
+};
+
+use super::{AccountProvider, BlockProvider, ExecutionHintProvider, LogProvider, ReceiptProvider, TransactionProvider};
+
+pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>> {
+    provider: RootProvider<RetryBackoffService<Http<Client>>, N>,
+    block_provider: B,
+}
+
+impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
+    pub fn new(rpc_url: Url, block_provider: B) -> Self {
+        let client = ClientBuilder::default()
+            .layer(RetryBackoffLayer::new(100, 50, 300))
+            .http(rpc_url);
+
+        let provider = ProviderBuilder::new().network::<N>().on_client(client);
+
+        Self {
+            provider,
+            block_provider,
+        }
+    }
+
+    async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
+        // Collect all (unique) block numbers
+        let block_nums = logs
+            .iter()
+            .map(|log| {
+                log.block_number
+                    .ok_or_else(|| eyre::eyre!("block number not found in log"))
+            })
+            .collect::<Result<HashSet<_>, _>>()?;
+
+        // Collect all (proven) tx receipts for all block numbers
+        let blocks_receipts_fut = block_nums
+            .into_iter()
+            .map(|block_num| async move { self.get_block_receipts(block_num.into()).await });
+        let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
+        let receipts = blocks_receipts.into_iter().flatten().collect::<Vec<_>>();
+
+        // Map tx hashes to encoded logs
+        let receipts_logs_encoded = receipts
+            .into_iter()
+            .filter_map(|receipt| {
+                let logs = N::receipt_logs(&receipt);
+                if logs.is_empty() {
+                    None
+                } else {
+                    let tx_hash = logs[0].transaction_hash.unwrap();
+                    let encoded_logs = logs
+                        .iter()
+                        .map(|l| rlp::encode(&l.inner))
+                        .collect::<Vec<_>>();
+                    Some((tx_hash, encoded_logs))
+                }
+            })
+            .collect::<HashMap<_, _>>();
+
+        for log in logs {
+            // Check if the receipt contains the desired log
+            // Encoding logs for comparison
+            let tx_hash = log.transaction_hash.unwrap();
+            let log_encoded = rlp::encode(&log.inner);
+            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
+
+            if !receipt_logs_encoded.contains(&log_encoded) {
+                return Err(ExecutionError::MissingLog(
+                    tx_hash,
+                    U256::from(log.log_index.unwrap()),
+                )
+                .into());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N> for RpcExecutionProvider<N, B> {
+    async fn get_account(
+        &self,
+        address: Address,
+        slots: &[B256],
+        with_code: bool,
+        block_id: BlockId,
+    ) -> Result<Account> {
+        let block = self
+            .block_provider
+            .get_block(block_id, false)
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        let proof = self
+            .provider
+            .get_proof(address, slots.to_vec())
+            .block_id(block_id)
+            .await?;
+
+        verify_account_proof(&proof, block.header().state_root())?;
+        verify_storage_proof(&proof)?;
+
+        let code = if with_code {
+            let code = self.provider.get_code_at(address).await?.into();
+            verify_code_hash_proof(&proof, &code)?;
+            Some(code)
+        } else {
+            None
+        };
+
+        Ok(Account {
+            account: TrieAccount {
+                nonce: proof.nonce,
+                balance: proof.balance,
+                storage_root: proof.storage_hash,
+                code_hash: proof.code_hash,
+            },
+            code,
+            account_proof: proof.account_proof,
+            storage_proof: proof.storage_proof,
+        })
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvider<N, B> {
+    async fn get_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>> {
+        self.block_provider.get_block(block_id, full_tx).await
+    }
+
+    async fn push_block(&self, block: N::BlockResponse) {
+        self.block_provider.push_block(block).await
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutionProvider<N, B> {
+    async fn get_transaction(&self, hash: B256) -> Result<Option<N::TransactionResponse>> {
+        let tx = self.provider.get_transaction_by_hash(hash).await?;
+        if let Some(tx) = tx {
+            let block_hash = tx.block_hash().ok_or(eyre!("block not found"))?;
+            let block = self
+                .block_provider
+                .get_block(block_hash.into(), true)
+                .await?;
+
+            let block = block.ok_or(eyre!("block not found"))?;
+            let txs = block.transactions().clone().into_transactions_vec();
+            Ok(txs.iter().find(|v| v.tx_hash() == tx.tx_hash()).cloned())
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn get_transaction_by_location(
+        &self,
+        block_id: BlockId,
+        index: u64
+    ) -> Result<Option<N::TransactionResponse>> {
+        let block = self
+            .block_provider
+            .get_block(block_id.into(), true)
+            .await?;
+
+        let block = block.ok_or(eyre!("block not found"))?;
+        let txs = block.transactions().clone().into_transactions_vec();
+        Ok(txs.get(index as usize).cloned())
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionProvider<N, B> {
+    async fn get_receipt(&self, hash: B256) -> Result<Option<N::ReceiptResponse>> {
+        let receipt = self
+            .provider
+            .get_transaction_receipt(hash)
+            .await?
+            .ok_or(eyre!("receipt not found"))?;
+
+        let block_hash = receipt.block_hash().ok_or(eyre!("block not found"))?;
+        let block = self
+            .block_provider
+            .get_block(block_hash.into(), false)
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        let receipts = self
+            .provider
+            .get_block_receipts(block_hash.into())
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        verify_block_receipts::<N>(&receipts, &block)?;
+        Ok(receipts
+            .iter()
+            .find(|receipt| receipt.transaction_hash() == hash)
+            .cloned())
+    }
+
+    async fn get_block_receipts(&self, block_id: BlockId) -> Result<Vec<N::ReceiptResponse>> {
+        let block = self
+            .block_provider
+            .get_block(block_id, false)
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        let receipts = self
+            .provider
+            .get_block_receipts(block_id)
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        verify_block_receipts::<N>(&receipts, &block)?;
+        Ok(receipts)
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvider<N, B> {
+    async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>> {
+        let logs = self.provider.get_logs(&filter).await?;
+        self.verify_logs(&logs).await?;
+        ensure_logs_match_filter(&logs, &filter)?;
+        Ok(logs)
+    }
+}
+
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N> for RpcExecutionProvider<N, B> {
+    async fn get_execution_hint(
+        &self,
+        tx: N::TransactionRequest,
+        _validate: bool,
+        block_id: BlockId,
+    ) -> Result<HashMap<Address, Account>> {
+        let block = self
+            .block_provider
+            .get_block(block_id, false)
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        let mut list = self.provider.create_access_list(&tx).block_id(block_id).await?.access_list.0;
+
+        let from_access_entry = AccessListItem {
+            address: tx.from().unwrap_or_default(),
+            storage_keys: Vec::default(),
+        };
+        let to_access_entry = AccessListItem {
+            address: tx.to().unwrap_or_default(),
+            storage_keys: Vec::default(),
+        };
+        let producer_access_entry = AccessListItem {
+            address: block.header().beneficiary(),
+            storage_keys: Vec::default(),
+        };
+
+        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
+
+        if !list_addresses.contains(&from_access_entry.address) {
+            list.push(from_access_entry)
+        }
+        if !list_addresses.contains(&to_access_entry.address) {
+            list.push(to_access_entry)
+        }
+        if !list_addresses.contains(&producer_access_entry.address) {
+            list.push(producer_access_entry)
+        }
+
+        let mut account_map = HashMap::new();
+        for chunk in list.chunks(PARALLEL_QUERY_BATCH_SIZE) {
+            let account_chunk_futs = chunk.iter().map(|account| {
+                let account_fut = self.get_account(
+                    account.address,
+                    &account.storage_keys,
+                    true,
+                    block_id,
+                );
+                async move { (account.address, account_fut.await) }
+            });
+
+            let account_chunk = join_all(account_chunk_futs).await;
+
+            for (address, value) in account_chunk {
+                let account = value?;
+                account_map.insert(address, account);
+            }
+        }
+
+        Ok(account_map)
+    }
+}
+
+fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
+    fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
+        if let Some(block_hash) = filter.get_block_hash() {
+            if log.block_hash.unwrap() != block_hash {
+                return false;
+            }
+        }
+        if let Some(from_block) = filter.get_from_block() {
+            if log.block_number.unwrap() < from_block {
+                return false;
+            }
+        }
+        if let Some(to_block) = filter.get_to_block() {
+            if log.block_number.unwrap() > to_block {
+                return false;
+            }
+        }
+        if !filter.address.matches(&log.address()) {
+            return false;
+        }
+        for (i, filter_topic) in filter.topics.iter().enumerate() {
+            if !filter_topic.is_empty() {
+                if let Some(log_topic) = log.topics().get(i) {
+                    if !filter_topic.matches(log_topic) {
+                        return false;
+                    }
+                } else {
+                    // if filter topic is not present in log, it's a mismatch
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    for log in logs {
+        if !log_matches_filter(log, filter) {
+            return Err(ExecutionError::LogFilterMismatch().into());
+        }
+    }
+
+    Ok(())
+}

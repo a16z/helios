@@ -21,44 +21,44 @@ use crate::errors::ClientError;
 use crate::execution::client::ExecutionInnerClient;
 use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
 use crate::execution::evm::Evm;
+use crate::execution::providers::ExecutionProivder;
 use crate::execution::rpc::http_rpc::HttpRpc;
 use crate::execution::spec::ExecutionSpec;
 use crate::execution::state::{start_state_updater, State};
 use crate::execution::ExecutionClient;
 use crate::time::{SystemTime, UNIX_EPOCH};
 
-pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>> {
+pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> {
     pub consensus: C,
-    pub execution: Arc<ExecutionClient<N>>,
+    pub execution: Arc<E>,
     fork_schedule: ForkSchedule,
 }
 
-impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
+impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> Node<N, C, E> {
     pub fn new(
-        execution_mode: ExecutionMode,
-        mut consensus: C,
+        consensus: C,
+        execution: E,
         fork_schedule: ForkSchedule,
     ) -> Result<Self, ClientError> {
-        let block_recv = consensus.block_recv().unwrap();
-        let finalized_block_recv = consensus.finalized_block_recv().unwrap();
+        // let block_recv = consensus.block_recv().unwrap();
+        // let finalized_block_recv = consensus.finalized_block_recv().unwrap();
 
-        let state = State::new(MAX_STATE_HISTORY_LENGTH);
-        let client_inner =
-            ExecutionInnerClient::<N, HttpRpc<N>, HttpVerifiableApi>::make_inner_client(
-                execution_mode,
-                state.clone(),
-            )
-            .map_err(ClientError::InternalError)?;
-        let execution = Arc::new(
-            ExecutionClient::new(client_inner, state.clone(), fork_schedule)
-                .map_err(ClientError::InternalError)?,
-        );
+        // let client_inner =
+        //     ExecutionInnerClient::<N, HttpRpc<N>, HttpVerifiableApi>::make_inner_client(
+        //         execution_mode,
+        //         state.clone(),
+        //     )
+        //     .map_err(ClientError::InternalError)?;
+        // let execution = Arc::new(
+        //     ExecutionClient::new(client_inner, state.clone(), fork_schedule)
+        //         .map_err(ClientError::InternalError)?,
+        // );
 
-        start_state_updater(state, execution.clone(), block_recv, finalized_block_recv);
+        // start_state_updater(state, execution.clone(), block_recv, finalized_block_recv);
 
         Ok(Node {
             consensus,
-            execution,
+            execution: Arc::new(execution),
             fork_schedule,
         })
     }
@@ -120,21 +120,21 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
         self.check_blocktag_age(&tag).await?;
-
         let account = self
             .execution
-            .get_account(address, None, tag, false)
+            .get_account(address, &[], false, tag.into())
             .await?;
+
         Ok(account.account.balance)
     }
 
     pub async fn get_nonce(&self, address: Address, tag: BlockTag) -> Result<u64> {
         self.check_blocktag_age(&tag).await?;
-
         let account = self
             .execution
-            .get_account(address, None, tag, false)
+            .get_account(address, &[], false, tag.into())
             .await?;
+
         Ok(account.account.nonce)
     }
 
@@ -153,8 +153,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
     pub async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
         self.check_blocktag_age(&tag).await?;
-
-        let account = self.execution.get_account(address, None, tag, true).await?;
+        let account = self.execution.get_account(address, &[], true, tag.into()).await?;
         account
             .code
             .ok_or(eyre!("Failed to fetch code for address"))
@@ -167,42 +166,57 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         tag: BlockTag,
     ) -> Result<B256> {
         self.check_blocktag_age(&tag).await?;
-
-        self.execution.get_storage_at(address, slot, tag).await
+        self
+            .execution
+            .get_account(address, &[slot.into()], false, tag.into())
+            .await?
+            .get_storage_value(slot.into())
+            .ok_or(eyre!("slot not found"))
+            .map(|v| v.into())
     }
 
     pub async fn get_proof(
         &self,
         address: Address,
-        slots: Option<&[B256]>,
+        slots: &[B256],
         block: BlockTag,
     ) -> Result<EIP1186AccountProofResponse> {
         self.check_blocktag_age(&block).await?;
-
-        self.execution.get_proof(address, slots, block).await
+        let account = self.execution.get_account(address, slots, false, block.into()).await?;
+        Ok(EIP1186AccountProofResponse {
+            address,
+            balance: account.account.balance,
+            code_hash: account.account.code_hash,
+            nonce: account.account.nonce,
+            storage_hash: account.account.storage_root,
+            account_proof: account.account_proof,
+            storage_proof: account.storage_proof,
+        })
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
-        self.execution.send_raw_transaction(bytes).await
+        // TODO: fixme
+        Ok(B256::ZERO)
+
+        // self.execution.send_raw_transaction(bytes).await
     }
 
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
     ) -> Result<Option<N::ReceiptResponse>> {
-        self.execution.get_transaction_receipt(tx_hash).await
+        self.execution.get_receipt(tx_hash).await
     }
 
     pub async fn get_block_receipts(
         &self,
         block: BlockTag,
-    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+    ) -> Result<Vec<N::ReceiptResponse>> {
         self.check_blocktag_age(&block).await?;
-
         self.execution.get_block_receipts(block.into()).await
     }
 
-    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Option<N::TransactionResponse> {
+    pub async fn get_transaction_by_hash(&self, tx_hash: B256) -> Result<Option<N::TransactionResponse>> {
         self.execution.get_transaction(tx_hash).await
     }
 
@@ -210,9 +224,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
         &self,
         hash: B256,
         index: u64,
-    ) -> Option<N::TransactionResponse> {
+    ) -> Result<Option<N::TransactionResponse>> {
         self.execution
-            .get_transaction_by_block_hash_and_index(hash, index)
+            .get_transaction_by_location(hash.into(), index)
             .await
     }
 
@@ -225,7 +239,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
 
         Ok(self
             .execution
-            .get_transaction_by_block_number_and_index(block, index)
+            .get_transaction_by_location(block.into(), index)
             .await)
     }
 
