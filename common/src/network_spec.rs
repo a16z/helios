@@ -1,5 +1,5 @@
 use alloy::{network::Network, rpc::types::Log};
-use revm::primitives::{BlockEnv, TxEnv};
+use revm::context::{BlockEnv, TxEnv};
 
 use crate::fork_schedule::ForkSchedule;
 

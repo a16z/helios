@@ -1,4 +1,4 @@
-use alloy::consensus::BlockHeader;
+use alloy::consensus::{Account as TrieAccount, BlockHeader};
 use alloy::network::{BlockResponse, ReceiptResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
@@ -7,7 +7,7 @@ use alloy_trie::root::ordered_trie_root_with_encoder;
 use alloy_trie::{
     proof::{verify_proof, ProofRetainer},
     root::adjust_index_for_rlp,
-    HashBuilder, Nibbles, TrieAccount, KECCAK_EMPTY,
+    HashBuilder, Nibbles, KECCAK_EMPTY,
 };
 use eyre::{eyre, Result};
 
@@ -232,8 +232,10 @@ mod tests {
 
     #[test]
     fn test_verify_code_hash_proof_empty_keccak() {
-        let mut proof = EIP1186AccountProofResponse::default();
-        proof.code_hash = KECCAK_EMPTY;
+        let proof = EIP1186AccountProofResponse {
+            code_hash: KECCAK_EMPTY,
+            ..Default::default()
+        };
         let code = Bytes::new();
 
         let result = verify_code_hash_proof(&proof, &code);

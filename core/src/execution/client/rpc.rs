@@ -5,11 +5,10 @@ use alloy::eips::BlockId;
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionBuilder};
 use alloy::primitives::{Address, B256, U256};
 use alloy::rlp;
-use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
+use alloy::rpc::types::{AccessListItem, EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use async_trait::async_trait;
 use eyre::Result;
 use futures::future::{join_all, try_join_all};
-use revm::primitives::AccessListItem;
 
 use helios_common::{
     network_spec::NetworkSpec,
@@ -638,6 +637,6 @@ mod tests {
 
         let response = client.uninstall_filter(rpc_filter_id_logs()).await.unwrap();
 
-        assert_eq!(response, true);
+        assert!(response);
     }
 }

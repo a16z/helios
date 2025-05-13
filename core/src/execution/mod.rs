@@ -9,7 +9,7 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{EIP1186AccountProofResponse, Filter, FilterChanges, Log};
 use async_trait::async_trait;
 use eyre::Result;
-use revm::primitives::BlobExcessGasAndPrice;
+use revm::context_interface::block::BlobExcessGasAndPrice;
 use tracing::warn;
 
 use helios_common::{

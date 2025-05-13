@@ -2,15 +2,12 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
 use alloy::rpc::types::{
-    BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter, FilterChanges,
-    Log,
+    AccessList, BlockId, BlockTransactionsKind, EIP1186AccountProofResponse, FeeHistory, Filter,
+    FilterChanges, Log,
 };
-use alloy::transports::http::Http;
-use alloy::transports::layers::{RetryBackoffLayer, RetryBackoffService};
+use alloy::transports::layers::RetryBackoffLayer;
 use async_trait::async_trait;
 use eyre::Result;
-use reqwest::Client;
-use revm::primitives::AccessList;
 
 use helios_common::network_spec::NetworkSpec;
 
@@ -20,7 +17,7 @@ use super::ExecutionRpc;
 
 pub struct HttpRpc<N: NetworkSpec> {
     url: String,
-    provider: RootProvider<RetryBackoffService<Http<Client>>, N>,
+    provider: RootProvider<N>,
 }
 
 impl<N: NetworkSpec> Clone for HttpRpc<N> {
@@ -37,7 +34,7 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc.parse().unwrap());
 
-        let provider = ProviderBuilder::new().network::<N>().on_client(client);
+        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
 
         Ok(HttpRpc {
             url: rpc.to_string(),
@@ -209,7 +206,8 @@ impl<N: NetworkSpec> ExecutionRpc<N> for HttpRpc<N> {
     ) -> Result<Option<N::BlockResponse>> {
         Ok(self
             .provider
-            .get_block(block_id, txs_kind)
+            .get_block(block_id)
+            .kind(txs_kind)
             .await
             .map_err(|e| RpcError::new("get_block", e))?)
     }
