@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use alloy::{
     consensus::BlockHeader,
-    eips::BlockId,
+    eips::{BlockId, BlockNumberOrTag},
     network::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
         TransactionResponse,
@@ -12,7 +12,7 @@ use alloy::{
     rlp,
     rpc::{
         client::ClientBuilder,
-        types::{AccessListItem, Filter, Log},
+        types::{AccessListItem, Filter, FilterBlockOption, Log},
     },
     transports::layers::RetryBackoffLayer,
 };
@@ -61,14 +61,21 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
+        // get latest block
+        let latest = self
+            .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
+            .await?
+            .ok_or(eyre!("block not found"))?
+            .header()
+            .number();
+
         // Collect all (unique) block numbers
         let block_nums = logs
             .iter()
-            .map(|log| {
-                log.block_number
-                    .ok_or_else(|| eyre::eyre!("block number not found in log"))
+            .filter_map(|log| {
+                log.block_number.filter(|number| *number <= latest)
             })
-            .collect::<Result<HashSet<_>, _>>()?;
+            .collect::<HashSet<u64>>();
 
         // Collect all (proven) tx receipts for all block numbers
         let blocks_receipts_fut = block_nums
@@ -111,6 +118,32 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
             }
         }
         Ok(())
+    }
+
+    async fn resolve_block_number(&self, block: Option<BlockNumberOrTag>) -> Result<u64> {
+        match block {
+            Some(BlockNumberOrTag::Latest) | None => {
+                 let number = self
+                    .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
+                    .await?
+                    .ok_or(eyre!("block not found"))?
+                    .header()
+                    .number();
+
+                Ok(number)
+            },
+            Some(BlockNumberOrTag::Finalized) => {
+                let number = self
+                    .get_block(BlockId::Number(BlockNumberOrTag::Finalized), false)
+                    .await?
+                    .ok_or(eyre!("block not found"))?
+                    .header()
+                    .number();
+
+                Ok(number)
+            },
+            _ => Err(eyre!("block not found")),
+        }
     }
 }
 
@@ -254,7 +287,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 
         let receipts = self
             .provider
-            .get_block_receipts(block_id)
+            .get_block_receipts(block.header().hash().into())
             .await?
             .ok_or(eyre!("block not found"))?;
 
@@ -267,7 +300,22 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvider<N, B> {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
-        let logs = self.provider.get_logs(filter).await?;
+        let block_option = match filter.block_option {
+            FilterBlockOption::Range { from_block, to_block } => {
+                let from = self.resolve_block_number(from_block).await?;
+                let to = self.resolve_block_number(to_block).await?;
+                FilterBlockOption::Range { 
+                    from_block: Some(BlockNumberOrTag::Number(from)),
+                    to_block: Some(BlockNumberOrTag::Number(to)),
+                }
+            }
+            FilterBlockOption::AtBlockHash(hash) => FilterBlockOption::AtBlockHash(hash),
+        };
+
+        let mut filter = filter.clone();
+        filter.block_option = block_option;
+
+        let logs = self.provider.get_logs(&filter).await?;
         self.verify_logs(&logs).await?;
         ensure_logs_match_filter(&logs, &filter)?;
         Ok(logs)

@@ -354,6 +354,7 @@ dependencies = [
  "const-hex",
  "derive_more",
  "foldhash",
+ "getrandom 0.3.1",
  "hashbrown 0.15.2",
  "indexmap 2.7.1",
  "itoa",
@@ -6767,6 +6768,9 @@ name = "rustc-hash"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
+dependencies = [
+ "rand 0.8.5",
+]
 
 [[package]]
 name = "rustc-hex"

@@ -9,7 +9,7 @@ helios-common = { path = "../common" }
 helios-verifiable-api-client = { path = "../verifiable-api/client" }
 
 # execution
-alloy.workspace = true
+alloy = { workspace = true, features = ["rand"] }
 alloy-trie.workspace = true
 revm.workspace = true
 

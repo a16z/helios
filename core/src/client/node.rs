@@ -20,12 +20,14 @@ use helios_common::{
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
 use crate::execution::evm::Evm;
+use crate::execution::filter_state::{FilterState, FilterType};
 use crate::execution::providers::ExecutionProivder;
 use crate::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> {
     pub consensus: C,
     pub execution: Arc<E>,
+    filter_state: FilterState,
     fork_schedule: ForkSchedule,
     phantom: PhantomData<N>,
 }
@@ -62,6 +64,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         Ok(Node {
             consensus,
             execution,
+            filter_state: FilterState::default(),
             fork_schedule,
             phantom: PhantomData::default(),
         })
@@ -73,13 +76,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         block: BlockTag,
     ) -> Result<Bytes, ClientError> {
         self.check_blocktag_age(&block).await?;
-
         let mut evm = Evm::new(
             self.execution.clone(),
             self.chain_id(),
             self.fork_schedule,
             block,
         );
+
         evm.call(tx).await.map_err(ClientError::EvmError)
     }
 
@@ -89,7 +92,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         block: BlockTag,
     ) -> Result<u64, ClientError> {
         self.check_blocktag_age(&block).await?;
-
         let mut evm = Evm::new(
             self.execution.clone(),
             self.chain_id(),
@@ -106,7 +108,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         block: BlockTag,
     ) -> Result<AccessListResult, ClientError> {
         self.check_blocktag_age(&block).await?;
-
         let mut evm = Evm::new(
             self.execution.clone(),
             self.chain_id(),
@@ -161,6 +162,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             .execution
             .get_account(address, &[], true, tag.into())
             .await?;
+
         account
             .code
             .ok_or(eyre!("Failed to fetch code for address"))
@@ -192,6 +194,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             .execution
             .get_account(address, slots, false, block.into())
             .await?;
+
         Ok(EIP1186AccountProofResponse {
             address,
             balance: account.account.balance,
@@ -204,10 +207,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
     }
 
     pub async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
-        // TODO: fixme
-        Ok(B256::ZERO)
-
-        // self.execution.send_raw_transaction(bytes).await
+        self.execution.send_raw_transaction(bytes).await
     }
 
     pub async fn get_transaction_receipt(
@@ -260,33 +260,32 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
     }
 
     pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
-        //self.execution.get_filter_changes(filter_id).await
         todo!()
     }
 
     pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
-        // self.execution.get_filter_logs(filter_id).await
-        todo!()
+        match self.filter_state.get_filter(filter_id).await {
+            Some(FilterType::Logs { filter, .. }) => self.get_logs(&filter).await,
+            Some(FilterType::Blocks { .. }) => Err(eyre!("expected log filter")),
+            None => Err(eyre!("filter not found")),
+        }
     }
 
     pub async fn uninstall_filter(&self, filter_id: U256) -> Result<bool> {
-        // self.execution.uninstall_filter(filter_id).await
-        todo!()
+        Ok(self.filter_state.uninstall_filter(filter_id).await)
     }
 
     pub async fn new_filter(&self, filter: &Filter) -> Result<U256> {
-        // self.execution.new_filter(filter).await
-        todo!()
+        Ok(self.filter_state.new_filter(filter.clone()).await)
     }
 
     pub async fn new_block_filter(&self) -> Result<U256> {
-        // self.execution.new_block_filter().await
-        todo!()
+        let current_block = self.get_block_number().await?.try_into()?;
+        Ok(self.filter_state.new_block_filter(current_block).await)
     }
 
     pub async fn new_pending_transaction_filter(&self) -> Result<U256> {
-        // self.execution.new_pending_transaction_filter().await
-        todo!()
+        Err(eyre!("pending transaction filters not supported"))
     }
 
     // assumes tip of 1 gwei to prevent having to prove out every tx in the block
