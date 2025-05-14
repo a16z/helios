@@ -4,6 +4,5 @@ pub mod evm;
 pub mod filter_state;
 pub mod proof;
 pub mod providers;
-pub mod rpc;
 pub mod spec;
 pub mod state;
