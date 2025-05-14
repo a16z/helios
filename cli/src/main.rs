@@ -15,18 +15,16 @@ use eyre::Result;
 use figment::providers::Serialized;
 use figment::value::Value;
 use futures::executor::block_on;
-use helios_core::execution::providers::block_cache::BlockCache;
-use helios_core::execution::providers::rpc::RpcExecutionProvider;
-use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
+use helios_core::client::api::HeliosApi;
 use helios_core::execution::providers::ExecutionProivder;
-use helios_ethereum::spec::Ethereum;
+use helios_core::jsonrpc::{self, Handle};
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
-use helios_core::client::Client;
+use helios_core::client::HeliosClient;
 use helios_core::consensus::Consensus;
 use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
 use helios_ethereum::database::FileDB;
@@ -42,23 +40,29 @@ async fn main() -> Result<()> {
     enable_tracer();
 
     let cli = Cli::parse();
-    match cli.command {
+    let _handle = match cli.command {
         Command::Ethereum(ethereum) => {
-            let mut client = ethereum.make_client();
-            start_client(&mut client).await;
-            register_shutdown_handler(client);
+            let client = Arc::new(ethereum.make_client());
+            register_shutdown_handler(client.clone());
+            let config = ethereum.get_config();
+            let ip = config.rpc_bind_ip.unwrap();
+            let port = config.rpc_port.unwrap();
+            let addr = SocketAddr::new(ip, port);
+            start_jsonrpc(client, addr).await
         }
         Command::OpStack(opstack) => {
             // let mut client = opstack.make_client();
             // start_client(&mut client).await;
             // register_shutdown_handler(client);
+            todo!()
         }
         Command::Linea(linea) => {
             // let mut client = linea.make_client();
             // start_client(&mut client).await;
             // register_shutdown_handler(client);
+            todo!()
         }
-    }
+    };
 
     std::future::pending().await
 }
@@ -76,23 +80,17 @@ fn enable_tracer() {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 }
 
-async fn start_client<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>>(
-    client: &mut Client<N, C, E>,
-) {
-    if let Err(err) = client.start().await {
-        error!(target: "helios::runner", error = %err);
-        exit(1);
+async fn start_jsonrpc<N: NetworkSpec>(client: Arc<HeliosClient<N>>, addr: SocketAddr) -> Handle {
+    match jsonrpc::start(client.into(), addr).await {
+        Ok(handle) => handle,
+        Err(err) => {
+            error!(target: "helios::runner", error = %err);
+            exit(1);
+        }
     }
 }
 
-fn register_shutdown_handler<
-    N: NetworkSpec,
-    C: Consensus<N::BlockResponse>,
-    E: ExecutionProivder<N>,
->(
-    client: Client<N, C, E>,
-) {
-    let client = Arc::new(client);
+fn register_shutdown_handler<N: NetworkSpec>(client: Arc<HeliosClient<N>>) {
     let shutdown_counter = Arc::new(Mutex::new(0));
 
     ctrlc::set_handler(move || {
@@ -168,24 +166,24 @@ struct EthereumArgs {
 }
 
 impl EthereumArgs {
-    fn make_client(
-        &self,
-    ) -> EthereumClient<VerifiableApiExecutionProvider<Ethereum, BlockCache<Ethereum>>, FileDB>
-    {
+    fn make_client(&self) -> EthereumClient {
         let config_path = home_dir().unwrap().join(".helios/helios.toml");
         let cli_config = self.as_cli_config();
         let config = EthereumConfig::from_file(&config_path, &self.network, &cli_config);
 
-        match EthereumClientBuilder::new()
-            .config(config)
-            .build::<FileDB>()
-        {
+        match EthereumClientBuilder::new().config(config).build() {
             Ok(client) => client,
             Err(err) => {
                 error!(target: "helios::runner", error = %err);
                 exit(1);
             }
         }
+    }
+
+    fn get_config(&self) -> EthereumConfig {
+        let config_path = home_dir().unwrap().join(".helios/helios.toml");
+        let cli_config = self.as_cli_config();
+        EthereumConfig::from_file(&config_path, &self.network, &cli_config)
     }
 
     fn as_cli_config(&self) -> CliConfig {
