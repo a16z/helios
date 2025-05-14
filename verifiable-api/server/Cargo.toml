@@ -25,7 +25,7 @@ helios-verifiable-api-types = { path = "../types" }
 helios-common = { path = "../../common" }
 helios-core = { path = "../../core" }
 helios-ethereum = { path = "../../ethereum" }
-helios-opstack = { path = "../../opstack" }
+# helios-opstack = { path = "../../opstack" }
 
 axum = "0.8.1"
 axum-extra = { version = "0.10.0", features = ["query"] }

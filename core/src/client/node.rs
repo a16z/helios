@@ -6,8 +6,7 @@ use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
-    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log,
-    SyncInfo, SyncStatus,
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncInfo, SyncStatus,
 };
 use eyre::{eyre, Result};
 use revm::context_interface::block::BlobExcessGasAndPrice;
@@ -16,7 +15,7 @@ use tokio::{select, sync::broadcast::Sender};
 use helios_common::{
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx, SubscriptionType, SubscriptionEvent},
+    types::{BlockTag, SubEventRx, SubscriptionEvent, SubscriptionType},
 };
 
 use crate::consensus::Consensus;

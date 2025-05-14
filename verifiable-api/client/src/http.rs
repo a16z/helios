@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use alloy::{
     eips::BlockId,
     primitives::{Address, B256, U256},
@@ -14,18 +16,20 @@ use helios_verifiable_api_types::*;
 use super::VerifiableApi;
 
 #[derive(Clone)]
-pub struct HttpVerifiableApi {
+pub struct HttpVerifiableApi<N: NetworkSpec> {
     client: Client,
     base_url: String,
+    phantom: PhantomData<N>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
+impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
         Self {
             client: Client::new(),
             base_url: base_url.trim_end_matches("/").to_string(),
+            phantom: PhantomData::default(),
         }
     }
 
@@ -53,9 +57,25 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
+        let url = format!("{}/eth/v1/proof/receipt/{}", self.base_url, tx_hash);
+        let response = self.client.get(&url).send().await?;
+        handle_response(response).await
+    }
+
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
+        let url = format!("{}/eth/v1/proof/transaction/{}", self.base_url, tx_hash);
+        let response = self.client.get(&url).send().await?;
+        handle_response(response).await
+    }
+
+    async fn get_transaction_by_location(
+        &self,
+        block_id: BlockId,
+        index: u64,
+    ) -> Result<Option<TransactionResponse<N>>> {
         let url = format!(
-            "{}/eth/v1/proof/transaction/{}/receipt",
-            self.base_url, tx_hash
+            "{}/eth/v1/proof/transaction/{}/{}",
+            self.base_url, block_id, index
         );
         let response = self.client.get(&url).send().await?;
         handle_response(response).await
@@ -102,18 +122,6 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         }
 
         let response = request.send().await?;
-        handle_response(response).await
-    }
-
-    async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>> {
-        let url = format!("{}/eth/v1/proof/filterLogs/{}", self.base_url, filter_id);
-        let response = self.client.get(&url).send().await?;
-        handle_response(response).await
-    }
-
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>> {
-        let url = format!("{}/eth/v1/proof/filterChanges/{}", self.base_url, filter_id);
-        let response = self.client.get(&url).send().await?;
         handle_response(response).await
     }
 
@@ -177,54 +185,6 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
             })
             .send()
             .await?;
-        handle_response(response).await
-    }
-
-    async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse> {
-        let url = format!("{}/eth/v1/filter", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&NewFilterRequest {
-                kind: FilterKind::Logs,
-                filter: Some(filter.clone()),
-            })
-            .send()
-            .await?;
-        handle_response(response).await
-    }
-
-    async fn new_block_filter(&self) -> Result<NewFilterResponse> {
-        let url = format!("{}/eth/v1/filter", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&NewFilterRequest {
-                kind: FilterKind::NewBlocks,
-                filter: None,
-            })
-            .send()
-            .await?;
-        handle_response(response).await
-    }
-
-    async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse> {
-        let url = format!("{}/eth/v1/filter", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&NewFilterRequest {
-                kind: FilterKind::NewPendingTransactions,
-                filter: None,
-            })
-            .send()
-            .await?;
-        handle_response(response).await
-    }
-
-    async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse> {
-        let url = format!("{}/eth/v1/filter/{}", self.base_url, filter_id);
-        let response = self.client.delete(&url).send().await?;
         handle_response(response).await
     }
 }

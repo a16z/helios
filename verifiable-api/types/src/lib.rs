@@ -23,6 +23,13 @@ pub struct TransactionReceiptResponse<N: NetworkSpec> {
     pub receipt_proof: Vec<Bytes>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionResponse<N: NetworkSpec> {
+    pub transaction: N::TransactionResponse,
+    pub transaction_proof: Vec<Bytes>,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(bound = "N: NetworkSpec")]

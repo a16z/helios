@@ -3681,7 +3681,6 @@ dependencies = [
  "helios-common",
  "helios-core",
  "helios-ethereum",
- "helios-opstack",
  "helios-test-utils",
  "helios-verifiable-api-client",
  "helios-verifiable-api-types",

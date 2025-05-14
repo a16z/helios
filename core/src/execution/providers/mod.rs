@@ -12,6 +12,8 @@ use helios_common::{network_spec::NetworkSpec, types::Account};
 
 pub mod block_cache;
 pub mod rpc;
+pub mod utils;
+pub mod verifiable_api;
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -36,13 +38,13 @@ pub trait AccountProvider<N: NetworkSpec> {
         address: Address,
         slots: &[B256],
         with_code: bool,
-        tag: BlockId,
+        block_id: BlockId,
     ) -> Result<Account>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-pub trait BlockProvider<N: NetworkSpec>: Send + Sync {
+pub trait BlockProvider<N: NetworkSpec>: Send + Sync + 'static {
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId);
     async fn get_block(&self, block_id: BlockId, full_tx: bool)
         -> Result<Option<N::BlockResponse>>;

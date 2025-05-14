@@ -17,6 +17,7 @@ use figment::value::Value;
 use futures::executor::block_on;
 use helios_core::execution::providers::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
+use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
 use helios_core::execution::providers::ExecutionProivder;
 use helios_ethereum::spec::Ethereum;
 use tracing::{error, info};
@@ -169,7 +170,8 @@ struct EthereumArgs {
 impl EthereumArgs {
     fn make_client(
         &self,
-    ) -> EthereumClient<RpcExecutionProvider<Ethereum, BlockCache<Ethereum>>, FileDB> {
+    ) -> EthereumClient<VerifiableApiExecutionProvider<Ethereum, BlockCache<Ethereum>>, FileDB>
+    {
         let config_path = home_dir().unwrap().join(".helios/helios.toml");
         let cli_config = self.as_cli_config();
         let config = EthereumConfig::from_file(&config_path, &self.network, &cli_config);

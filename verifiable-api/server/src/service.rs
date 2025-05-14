@@ -1,46 +1,51 @@
 use std::collections::{HashMap, HashSet};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
+use alloy::providers::{Provider, ProviderBuilder, RootProvider};
+use alloy::rpc::client::ClientBuilder;
+use alloy::transports::layers::RetryBackoffLayer;
 use alloy::{
     consensus::{Account as TrieAccount, BlockHeader},
     eips::BlockNumberOrTag,
-    network::{BlockResponse, ReceiptResponse},
+    network::{BlockResponse, ReceiptResponse, TransactionResponse as TxTr},
     primitives::{Address, B256, U256},
-    rpc::types::{BlockId, Filter, FilterChanges, Log},
+    rpc::types::{BlockId, Filter, Log},
 };
 use async_trait::async_trait;
-use eyre::{Ok, OptionExt, Report, Result};
+use eyre::{eyre, Ok, OptionExt, Report, Result};
 use futures::future::try_join_all;
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_core::execution::proof::create_transaction_proof;
+use helios_core::execution::providers::block_cache::BlockCache;
+use helios_core::execution::providers::rpc::RpcExecutionProvider;
+use helios_core::execution::providers::BlockProvider;
 use helios_core::execution::{
-    client::{rpc::ExecutionInnerRpcClient, ExecutionInner},
-    constants::MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS,
-    errors::ExecutionError,
-    evm::Evm,
+    constants::MAX_SUPPORTED_BLOCKS_TO_PROVE_FOR_LOGS, errors::ExecutionError, evm::Evm,
     proof::create_receipt_proof,
-    rpc::ExecutionRpc,
-    state::State,
 };
 use helios_verifiable_api_client::VerifiableApi;
-use helios_verifiable_api_types::*;
+use helios_verifiable_api_types::{TransactionResponse, *};
 
 #[derive(Clone)]
-pub struct ApiService<N: NetworkSpec, R: ExecutionRpc<N>> {
+pub struct ApiService<N: NetworkSpec> {
     rpc_url: String,
-    rpc: Arc<R>,
-    _marker: PhantomData<N>,
+    rpc: RootProvider<N>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
+impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
     fn new(rpc: &str) -> Self {
+        let client = ClientBuilder::default()
+            .layer(RetryBackoffLayer::new(100, 50, 300))
+            .http(rpc.parse().unwrap());
+
+        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
+
         Self {
             rpc_url: rpc.to_string(),
-            rpc: Arc::new(R::new(rpc).unwrap()),
-            _marker: Default::default(),
+            rpc: provider,
         }
     }
 
@@ -58,7 +63,8 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
                 BlockNumberOrTag::Number(_) => Ok(block_id),
                 tag => Ok(BlockId::Number(
                     self.rpc
-                        .get_block(tag.into(), false.into())
+                        .get_block(tag.into())
+                        .hashes()
                         .await?
                         .ok_or_eyre(ExecutionError::BlockNotFound(tag.try_into()?))
                         .map(|block| block.header().number())?
@@ -72,10 +78,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
             .iter()
             .map(|key| (*key).into())
             .collect::<Vec<_>>();
-        let proof = self.rpc.get_proof(address, &storage_keys, block_id).await?;
+
+        let proof = self
+            .rpc
+            .get_proof(address, storage_keys)
+            .block_id(block_id)
+            .await?;
 
         let code = if include_code {
-            Some(self.rpc.get_code(address, block_id).await?.into())
+            Some(
+                self.rpc
+                    .get_code_at(address)
+                    .block_id(block_id)
+                    .await?
+                    .into(),
+            )
         } else {
             None
         };
@@ -101,7 +118,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
             return Ok(None);
         };
 
-        let block_num = receipt.block_number().unwrap();
+        let block_num = receipt.block_number().ok_or(eyre!("block not found"))?;
         let receipts = self
             .rpc
             .get_block_receipts(block_num.into())
@@ -117,6 +134,72 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         }))
     }
 
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
+        let Some(tx) = self.rpc.get_transaction_by_hash(tx_hash).await? else {
+            return Ok(None);
+        };
+
+        let block_hash = tx.block_hash().ok_or(eyre!("block not found"))?;
+        let block = self
+            .rpc
+            .get_block(block_hash.into())
+            .full()
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        let proof = create_transaction_proof::<N>(
+            block.transactions().txns().map(|v| v.clone()).collect(),
+            tx.transaction_index().unwrap() as usize,
+        );
+
+        Ok(Some(TransactionResponse {
+            transaction: tx,
+            transaction_proof: proof,
+        }))
+    }
+
+    async fn get_transaction_by_location(
+        &self,
+        block_id: BlockId,
+        index: u64,
+    ) -> Result<Option<TransactionResponse<N>>> {
+        let index = index as usize;
+        let tx = match block_id {
+            BlockId::Hash(hash) => {
+                self.rpc
+                    .get_transaction_by_block_hash_and_index(hash.into(), index)
+                    .await?
+            }
+            BlockId::Number(number) => {
+                self.rpc
+                    .get_transaction_by_block_number_and_index(number, index)
+                    .await?
+            }
+        };
+
+        let Some(tx) = tx else {
+            return Ok(None);
+        };
+
+        let block_hash = tx.block_hash().ok_or(eyre!("block not found"))?;
+        let block = self
+            .rpc
+            .get_block(block_hash.into())
+            .full()
+            .await?
+            .ok_or(eyre!("block not found"))?;
+
+        let proof = create_transaction_proof::<N>(
+            block.transactions().txns().map(|v| v.clone()).collect(),
+            tx.transaction_index().unwrap() as usize,
+        );
+
+        Ok(Some(TransactionResponse {
+            transaction: tx,
+            transaction_proof: proof,
+        }))
+    }
+
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
         let logs = self.rpc.get_logs(filter).await?;
 
@@ -125,36 +208,6 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         Ok(LogsResponse {
             logs,
             receipt_proofs,
-        })
-    }
-
-    async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>> {
-        let logs = self.rpc.get_filter_logs(filter_id).await?;
-
-        let receipt_proofs = self.create_receipt_proofs_for_logs(&logs).await?;
-
-        Ok(FilterLogsResponse {
-            logs,
-            receipt_proofs,
-        })
-    }
-
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>> {
-        let filter_changes = self.rpc.get_filter_changes(filter_id).await?;
-
-        Ok(match filter_changes {
-            FilterChanges::Logs(logs) => {
-                let receipt_proofs = self.create_receipt_proofs_for_logs(&logs).await?;
-                FilterChangesResponse::Logs(FilterLogsResponse {
-                    logs,
-                    receipt_proofs,
-                })
-            }
-            FilterChanges::Hashes(hashes) => FilterChangesResponse::Hashes(hashes),
-            FilterChanges::Empty => FilterChangesResponse::Hashes(vec![]),
-            FilterChanges::Transactions(txs) => {
-                FilterChangesResponse::Hashes(txs.into_iter().map(|t| *t.inner.tx_hash()).collect())
-            }
         })
     }
 
@@ -167,23 +220,21 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         let block_id = block_id.unwrap_or_default();
         let block = self
             .rpc
-            .get_block(block_id, false.into())
+            .get_block(block_id)
+            .hashes()
             .await?
             .ok_or_eyre(ExecutionError::BlockNotFound(block_id.try_into()?))?;
         let tag = BlockTag::Number(block.header().number());
 
-        // initialise state for given block and ExecutionInnerRpcClient with it
-        let state = State::new(1);
-        let client = Arc::new(ExecutionInnerRpcClient::<N, R>::new(
-            &self.rpc_url,
-            state.clone(),
-        )?);
-        state.push_block(block, client.clone()).await;
+        // initialize exection provider for the given block
+        let block_provider = BlockCache::<N>::new();
+        let provider = RpcExecutionProvider::new(self.rpc_url.parse().unwrap(), block_provider);
+        provider.push_block(block, block_id).await;
 
         // call EVM with the transaction, collect accounts and storage keys
         let mut evm = Evm::new(
-            client,
-            self.rpc.chain_id().await?,
+            Arc::new(provider),
+            self.rpc.get_chain_id().await?,
             ForkSchedule {
                 prague_timestamp: u64::MAX,
             },
@@ -198,7 +249,7 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
         Ok(ChainIdResponse {
-            chain_id: self.rpc.chain_id().await?,
+            chain_id: self.rpc.get_chain_id().await?,
         })
     }
 
@@ -207,51 +258,28 @@ impl<N: NetworkSpec, R: ExecutionRpc<N>> VerifiableApi<N> for ApiService<N, R> {
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        self.rpc.get_block(block_id, full_tx.into()).await
+        if full_tx {
+            Ok(self.rpc.get_block(block_id).full().await?)
+        } else {
+            Ok(self.rpc.get_block(block_id).hashes().await?)
+        }
     }
 
     async fn get_block_receipts(
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        self.rpc.get_block_receipts(block_id).await
+        Ok(self.rpc.get_block_receipts(block_id).await?)
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
         Ok(SendRawTxResponse {
-            hash: self.rpc.send_raw_transaction(bytes).await?,
-        })
-    }
-
-    async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse> {
-        Ok(NewFilterResponse {
-            id: self.rpc.new_filter(filter).await?,
-            kind: FilterKind::Logs,
-        })
-    }
-
-    async fn new_block_filter(&self) -> Result<NewFilterResponse> {
-        Ok(NewFilterResponse {
-            id: self.rpc.new_block_filter().await?,
-            kind: FilterKind::NewBlocks,
-        })
-    }
-
-    async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse> {
-        Ok(NewFilterResponse {
-            id: self.rpc.new_pending_transaction_filter().await?,
-            kind: FilterKind::NewPendingTransactions,
-        })
-    }
-
-    async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse> {
-        Ok(UninstallFilterResponse {
-            ok: self.rpc.uninstall_filter(filter_id).await?,
+            hash: *self.rpc.send_raw_transaction(bytes).await?.tx_hash(),
         })
     }
 }
 
-impl<N: NetworkSpec, R: ExecutionRpc<N>> ApiService<N, R> {
+impl<N: NetworkSpec> ApiService<N> {
     async fn create_receipt_proofs_for_logs(
         &self,
         logs: &[Log],

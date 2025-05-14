@@ -2,7 +2,7 @@ use std::{fs::read_to_string, path::PathBuf, str::FromStr};
 
 use alloy::{
     eips::BlockId,
-    network::{ReceiptResponse, TransactionResponse},
+    network::{ReceiptResponse, TransactionResponse as TxTr},
     primitives::{Address, B256, U256},
     rpc::types::{EIP1186AccountProofResponse, Filter},
 };
@@ -71,48 +71,21 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
         Ok(receipt)
     }
 
+    async fn get_transaction(&self, _tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
+        todo!()
+    }
+
+    async fn get_transaction_by_location(
+        &self,
+        _block_id: BlockId,
+        _index: u64,
+    ) -> Result<Option<TransactionResponse<N>>> {
+        todo!()
+    }
+
     async fn get_logs(&self, _filter: &Filter) -> Result<LogsResponse<N>> {
         let json_str = read_to_string(self.path.join("verifiable_api/logs.json"))?;
         Ok(serde_json::from_str(&json_str)?)
-    }
-
-    async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>> {
-        let filter_id_logs =
-            U256::from_str(&read_to_string(self.path.join("rpc/filter_id_logs.txt"))?)?;
-        if filter_id == filter_id_logs {
-            let logs = read_to_string(self.path.join("verifiable_api/logs.json"))?;
-            Ok(serde_json::from_str(&logs)?)
-        } else {
-            Err(eyre!("Filter ID not found"))
-        }
-    }
-
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>> {
-        let filter_id_logs =
-            U256::from_str(&read_to_string(self.path.join("rpc/filter_id_logs.txt"))?)?;
-        let filter_id_blocks =
-            U256::from_str(&read_to_string(self.path.join("rpc/filter_id_blocks.txt"))?)?;
-        let filter_id_txs =
-            U256::from_str(&read_to_string(self.path.join("rpc/filter_id_txs.txt"))?)?;
-        match filter_id {
-            id if id == filter_id_logs => {
-                let logs = read_to_string(self.path.join("verifiable_api/logs.json"))?;
-                Ok(FilterChangesResponse::Logs(serde_json::from_str(&logs)?))
-            }
-            id if id == filter_id_blocks => {
-                let hashes = read_to_string(self.path.join("rpc/block_hashes.json"))?;
-                Ok(FilterChangesResponse::Hashes(serde_json::from_str(
-                    &hashes,
-                )?))
-            }
-            id if id == filter_id_txs => {
-                let hashes = read_to_string(self.path.join("rpc/tx_hashes.json"))?;
-                Ok(FilterChangesResponse::Hashes(serde_json::from_str(
-                    &hashes,
-                )?))
-            }
-            _ => Err(eyre!("Filter ID not found")),
-        }
     }
 
     async fn create_extended_access_list(
@@ -151,37 +124,5 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
         let tx = read_to_string(self.path.join("rpc/transaction.json"))?;
         let tx = serde_json::from_str::<N::TransactionResponse>(&tx)?;
         Ok(SendRawTxResponse { hash: tx.tx_hash() })
-    }
-
-    async fn new_filter(&self, _filter: &Filter) -> Result<NewFilterResponse> {
-        let id = read_to_string(self.path.join("rpc/filter_id_logs.txt"))?;
-        Ok(NewFilterResponse {
-            id: U256::from_str(&id)?,
-            kind: FilterKind::Logs,
-        })
-    }
-
-    async fn new_block_filter(&self) -> Result<NewFilterResponse> {
-        let id = read_to_string(self.path.join("rpc/filter_id_blocks.txt"))?;
-        Ok(NewFilterResponse {
-            id: U256::from_str(&id)?,
-            kind: FilterKind::NewBlocks,
-        })
-    }
-
-    async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse> {
-        let id = read_to_string(self.path.join("rpc/filter_id_txs.txt"))?;
-        Ok(NewFilterResponse {
-            id: U256::from_str(&id)?,
-            kind: FilterKind::NewPendingTransactions,
-        })
-    }
-
-    async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse> {
-        let id = read_to_string(self.path.join("rpc/filter_id_logs.txt"))?;
-        let id = U256::from_str(&id)?;
-        Ok(UninstallFilterResponse {
-            ok: id == filter_id,
-        })
     }
 }

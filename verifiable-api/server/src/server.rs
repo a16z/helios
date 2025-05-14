@@ -8,7 +8,7 @@ use url::Url;
 
 use helios_core::execution::rpc::http_rpc::HttpRpc;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
-use helios_opstack::spec::OpStack as OpStackSpec;
+// use helios_opstack::spec::OpStack as OpStackSpec;
 use helios_verifiable_api_client::VerifiableApi;
 
 use crate::router::build_router;
@@ -38,18 +38,18 @@ impl VerifiableApiServer {
             Network::Ethereum(args) => {
                 let server_addr = args.server_address;
                 let execution_rpc = &args.execution_rpc;
-                let api_service =
-                    ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(execution_rpc.as_str());
+                let api_service = ApiService::<EthereumSpec>::new(execution_rpc.as_str());
                 let router = build_router().with_state(ApiState { api_service });
                 (server_addr, router)
             }
             Network::OpStack(args) => {
-                let server_addr = args.server_address;
-                let execution_rpc = &args.execution_rpc;
-                let api_service =
-                    ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(execution_rpc.as_str());
-                let router = build_router().with_state(ApiState { api_service });
-                (server_addr, router)
+                // let server_addr = args.server_address;
+                // let execution_rpc = &args.execution_rpc;
+                // let api_service =
+                //     ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(execution_rpc.as_str());
+                // let router = build_router().with_state(ApiState { api_service });
+                // (server_addr, router)
+                todo!()
             }
         };
 

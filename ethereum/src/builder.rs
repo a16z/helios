@@ -11,6 +11,7 @@ use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::client::Client;
 use helios_core::execution::providers::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
+use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
 use helios_core::execution::providers::ExecutionProivder;
 
 use crate::config::networks::Network;
@@ -110,7 +111,8 @@ impl EthereumClientBuilder {
 
     pub fn build<DB: Database>(
         self,
-    ) -> Result<EthereumClient<RpcExecutionProvider<Ethereum, BlockCache<Ethereum>>, DB>> {
+    ) -> Result<EthereumClient<VerifiableApiExecutionProvider<Ethereum, BlockCache<Ethereum>>, DB>>
+    {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -238,8 +240,13 @@ impl EthereumClientBuilder {
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config.consensus_rpc, config.clone())?;
         let block_provider = BlockCache::<Ethereum>::new();
-        let execution = RpcExecutionProvider::new(
-            config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+        // let execution = RpcExecutionProvider::new(
+        //     config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+        //     block_provider,
+        // );
+
+        let execution = VerifiableApiExecutionProvider::new(
+            &config.execution_verifiable_api.as_ref().unwrap(),
             block_provider,
         );
 
