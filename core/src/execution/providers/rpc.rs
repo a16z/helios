@@ -72,9 +72,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
         // Collect all (unique) block numbers
         let block_nums = logs
             .iter()
-            .filter_map(|log| {
-                log.block_number.filter(|number| *number <= latest)
-            })
+            .filter_map(|log| log.block_number.filter(|number| *number <= latest))
             .collect::<HashSet<u64>>();
 
         // Collect all (proven) tx receipts for all block numbers
@@ -123,7 +121,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
     async fn resolve_block_number(&self, block: Option<BlockNumberOrTag>) -> Result<u64> {
         match block {
             Some(BlockNumberOrTag::Latest) | None => {
-                 let number = self
+                let number = self
                     .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
                     .await?
                     .ok_or(eyre!("block not found"))?
@@ -131,7 +129,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
                     .number();
 
                 Ok(number)
-            },
+            }
             Some(BlockNumberOrTag::Finalized) => {
                 let number = self
                     .get_block(BlockId::Number(BlockNumberOrTag::Finalized), false)
@@ -141,7 +139,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
                     .number();
 
                 Ok(number)
-            },
+            }
             _ => Err(eyre!("block not found")),
         }
     }
@@ -301,10 +299,13 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvider<N, B> {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         let block_option = match filter.block_option {
-            FilterBlockOption::Range { from_block, to_block } => {
+            FilterBlockOption::Range {
+                from_block,
+                to_block,
+            } => {
                 let from = self.resolve_block_number(from_block).await?;
                 let to = self.resolve_block_number(to_block).await?;
-                FilterBlockOption::Range { 
+                FilterBlockOption::Range {
                     from_block: Some(BlockNumberOrTag::Number(from)),
                     to_block: Some(BlockNumberOrTag::Number(to)),
                 }

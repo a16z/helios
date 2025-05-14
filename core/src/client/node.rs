@@ -6,15 +6,17 @@ use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
-    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncInfo, SyncStatus,
+    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log,
+    SyncInfo, SyncStatus,
 };
 use eyre::{eyre, Result};
-use tokio::select;
+use revm::context_interface::block::BlobExcessGasAndPrice;
+use tokio::{select, sync::broadcast::Sender};
 
 use helios_common::{
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx, SubscriptionType},
+    types::{BlockTag, SubEventRx, SubscriptionType, SubscriptionEvent},
 };
 
 use crate::consensus::Consensus;
@@ -28,6 +30,7 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProi
     pub consensus: C,
     pub execution: Arc<E>,
     filter_state: FilterState,
+    block_broadcast: Sender<SubscriptionEvent<N>>,
     fork_schedule: ForkSchedule,
     phantom: PhantomData<N>,
 }
@@ -42,13 +45,16 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         let mut finalized_block_recv = consensus.finalized_block_recv().unwrap();
         let execution = Arc::new(execution);
         let execution_ref = execution.clone();
+        let block_broadcast = Sender::new(100);
+        let block_broadcast_ref = block_broadcast.clone();
 
         tokio::spawn(async move {
             loop {
                 select! {
                     block = block_recv.recv() => {
                         if let Some(block) = block {
-                            execution_ref.push_block(block, BlockId::Number(BlockNumberOrTag::Latest)).await;
+                            execution_ref.push_block(block.clone(), BlockId::Number(BlockNumberOrTag::Latest)).await;
+                            _ = block_broadcast_ref.send(SubscriptionEvent::NewHeads(block));
                         }
                     },
                     _ = finalized_block_recv.changed() => {
@@ -65,6 +71,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             consensus,
             execution,
             filter_state: FilterState::default(),
+            block_broadcast,
             fork_schedule,
             phantom: PhantomData::default(),
         })
@@ -261,6 +268,20 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
 
     pub async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
         todo!()
+        // match self.filter_state.get_filter(filter_id).await {
+        //     Some(FilterType::Logs { filter, last_poll}) => {
+        //         match filter.block_option {
+        //             FilterBlockOption::Range { from_block, to_block } => {
+        //
+        //             },
+        //             FilterBlockOption::AtBlockHash(hash) => {
+
+        //             },
+        //         }
+        //     },
+        //     Some(FilterType::Blocks { .. }) => todo!("implement block filter"),
+        //     None => Err(eyre!("filter not found")),
+        // }
     }
 
     pub async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
@@ -288,7 +309,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         Err(eyre!("pending transaction filters not supported"))
     }
 
-    // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub async fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age().await?;
         let tag = BlockTag::Latest;
@@ -299,17 +319,30 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
 
         let base_fee = block.header().base_fee_per_gas().unwrap_or(0_u64);
+        // assumes 1 gwei tip
         let tip = 10_u64.pow(9);
+
         Ok(U256::from(base_fee + tip))
     }
 
     pub async fn blob_base_fee(&self, block: BlockTag) -> Result<U256> {
-        // Ok(self.execution.blob_base_fee(block).await)
-        todo!()
+        let block = self
+            .execution
+            .get_block(block.into(), false)
+            .await?
+            .ok_or(eyre!(ClientError::BlockNotFound(block)))?;
+
+        if let Some(excess_blob_gas) = block.header().excess_blob_gas() {
+            let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
+            let price = BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice;
+            Ok(U256::from(price))
+        } else {
+            Ok(U256::ZERO)
+        }
     }
 
-    // assumes tip of 1 gwei to prevent having to prove out every tx in the block
     pub fn get_priority_fee(&self) -> Result<U256> {
+        // assumes 1 gwei tip
         let tip = U256::from(10_u64.pow(9));
         Ok(tip)
     }
@@ -372,8 +405,8 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             .duration_since(UNIX_EPOCH)
             .unwrap_or_else(|_| panic!("unreachable"))
             .as_secs();
-        let tag = BlockTag::Latest;
 
+        let tag = BlockTag::Latest;
         let block_timestamp = self
             .execution
             .get_block(tag.into(), false)
@@ -400,7 +433,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
     }
 
     pub async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>> {
-        // self.execution.subscribe(sub_type).await
-        todo!()
+        match sub_type {
+            SubscriptionType::NewHeads => Ok(self.block_broadcast.subscribe()),
+            _ => Err(eyre::eyre!("Unsupported subscription type: {:?}", sub_type)),
+        }
     }
 }

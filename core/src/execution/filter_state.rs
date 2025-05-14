@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use alloy::rpc::types::Filter;
 use alloy::primitives::U256;
+use alloy::rpc::types::Filter;
 use tokio::sync::RwLock;
 
 #[derive(Default)]
@@ -12,14 +12,8 @@ pub struct FilterState {
 
 #[derive(Clone)]
 pub enum FilterType {
-    Blocks {
-        start_block: u64,
-        last_poll: u64,
-    },
-    Logs {
-        filter: Filter,
-        last_poll: u64,
-    },
+    Blocks { start_block: u64, last_poll: u64 },
+    Logs { filter: Filter, last_poll: u64 },
 }
 
 impl FilterState {
