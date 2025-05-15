@@ -127,13 +127,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         handle_response(response).await
     }
 
-    async fn create_extended_access_list(
+    async fn get_execution_hint(
         &self,
         tx: N::TransactionRequest,
         validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
-        let url = format!("{}/eth/v1/proof/createExtendedAccessList", self.base_url);
+        let url = format!("{}/eth/v1/proof/getExecutionHint", self.base_url);
         let response = self
             .client
             .post(&url)

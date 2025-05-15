@@ -88,7 +88,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
         Ok(serde_json::from_str(&json_str)?)
     }
 
-    async fn create_extended_access_list(
+    async fn get_execution_hint(
         &self,
         _tx: N::TransactionRequest,
         _validate_tx: bool,

@@ -6,7 +6,6 @@ use tokio::task::JoinHandle;
 use tracing::debug;
 use url::Url;
 
-use helios_core::execution::rpc::http_rpc::HttpRpc;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 // use helios_opstack::spec::OpStack as OpStackSpec;
 use helios_verifiable_api_client::VerifiableApi;

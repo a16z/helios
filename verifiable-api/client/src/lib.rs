@@ -39,7 +39,7 @@ pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + Sized + 'static {
         index: u64,
     ) -> Result<Option<TransactionResponse<N>>>;
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>>;
-    async fn create_extended_access_list(
+    async fn get_execution_hint(
         &self,
         tx: N::TransactionRequest,
         validate_tx: bool,

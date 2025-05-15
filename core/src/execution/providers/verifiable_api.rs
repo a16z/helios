@@ -348,7 +348,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N>
         let block_id = block.header().hash().into();
         let ExtendedAccessListResponse { accounts } = self
             .api
-            .create_extended_access_list(tx.clone(), validate, Some(block_id))
+            .get_execution_hint(tx.clone(), validate, Some(block_id))
             .await?;
 
         for (address, account) in &accounts {

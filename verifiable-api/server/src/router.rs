@@ -21,10 +21,7 @@ pub fn build_router<N: NetworkSpec>() -> Router<ApiState<N>> {
                 )
                 .route("/receipt/{txHash}", get(handlers::get_transaction_receipt))
                 .route("/logs", get(handlers::get_logs))
-                .route(
-                    "/createExtendedAccessList",
-                    post(handlers::create_extended_access_list),
-                ),
+                .route("/getExecutionHint", post(handlers::get_execution_hint)),
         )
         .nest(
             "/eth/v1",

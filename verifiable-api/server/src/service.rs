@@ -17,7 +17,7 @@ use futures::future::try_join_all;
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
 use helios_core::execution::proof::create_transaction_proof;
-use helios_core::execution::providers::block_cache::BlockCache;
+use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
 use helios_core::execution::providers::BlockProvider;
 use helios_core::execution::{
@@ -211,7 +211,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
         })
     }
 
-    async fn create_extended_access_list(
+    async fn get_execution_hint(
         &self,
         tx: N::TransactionRequest,
         validate_tx: bool,
@@ -238,7 +238,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             ForkSchedule {
                 prague_timestamp: u64::MAX,
             },
-            tag,
+            tag.into(),
         );
         let res = evm.create_access_list(&tx, validate_tx).await?;
 

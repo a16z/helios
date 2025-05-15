@@ -15,7 +15,7 @@ use eyre::{eyre, Report, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use helios_common::network_spec::NetworkSpec;
-use helios_core::execution::{errors::ExecutionError, rpc::ExecutionRpc};
+use helios_core::execution::errors::ExecutionError;
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
 
@@ -286,7 +286,7 @@ pub async fn get_logs<N: NetworkSpec>(
 /// - RLP encode the `TrieAccount` struct and keccak-256 hash it.
 /// - Verify the given `accountProof` against the trusted block's state root using the address as the key (path) and the hashed account as the value (leaf).
 /// - For each item in `storageProof`: verify the given leaf’s Merkle Proof against the `storageHash`.
-pub async fn create_extended_access_list<N: NetworkSpec>(
+pub async fn get_execution_hint<N: NetworkSpec>(
     State(ApiState { api_service }): State<ApiState<N>>,
     Json(ExtendedAccessListRequest {
         tx,
@@ -295,7 +295,7 @@ pub async fn create_extended_access_list<N: NetworkSpec>(
     }): Json<ExtendedAccessListRequest<N>>,
 ) -> Response<ExtendedAccessListResponse> {
     api_service
-        .create_extended_access_list(tx, validate_tx, block)
+        .get_execution_hint(tx, validate_tx, block)
         .await
         .map(Json)
         .map_err(map_server_err)
