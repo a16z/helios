@@ -93,7 +93,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N>
         block_id: BlockId,
     ) -> Result<Account> {
         let block = self
-            .block_provider
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
@@ -192,7 +191,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N>
         };
 
         let transactions_root = self
-            .block_provider
             .get_block(block_hash.into(), false)
             .await?
             .ok_or(eyre!("block not found"))?
@@ -209,7 +207,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N>
         index: u64,
     ) -> Result<Option<<N>::TransactionResponse>> {
         let block = self
-            .block_provider
             .get_block(block_id.into(), false)
             .await?
             .ok_or(eyre!("block not found"))?;
@@ -255,7 +252,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
         };
 
         let receipts_root = self
-            .block_provider
             .get_block(block_hash.into(), false)
             .await?
             .ok_or(eyre!("block not found"))?
@@ -272,7 +268,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
     }
 
     async fn get_block_receipts(&self, block_id: BlockId) -> Result<Vec<N::ReceiptResponse>> {
-        let block = self.block_provider.get_block(block_id, false).await?;
+        let block = self.get_block(block_id, false).await?;
         let Some(block) = block else {
             return Ok(vec![]);
         };
@@ -339,7 +335,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
 
             let block_id = receipt.block_hash().unwrap().into();
             let receipts_root = self
-                .block_provider
                 .get_block(block_id, false)
                 .await?
                 .ok_or(eyre!("block not found"))?
@@ -368,7 +363,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N>
         block_id: BlockId,
     ) -> Result<HashMap<Address, Account>> {
         let block = self
-            .block_provider
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;

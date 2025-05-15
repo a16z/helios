@@ -43,7 +43,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
         let mut request = self.client.get(&url);
         if let Some(block_id) = block_id {
-            request = request.query(&[("block", block_id.to_string())]);
+            request = request.query(&[("block", block_id)]);
         }
         for slot in storage_slots {
             request = request.query(&[("storageSlots", slot)]);
@@ -75,7 +75,9 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     ) -> Result<Option<TransactionResponse<N>>> {
         let url = format!(
             "{}/eth/v1/proof/transaction/{}/{}",
-            self.base_url, block_id, index
+            self.base_url,
+            serialize_block_id(block_id),
+            index
         );
         let response = self.client.get(&url).send().await?;
         handle_response(response).await
@@ -156,7 +158,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let url = format!("{}/eth/v1/block/{}", self.base_url, block_id);
+        let url = format!(
+            "{}/eth/v1/block/{}",
+            self.base_url,
+            serialize_block_id(block_id)
+        );
         let response = self
             .client
             .get(&url)
@@ -170,7 +176,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let url = format!("{}/eth/v1/block/{}/receipts", self.base_url, block_id);
+        let url = format!(
+            "{}/eth/v1/block/{}/receipts",
+            self.base_url,
+            serialize_block_id(block_id)
+        );
         let response = self.client.get(&url).send().await?;
         handle_response(response).await
     }
@@ -195,5 +205,12 @@ async fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
     } else {
         let error_response = response.json::<ErrorResponse>().await?;
         Err(eyre!(error_response.error.to_string()))
+    }
+}
+
+fn serialize_block_id(block_id: BlockId) -> String {
+    match block_id {
+        BlockId::Number(number) => serde_json::to_string(&number).unwrap(),
+        BlockId::Hash(hash) => hash.block_hash.to_string(),
     }
 }

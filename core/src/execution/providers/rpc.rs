@@ -155,7 +155,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N> for RpcExecutionPro
         block_id: BlockId,
     ) -> Result<Account> {
         let block = self
-            .block_provider
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
@@ -260,10 +259,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutio
         let tx = self.provider.get_transaction_by_hash(hash).await?;
         if let Some(tx) = tx {
             let block_hash = tx.block_hash().ok_or(eyre!("block not found"))?;
-            let block = self
-                .block_provider
-                .get_block(block_hash.into(), true)
-                .await?;
+            let block = self.get_block(block_hash.into(), true).await?;
 
             let block = block.ok_or(eyre!("block not found"))?;
             let txs = block.transactions().clone().into_transactions_vec();
@@ -278,7 +274,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutio
         block_id: BlockId,
         index: u64,
     ) -> Result<Option<N::TransactionResponse>> {
-        let block = self.block_provider.get_block(block_id.into(), true).await?;
+        let block = self.get_block(block_id.into(), true).await?;
 
         let block = block.ok_or(eyre!("block not found"))?;
         let txs = block.transactions().clone().into_transactions_vec();
@@ -303,7 +299,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 
         let block_hash = receipt.block_hash().ok_or(eyre!("block not found"))?;
         let block = self
-            .block_provider
             .get_block(block_hash.into(), false)
             .await?
             .ok_or(eyre!("block not found"))?;
@@ -323,7 +318,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 
     async fn get_block_receipts(&self, block_id: BlockId) -> Result<Vec<N::ReceiptResponse>> {
         let block = self
-            .block_provider
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
@@ -378,7 +372,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N> for RpcExecut
         block_id: BlockId,
     ) -> Result<HashMap<Address, Account>> {
         let block = self
-            .block_provider
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
