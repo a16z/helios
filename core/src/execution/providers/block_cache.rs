@@ -44,9 +44,11 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
         let block = match block_id {
             BlockId::Number(tag) => match tag {
                 BlockNumberOrTag::Latest => self.latest.read().await.clone(),
-                BlockNumberOrTag::Finalized => self.finalized.read().await.clone(),
+                BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
+                    self.finalized.read().await.clone()
+                }
                 BlockNumberOrTag::Number(number) => self.blocks.read().await.get(&number).cloned(),
-                _ => None,
+                BlockNumberOrTag::Pending | BlockNumberOrTag::Earliest => None,
             },
             BlockId::Hash(hash) => {
                 let hash: B256 = hash.into();
