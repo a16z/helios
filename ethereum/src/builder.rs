@@ -6,7 +6,7 @@ use alloy::primitives::B256;
 use eyre::{eyre, Result};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
-use helios_core::execution::providers::block_cache::BlockCache;
+use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
 use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
 

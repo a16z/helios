@@ -10,7 +10,7 @@ use eyre::Result;
 
 use helios_common::{network_spec::NetworkSpec, types::Account};
 
-pub mod block_cache;
+pub mod block;
 pub mod rpc;
 pub mod utils;
 pub mod verifiable_api;
@@ -48,6 +48,11 @@ pub trait BlockProvider<N: NetworkSpec>: Send + Sync + 'static {
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId);
     async fn get_block(&self, block_id: BlockId, full_tx: bool)
         -> Result<Option<N::BlockResponse>>;
+    async fn get_untrusted_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<N::BlockResponse>>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]

@@ -11,7 +11,7 @@ use eyre::Result;
 use helios_common::network_spec::NetworkSpec;
 use tokio::sync::RwLock;
 
-use super::BlockProvider;
+use crate::execution::providers::BlockProvider;
 
 pub struct BlockCache<N: NetworkSpec> {
     latest: Arc<RwLock<Option<N::BlockResponse>>>,
@@ -70,6 +70,14 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
         } else {
             Ok(block)
         }
+    }
+
+    async fn get_untrusted_block(
+        &self,
+        _block_id: BlockId,
+        _full_tx: bool,
+    ) -> Result<Option<<N>::BlockResponse>> {
+        Ok(None)
     }
 
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {

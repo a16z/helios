@@ -2,9 +2,9 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use alloy::{
     consensus::BlockHeader,
-    eips::{BlockId, BlockNumberOrTag},
+    eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionResponse},
-    primitives::{address, Address, B256, U256},
+    primitives::{Address, B256, U256},
     rlp,
     rpc::types::{EIP1186AccountProofResponse, Filter, Log},
 };
@@ -30,8 +30,8 @@ use crate::execution::{
 };
 
 use super::{
-    utils::ensure_logs_match_filter, AccountProvider, BlockProvider, ExecutionHintProvider,
-    ExecutionProivder, LogProvider, ReceiptProvider, TransactionProvider,
+    block::eip2935, utils::ensure_logs_match_filter, AccountProvider, BlockProvider,
+    ExecutionHintProvider, ExecutionProivder, LogProvider, ReceiptProvider, TransactionProvider,
 };
 
 pub struct VerifiableApiExecutionProvider<N: NetworkSpec, B: BlockProvider<N>> {
@@ -126,45 +126,18 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N>
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
             Ok(Some(block))
         } else {
-            // eip-2935 block fetch
-            let latest_block = self
-                .block_provider
-                .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
-                .await?;
-
-            let Some(latest_block) = latest_block else {
-                return Ok(None);
-            };
-
-            let target_block = self.api.get_block(block_id, full_tx).await?;
-            let Some(target_block) = target_block else {
-                return Ok(None);
-            };
-
-            let latest_hash = latest_block.header().hash();
-            let latest_number = latest_block.header().number();
-            let target_number = target_block.header().number();
-            if target_number > latest_number - 8191 {
-                let slot = B256::from(U256::from(target_number % 8191));
-                let historical_block_address = address!("0000F90827F1C53a10cb7A02335B175320002935");
-                let target_block_hash = self
-                    .get_account(historical_block_address, &[slot], false, latest_hash.into())
-                    .await?
-                    .get_storage_value(slot)
-                    .ok_or(eyre!("could not fetch block"))?;
-
-                let target_block_hash = B256::from(target_block_hash);
-                let is_hash_valid = N::is_hash_valid(&target_block);
-
-                if is_hash_valid && target_block.header().hash() == target_block_hash {
-                    Ok(Some(target_block))
-                } else {
-                    Err(eyre!("historical block fetch failed"))
-                }
-            } else {
-                Ok(None)
-            }
+            eip2935::get_block(block_id, full_tx, self)
+                .await
+                .map(|v| Some(v))
         }
+    }
+
+    async fn get_untrusted_block(
+        &self,
+        block_id: BlockId,
+        full_tx: bool,
+    ) -> Result<Option<<N>::BlockResponse>> {
+        self.api.get_block(block_id, full_tx).await
     }
 }
 
