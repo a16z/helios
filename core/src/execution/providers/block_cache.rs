@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use alloy::consensus::BlockHeader;
@@ -8,7 +9,6 @@ use async_trait::async_trait;
 
 use eyre::Result;
 use helios_common::network_spec::NetworkSpec;
-use revm::primitives::HashMap;
 use tokio::sync::RwLock;
 
 use super::BlockProvider;
@@ -16,8 +16,9 @@ use super::BlockProvider;
 pub struct BlockCache<N: NetworkSpec> {
     latest: Arc<RwLock<Option<N::BlockResponse>>>,
     finalized: Arc<RwLock<Option<N::BlockResponse>>>,
-    blocks: Arc<RwLock<HashMap<u64, N::BlockResponse>>>,
-    hashes: Arc<RwLock<HashMap<B256, u64>>>,
+    blocks: Arc<RwLock<BTreeMap<u64, N::BlockResponse>>>,
+    hashes: Arc<RwLock<BTreeMap<B256, u64>>>,
+    size: usize,
 }
 
 impl<N: NetworkSpec> BlockCache<N> {
@@ -27,6 +28,7 @@ impl<N: NetworkSpec> BlockCache<N> {
             finalized: Arc::default(),
             blocks: Arc::default(),
             hashes: Arc::default(),
+            size: 256,
         }
     }
 }
@@ -82,9 +84,19 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             .write()
             .await
             .insert(block.header().hash(), block.header().number());
+
         self.blocks
             .write()
             .await
             .insert(block.header().number(), block);
+
+        while self.blocks.read().await.len() > self.size {
+            let blocks = self.blocks.read().await;
+            let entry = blocks.first_key_value();
+            let (num, block) = entry.as_ref().unwrap();
+            let block_hash = block.header().hash();
+            self.blocks.write().await.remove(&num).unwrap();
+            self.hashes.write().await.remove(&block_hash);
+        }
     }
 }

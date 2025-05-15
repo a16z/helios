@@ -6,7 +6,6 @@ use alloy::{
     eips::Encodable2718,
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
-    rlp,
     rpc::types::{AccessList, Log, TransactionRequest},
 };
 

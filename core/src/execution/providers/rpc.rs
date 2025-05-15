@@ -7,7 +7,7 @@ use alloy::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
         TransactionResponse,
     },
-    primitives::{Address, B256, U256},
+    primitives::{address, Address, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
     rlp,
     rpc::{
@@ -199,7 +199,53 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvi
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        self.block_provider.get_block(block_id, full_tx).await
+        if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
+            Ok(Some(block))
+        } else {
+            // eip-2935 block fetch
+            let latest_block = self
+                .block_provider
+                .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
+                .await?;
+
+            let Some(latest_block) = latest_block else {
+                return Ok(None);
+            };
+
+            let target_block = if full_tx {
+                self.provider.get_block(block_id).full().await?
+            } else {
+                self.provider.get_block(block_id).hashes().await?
+            };
+
+            let Some(target_block) = target_block else {
+                return Ok(None);
+            };
+
+            let latest_hash = latest_block.header().hash();
+            let latest_number = latest_block.header().number();
+            let target_number = target_block.header().number();
+            if target_number > latest_number - 8191 {
+                let slot = B256::from(U256::from(target_number % 8191));
+                let historical_block_address = address!("0000F90827F1C53a10cb7A02335B175320002935");
+                let target_block_hash = self
+                    .get_account(historical_block_address, &[slot], false, latest_hash.into())
+                    .await?
+                    .get_storage_value(slot)
+                    .ok_or(eyre!("could not fetch block"))?;
+
+                let target_block_hash = B256::from(target_block_hash);
+                let is_hash_valid = N::is_hash_valid(&target_block);
+
+                if is_hash_valid && target_block.header().hash() == target_block_hash {
+                    Ok(Some(target_block))
+                } else {
+                    Err(eyre!("historical block fetch failed"))
+                }
+            } else {
+                Ok(None)
+            }
+        }
     }
 
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {
