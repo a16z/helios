@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{fmt::Display, net::SocketAddr};
 
+use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
@@ -18,7 +19,7 @@ use jsonrpsee::{
 
 use helios_common::{
     network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx, SubscriptionType},
+    types::{SubEventRx, SubscriptionType},
 };
 
 use crate::client::HeliosClient;
@@ -62,16 +63,13 @@ trait EthRpc<
 >
 {
     #[method(name = "getBalance")]
-    async fn get_balance(
-        &self,
-        address: Address,
-        block: BlockTag,
-    ) -> Result<U256, ErrorObjectOwned>;
+    async fn get_balance(&self, address: Address, block: BlockId)
+        -> Result<U256, ErrorObjectOwned>;
     #[method(name = "getTransactionCount")]
     async fn get_transaction_count(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockTransactionCountByHash")]
     async fn get_block_transaction_count_by_hash(
@@ -81,19 +79,19 @@ trait EthRpc<
     #[method(name = "getBlockTransactionCountByNumber")]
     async fn get_block_transaction_count_by_number(
         &self,
-        block: BlockTag,
+        block: BlockNumberOrTag,
     ) -> Result<Option<U64>, ErrorObjectOwned>;
     #[method(name = "getCode")]
-    async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "call")]
-    async fn call(&self, tx: TXR, block: BlockTag) -> Result<Bytes, ErrorObjectOwned>;
+    async fn call(&self, tx: TXR, block: BlockId) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, tx: TXR, block: BlockTag) -> Result<U64, ErrorObjectOwned>;
+    async fn estimate_gas(&self, tx: TXR, block: BlockId) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "createAccessList")]
     async fn create_access_list(
         &self,
         tx: TXR,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessListResult, ErrorObjectOwned>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned>;
@@ -102,13 +100,13 @@ trait EthRpc<
     #[method(name = "maxPriorityFeePerGas")]
     async fn max_priority_fee_per_gas(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "blobBaseFee")]
-    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned>;
+    async fn blob_base_fee(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "blockNumber")]
     async fn block_number(&self) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "getBlockByNumber")]
     async fn get_block_by_number(
         &self,
-        block: BlockTag,
+        block: BlockNumberOrTag,
         full_tx: bool,
     ) -> Result<Option<B>, ErrorObjectOwned>;
     #[method(name = "getBlockByHash")]
@@ -122,7 +120,7 @@ trait EthRpc<
     #[method(name = "getTransactionReceipt")]
     async fn get_transaction_receipt(&self, hash: B256) -> Result<Option<R>, ErrorObjectOwned>;
     #[method(name = "getBlockReceipts")]
-    async fn get_block_receipts(&self, block: BlockTag) -> Result<Vec<R>, ErrorObjectOwned>;
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<R>>, ErrorObjectOwned>;
     #[method(name = "getTransactionByHash")]
     async fn get_transaction_by_hash(&self, hash: B256) -> Result<Option<TX>, ErrorObjectOwned>;
     #[method(name = "getTransactionByBlockHashAndIndex")]
@@ -134,7 +132,7 @@ trait EthRpc<
     #[method(name = "getTransactionByBlockNumberAndIndex")]
     async fn get_transaction_by_block_number_and_index(
         &self,
-        block: BlockTag,
+        block: BlockNumberOrTag,
         index: U64,
     ) -> Result<Option<TX>, ErrorObjectOwned>;
     #[method(name = "getLogs")]
@@ -149,21 +147,19 @@ trait EthRpc<
     async fn new_filter(&self, filter: Filter) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "newBlockFilter")]
     async fn new_block_filter(&self) -> Result<U256, ErrorObjectOwned>;
-    #[method(name = "newPendingTransactionFilter")]
-    async fn new_pending_transaction_filter(&self) -> Result<U256, ErrorObjectOwned>;
     #[method(name = "getStorageAt")]
     async fn get_storage_at(
         &self,
         address: Address,
         slot: U256,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<B256, ErrorObjectOwned>;
     #[method(name = "getProof")]
     async fn get_proof(
         &self,
         address: Address,
         storage_keys: Vec<U256>,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned>;
     #[method(name = "coinbase")]
     async fn coinbase(&self) -> Result<Address, ErrorObjectOwned>;
@@ -197,7 +193,7 @@ impl<N: NetworkSpec>
     async fn get_balance(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U256, ErrorObjectOwned> {
         convert_err(self.client.get_balance(address, block).await)
     }
@@ -205,7 +201,7 @@ impl<N: NetworkSpec>
     async fn get_transaction_count(
         &self,
         address: Address,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U64, ErrorObjectOwned> {
         convert_err(self.client.get_nonce(address, block).await).map(U64::from)
     }
@@ -216,7 +212,7 @@ impl<N: NetworkSpec>
     ) -> Result<Option<U64>, ErrorObjectOwned> {
         convert_err(
             self.client
-                .get_block_transaction_count_by_hash(hash)
+                .get_block_transaction_count(hash.into())
                 .await
                 .map(|opt| opt.map(U64::from)),
         )
@@ -224,24 +220,24 @@ impl<N: NetworkSpec>
 
     async fn get_block_transaction_count_by_number(
         &self,
-        block: BlockTag,
+        block: BlockNumberOrTag,
     ) -> Result<Option<U64>, ErrorObjectOwned> {
         convert_err(
             self.client
-                .get_block_transaction_count_by_number(block)
+                .get_block_transaction_count(block.into())
                 .await
                 .map(|opt| opt.map(U64::from)),
         )
     }
 
-    async fn get_code(&self, address: Address, block: BlockTag) -> Result<Bytes, ErrorObjectOwned> {
+    async fn get_code(&self, address: Address, block: BlockId) -> Result<Bytes, ErrorObjectOwned> {
         convert_err(self.client.get_code(address, block).await)
     }
 
     async fn call(
         &self,
         tx: N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<Bytes, ErrorObjectOwned> {
         convert_err(self.client.call(&tx, block).await)
     }
@@ -249,7 +245,7 @@ impl<N: NetworkSpec>
     async fn estimate_gas(
         &self,
         tx: N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<U64, ErrorObjectOwned> {
         let res = self.client.estimate_gas(&tx, block).await.map(U64::from);
 
@@ -259,13 +255,13 @@ impl<N: NetworkSpec>
     async fn create_access_list(
         &self,
         tx: N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessListResult, ErrorObjectOwned> {
         convert_err(self.client.create_access_list(&tx, block).await)
     }
 
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned> {
-        Ok(U64::from(self.client.chain_id().await))
+        Ok(U64::from(self.client.get_chain_id().await))
     }
 
     async fn gas_price(&self) -> Result<U256, ErrorObjectOwned> {
@@ -276,8 +272,8 @@ impl<N: NetworkSpec>
         convert_err(self.client.get_priority_fee().await)
     }
 
-    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256, ErrorObjectOwned> {
-        convert_err(self.client.blob_base_fee(block).await)
+    async fn blob_base_fee(&self) -> Result<U256, ErrorObjectOwned> {
+        convert_err(self.client.get_blob_base_fee().await)
     }
 
     async fn block_number(&self) -> Result<U64, ErrorObjectOwned> {
@@ -286,10 +282,10 @@ impl<N: NetworkSpec>
 
     async fn get_block_by_number(
         &self,
-        block: BlockTag,
+        block: BlockNumberOrTag,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>, ErrorObjectOwned> {
-        convert_err(self.client.get_block_by_number(block, full_tx).await)
+        convert_err(self.client.get_block(block.into(), full_tx).await)
     }
 
     async fn get_block_by_hash(
@@ -297,7 +293,7 @@ impl<N: NetworkSpec>
         hash: B256,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>, ErrorObjectOwned> {
-        convert_err(self.client.get_block_by_hash(hash, full_tx).await)
+        convert_err(self.client.get_block(hash.into(), full_tx).await)
     }
 
     async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256, ErrorObjectOwned> {
@@ -313,8 +309,8 @@ impl<N: NetworkSpec>
 
     async fn get_block_receipts(
         &self,
-        block: BlockTag,
-    ) -> Result<Vec<N::ReceiptResponse>, ErrorObjectOwned> {
+        block: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>, ErrorObjectOwned> {
         convert_err(self.client.get_block_receipts(block).await)
     }
 
@@ -322,7 +318,7 @@ impl<N: NetworkSpec>
         &self,
         hash: B256,
     ) -> Result<Option<N::TransactionResponse>, ErrorObjectOwned> {
-        convert_err(self.client.get_transaction_by_hash(hash).await)
+        convert_err(self.client.get_transaction(hash.into()).await)
     }
 
     async fn get_transaction_by_block_hash_and_index(
@@ -332,19 +328,19 @@ impl<N: NetworkSpec>
     ) -> Result<Option<N::TransactionResponse>, ErrorObjectOwned> {
         convert_err(
             self.client
-                .get_transaction_by_block_hash_and_index(hash, index.to())
+                .get_transaction_by_block_and_index(hash.into(), index.to())
                 .await,
         )
     }
 
     async fn get_transaction_by_block_number_and_index(
         &self,
-        block: BlockTag,
+        block: BlockNumberOrTag,
         index: U64,
     ) -> Result<Option<N::TransactionResponse>, ErrorObjectOwned> {
         convert_err(
             self.client
-                .get_transaction_by_block_number_and_index(block, index.to())
+                .get_transaction_by_block_and_index(block.into(), index.to())
                 .await,
         )
     }
@@ -384,15 +380,11 @@ impl<N: NetworkSpec>
         convert_err(self.client.new_block_filter().await)
     }
 
-    async fn new_pending_transaction_filter(&self) -> Result<U256, ErrorObjectOwned> {
-        convert_err(self.client.new_pending_transaction_filter().await)
-    }
-
     async fn get_storage_at(
         &self,
         address: Address,
         slot: U256,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<B256, ErrorObjectOwned> {
         convert_err(self.client.get_storage_at(address, slot, block).await)
     }
@@ -401,7 +393,7 @@ impl<N: NetworkSpec>
         &self,
         address: Address,
         storage_keys: Vec<U256>,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<EIP1186AccountProofResponse, ErrorObjectOwned> {
         let slots = storage_keys
             .into_iter()
@@ -425,14 +417,14 @@ impl<N: NetworkSpec>
 #[async_trait]
 impl<N: NetworkSpec> NetRpcServer for JsonRpc<N> {
     async fn version(&self) -> Result<u64, ErrorObjectOwned> {
-        Ok(self.client.chain_id().await)
+        Ok(self.client.get_chain_id().await)
     }
 }
 
 #[async_trait]
 impl<N: NetworkSpec> Web3RpcServer for JsonRpc<N> {
     async fn client_version(&self) -> Result<String, ErrorObjectOwned> {
-        Ok(self.client.client_version().await)
+        Ok(self.client.get_client_version().await)
     }
 }
 

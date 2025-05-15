@@ -1,6 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 
 use alloy::{
+    eips::{BlockId, BlockNumberOrTag},
     network::{primitives::HeaderResponse, BlockResponse},
     rpc::types::{AccessListItem, AccessListResult, EIP1186StorageProof},
 };
@@ -13,11 +14,7 @@ use revm::{
 };
 use tracing::trace;
 
-use helios_common::{
-    fork_schedule::ForkSchedule,
-    network_spec::NetworkSpec,
-    types::{Account, BlockTag},
-};
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::Account};
 
 use super::{
     errors::{DatabaseError, EvmError, ExecutionError},
@@ -27,7 +24,7 @@ use super::{
 pub struct Evm<N: NetworkSpec, E: ExecutionProivder<N>> {
     execution: Arc<E>,
     chain_id: u64,
-    tag: BlockTag,
+    block_id: BlockId,
     fork_schedule: ForkSchedule,
     phantom: PhantomData<N>,
 }
@@ -37,12 +34,12 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
         execution: Arc<E>,
         chain_id: u64,
         fork_schedule: ForkSchedule,
-        tag: BlockTag,
+        block_id: BlockId,
     ) -> Self {
         Evm {
             execution,
             chain_id,
-            tag,
+            block_id,
             fork_schedule,
             phantom: PhantomData::default(),
         }
@@ -107,11 +104,11 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
         tx: &N::TransactionRequest,
         validate_tx: bool,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
-        let mut db = ProofDB::new(self.tag, self.execution.clone());
+        let mut db = ProofDB::new(self.block_id, self.execution.clone());
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
         let mut evm = self
-            .get_context(tx, self.tag, validate_tx)
+            .get_context(tx, self.block_id, validate_tx)
             .await
             .with_db(db)
             .build_mainnet();
@@ -138,15 +135,15 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
     async fn get_context(
         &self,
         tx: &N::TransactionRequest,
-        tag: BlockTag,
+        block_id: BlockId,
         validate_tx: bool,
     ) -> Context {
         let block = self
             .execution
-            .get_block(tag.into(), false)
+            .get_block(block_id, false)
             .await
             .unwrap()
-            .ok_or(ExecutionError::BlockNotFound(tag))
+            .ok_or(ExecutionError::BlockNotFound(block_id))
             .unwrap();
 
         let mut cfg = CfgEnv::default();
@@ -168,8 +165,8 @@ struct ProofDB<N: NetworkSpec, E: ExecutionProivder<N>> {
 }
 
 impl<N: NetworkSpec, E: ExecutionProivder<N>> ProofDB<N, E> {
-    pub fn new(tag: BlockTag, execution: Arc<E>) -> Self {
-        let state = EvmState::new(execution, tag);
+    pub fn new(block_id: BlockId, execution: Arc<E>) -> Self {
+        let state = EvmState::new(execution, block_id);
         ProofDB { state }
     }
 }
@@ -183,14 +180,14 @@ enum StateAccess {
 struct EvmState<N: NetworkSpec, E: ExecutionProivder<N>> {
     accounts: HashMap<Address, Account>,
     block_hash: HashMap<u64, B256>,
-    block: BlockTag,
+    block: BlockId,
     access: Option<StateAccess>,
     execution: Arc<E>,
     phantom: PhantomData<N>,
 }
 
 impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
-    pub fn new(execution: Arc<E>, block: BlockTag) -> Self {
+    pub fn new(execution: Arc<E>, block: BlockId) -> Self {
         Self {
             execution,
             block,
@@ -232,12 +229,12 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
                     }
                 }
                 StateAccess::BlockHash(number) => {
-                    let tag = BlockTag::Number(number);
+                    let block_id = BlockNumberOrTag::Number(number).into();
                     let block = self
                         .execution
-                        .get_block(tag.into(), false)
+                        .get_block(block_id, false)
                         .await?
-                        .ok_or(ExecutionError::BlockNotFound(tag))?;
+                        .ok_or(ExecutionError::BlockNotFound(block_id))?;
 
                     self.block_hash.insert(number, block.header().hash());
                 }

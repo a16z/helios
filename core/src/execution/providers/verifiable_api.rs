@@ -2,7 +2,7 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use alloy::{
     consensus::BlockHeader,
-    eips::BlockId,
+    eips::{BlockId, BlockNumberOrTag},
     network::{primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionResponse},
     primitives::{Address, B256, U256},
     rlp,
@@ -125,10 +125,12 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N>
     ) -> Result<Option<<N>::BlockResponse>> {
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
             Ok(Some(block))
-        } else {
+        } else if block_id != BlockNumberOrTag::Latest.into() {
             eip2935::get_block(block_id, full_tx, self)
                 .await
                 .map(|v| Some(v))
+        } else {
+            Ok(None)
         }
     }
 
@@ -240,11 +242,14 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
         Ok(Some(receipt_response.receipt))
     }
 
-    async fn get_block_receipts(&self, block_id: BlockId) -> Result<Vec<N::ReceiptResponse>> {
-        let block = self.get_block(block_id, false).await?;
-        let Some(block) = block else {
-            return Ok(vec![]);
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let Some(block) = self.get_block(block_id, false).await? else {
+            return Ok(None);
         };
+
         let block_num = block.header().number();
 
         let receipts = self
@@ -255,7 +260,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
 
         verify_block_receipts::<N>(&receipts, &block)?;
 
-        Ok(receipts)
+        Ok(Some(receipts))
     }
 }
 

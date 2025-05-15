@@ -7,7 +7,7 @@ use alloy::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
         TransactionResponse,
     },
-    primitives::{address, Address, B256, U256},
+    primitives::{Address, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
     rlp,
     rpc::{
@@ -78,8 +78,13 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
         let blocks_receipts_fut = block_nums
             .into_iter()
             .map(|block_num| async move { self.get_block_receipts(block_num.into()).await });
+
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
-        let receipts = blocks_receipts.into_iter().flatten().collect::<Vec<_>>();
+        let receipts = blocks_receipts
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
 
         // Map tx hashes to encoded logs
         let receipts_logs_encoded = receipts
@@ -200,10 +205,12 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvi
     ) -> Result<Option<N::BlockResponse>> {
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
             Ok(Some(block))
-        } else {
+        } else if block_id != BlockNumberOrTag::Latest.into() {
             eip2935::get_block(block_id, full_tx, self)
                 .await
                 .map(|v| Some(v))
+        } else {
+            Ok(None)
         }
     }
 
@@ -288,20 +295,22 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
             .cloned())
     }
 
-    async fn get_block_receipts(&self, block_id: BlockId) -> Result<Vec<N::ReceiptResponse>> {
-        let block = self
-            .get_block(block_id, false)
-            .await?
-            .ok_or(eyre!("block not found"))?;
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        let Some(block) = self.get_block(block_id, false).await? else {
+            return Ok(None);
+        };
 
         let receipts = self
             .provider
             .get_block_receipts(block.header().hash().into())
             .await?
-            .ok_or(eyre!("block not found"))?;
+            .ok_or(eyre!("receipt fetch failed"))?;
 
         verify_block_receipts::<N>(&receipts, &block)?;
-        Ok(receipts)
+        Ok(Some(receipts))
     }
 }
 

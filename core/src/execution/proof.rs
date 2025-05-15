@@ -209,10 +209,9 @@ pub fn verify_block_receipts<N: NetworkSpec>(
     let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
 
     if expected_receipt_root != block.header().receipts_root() {
-        return Err(ExecutionError::BlockReceiptsRootMismatch(BlockTag::Number(
-            block.header().number(),
-        ))
-        .into());
+        return Err(
+            ExecutionError::BlockReceiptsRootMismatch(block.header().number().into()).into(),
+        );
     }
 
     Ok(())

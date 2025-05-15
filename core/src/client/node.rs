@@ -19,7 +19,7 @@ use tracing::{info, warn};
 use helios_common::{
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{BlockTag, SubEventRx, SubscriptionEvent, SubscriptionType},
+    types::{SubEventRx, SubscriptionEvent, SubscriptionType},
 };
 
 use crate::consensus::Consensus;
@@ -78,11 +78,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         }
     }
 
-    async fn check_blocktag_age(&self, block: &BlockTag) -> Result<(), ClientError> {
+    async fn check_blocktag_age(&self, block: &BlockId) -> Result<(), ClientError> {
         match block {
-            BlockTag::Latest => self.check_head_age().await,
-            BlockTag::Finalized => Ok(()),
-            BlockTag::Number(_) => Ok(()),
+            BlockId::Number(number) => match number {
+                BlockNumberOrTag::Latest => self.check_head_age().await,
+                _ => Ok(()),
+            },
+            BlockId::Hash(_) => Ok(()),
         }
     }
 
@@ -92,10 +94,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             .unwrap_or_else(|_| panic!("unreachable"))
             .as_secs();
 
-        let tag = BlockTag::Latest;
+        let tag = BlockNumberOrTag::Latest.into();
         let block_timestamp = self
             .execution
-            .get_block(tag.into(), false)
+            .get_block(tag, false)
             .await
             .map_err(|_| ClientError::BlockNotFound(tag))?
             .ok_or_else(|| ClientError::OutOfSync(timestamp))?
@@ -133,25 +135,25 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         }
     }
 
-    async fn call(&self, tx: &N::TransactionRequest, block: BlockTag) -> Result<Bytes> {
-        self.check_blocktag_age(&block).await?;
+    async fn call(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<Bytes> {
+        self.check_blocktag_age(&block_id).await?;
         let mut evm = Evm::new(
             self.execution.clone(),
-            self.chain_id().await,
+            self.get_chain_id().await,
             self.fork_schedule,
-            block,
+            block_id,
         );
 
         Ok(evm.call(tx).await?)
     }
 
-    async fn estimate_gas(&self, tx: &N::TransactionRequest, block: BlockTag) -> Result<u64> {
-        self.check_blocktag_age(&block).await?;
+    async fn estimate_gas(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<u64> {
+        self.check_blocktag_age(&block_id).await?;
         let mut evm = Evm::new(
             self.execution.clone(),
-            self.chain_id().await,
+            self.get_chain_id().await,
             self.fork_schedule,
-            block,
+            block_id,
         );
 
         Ok(evm.estimate_gas(tx).await?)
@@ -160,12 +162,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
-        block: BlockTag,
+        block: BlockId,
     ) -> Result<AccessListResult> {
         self.check_blocktag_age(&block).await?;
         let mut evm = Evm::new(
             self.execution.clone(),
-            self.chain_id().await,
+            self.get_chain_id().await,
             self.fork_schedule,
             block,
         );
@@ -175,41 +177,36 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         Ok(res.access_list_result)
     }
 
-    async fn get_balance(&self, address: Address, tag: BlockTag) -> Result<U256> {
-        self.check_blocktag_age(&tag).await?;
+    async fn get_balance(&self, address: Address, block_id: BlockId) -> Result<U256> {
+        self.check_blocktag_age(&block_id).await?;
         let account = self
             .execution
-            .get_account(address, &[], false, tag.into())
+            .get_account(address, &[], false, block_id)
             .await?;
 
         Ok(account.account.balance)
     }
 
-    async fn get_nonce(&self, address: Address, tag: BlockTag) -> Result<u64> {
-        self.check_blocktag_age(&tag).await?;
+    async fn get_nonce(&self, address: Address, block_id: BlockId) -> Result<u64> {
+        self.check_blocktag_age(&block_id).await?;
         let account = self
             .execution
-            .get_account(address, &[], false, tag.into())
+            .get_account(address, &[], false, block_id)
             .await?;
 
         Ok(account.account.nonce)
     }
 
-    async fn get_block_transaction_count_by_hash(&self, hash: B256) -> Result<Option<u64>> {
-        let block = self.execution.get_block(hash.into(), false).await?;
+    async fn get_block_transaction_count(&self, block_id: BlockId) -> Result<Option<u64>> {
+        let block = self.execution.get_block(block_id, false).await?;
         Ok(block.map(|block| block.transactions().hashes().len() as u64))
     }
 
-    async fn get_block_transaction_count_by_number(&self, tag: BlockTag) -> Result<Option<u64>> {
-        let block = self.execution.get_block(tag.into(), false).await?;
-        Ok(block.map(|block| block.transactions().hashes().len() as u64))
-    }
-
-    async fn get_code(&self, address: Address, tag: BlockTag) -> Result<Bytes> {
-        self.check_blocktag_age(&tag).await?;
+    async fn get_code(&self, address: Address, block_id: BlockId) -> Result<Bytes> {
+        self.check_blocktag_age(&block_id).await?;
         let account = self
             .execution
-            .get_account(address, &[], true, tag.into())
+            .get_account(address, &[], true, block_id)
             .await?;
 
         account
@@ -217,10 +214,15 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
             .ok_or(eyre!("Failed to fetch code for address"))
     }
 
-    async fn get_storage_at(&self, address: Address, slot: U256, tag: BlockTag) -> Result<B256> {
-        self.check_blocktag_age(&tag).await?;
+    async fn get_storage_at(
+        &self,
+        address: Address,
+        slot: U256,
+        block_id: BlockId,
+    ) -> Result<B256> {
+        self.check_blocktag_age(&block_id).await?;
         self.execution
-            .get_account(address, &[slot.into()], false, tag.into())
+            .get_account(address, &[slot.into()], false, block_id)
             .await?
             .get_storage_value(slot.into())
             .ok_or(eyre!("slot not found"))
@@ -231,12 +233,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         &self,
         address: Address,
         slots: &[B256],
-        block: BlockTag,
+        block_id: BlockId,
     ) -> Result<EIP1186AccountProofResponse> {
-        self.check_blocktag_age(&block).await?;
+        self.check_blocktag_age(&block_id).await?;
         let account = self
             .execution
-            .get_account(address, slots, false, block.into())
+            .get_account(address, slots, false, block_id)
             .await?;
 
         Ok(EIP1186AccountProofResponse {
@@ -258,36 +260,26 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         self.execution.get_receipt(tx_hash).await
     }
 
-    async fn get_block_receipts(&self, block: BlockTag) -> Result<Vec<N::ReceiptResponse>> {
-        self.check_blocktag_age(&block).await?;
-        self.execution.get_block_receipts(block.into()).await
+    async fn get_block_receipts(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<Vec<N::ReceiptResponse>>> {
+        self.check_blocktag_age(&block_id).await?;
+        self.execution.get_block_receipts(block_id).await
     }
 
-    async fn get_transaction_by_hash(
-        &self,
-        tx_hash: B256,
-    ) -> Result<Option<N::TransactionResponse>> {
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<N::TransactionResponse>> {
         self.execution.get_transaction(tx_hash).await
     }
 
-    async fn get_transaction_by_block_hash_and_index(
+    async fn get_transaction_by_block_and_index(
         &self,
-        hash: B256,
+        block_id: BlockId,
         index: u64,
     ) -> Result<Option<N::TransactionResponse>> {
+        self.check_blocktag_age(&block_id).await?;
         self.execution
-            .get_transaction_by_location(hash.into(), index)
-            .await
-    }
-
-    async fn get_transaction_by_block_number_and_index(
-        &self,
-        block: BlockTag,
-        index: u64,
-    ) -> Result<Option<N::TransactionResponse>> {
-        self.check_blocktag_age(&block).await?;
-        self.execution
-            .get_transaction_by_location(block.into(), index)
+            .get_transaction_by_location(block_id, index)
             .await
     }
 
@@ -295,7 +287,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         self.execution.get_logs(filter).await
     }
 
-    async fn client_version(&self) -> String {
+    async fn get_client_version(&self) -> String {
         let helios_version = std::env!("CARGO_PKG_VERSION");
         format!("helios-{}", helios_version)
     }
@@ -339,18 +331,14 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         Ok(self.filter_state.new_block_filter(current_block).await)
     }
 
-    async fn new_pending_transaction_filter(&self) -> Result<U256> {
-        Err(eyre!("pending transaction filters not supported"))
-    }
-
     async fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age().await?;
-        let tag = BlockTag::Latest;
+        let block_id = BlockNumberOrTag::Latest.into();
         let block = self
             .execution
-            .get_block(tag.into(), false)
+            .get_block(block_id, false)
             .await?
-            .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
+            .ok_or(eyre!(ClientError::BlockNotFound(block_id)))?;
 
         let base_fee = block.header().base_fee_per_gas().unwrap_or(0_u64);
         // assumes 1 gwei tip
@@ -359,12 +347,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         Ok(U256::from(base_fee + tip))
     }
 
-    async fn blob_base_fee(&self, block: BlockTag) -> Result<U256> {
+    async fn get_blob_base_fee(&self) -> Result<U256> {
+        let block_id = BlockNumberOrTag::Latest.into();
         let block = self
             .execution
-            .get_block(block.into(), false)
+            .get_block(block_id, false)
             .await?
-            .ok_or(eyre!(ClientError::BlockNotFound(block)))?;
+            .ok_or(eyre!(ClientError::BlockNotFound(block_id)))?;
 
         if let Some(excess_blob_gas) = block.header().excess_blob_gas() {
             let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
@@ -383,34 +372,26 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
 
     async fn get_block_number(&self) -> Result<U256> {
         self.check_head_age().await?;
-        let tag = BlockTag::Latest;
+        let block_id = BlockNumberOrTag::Latest.into();
         let block = self
             .execution
-            .get_block(tag.into(), false)
+            .get_block(block_id, false)
             .await?
-            .ok_or(eyre!(ClientError::BlockNotFound(tag)))?;
+            .ok_or(eyre!(ClientError::BlockNotFound(block_id)))?;
 
         Ok(U256::from(block.header().number()))
     }
 
-    async fn get_block_by_number(
+    async fn get_block(
         &self,
-        tag: BlockTag,
+        block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        self.check_blocktag_age(&tag).await?;
-        self.execution.get_block(tag.into(), full_tx).await
+        self.check_blocktag_age(&block_id).await?;
+        self.execution.get_block(block_id, full_tx).await
     }
 
-    async fn get_block_by_hash(
-        &self,
-        hash: B256,
-        full_tx: bool,
-    ) -> Result<Option<N::BlockResponse>> {
-        self.execution.get_block(hash.into(), full_tx).await
-    }
-
-    async fn chain_id(&self) -> u64 {
+    async fn get_chain_id(&self) -> u64 {
         self.consensus.chain_id()
     }
 

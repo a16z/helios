@@ -71,7 +71,7 @@ pub trait TransactionProvider<N: NetworkSpec> {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait ReceiptProvider<N: NetworkSpec> {
     async fn get_receipt(&self, hash: B256) -> Result<Option<N::ReceiptResponse>>;
-    async fn get_block_receipts(&self, block: BlockId) -> Result<Vec<N::ReceiptResponse>>;
+    async fn get_block_receipts(&self, block: BlockId) -> Result<Option<Vec<N::ReceiptResponse>>>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
