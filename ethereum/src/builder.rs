@@ -1,7 +1,9 @@
-use std::sync::Arc;
 use std::marker::PhantomData;
 #[cfg(not(target_arch = "wasm32"))]
+use std::net::SocketAddr;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
@@ -27,12 +29,14 @@ pub struct EthereumClientBuilder<DB: Database> {
     verifiable_api: Option<String>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
+    rpc_address: Option<SocketAddr>,
+    #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
     fallback: Option<String>,
     load_external_fallback: bool,
     strict_checkpoint_age: bool,
-    phantom: PhantomData<DB>
+    phantom: PhantomData<DB>,
 }
 
 impl<DB: Database> EthereumClientBuilder<DB> {
@@ -62,6 +66,12 @@ impl<DB: Database> EthereumClientBuilder<DB> {
 
     pub fn checkpoint(mut self, checkpoint: B256) -> Self {
         self.checkpoint = Some(checkpoint);
+        self
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn rpc_address(mut self, rpc_address: SocketAddr) -> Self {
+        self.rpc_address = Some(rpc_address);
         self
     }
 
@@ -114,11 +124,9 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             .execution_rpc
             .or_else(|| self.config.as_ref().and_then(|c| c.execution_rpc.clone()));
 
-        let verifiable_api = self.verifiable_api.or_else(|| {
-            self.config
-                .as_ref()
-                .and_then(|c| c.verifiable_api.clone())
-        });
+        let verifiable_api = self
+            .verifiable_api
+            .or_else(|| self.config.as_ref().and_then(|c| c.verifiable_api.clone()));
 
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
             Some(checkpoint)
@@ -142,7 +150,19 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         } else {
             None
         };
-        
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let rpc_address = if let Some(addr) = self.rpc_address {
+            Some(addr)
+        } else if let Some(config) = &self.config {
+            config
+                .rpc_bind_ip
+                .zip(config.rpc_port)
+                .map(|(addr, port)| SocketAddr::new(addr, port))
+        } else {
+            None
+        };
+
         let fallback = if self.fallback.is_some() {
             self.fallback
         } else if let Some(config) = &self.config {
@@ -193,28 +213,28 @@ impl<DB: Database> EthereumClientBuilder<DB> {
 
         let block_provider = BlockCache::<Ethereum>::new();
 
-
         if let Some(verifiable_api) = &config.verifiable_api {
-            let execution = VerifiableApiExecutionProvider::new(
-                verifiable_api,
-                block_provider,
-            );
+            let execution = VerifiableApiExecutionProvider::new(verifiable_api, block_provider);
 
             Ok(EthereumClient::new(
                 consensus,
                 execution,
                 config.execution_forks,
+                #[cfg(not(target_arch = "wasm32"))]
+                rpc_address,
             ))
         } else {
             let execution = RpcExecutionProvider::new(
                 config.execution_rpc.as_ref().unwrap().parse().unwrap(),
                 block_provider,
             );
-        
+
             Ok(EthereumClient::new(
                 consensus,
                 execution,
                 config.execution_forks,
+                #[cfg(not(target_arch = "wasm32"))]
+                rpc_address,
             ))
         }
     }

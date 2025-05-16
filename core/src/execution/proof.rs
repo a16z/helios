@@ -11,7 +11,7 @@ use alloy_trie::{
 };
 use eyre::{eyre, Result};
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::network_spec::NetworkSpec;
 
 use super::errors::ExecutionError;
 

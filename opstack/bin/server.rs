@@ -32,9 +32,7 @@ async fn main() -> Result<()> {
         gossip_addr,
         chain_id,
         unsafe_signer,
-        system_config_contract,
         replica_urls,
-        execution_rpc,
     )
     .await?;
 

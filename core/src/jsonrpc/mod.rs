@@ -22,12 +22,12 @@ use helios_common::{
     types::{SubEventRx, SubscriptionType},
 };
 
-use crate::client::HeliosClient;
+use crate::client::api::HeliosApi;
 
 pub type Handle = ServerHandle;
 
 pub async fn start<N: NetworkSpec>(
-    client: Arc<HeliosClient<N>>,
+    client: Arc<dyn HeliosApi<N>>,
     addr: SocketAddr,
 ) -> Result<ServerHandle> {
     let server = ServerBuilder::default().build(addr).await?;
@@ -50,7 +50,7 @@ pub async fn start<N: NetworkSpec>(
 
 #[derive(Clone)]
 struct JsonRpc<N: NetworkSpec> {
-    client: Arc<HeliosClient<N>>,
+    client: Arc<dyn HeliosApi<N>>,
     phantom: PhantomData<N>,
 }
 

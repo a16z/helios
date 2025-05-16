@@ -3448,6 +3448,8 @@ dependencies = [
  "helios-common",
  "helios-core",
  "helios-ethereum",
+ "helios-linea",
+ "helios-opstack",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",

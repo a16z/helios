@@ -71,8 +71,8 @@ impl Database for FileDB {
 
 impl Default for FileDB {
     fn default() -> Self {
-         panic!("not default for db construction");
-     } 
+        panic!("not default for db construction");
+    }
 }
 
 #[derive(Clone)]
@@ -98,6 +98,6 @@ impl Database for ConfigDB {
 
 impl Default for ConfigDB {
     fn default() -> Self {
-         panic!("not default for db construction");
-     } 
+        panic!("not default for db construction");
+    }
 }

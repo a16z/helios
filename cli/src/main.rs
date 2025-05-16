@@ -15,9 +15,6 @@ use eyre::Result;
 use figment::providers::Serialized;
 use figment::value::Value;
 use futures::executor::block_on;
-use helios_core::client::api::HeliosApi;
-use helios_core::execution::providers::ExecutionProivder;
-use helios_core::jsonrpc::{self, Handle};
 use tracing::{error, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
@@ -25,15 +22,13 @@ use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::client::HeliosClient;
-use helios_core::consensus::Consensus;
 use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
-use helios_ethereum::database::FileDB;
 use helios_ethereum::{EthereumClient, EthereumClientBuilder};
-// use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
-// use helios_linea::{
-//     builder::LineaClientBuilder, config::CliConfig as LineaCliConfig,
-//     config::Config as LineaConfig, types::LineaClient,
-// };
+use helios_linea::{
+    builder::LineaClientBuilder, config::CliConfig as LineaCliConfig,
+    config::Config as LineaConfig, LineaClient,
+};
+use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,25 +37,16 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let _handle = match cli.command {
         Command::Ethereum(ethereum) => {
-            let client = Arc::new(ethereum.make_client());
-            register_shutdown_handler(client.clone());
-            let config = ethereum.get_config();
-            let ip = config.rpc_bind_ip.unwrap();
-            let port = config.rpc_port.unwrap();
-            let addr = SocketAddr::new(ip, port);
-            start_jsonrpc(client, addr).await
+            let client = ethereum.make_client();
+            register_shutdown_handler(client);
         }
         Command::OpStack(opstack) => {
-            // let mut client = opstack.make_client();
-            // start_client(&mut client).await;
-            // register_shutdown_handler(client);
-            todo!()
+            let client = opstack.make_client();
+            register_shutdown_handler(client);
         }
         Command::Linea(linea) => {
-            // let mut client = linea.make_client();
-            // start_client(&mut client).await;
-            // register_shutdown_handler(client);
-            todo!()
+            let client = linea.make_client();
+            register_shutdown_handler(client);
         }
     };
 
@@ -80,17 +66,7 @@ fn enable_tracer() {
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 }
 
-async fn start_jsonrpc<N: NetworkSpec>(client: Arc<HeliosClient<N>>, addr: SocketAddr) -> Handle {
-    match jsonrpc::start(client.into(), addr).await {
-        Ok(handle) => handle,
-        Err(err) => {
-            error!(target: "helios::runner", error = %err);
-            exit(1);
-        }
-    }
-}
-
-fn register_shutdown_handler<N: NetworkSpec>(client: Arc<HeliosClient<N>>) {
+fn register_shutdown_handler<N: NetworkSpec>(client: HeliosClient<N>) {
     let shutdown_counter = Arc::new(Mutex::new(0));
 
     ctrlc::set_handler(move || {
@@ -171,19 +147,17 @@ impl EthereumArgs {
         let cli_config = self.as_cli_config();
         let config = EthereumConfig::from_file(&config_path, &self.network, &cli_config);
 
-        match EthereumClientBuilder::new().with_file_db().config(config).build() {
+        match EthereumClientBuilder::new()
+            .with_file_db()
+            .config(config)
+            .build()
+        {
             Ok(client) => client,
             Err(err) => {
                 error!(target: "helios::runner", error = %err);
                 exit(1);
             }
         }
-    }
-
-    fn get_config(&self) -> EthereumConfig {
-        let config_path = home_dir().unwrap().join(".helios/helios.toml");
-        let cli_config = self.as_cli_config();
-        EthereumConfig::from_file(&config_path, &self.network, &cli_config)
     }
 
     fn as_cli_config(&self) -> CliConfig {
@@ -236,58 +210,58 @@ struct OpStackArgs {
 }
 
 impl OpStackArgs {
-    // fn make_client(&self) -> OpStackClient {
-    //     let config_path = home_dir().unwrap().join(".helios/helios.toml");
-    //     let cli_provider = self.as_provider();
-    //     let config = OpStackConfig::from_file(&config_path, &self.network, cli_provider);
+    fn make_client(&self) -> OpStackClient {
+        let config_path = home_dir().unwrap().join(".helios/helios.toml");
+        let cli_provider = self.as_provider();
+        let config = OpStackConfig::from_file(&config_path, &self.network, cli_provider);
 
-    //     match OpStackClientBuilder::new().config(config).build() {
-    //         Ok(client) => client,
-    //         Err(err) => {
-    //             error!(target: "helios::runner", error = %err);
-    //             exit(1);
-    //         }
-    //     }
-    // }
+        match OpStackClientBuilder::new().config(config).build() {
+            Ok(client) => client,
+            Err(err) => {
+                error!(target: "helios::runner", error = %err);
+                exit(1);
+            }
+        }
+    }
 
-    // fn as_provider(&self) -> Serialized<HashMap<&str, Value>> {
-    //     let mut user_dict = HashMap::new();
+    fn as_provider(&self) -> Serialized<HashMap<&str, Value>> {
+        let mut user_dict = HashMap::new();
 
-    //     if let Some(rpc) = &self.execution_rpc {
-    //         user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
-    //     }
+        if let Some(rpc) = &self.execution_rpc {
+            user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
+        }
 
-    //     if let Some(api) = &self.execution_verifiable_api {
-    //         user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
-    //     }
+        if let Some(api) = &self.execution_verifiable_api {
+            user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
+        }
 
-    //     if let Some(rpc) = &self.consensus_rpc {
-    //         user_dict.insert("consensus_rpc", Value::from(rpc.to_string()));
-    //     }
+        if let Some(rpc) = &self.consensus_rpc {
+            user_dict.insert("consensus_rpc", Value::from(rpc.to_string()));
+        }
 
-    //     if self.rpc_bind_ip.is_some() && self.rpc_port.is_some() {
-    //         let rpc_socket = SocketAddr::new(self.rpc_bind_ip.unwrap(), self.rpc_port.unwrap());
-    //         user_dict.insert("rpc_socket", Value::from(rpc_socket.to_string()));
-    //     }
+        if self.rpc_bind_ip.is_some() && self.rpc_port.is_some() {
+            let rpc_socket = SocketAddr::new(self.rpc_bind_ip.unwrap(), self.rpc_port.unwrap());
+            user_dict.insert("rpc_socket", Value::from(rpc_socket.to_string()));
+        }
 
-    //     if let Some(ip) = self.rpc_bind_ip {
-    //         user_dict.insert("rpc_bind_ip", Value::from(ip.to_string()));
-    //     }
+        if let Some(ip) = self.rpc_bind_ip {
+            user_dict.insert("rpc_bind_ip", Value::from(ip.to_string()));
+        }
 
-    //     if let Some(port) = self.rpc_port {
-    //         user_dict.insert("rpc_port", Value::from(port));
-    //     }
+        if let Some(port) = self.rpc_port {
+            user_dict.insert("rpc_port", Value::from(port));
+        }
 
-    //     if self.load_external_fallback {
-    //         user_dict.insert("load_external_fallback", Value::from(true));
-    //     }
+        if self.load_external_fallback {
+            user_dict.insert("load_external_fallback", Value::from(true));
+        }
 
-    //     if let Some(checkpoint) = self.checkpoint {
-    //         user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
-    //     }
+        if let Some(checkpoint) = self.checkpoint {
+            user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
+        }
 
-    //     Serialized::from(user_dict, &self.network)
-    // }
+        Serialized::from(user_dict, &self.network)
+    }
 }
 
 #[derive(Args, Debug)]
@@ -303,27 +277,27 @@ struct LineaArgs {
 }
 
 impl LineaArgs {
-    // fn make_client(&self) -> LineaClient {
-    //     let config_path = home_dir().unwrap().join(".helios/helios.toml");
-    //     let cli_config = self.as_cli_config();
-    //     let config = LineaConfig::from_file(&config_path, &self.network, &cli_config);
+    fn make_client(&self) -> LineaClient {
+        let config_path = home_dir().unwrap().join(".helios/helios.toml");
+        let cli_config = self.as_cli_config();
+        let config = LineaConfig::from_file(&config_path, &self.network, &cli_config);
 
-    //     match LineaClientBuilder::new().config(config).build() {
-    //         Ok(client) => client,
-    //         Err(err) => {
-    //             error!(target: "helios::runner", error = %err);
-    //             exit(1);
-    //         }
-    //     }
-    // }
+        match LineaClientBuilder::new().config(config).build() {
+            Ok(client) => client,
+            Err(err) => {
+                error!(target: "helios::runner", error = %err);
+                exit(1);
+            }
+        }
+    }
 
-    // fn as_cli_config(&self) -> LineaCliConfig {
-    //     LineaCliConfig {
-    //         execution_rpc: self.execution_rpc.clone(),
-    //         rpc_bind_ip: self.rpc_bind_ip,
-    //         rpc_port: self.rpc_port,
-    //     }
-    // }
+    fn as_cli_config(&self) -> LineaCliConfig {
+        LineaCliConfig {
+            execution_rpc: self.execution_rpc.clone(),
+            rpc_bind_ip: self.rpc_bind_ip,
+            rpc_port: self.rpc_port,
+        }
+    }
 }
 
 fn true_or_none(b: bool) -> Option<bool> {

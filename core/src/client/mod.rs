@@ -1,7 +1,10 @@
-use std::ops::Deref;
+use std::{net::SocketAddr, ops::Deref, sync::Arc};
 
+use futures::future::pending;
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::jsonrpc;
 use crate::{consensus::Consensus, execution::providers::ExecutionProivder};
 
 use self::{api::HeliosApi, node::Node};
@@ -11,7 +14,7 @@ pub mod api;
 pub mod node;
 
 pub struct HeliosClient<N: NetworkSpec> {
-    inner: Box<dyn HeliosApi<N>>,
+    inner: Arc<dyn HeliosApi<N>>,
 }
 
 impl<N: NetworkSpec> HeliosClient<N> {
@@ -19,15 +22,25 @@ impl<N: NetworkSpec> HeliosClient<N> {
         consensus: C,
         execution: E,
         fork_schedule: ForkSchedule,
+        #[cfg(not(target_arch = "wasm32"))] rpc_address: Option<SocketAddr>,
     ) -> Self {
-        Self {
-            inner: Box::new(Node::new(consensus, execution, fork_schedule)),
+        let inner = Arc::new(Node::new(consensus, execution, fork_schedule));
+        let inner_ref = inner.clone();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(rpc_address) = rpc_address {
+            tokio::spawn(async move {
+                let _handle = jsonrpc::start(inner_ref, rpc_address).await;
+                let () = pending().await;
+            });
         }
+
+        Self { inner }
     }
 }
 
 impl<N: NetworkSpec> Deref for HeliosClient<N> {
-    type Target = Box<dyn HeliosApi<N>>;
+    type Target = Arc<dyn HeliosApi<N>>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
