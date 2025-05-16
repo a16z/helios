@@ -11,6 +11,7 @@ use alloy::{
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
+use futures::future::try_join_all;
 use helios_common::{network_spec::NetworkSpec, types::Account};
 use helios_verifiable_api_client::{
     http::HttpVerifiableApi,
@@ -286,6 +287,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
                 } = receipt_proofs
                     .get(&tx_hash)
                     .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
+
                 let encoded_logs = N::receipt_logs(receipt)
                     .iter()
                     .map(|l| rlp::encode(&l.inner))
@@ -304,10 +306,10 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
         }
 
         // Verify all receipts
-        for receipt_proof in receipt_proofs {
+        let valid_proofs_fut = receipt_proofs.iter().map(async |receipt_proof| {
             let (_, receipt_response) = receipt_proof;
-            let receipt = receipt_response.receipt;
-            let proof = receipt_response.receipt_proof;
+            let receipt = &receipt_response.receipt;
+            let proof = &receipt_response.receipt_proof;
 
             let block_id = receipt.block_hash().unwrap().into();
             let receipts_root = self
@@ -318,9 +320,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
                 .receipts_root();
 
             verify_receipt_proof::<N>(&receipt, receipts_root, &proof)
-                .map_err(|_| ExecutionError::ReceiptRootMismatch(receipt.transaction_hash()))?;
-        }
+        });
 
+        try_join_all(valid_proofs_fut).await?;
         ensure_logs_match_filter(&logs, filter)?;
 
         Ok(logs)

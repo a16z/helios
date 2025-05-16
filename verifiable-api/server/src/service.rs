@@ -28,6 +28,7 @@ use helios_core::execution::{
 };
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::{TransactionResponse, *};
+use tokio::time::Instant;
 
 #[derive(Clone)]
 pub struct ApiService<N: NetworkSpec> {
@@ -203,7 +204,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
     }
 
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
+        let start = Instant::now();
         let logs = self.rpc.get_logs(filter).await?;
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("logs fetch: {}ms", duration.as_millis());
 
         let receipt_proofs = self.create_receipt_proofs_for_logs(&logs).await?;
 
@@ -307,11 +312,18 @@ impl<N: NetworkSpec> ApiService<N> {
                 .ok_or::<Report>(ExecutionError::NoReceiptsForBlock(block_num.into()).into())
                 .map(|receipts| (block_num, receipts))
         });
+
+        let start = Instant::now();
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("block receipts fetch: {}ms", duration.as_millis());
+
         let blocks_receipts = blocks_receipts.into_iter().collect::<HashMap<_, _>>();
 
         let mut receipt_proofs: HashMap<B256, TransactionReceiptResponse<N>> = HashMap::new();
 
+        let start = Instant::now();
         for log in logs {
             let tx_hash = log.transaction_hash.unwrap();
             if receipt_proofs.contains_key(&tx_hash) {
@@ -337,6 +349,9 @@ impl<N: NetworkSpec> ApiService<N> {
                 },
             );
         }
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("log processing: {}ms", duration.as_millis());
 
         Ok(receipt_proofs)
     }
