@@ -1,6 +1,7 @@
+use std::sync::Arc;
+use std::marker::PhantomData;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
@@ -13,17 +14,17 @@ use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionPro
 use crate::config::networks::Network;
 use crate::config::Config;
 use crate::consensus::ConsensusClient;
-use crate::database::FileDB;
+use crate::database::{ConfigDB, Database, FileDB};
 use crate::rpc::http_rpc::HttpRpc;
 use crate::spec::Ethereum;
 use crate::EthereumClient;
 
 #[derive(Default)]
-pub struct EthereumClientBuilder {
+pub struct EthereumClientBuilder<DB: Database> {
     network: Option<Network>,
     consensus_rpc: Option<String>,
     execution_rpc: Option<String>,
-    execution_verifiable_api: Option<String>,
+    verifiable_api: Option<String>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
@@ -31,9 +32,10 @@ pub struct EthereumClientBuilder {
     fallback: Option<String>,
     load_external_fallback: bool,
     strict_checkpoint_age: bool,
+    phantom: PhantomData<DB>
 }
 
-impl EthereumClientBuilder {
+impl<DB: Database> EthereumClientBuilder<DB> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -53,8 +55,8 @@ impl EthereumClientBuilder {
         self
     }
 
-    pub fn execution_verifiable_api(mut self, execution_verifiable_api: &str) -> Self {
-        self.execution_verifiable_api = Some(execution_verifiable_api.to_string());
+    pub fn verifiable_api(mut self, verifiable_api: &str) -> Self {
+        self.verifiable_api = Some(verifiable_api.to_string());
         self
     }
 
@@ -112,10 +114,10 @@ impl EthereumClientBuilder {
             .execution_rpc
             .or_else(|| self.config.as_ref().and_then(|c| c.execution_rpc.clone()));
 
-        let execution_verifiable_api = self.execution_verifiable_api.or_else(|| {
+        let verifiable_api = self.verifiable_api.or_else(|| {
             self.config
                 .as_ref()
-                .and_then(|c| c.execution_verifiable_api.clone())
+                .and_then(|c| c.verifiable_api.clone())
         });
 
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
@@ -140,7 +142,7 @@ impl EthereumClientBuilder {
         } else {
             None
         };
-
+        
         let fallback = if self.fallback.is_some() {
             self.fallback
         } else if let Some(config) = &self.config {
@@ -164,7 +166,7 @@ impl EthereumClientBuilder {
         let config = Config {
             consensus_rpc,
             execution_rpc,
-            execution_verifiable_api,
+            verifiable_api,
             checkpoint,
             default_checkpoint,
             rpc_bind_ip: None,
@@ -184,27 +186,48 @@ impl EthereumClientBuilder {
         };
 
         let config = Arc::new(config);
-        let consensus = ConsensusClient::<MainnetConsensusSpec, HttpRpc, FileDB>::new(
+        let consensus = ConsensusClient::<MainnetConsensusSpec, HttpRpc, DB>::new(
             &config.consensus_rpc,
             config.clone(),
         )?;
 
         let block_provider = BlockCache::<Ethereum>::new();
 
-        // let execution = RpcExecutionProvider::new(
-        //     config.execution_rpc.as_ref().unwrap().parse().unwrap(),
-        //     block_provider,
-        // );
 
-        let execution = VerifiableApiExecutionProvider::new(
-            &config.execution_verifiable_api.as_ref().unwrap(),
-            block_provider,
-        );
+        if let Some(verifiable_api) = &config.verifiable_api {
+            let execution = VerifiableApiExecutionProvider::new(
+                verifiable_api,
+                block_provider,
+            );
 
-        Ok(EthereumClient::new(
-            consensus,
-            execution,
-            config.execution_forks,
-        ))
+            Ok(EthereumClient::new(
+                consensus,
+                execution,
+                config.execution_forks,
+            ))
+        } else {
+            let execution = RpcExecutionProvider::new(
+                config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+                block_provider,
+            );
+        
+            Ok(EthereumClient::new(
+                consensus,
+                execution,
+                config.execution_forks,
+            ))
+        }
+    }
+}
+
+impl EthereumClientBuilder<FileDB> {
+    pub fn with_file_db(self) -> Self {
+        self
+    }
+}
+
+impl EthereumClientBuilder<ConfigDB> {
+    pub fn with_config_db(self) -> Self {
+        self
     }
 }

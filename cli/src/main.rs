@@ -151,8 +151,8 @@ struct EthereumArgs {
     checkpoint: Option<B256>,
     #[arg(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
-    #[arg(long, env, value_parser = parse_url)]
-    execution_verifiable_api: Option<Url>,
+    #[arg(short, long, env, value_parser = parse_url)]
+    verifiable_api: Option<Url>,
     #[arg(short, long, env, value_parser = parse_url)]
     consensus_rpc: Option<Url>,
     #[arg(short, long, env)]
@@ -171,7 +171,7 @@ impl EthereumArgs {
         let cli_config = self.as_cli_config();
         let config = EthereumConfig::from_file(&config_path, &self.network, &cli_config);
 
-        match EthereumClientBuilder::new().config(config).build() {
+        match EthereumClientBuilder::new().with_file_db().config(config).build() {
             Ok(client) => client,
             Err(err) => {
                 error!(target: "helios::runner", error = %err);
@@ -190,7 +190,7 @@ impl EthereumArgs {
         CliConfig {
             checkpoint: self.checkpoint,
             execution_rpc: self.execution_rpc.clone(),
-            execution_verifiable_api: self.execution_verifiable_api.clone(),
+            verifiable_api: self.verifiable_api.clone(),
             consensus_rpc: self.consensus_rpc.clone(),
             data_dir: self
                 .data_dir
