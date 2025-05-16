@@ -6,8 +6,6 @@ use helios_core::execution::providers::{
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
 
-use helios_common::fork_schedule::ForkSchedule;
-
 use crate::{
     config::{Config, Network, NetworkConfig},
     consensus::ConsensusClient,
@@ -91,11 +89,6 @@ impl OpStackClientBuilder {
         };
 
         let consensus = ConsensusClient::new(&config);
-
-        let fork_schedule = ForkSchedule {
-            prague_timestamp: u64::MAX,
-        };
-
         let block_provider = BlockCache::<OpStack>::new();
 
         if let Some(verifiable_api) = &config.verifiable_api {
@@ -104,7 +97,7 @@ impl OpStackClientBuilder {
             Ok(OpStackClient::new(
                 consensus,
                 execution,
-                fork_schedule,
+                config.chain.forks,
                 #[cfg(not(target_arch = "wasm32"))]
                 config.rpc_socket,
             ))
@@ -117,7 +110,7 @@ impl OpStackClientBuilder {
             Ok(OpStackClient::new(
                 consensus,
                 execution,
-                fork_schedule,
+                config.chain.forks,
                 #[cfg(not(target_arch = "wasm32"))]
                 config.rpc_socket,
             ))
