@@ -7,7 +7,9 @@ use alloy::transports::layers::RetryBackoffLayer;
 use alloy::{
     consensus::{Account as TrieAccount, BlockHeader},
     eips::BlockNumberOrTag,
-    network::{BlockResponse, ReceiptResponse, TransactionResponse as TxTr},
+    network::{
+        primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionResponse as TxTr,
+    },
     primitives::{Address, B256, U256},
     rpc::types::{BlockId, Filter, Log},
 };
@@ -15,7 +17,7 @@ use async_trait::async_trait;
 use eyre::{eyre, Ok, OptionExt, Report, Result};
 use futures::future::try_join_all;
 
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::BlockTag};
+use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
 use helios_core::execution::proof::create_transaction_proof;
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
@@ -224,7 +226,8 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .hashes()
             .await?
             .ok_or_eyre(ExecutionError::BlockNotFound(block_id.try_into()?))?;
-        let tag = BlockTag::Number(block.header().number());
+
+        let block_id = block.header().hash().into();
 
         // initialize exection provider for the given block
         let block_provider = BlockCache::<N>::new();
@@ -238,7 +241,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             ForkSchedule {
                 prague_timestamp: u64::MAX,
             },
-            tag.into(),
+            block_id,
         );
         let res = evm.create_access_list(&tx, validate_tx).await?;
 
