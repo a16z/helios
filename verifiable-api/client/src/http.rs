@@ -29,7 +29,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         Self {
             client: Client::new(),
             base_url: base_url.trim_end_matches("/").to_string(),
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 

@@ -13,14 +13,14 @@ pub struct FilterState {
 #[derive(Clone)]
 pub enum FilterType {
     Blocks { start_block: u64, last_poll: u64 },
-    Logs { filter: Filter, last_poll: u64 },
+    Logs { filter: Box<Filter>, last_poll: u64 },
 }
 
 impl FilterState {
     pub async fn new_filter(&self, filter: Filter) -> U256 {
         let id = U256::random();
         let filter_type = FilterType::Logs {
-            filter,
+            filter: Box::new(filter),
             last_poll: 0,
         };
 

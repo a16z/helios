@@ -74,7 +74,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
             filter_state: FilterState::default(),
             block_broadcast,
             fork_schedule,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 

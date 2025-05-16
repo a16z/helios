@@ -41,7 +41,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
             chain_id,
             block_id,
             fork_schedule,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 
@@ -194,7 +194,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
             accounts: HashMap::new(),
             block_hash: HashMap::new(),
             access: None,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 
@@ -204,7 +204,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(address, &[], true, self.block.into())
+                        .get_account(address, &[], true, self.block)
                         .await?;
 
                     self.accounts.insert(address, account);
@@ -213,7 +213,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
                     let slot_bytes = B256::from(slot);
                     let account = self
                         .execution
-                        .get_account(address, &[slot_bytes], true, self.block.into())
+                        .get_account(address, &[slot_bytes], true, self.block)
                         .await?;
 
                     if let Some(stored_account) = self.accounts.get_mut(&address) {
@@ -286,10 +286,9 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
         tx: &N::TransactionRequest,
         validate_tx: bool,
     ) -> Result<()> {
-        let block_id = self.block.into();
         let account_map = self
             .execution
-            .get_execution_hint(tx, validate_tx, block_id)
+            .get_execution_hint(tx, validate_tx, self.block)
             .await
             .map_err(EvmError::RpcError)?;
 

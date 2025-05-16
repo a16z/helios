@@ -174,7 +174,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N> for RpcExecutionPro
         verify_storage_proof(&proof)?;
 
         let code = if with_code {
-            let code = self.provider.get_code_at(address).await?.into();
+            let code = self.provider.get_code_at(address).await?;
             verify_code_hash_proof(&proof, &code)?;
             Some(code)
         } else {
@@ -206,9 +206,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvi
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
             Ok(Some(block))
         } else if block_id != BlockNumberOrTag::Latest.into() {
-            eip2935::get_block(block_id, full_tx, self)
-                .await
-                .map(|v| Some(v))
+            eip2935::get_block(block_id, full_tx, self).await.map(Some)
         } else {
             Ok(None)
         }
@@ -253,7 +251,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutio
         block_id: BlockId,
         index: u64,
     ) -> Result<Option<N::TransactionResponse>> {
-        let block = self.get_block(block_id.into(), true).await?;
+        let block = self.get_block(block_id, true).await?;
 
         let block = block.ok_or(eyre!("block not found"))?;
         let txs = block.transactions().clone().into_transactions_vec();

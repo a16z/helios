@@ -33,6 +33,12 @@ impl<N: NetworkSpec> BlockCache<N> {
     }
 }
 
+impl<N: NetworkSpec> Default for BlockCache<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
@@ -53,7 +59,7 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             BlockId::Hash(hash) => {
                 let hash: B256 = hash.into();
                 if let Some(number) = self.hashes.read().await.get(&hash) {
-                    self.blocks.read().await.get(&number).cloned()
+                    self.blocks.read().await.get(number).cloned()
                 } else {
                     None
                 }
@@ -81,13 +87,12 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
     }
 
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {
-        match block_id {
-            BlockId::Number(tag) => match tag {
+        if let BlockId::Number(tag) = block_id {
+            match tag {
                 BlockNumberOrTag::Latest => *self.latest.write().await = Some(block.clone()),
                 BlockNumberOrTag::Finalized => *self.finalized.write().await = Some(block.clone()),
                 _ => (),
-            },
-            _ => (),
+            }
         }
 
         self.hashes
@@ -105,7 +110,7 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             let entry = blocks.first_key_value();
             let (num, block) = entry.as_ref().unwrap();
             let block_hash = block.header().hash();
-            self.blocks.write().await.remove(&num).unwrap();
+            self.blocks.write().await.remove(num).unwrap();
             self.hashes.write().await.remove(&block_hash);
         }
     }

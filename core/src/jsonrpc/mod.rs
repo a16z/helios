@@ -33,7 +33,7 @@ pub async fn start<N: NetworkSpec>(
     let server = ServerBuilder::default().build(addr).await?;
     let rpc = JsonRpc {
         client,
-        phantom: PhantomData::default(),
+        phantom: PhantomData,
     };
 
     let mut methods = Methods::new();
@@ -318,7 +318,7 @@ impl<N: NetworkSpec>
         &self,
         hash: B256,
     ) -> Result<Option<N::TransactionResponse>, ErrorObjectOwned> {
-        convert_err(self.client.get_transaction(hash.into()).await)
+        convert_err(self.client.get_transaction(hash).await)
     }
 
     async fn get_transaction_by_block_hash_and_index(

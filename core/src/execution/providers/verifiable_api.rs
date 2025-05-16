@@ -126,9 +126,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N>
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
             Ok(Some(block))
         } else if block_id != BlockNumberOrTag::Latest.into() {
-            eip2935::get_block(block_id, full_tx, self)
-                .await
-                .map(|v| Some(v))
+            eip2935::get_block(block_id, full_tx, self).await.map(Some)
         } else {
             Ok(None)
         }
@@ -182,7 +180,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N>
         index: u64,
     ) -> Result<Option<<N>::TransactionResponse>> {
         let block = self
-            .get_block(block_id.into(), false)
+            .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
 
@@ -323,7 +321,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
                 .map_err(|_| ExecutionError::ReceiptRootMismatch(receipt.transaction_hash()))?;
         }
 
-        ensure_logs_match_filter(&logs, &filter)?;
+        ensure_logs_match_filter(&logs, filter)?;
 
         Ok(logs)
     }
@@ -352,7 +350,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N>
             .await?;
 
         for (address, account) in &accounts {
-            self.verify_account(*address, &account, &block)?;
+            self.verify_account(*address, account, &block)?;
         }
 
         Ok(accounts)

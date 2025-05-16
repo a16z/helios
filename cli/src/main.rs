@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
     enable_tracer();
 
     let cli = Cli::parse();
-    let _handle = match cli.command {
+    match cli.command {
         Command::Ethereum(ethereum) => {
             let client = ethereum.make_client();
             register_shutdown_handler(client);
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
             let client = linea.make_client();
             register_shutdown_handler(client);
         }
-    };
+    }
 
     std::future::pending().await
 }
