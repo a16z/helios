@@ -12,7 +12,7 @@ use revm::{
     state::{AccountInfo, Bytecode},
     Context, Database, ExecuteEvm, MainBuilder, MainContext,
 };
-use tracing::trace;
+use tracing::{debug, trace};
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec, types::Account};
 
@@ -116,6 +116,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
         let tx_res = loop {
             let db = evm.db();
             if db.state.needs_update() {
+                debug!("evm cache miss: {:?}", db.state.access.as_ref().unwrap());
                 db.state.update_state().await.unwrap();
             }
 
@@ -171,6 +172,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> ProofDB<N, E> {
     }
 }
 
+#[derive(Debug)]
 enum StateAccess {
     Basic(Address),
     BlockHash(u64),
