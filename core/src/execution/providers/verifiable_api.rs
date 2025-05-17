@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use alloy::{
     consensus::BlockHeader,
@@ -21,6 +21,7 @@ use helios_verifiable_api_client::{
     },
     VerifiableApi,
 };
+use tokio::time::Instant;
 
 use crate::execution::{
     errors::ExecutionError,
@@ -267,10 +268,14 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecutionProvider<N, B> {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+        let start = Instant::now();
         let LogsResponse {
             logs,
             receipt_proofs,
         } = self.api.get_logs(filter).await?;
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("log proof fetch: {}ms", duration.as_millis());
 
         // Map of tx_hash -> encoded receipt logs to avoid encoding multiple times
         let mut txhash_encodedlogs_map: HashMap<B256, Vec<Vec<u8>>> = HashMap::new();
@@ -305,24 +310,47 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
             }
         }
 
-        // Verify all receipts
-        let valid_proofs_fut = receipt_proofs.iter().map(async |receipt_proof| {
-            let (_, receipt_response) = receipt_proof;
-            let receipt = &receipt_response.receipt;
-            let proof = &receipt_response.receipt_proof;
+        // fetch required blocks
+        let mut blocks_required = HashSet::new();
+        for receipt_proof in &receipt_proofs {
+            let block_hash = receipt_proof.1.receipt.block_hash().unwrap();
+            blocks_required.insert(block_hash);
+        }
 
-            let block_id = receipt.block_hash().unwrap().into();
-            let receipts_root = self
-                .get_block(block_id, false)
+        let receipts_roots_fut = blocks_required.iter().map(async |block_hash| {
+            let root = self
+                .get_block((*block_hash).into(), false)
                 .await?
                 .ok_or(eyre!("block not found"))?
                 .header()
                 .receipts_root();
 
-            verify_receipt_proof::<N>(&receipt, receipts_root, &proof)
+            Ok::<_, eyre::Report>((*block_hash, root))
         });
 
-        try_join_all(valid_proofs_fut).await?;
+        let start = Instant::now();
+        let receipts_root_vec = try_join_all(receipts_roots_fut).await?;
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("blocks fetch: {}ms", duration.as_millis());
+
+        let mut receipts_roots = HashMap::new();
+        for (block_hash, receipts_root) in receipts_root_vec {
+            receipts_roots.insert(block_hash, receipts_root);
+        }
+
+        // Verify all receipts
+        for receipt_proof in receipt_proofs {
+            let (_, receipt_response) = receipt_proof;
+            let receipt = &receipt_response.receipt;
+            let proof = &receipt_response.receipt_proof;
+
+            let block_hash = receipt.block_hash().unwrap();
+            let receipts_root = receipts_roots.get(&block_hash).unwrap();
+
+            verify_receipt_proof::<N>(&receipt, *receipts_root, &proof)?;
+        }
+
         ensure_logs_match_filter(&logs, filter)?;
 
         Ok(logs)

@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use alloy::{
     eips::BlockId,
@@ -7,8 +7,11 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
-use reqwest::{Client, Response};
+use reqwest::{self, Response};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
+use tokio::time::Duration;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -17,7 +20,7 @@ use super::VerifiableApi;
 
 #[derive(Clone)]
 pub struct HttpVerifiableApi<N: NetworkSpec> {
-    client: Client,
+    client: Arc<ClientWithMiddleware>,
     base_url: String,
     phantom: PhantomData<N>,
 }
@@ -26,8 +29,41 @@ pub struct HttpVerifiableApi<N: NetworkSpec> {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
+        let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+        let client = reqwest::ClientBuilder::default()
+            // // Keep 30 connections ready per host
+            // .pool_max_idle_per_host(30)
+            // // Disable idle timeout - keep connections indefinitely
+            // .pool_idle_timeout(None)
+            // // Aggressive TCP keepalive
+            // .tcp_keepalive(Some(Duration::from_secs(30)))
+            // // HTTP/2 specific settings
+            // .http2_keep_alive_interval(Some(Duration::from_secs(30)))
+            // .http2_keep_alive_timeout(Duration::from_secs(30))
+            // .http2_keep_alive_while_idle(true)
+            // // Prevent connection closure
+            // .tcp_nodelay(true)
+            .build()
+            .unwrap();
+
+        let client = Arc::new(
+            ClientBuilder::new(client)
+                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .build(),
+        );
+
+        let client_ref = client.clone();
+        let base_url_ref = base_url.to_string();
+
+        // tokio::spawn(async move {
+        //     loop {
+        //         _ = client_ref.head(&base_url_ref).send().await;
+        //         tokio::time::sleep(Duration::from_secs(1)).await;
+        //     }
+        // });
+
         Self {
-            client: Client::new(),
+            client,
             base_url: base_url.trim_end_matches("/").to_string(),
             phantom: PhantomData,
         }

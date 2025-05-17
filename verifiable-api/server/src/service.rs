@@ -16,6 +16,7 @@ use alloy::{
 use async_trait::async_trait;
 use eyre::{eyre, Ok, OptionExt, Report, Result};
 use futures::future::try_join_all;
+use rayon::prelude::*;
 
 use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
 use helios_core::execution::proof::create_transaction_proof;
@@ -321,39 +322,50 @@ impl<N: NetworkSpec> ApiService<N> {
 
         let blocks_receipts = blocks_receipts.into_iter().collect::<HashMap<_, _>>();
 
-        let mut receipt_proofs: HashMap<B256, TransactionReceiptResponse<N>> = HashMap::new();
-
         let start = Instant::now();
+        let mut receipts_to_prove = HashSet::new();
         for log in logs {
-            let tx_hash = log.transaction_hash.unwrap();
-            if receipt_proofs.contains_key(&tx_hash) {
-                continue;
+            let entry = (
+                log.block_number.unwrap(),
+                log.transaction_hash.unwrap(),
+                log.transaction_index.unwrap(),
+            );
+            if !receipts_to_prove.contains(&entry) {
+                receipts_to_prove.insert(entry);
             }
-
-            let block_num = log.block_number.unwrap();
-            let receipts = blocks_receipts.get(&block_num).unwrap();
-            let receipt = receipts
-                .get(log.transaction_index.unwrap() as usize)
-                .unwrap();
-
-            let receipt_proof = create_receipt_proof::<N>(
-                receipts.to_vec(),
-                receipt.transaction_index().unwrap() as usize,
-            );
-
-            receipt_proofs.insert(
-                tx_hash,
-                TransactionReceiptResponse {
-                    receipt: receipt.clone(),
-                    receipt_proof,
-                },
-            );
         }
+
+        let receipt_proofs = receipts_to_prove
+            .par_iter()
+            .map(|(block_number, tx_hash, tx_index)| {
+                let receipts = blocks_receipts.get(&block_number).unwrap();
+                let receipt = receipts.get(*tx_index as usize).unwrap();
+
+                let proof = create_receipt_proof::<N>(
+                    receipts.to_vec(),
+                    receipt.transaction_index().unwrap() as usize,
+                );
+
+                (
+                    tx_hash,
+                    TransactionReceiptResponse {
+                        receipt: receipt.clone(),
+                        receipt_proof: proof,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let mut receipt_response = HashMap::new();
+        for (tx_hash, receipt_proof) in receipt_proofs {
+            receipt_response.insert(*tx_hash, receipt_proof);
+        }
+
         let finish = Instant::now();
         let duration = finish.duration_since(start);
         println!("log processing: {}ms", duration.as_millis());
 
-        Ok(receipt_proofs)
+        Ok(receipt_response)
     }
 }
 
