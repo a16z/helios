@@ -29,7 +29,7 @@ pub struct HttpVerifiableApi<N: NetworkSpec> {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
-        let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+        //let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
         let client = reqwest::ClientBuilder::default()
             // // Keep 30 connections ready per host
             // .pool_max_idle_per_host(30)
@@ -48,7 +48,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
 
         let client = Arc::new(
             ClientBuilder::new(client)
-                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                //.with(RetryTransientMiddleware::new_with_policy(retry_policy))
                 .build(),
         );
 

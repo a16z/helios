@@ -411,3 +411,7 @@ pub async fn openapi() -> Result<String, (StatusCode, String)> {
 
     Ok(contents)
 }
+
+pub async fn ping() -> Result<String, (StatusCode, String)> {
+    Ok("pong".to_string())
+}

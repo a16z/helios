@@ -268,6 +268,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecutionProvider<N, B> {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
+        let total_start = Instant::now();
         let start = Instant::now();
         let LogsResponse {
             logs,
@@ -339,6 +340,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
             receipts_roots.insert(block_hash, receipts_root);
         }
 
+        let start = Instant::now();
         // Verify all receipts
         for receipt_proof in receipt_proofs {
             let (_, receipt_response) = receipt_proof;
@@ -350,8 +352,15 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
 
             verify_receipt_proof::<N>(&receipt, *receipts_root, &proof)?;
         }
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("proof verification: {}ms", duration.as_millis());
 
         ensure_logs_match_filter(&logs, filter)?;
+
+        let total_finish = Instant::now();
+        let total_duration = total_finish.duration_since(total_start);
+        println!("total duration: {}ms", total_duration.as_millis());
 
         Ok(logs)
     }
