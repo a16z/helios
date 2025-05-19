@@ -133,7 +133,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
                     .number();
 
                 Ok(number)
-            }
+            },
             Some(BlockNumberOrTag::Finalized) => {
                 let number = self
                     .get_block(BlockId::Number(BlockNumberOrTag::Finalized), false)
@@ -143,7 +143,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
                     .number();
 
                 Ok(number)
-            }
+            },
+            Some(BlockNumberOrTag::Number(number)) => Ok(number),
             _ => Err(eyre!("block not found")),
         }
     }
