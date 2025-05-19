@@ -2,6 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use tower_http::compression::CompressionLayer;
 
 use helios_common::network_spec::NetworkSpec;
 
@@ -9,6 +10,7 @@ use crate::{handlers, state::ApiState};
 
 pub fn build_router<N: NetworkSpec>() -> Router<ApiState<N>> {
     Router::new()
+        .layer(CompressionLayer::new())
         .route("/openapi.yaml", get(handlers::openapi))
         .route("/ping", get(handlers::ping))
         .nest(

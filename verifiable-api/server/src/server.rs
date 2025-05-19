@@ -53,6 +53,7 @@ impl VerifiableApiServer {
         // run the server
         tokio::spawn(async move {
             let listener = tokio::net::TcpListener::bind(server_addr).await.unwrap();
+
             debug!(
                 target: "helios::verifiable-api-server",
                 "listening on {}",
