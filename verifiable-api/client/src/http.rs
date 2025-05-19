@@ -31,18 +31,18 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
         //let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
         let client = reqwest::ClientBuilder::default()
-            // // Keep 30 connections ready per host
-            // .pool_max_idle_per_host(30)
-            // // Disable idle timeout - keep connections indefinitely
-            // .pool_idle_timeout(None)
-            // // Aggressive TCP keepalive
-            // .tcp_keepalive(Some(Duration::from_secs(30)))
-            // // HTTP/2 specific settings
-            // .http2_keep_alive_interval(Some(Duration::from_secs(30)))
-            // .http2_keep_alive_timeout(Duration::from_secs(30))
-            // .http2_keep_alive_while_idle(true)
-            // // Prevent connection closure
-            // .tcp_nodelay(true)
+            // Keep 30 connections ready per host
+            .pool_max_idle_per_host(30)
+            // Disable idle timeout - keep connections indefinitely
+            .pool_idle_timeout(None)
+            // Aggressive TCP keepalive
+            .tcp_keepalive(Some(Duration::from_secs(30)))
+            // HTTP/2 specific settings
+            .http2_keep_alive_interval(Some(Duration::from_secs(30)))
+            .http2_keep_alive_timeout(Duration::from_secs(30))
+            .http2_keep_alive_while_idle(true)
+            // Prevent connection closure
+            .tcp_nodelay(true)
             .build()
             .unwrap();
 
@@ -55,12 +55,12 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         let client_ref = client.clone();
         let base_url_ref = base_url.to_string();
 
-        // tokio::spawn(async move {
-        //     loop {
-        //         _ = client_ref.head(&base_url_ref).send().await;
-        //         tokio::time::sleep(Duration::from_secs(1)).await;
-        //     }
-        // });
+        tokio::spawn(async move {
+            loop {
+                _ = client_ref.head(&base_url_ref).send().await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        });
 
         Self {
             client,
@@ -158,6 +158,8 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
                 }
             }
         }
+
+        println!("{}", request.try_clone().unwrap().build().unwrap().url());
 
         let response = request.send().await?;
         handle_response(response).await

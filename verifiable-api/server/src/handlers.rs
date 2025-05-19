@@ -257,14 +257,14 @@ pub async fn get_transaction_by_location<N: NetworkSpec>(
 pub async fn get_logs<N: NetworkSpec>(
     Query(logs_filter_query): Query<LogsQuery>,
     State(ApiState { api_service }): State<ApiState<N>>,
-) -> Response<LogsResponse<N>> {
+) -> Result<axum::response::Response, (StatusCode, Json<ErrorResponse>)> {
     let filter: Filter = logs_filter_query.try_into().map_err(map_server_err)?;
 
     api_service
         .get_logs(&filter)
         .await
-        .map(Json)
         .map_err(map_server_err)
+        .map(json_response)
 }
 
 /// Returns a list of all addresses and storage keys (along with their EIP-1186 proofs) that are accessed by a given transaction.
@@ -414,4 +414,16 @@ pub async fn openapi() -> Result<String, (StatusCode, String)> {
 
 pub async fn ping() -> Result<String, (StatusCode, String)> {
     Ok("pong".to_string())
+}
+
+fn json_response<T: Serialize>(val: T) -> axum::response::Response {
+    let body = serde_json::to_string(&val).unwrap();
+    let len = body.len().to_string();
+
+    axum::response::Response::builder()
+        .status(StatusCode::OK)
+        .header(axum::http::header::CONTENT_TYPE, "application/json")
+        .header(axum::http::header::CONTENT_LENGTH, len)
+        .body(body.into())
+        .unwrap()
 }

@@ -28,7 +28,7 @@ helios-core = { path = "../../core" }
 helios-ethereum = { path = "../../ethereum" }
 helios-opstack = { path = "../../opstack" }
 
-axum = "0.8.1"
+axum = "0.8.4"
 axum-extra = { version = "0.10.0", features = ["query"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 
