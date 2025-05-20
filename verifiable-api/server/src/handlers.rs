@@ -6,9 +6,7 @@ use alloy::{
     rpc::types::{BlockId, Filter, FilterSet},
 };
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::Json,
+    body::{Body, HttpBody}, extract::{Path, State}, http::StatusCode, response::Json
 };
 use axum_extra::extract::Query;
 use bytes::Bytes;
@@ -427,7 +425,7 @@ fn json_response<T: Serialize>(val: T) -> axum::response::Response {
         .status(StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, "application/json")
         .header(axum::http::header::CONTENT_LENGTH, len)
-        .body(json_bytes.into())
+        .body(Body::from(json_bytes))
         .unwrap();
 
     let end = Instant::now();
