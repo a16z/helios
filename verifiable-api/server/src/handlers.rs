@@ -18,6 +18,7 @@ use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::errors::ExecutionError;
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
+use tokio::time::Instant;
 
 use crate::state::ApiState;
 
@@ -417,13 +418,20 @@ pub async fn ping() -> Result<String, (StatusCode, String)> {
 }
 
 fn json_response<T: Serialize>(val: T) -> axum::response::Response {
+    let start = Instant::now();
     let body = serde_json::to_string(&val).unwrap();
     let len = body.len().to_string();
 
-    axum::response::Response::builder()
+    let res = axum::response::Response::builder()
         .status(StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, "application/json")
         .header(axum::http::header::CONTENT_LENGTH, len)
         .body(body.into())
-        .unwrap()
+        .unwrap();
+
+    let end = Instant::now();
+    let duration = end.duration_since(start);
+    println!("json handling: {}ms", duration.as_millis());
+
+    res
 }

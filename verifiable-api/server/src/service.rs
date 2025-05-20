@@ -213,6 +213,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
 
         let receipt_proofs = self.create_receipt_proofs_for_logs(&logs).await?;
 
+
+        let finish = Instant::now();
+        let duration = finish.duration_since(start);
+        println!("total execution time: {}ms", duration.as_millis());
+
+
+
         Ok(LogsResponse {
             logs,
             receipt_proofs,

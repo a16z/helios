@@ -20,7 +20,7 @@ use super::VerifiableApi;
 
 #[derive(Clone)]
 pub struct HttpVerifiableApi<N: NetworkSpec> {
-    client: Arc<ClientWithMiddleware>,
+    client: Arc<reqwest::Client>,
     base_url: String,
     phantom: PhantomData<N>,
 }
@@ -30,7 +30,7 @@ pub struct HttpVerifiableApi<N: NetworkSpec> {
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
         //let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
-        let client = reqwest::ClientBuilder::default()
+        let client = Arc::new(reqwest::ClientBuilder::default()
             // Keep 30 connections ready per host
             .pool_max_idle_per_host(30)
             // Disable idle timeout - keep connections indefinitely
@@ -43,14 +43,17 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             .http2_keep_alive_while_idle(true)
             // Prevent connection closure
             .tcp_nodelay(true)
+            .gzip(true)
+            .hickory_dns(true)
+            .http2_prior_knowledge()
             .build()
-            .unwrap();
+            .unwrap());
 
-        let client = Arc::new(
-            ClientBuilder::new(client)
-                //.with(RetryTransientMiddleware::new_with_policy(retry_policy))
-                .build(),
-        );
+        // let client = Arc::new(
+        //     ClientBuilder::new(client)
+        //         //.with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        //         .build(),
+        // );
 
         let client_ref = client.clone();
         let base_url_ref = base_url.to_string();
@@ -158,8 +161,6 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
                 }
             }
         }
-
-        println!("{}", request.try_clone().unwrap().build().unwrap().url());
 
         let response = request.send().await?;
         handle_response(response).await
