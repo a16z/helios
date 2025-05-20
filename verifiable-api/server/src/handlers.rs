@@ -421,6 +421,7 @@ fn json_response<T: Serialize>(val: T) -> axum::response::Response {
     let json_bytes = Bytes::from(serde_json::to_vec(&val).unwrap());
     let len = json_bytes.len().to_string();
 
+
     let res = axum::response::Response::builder()
         .status(StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, "application/json")

@@ -1,6 +1,8 @@
 use std::net::SocketAddr;
 
+use axum::serve::ListenerExt;
 use clap::{Args, Subcommand};
+use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::debug;
@@ -52,13 +54,11 @@ impl VerifiableApiServer {
 
         // run the server
         tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind(server_addr).await.unwrap();
 
-            debug!(
-                target: "helios::verifiable-api-server",
-                "listening on {}",
-                listener.local_addr().unwrap()
-            );
+            let listener = TcpListener ::bind(server_addr).await.unwrap().tap_io(|tcp_stream| {
+                tcp_stream.set_nodelay(true).unwrap()
+            });
+
             axum::serve(listener, app)
                 .with_graceful_shutdown(async {
                     let _ = shutdown_rx.await;
