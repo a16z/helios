@@ -2,9 +2,10 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::compression::CompressionLayer;
+use tower_http::{compression::CompressionLayer, trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer}};
 
 use helios_common::network_spec::NetworkSpec;
+use tracing::Level;
 
 use crate::{handlers, state::ApiState};
 
@@ -37,4 +38,9 @@ pub fn build_router<N: NetworkSpec>() -> Router<ApiState<N>> {
                 .route("/sendRawTransaction", post(handlers::send_raw_transaction)),
         )
         .layer(CompressionLayer::new())
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO))
+        )
 }

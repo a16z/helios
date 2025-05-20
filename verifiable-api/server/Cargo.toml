@@ -30,7 +30,7 @@ helios-opstack = { path = "../../opstack" }
 
 axum = "0.8.4"
 axum-extra = { version = "0.10.0", features = ["query"] }
-tower-http = { version = "0.6.4", features = ["compression-full"] }
+tower-http = { version = "0.6.4", features = ["compression-full", "trace"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 
 [dev-dependencies]
