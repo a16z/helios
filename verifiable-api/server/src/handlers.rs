@@ -11,6 +11,7 @@ use axum::{
     response::Json,
 };
 use axum_extra::extract::Query;
+use bytes::Bytes;
 use eyre::{eyre, Report, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -419,14 +420,14 @@ pub async fn ping() -> Result<String, (StatusCode, String)> {
 
 fn json_response<T: Serialize>(val: T) -> axum::response::Response {
     let start = Instant::now();
-    let body = serde_json::to_string(&val).unwrap();
-    let len = body.len().to_string();
+    let json_bytes = Bytes::from(serde_json::to_vec(&val).unwrap());
+    let len = json_bytes.len().to_string();
 
     let res = axum::response::Response::builder()
         .status(StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, "application/json")
         .header(axum::http::header::CONTENT_LENGTH, len)
-        .body(body.into())
+        .body(json_bytes.into())
         .unwrap();
 
     let end = Instant::now();

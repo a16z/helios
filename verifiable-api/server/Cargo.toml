@@ -19,6 +19,7 @@ url.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 rayon = "1.10.0"
+bytes = "1.10.1"
 
 # self crates
 helios-verifiable-api-client = { path = "../client" }
@@ -32,6 +33,7 @@ axum = "0.8.4"
 axum-extra = { version = "0.10.0", features = ["query"] }
 tower-http = { version = "0.6.4", features = ["compression-full", "trace"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
+
 
 [dev-dependencies]
 helios-test-utils = { path = "../../tests/test-utils" }
