@@ -89,12 +89,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .await?;
 
         let code = if include_code {
-            Some(
-                self.rpc
-                    .get_code_at(address)
-                    .block_id(block_id)
-                    .await?,
-            )
+            Some(self.rpc.get_code_at(address).block_id(block_id).await?)
         } else {
             None
         };
