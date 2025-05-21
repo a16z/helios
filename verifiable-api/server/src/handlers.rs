@@ -187,7 +187,7 @@ pub async fn get_transaction_receipt<N: NetworkSpec>(
 ///
 /// - RLP encode the given transaction and keccak-256 hash it.
 /// - Verify the given `transactionProof` against the trusted block's transaction root with the
-/// transaction hash as the leaf.
+///   transaction hash as the leaf.
 pub async fn get_transaction<N: NetworkSpec>(
     Path(tx_hash): Path<B256>,
     State(ApiState { api_service }): State<ApiState<N>>,
@@ -215,7 +215,7 @@ pub async fn get_transaction<N: NetworkSpec>(
 ///
 /// - RLP encode the given transaction and keccak-256 hash it.
 /// - Verify the given `transactionProof` against the trusted block's transaction root with the
-/// transaction hash as the leaf.
+///   transaction hash as the leaf.
 pub async fn get_transaction_by_location<N: NetworkSpec>(
     Path(block_id): Path<BlockId>,
     Path(index): Path<u64>,

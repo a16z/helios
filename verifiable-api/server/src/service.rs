@@ -69,7 +69,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
                         .get_block(tag.into())
                         .hashes()
                         .await?
-                        .ok_or_eyre(ExecutionError::BlockNotFound(tag.try_into()?))
+                        .ok_or_eyre(ExecutionError::BlockNotFound(tag.into()))
                         .map(|block| block.header().number())?
                         .into(),
                 )),
@@ -93,8 +93,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
                 self.rpc
                     .get_code_at(address)
                     .block_id(block_id)
-                    .await?
-                    .into(),
+                    .await?,
             )
         } else {
             None
@@ -151,7 +150,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .ok_or(eyre!("block not found"))?;
 
         let proof = create_transaction_proof::<N>(
-            block.transactions().txns().map(|v| v.clone()).collect(),
+            block.transactions().txns().cloned().collect(),
             tx.transaction_index().unwrap() as usize,
         );
 
@@ -193,7 +192,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .ok_or(eyre!("block not found"))?;
 
         let proof = create_transaction_proof::<N>(
-            block.transactions().txns().map(|v| v.clone()).collect(),
+            block.transactions().txns().cloned().collect(),
             tx.transaction_index().unwrap() as usize,
         );
 
@@ -225,7 +224,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .get_block(block_id)
             .hashes()
             .await?
-            .ok_or_eyre(ExecutionError::BlockNotFound(block_id.try_into()?))?;
+            .ok_or_eyre(ExecutionError::BlockNotFound(block_id))?;
 
         let block_id = block.header().hash().into();
 
@@ -327,7 +326,7 @@ impl<N: NetworkSpec> ApiService<N> {
             receipts_to_prove
                 .par_iter()
                 .map(|(block_number, tx_hash, tx_index)| {
-                    let receipts = blocks_receipts.get(&block_number).unwrap();
+                    let receipts = blocks_receipts.get(block_number).unwrap();
                     let receipt = receipts.get(*tx_index as usize).unwrap();
 
                     let proof = create_receipt_proof::<N>(
