@@ -11,7 +11,8 @@ use helios_common::{
     types::{SubEventRx, SubscriptionType},
 };
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     // node management
     async fn wait_synced(&self);

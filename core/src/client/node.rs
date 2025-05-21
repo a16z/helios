@@ -49,19 +49,31 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         let block_broadcast = Sender::new(100);
         let block_broadcast_ref = block_broadcast.clone();
 
-        tokio::spawn(async move {
+        #[cfg(not(target_arch = "wasm32"))]
+        let run = tokio::spawn;
+        #[cfg(target_arch = "wasm32")]
+        let run = wasm_bindgen_futures::spawn_local;
+
+        run(async move {
             loop {
                 select! {
                     block = block_recv.recv() => {
                         if let Some(block) = block {
-                            execution_ref.push_block(block.clone(), BlockId::Number(BlockNumberOrTag::Latest)).await;
+                            execution_ref.push_block(
+                                block.clone(),
+                                BlockId::Number(BlockNumberOrTag::Latest)
+                            ).await;
+
                             _ = block_broadcast_ref.send(SubscriptionEvent::NewHeads(block));
                         }
                     },
                     _ = finalized_block_recv.changed() => {
                         let block = finalized_block_recv.borrow_and_update().clone();
                         if let Some(block) = block {
-                            execution_ref.push_block(block, BlockId::Number(BlockNumberOrTag::Finalized)).await;
+                            execution_ref.push_block(
+                                block,
+                                BlockId::Number(BlockNumberOrTag::Finalized)
+                            ).await;
                         }
                     },
                 }
@@ -291,24 +303,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         let helios_version = std::env!("CARGO_PKG_VERSION");
         format!("helios-{}", helios_version)
     }
-
-    // async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
-    //     todo!()
-    //     // match self.filter_state.get_filter(filter_id).await {
-    //     //     Some(FilterType::Logs { filter, last_poll}) => {
-    //     //         match filter.block_option {
-    //     //             FilterBlockOption::Range { from_block, to_block } => {
-    //     //
-    //     //             },
-    //     //             FilterBlockOption::AtBlockHash(hash) => {
-
-    //     //             },
-    //     //         }
-    //     //     },
-    //     //     Some(FilterType::Blocks { .. }) => todo!("implement block filter"),
-    //     //     None => Err(eyre!("filter not found")),
-    //     // }
-    // }
 
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>> {
         match self.filter_state.get_filter(filter_id).await {

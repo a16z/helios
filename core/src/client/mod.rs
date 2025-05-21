@@ -9,7 +9,6 @@ use crate::{consensus::Consensus, execution::providers::ExecutionProivder};
 
 use self::{api::HeliosApi, node::Node};
 
-#[cfg(not(target_arch = "wasm32"))]
 pub mod api;
 pub mod node;
 

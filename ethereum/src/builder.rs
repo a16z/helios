@@ -16,12 +16,13 @@ use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionPro
 use crate::config::networks::Network;
 use crate::config::Config;
 use crate::consensus::ConsensusClient;
-use crate::database::{ConfigDB, Database, FileDB};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::database::FileDB;
+use crate::database::{ConfigDB, Database};
 use crate::rpc::http_rpc::HttpRpc;
 use crate::spec::Ethereum;
 use crate::EthereumClient;
 
-#[derive(Default)]
 pub struct EthereumClientBuilder<DB: Database> {
     network: Option<Network>,
     consensus_rpc: Option<String>,
@@ -37,6 +38,27 @@ pub struct EthereumClientBuilder<DB: Database> {
     load_external_fallback: bool,
     strict_checkpoint_age: bool,
     phantom: PhantomData<DB>,
+}
+
+impl<DB: Database> Default for EthereumClientBuilder<DB> {
+    fn default() -> Self {
+        Self {
+            network: None,
+            consensus_rpc: None,
+            execution_rpc: None,
+            verifiable_api: None,
+            checkpoint: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            rpc_address: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            data_dir: None,
+            config: None,
+            fallback: None,
+            load_external_fallback: false,
+            strict_checkpoint_age: false,
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<DB: Database> EthereumClientBuilder<DB> {
@@ -240,6 +262,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl EthereumClientBuilder<FileDB> {
     pub fn with_file_db(self) -> Self {
         self

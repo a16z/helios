@@ -29,7 +29,10 @@ pub struct HttpVerifiableApi<N: NetworkSpec> {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
-        let client = reqwest::ClientBuilder::default()
+        let builder = reqwest::ClientBuilder::default();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let builder = builder
             // Keep 30 connections ready per host
             .pool_max_idle_per_host(30)
             // Disable idle timeout - keep connections indefinitely
@@ -47,9 +50,9 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             // Faster DNS resolution
             .hickory_dns(true)
             // Use http2
-            .http2_prior_knowledge()
-            .build()
-            .unwrap();
+            .http2_prior_knowledge();
+
+        let client = builder.build().unwrap();
 
         let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
         let client = Arc::new(
@@ -61,6 +64,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         let client_ref = client.clone();
         let base_url_ref = base_url.to_string();
 
+        #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(async move {
             loop {
                 _ = client_ref.head(&base_url_ref).send().await;

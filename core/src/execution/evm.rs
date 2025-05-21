@@ -2,7 +2,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
-    network::{primitives::HeaderResponse, BlockResponse},
+    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
     rpc::types::{AccessListItem, AccessListResult, EIP1186StorageProof},
 };
 use eyre::Result;
@@ -120,7 +120,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
                 db.state.update_state().await.unwrap();
             }
 
-            let res = evm.transact(N::tx_env(tx));
+            let res = evm.replay();
 
             let db = evm.db();
             let needs_update = db.state.needs_update();
@@ -147,6 +147,13 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
             .ok_or(ExecutionError::BlockNotFound(block_id))
             .unwrap();
 
+        let mut tx_env = N::tx_env(tx);
+        if tx.output_tx_type().into() == 0 {
+            tx_env.chain_id = None;
+        } else {
+            tx_env.chain_id = Some(self.chain_id);
+        }
+
         let mut cfg = CfgEnv::default();
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
@@ -155,7 +162,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> Evm<N, E> {
         cfg.disable_nonce_check = !validate_tx;
 
         Context::mainnet()
-            .with_tx(N::tx_env(tx))
+            .with_tx(tx_env)
             .with_block(N::block_env(&block, &self.fork_schedule))
             .with_cfg(cfg)
     }

@@ -10,7 +10,7 @@ use eyre::Result;
 
 use crate::config::Config;
 
-pub trait Database: Default + Clone + Sync + Send + 'static {
+pub trait Database: Clone + Sync + Send + 'static {
     fn new(config: &Config) -> Result<Self>
     where
         Self: Sized;
@@ -69,12 +69,6 @@ impl Database for FileDB {
     }
 }
 
-impl Default for FileDB {
-    fn default() -> Self {
-        panic!("not default for db construction");
-    }
-}
-
 #[derive(Clone)]
 pub struct ConfigDB {
     checkpoint: B256,
@@ -93,11 +87,5 @@ impl Database for ConfigDB {
 
     fn save_checkpoint(&self, _checkpoint: B256) -> Result<()> {
         Ok(())
-    }
-}
-
-impl Default for ConfigDB {
-    fn default() -> Self {
-        panic!("not default for db construction");
     }
 }

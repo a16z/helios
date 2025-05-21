@@ -5,6 +5,7 @@ use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::B256;
+use alloy::rpc::types::BlockTransactions;
 use async_trait::async_trait;
 
 use eyre::Result;
@@ -68,7 +69,9 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
 
         if !full_tx {
             if let Some(mut block) = block {
-                block.transactions_mut().hashes();
+                *block.transactions_mut() =
+                    BlockTransactions::Hashes(block.transactions().hashes().collect());
+
                 Ok(Some(block))
             } else {
                 Ok(None)
