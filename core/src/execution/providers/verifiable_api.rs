@@ -338,7 +338,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
             let block_hash = receipt.block_hash().unwrap();
             let receipts_root = receipts_roots.get(&block_hash).unwrap();
 
-            verify_receipt_proof::<N>(&receipt, *receipts_root, &proof)?;
+            verify_receipt_proof::<N>(receipt, *receipts_root, proof)?;
         }
 
         ensure_logs_match_filter(&logs, filter)?;
