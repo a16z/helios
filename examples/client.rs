@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
         .checkpoint(b256!(
             "85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
         ))
-        // Set the rpc addres
+        // Set the rpc address
         .rpc_address("127.0.0.1:8545".parse().unwrap())
         // Set the data dir
         .data_dir(PathBuf::from("/tmp/helios"))
