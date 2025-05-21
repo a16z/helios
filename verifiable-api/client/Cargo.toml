@@ -9,7 +9,10 @@ eyre.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
+reqwest-retry.workspace = true
+reqwest-middleware.workspace = true
 async-trait.workspace = true
+tokio.workspace = true
 
 # self crates
 helios-verifiable-api-types = { path = "../types" }

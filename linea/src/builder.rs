@@ -1,14 +1,16 @@
 use eyre::{eyre, Result};
+use helios_core::execution::providers::block::block_cache::BlockCache;
+use helios_core::execution::providers::rpc::RpcExecutionProvider;
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
+use helios_common::fork_schedule::ForkSchedule;
 
-use crate::config::Config;
-use crate::config::Network;
+use crate::config::{Config, Network};
 use crate::consensus::ConsensusClient;
-use crate::types::LineaClient;
+use crate::spec::Linea;
+use crate::LineaClient;
 
 #[derive(Default)]
 pub struct LineaClientBuilder {
@@ -113,18 +115,20 @@ impl LineaClientBuilder {
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config);
 
-        let execution_mode = ExecutionMode::from_urls(Some(config.execution_rpc.clone()), None);
-
         let fork_schedule = ForkSchedule {
             prague_timestamp: u64::MAX,
         };
 
-        LineaClient::new(
-            execution_mode,
+        let block_provider = BlockCache::<Linea>::new();
+        let execution =
+            RpcExecutionProvider::new(config.execution_rpc.parse().unwrap(), block_provider);
+
+        Ok(LineaClient::new(
             consensus,
+            execution,
             fork_schedule,
             #[cfg(not(target_arch = "wasm32"))]
             socket,
-        )
+        ))
     }
 }

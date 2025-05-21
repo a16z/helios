@@ -1,10 +1,9 @@
+use alloy::eips::BlockId;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::sol_types::decode_revert_reason;
 use eyre::Report;
 use revm::context::DBErrorMarker;
 use thiserror::Error;
-
-use helios_common::types::BlockTag;
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -19,7 +18,7 @@ pub enum ExecutionError {
     #[error("could not prove receipt for tx: {0}")]
     NoReceiptForTransaction(B256),
     #[error("could not prove receipts for block: {0}")]
-    NoReceiptsForBlock(BlockTag),
+    NoReceiptsForBlock(BlockId),
     #[error("missing log for transaction: {0}, index: {1}")]
     MissingLog(B256, U256),
     #[error("too many logs to prove: {0} spanning {1} blocks current limit is: {2} blocks")]
@@ -27,9 +26,9 @@ pub enum ExecutionError {
     #[error("execution rpc is for the incorrect network")]
     IncorrectRpcNetwork(),
     #[error("block not found: {0}")]
-    BlockNotFound(BlockTag),
+    BlockNotFound(BlockId),
     #[error("receipts root mismatch for block: {0}")]
-    BlockReceiptsRootMismatch(BlockTag),
+    BlockReceiptsRootMismatch(BlockId),
     #[error("filter not found: 0x{0:x}")]
     FilterNotFound(U256),
     #[error("log does not match filter")]

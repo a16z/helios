@@ -17,7 +17,7 @@ export class HeliosProvider {
   /// Do not use this constructor. Instead use the createHeliosProvider function.
   constructor(config: Config, kind: "ethereum" | "opstack") {
     const executionRpc = config.executionRpc;
-    const executionVerifiableApi = config.executionVerifiableApi;
+    const verifiableApi = config.verifiableApi;
 
     if (kind === "ethereum") {
       const consensusRpc = config.consensusRpc;
@@ -27,7 +27,7 @@ export class HeliosProvider {
 
       this.#client = new EthereumClient(
         executionRpc,
-        executionVerifiableApi,
+        verifiableApi,
         consensusRpc,
         network,
         checkpoint,
@@ -35,20 +35,16 @@ export class HeliosProvider {
       );
     } else if (kind === "opstack") {
       const network = config.network;
-      this.#client = new OpStackClient(executionRpc, executionVerifiableApi, network);
+      this.#client = new OpStackClient(executionRpc, verifiableApi, network);
     } else if (kind === "linea") {
       const network = config.network;
       this.#client = new LineaClient(executionRpc, network);
     } else {
-      throw new Error("Invalid kind: must be 'ethereum' or 'opstack'");
+      throw new Error("Invalid kind: must be 'ethereum', 'opstack', or `linea`");
     }
 
     this.#chainId = this.#client.chain_id();
     this.#eventEmitter = new EventEmitter();
-  }
-
-  async sync() {
-    await this.#client.sync();
   }
 
   async waitSynced() {
@@ -99,7 +95,9 @@ export class HeliosProvider {
         return this.#client.get_proof(req.params[0], req.params[1], req.params[2]);
       }
       case "eth_call": {
-        return this.#client.call(req.params[0], req.params[1]);
+        let res = this.#client.call(req.params[0], req.params[1]);
+        console.log(res);
+        return res;
       }
       case "eth_estimateGas": {
         return this.#client.estimate_gas(req.params[0], req.params[1]);
@@ -142,13 +140,6 @@ export class HeliosProvider {
         const logs = await this.#client.get_logs(req.params[0]);
         return logs.map(mapToObj);
       }
-      case "eth_getFilterChanges": {
-        const changes = await this.#client.get_filter_changes(req.params[0]);
-        if (changes.length > 0 && typeof changes[0] === "object") {
-          return changes.map(mapToObj);
-        }
-        return changes;
-      }
       case "eth_getFilterLogs": {
         const logs = await this.#client.get_filter_logs(req.params[0]);
         return logs.map(mapToObj);
@@ -161,9 +152,6 @@ export class HeliosProvider {
       }
       case "eth_newBlockFilter": {
         return this.#client.new_block_filter();
-      }
-      case "eth_newPendingTransactionFilter": {
-        return this.#client.new_pending_transaction_filter();
       }
       case "net_version": {
         return this.#chainId;
@@ -186,7 +174,7 @@ export class HeliosProvider {
         return this.#client.unsubscribe(req.params[0]);
       }
       default: {
-        throw `method not implemented: ${req.method}`;
+        throw `method not supported: ${req.method}`;
       }
     }
   }
@@ -228,7 +216,7 @@ export class HeliosProvider {
 
 export type Config = {
   executionRpc?: string;
-  executionVerifiableApi?: string;
+  verifiableApi?: string;
   consensusRpc?: string;
   checkpoint?: string;
   network?: Network;

@@ -1,13 +1,15 @@
 use eyre::Result;
+use helios_core::execution::providers::{
+    block::block_cache::BlockCache, rpc::RpcExecutionProvider,
+    verifiable_api::VerifiableApiExecutionProvider,
+};
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
 
-use helios_common::{execution_mode::ExecutionMode, fork_schedule::ForkSchedule};
-
 use crate::{
-    config::Network,
-    config::{Config, NetworkConfig},
+    config::{Config, Network, NetworkConfig},
     consensus::ConsensusClient,
+    spec::OpStack,
     OpStackClient,
 };
 
@@ -17,7 +19,7 @@ pub struct OpStackClientBuilder {
     network: Option<Network>,
     consensus_rpc: Option<Url>,
     execution_rpc: Option<String>,
-    execution_verifiable_api: Option<String>,
+    verifiable_api: Option<String>,
     rpc_socket: Option<SocketAddr>,
     verify_unsafe_signer: Option<bool>,
 }
@@ -42,8 +44,8 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn execution_verifiable_api(mut self, execution_verifiable_api: &str) -> Self {
-        self.execution_verifiable_api = Some(execution_verifiable_api.to_string());
+    pub fn verifiable_api(mut self, verifiable_api: &str) -> Self {
+        self.verifiable_api = Some(verifiable_api.to_string());
         self
     }
 
@@ -77,7 +79,7 @@ impl OpStackClientBuilder {
             Config {
                 consensus_rpc,
                 execution_rpc: self.execution_rpc,
-                execution_verifiable_api: self.execution_verifiable_api,
+                verifiable_api: self.verifiable_api,
                 rpc_socket: self.rpc_socket,
                 chain: NetworkConfig::from(network).chain,
                 load_external_fallback: None,
@@ -86,21 +88,32 @@ impl OpStackClientBuilder {
             }
         };
 
-        let execution_mode = ExecutionMode::from_urls(
-            config.execution_rpc.clone(),
-            config.execution_verifiable_api.clone(),
-        );
         let consensus = ConsensusClient::new(&config);
-        let fork_schedule = ForkSchedule {
-            prague_timestamp: u64::MAX,
-        };
+        let block_provider = BlockCache::<OpStack>::new();
 
-        OpStackClient::new(
-            execution_mode,
-            consensus,
-            fork_schedule,
-            #[cfg(not(target_arch = "wasm32"))]
-            config.rpc_socket,
-        )
+        if let Some(verifiable_api) = &config.verifiable_api {
+            let execution = VerifiableApiExecutionProvider::new(verifiable_api, block_provider);
+
+            Ok(OpStackClient::new(
+                consensus,
+                execution,
+                config.chain.forks,
+                #[cfg(not(target_arch = "wasm32"))]
+                config.rpc_socket,
+            ))
+        } else {
+            let execution = RpcExecutionProvider::new(
+                config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+                block_provider,
+            );
+
+            Ok(OpStackClient::new(
+                consensus,
+                execution,
+                config.chain.forks,
+                #[cfg(not(target_arch = "wasm32"))]
+                config.rpc_socket,
+            ))
+        }
     }
 }

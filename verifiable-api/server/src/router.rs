@@ -1,34 +1,33 @@
 use axum::{
-    routing::{delete, get, post},
+    routing::{get, post},
     Router,
+};
+use tower_http::{
+    compression::CompressionLayer,
+    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
 
 use helios_common::network_spec::NetworkSpec;
-use helios_core::execution::rpc::ExecutionRpc;
+use tracing::Level;
 
 use crate::{handlers, state::ApiState};
 
-pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, R>> {
+pub fn build_router<N: NetworkSpec>() -> Router<ApiState<N>> {
     Router::new()
         .route("/openapi.yaml", get(handlers::openapi))
+        .route("/ping", get(handlers::ping))
         .nest(
             "/eth/v1/proof",
             Router::new()
                 .route("/account/{address}", get(handlers::get_account))
+                .route("/transaction/{txHash}", get(handlers::get_transaction))
                 .route(
-                    "/transaction/{txHash}/receipt",
-                    get(handlers::get_transaction_receipt),
+                    "/transaction/{blockId}/{index}",
+                    get(handlers::get_transaction_by_location),
                 )
+                .route("/receipt/{txHash}", get(handlers::get_transaction_receipt))
                 .route("/logs", get(handlers::get_logs))
-                .route("/filterLogs/{filterId}", get(handlers::get_filter_logs))
-                .route(
-                    "/filterChanges/{filterId}",
-                    get(handlers::get_filter_changes),
-                )
-                .route(
-                    "/createExtendedAccessList",
-                    post(handlers::create_extended_access_list),
-                ),
+                .route("/getExecutionHint", post(handlers::get_execution_hint)),
         )
         .nest(
             "/eth/v1",
@@ -39,8 +38,12 @@ pub fn build_router<N: NetworkSpec, R: ExecutionRpc<N>>() -> Router<ApiState<N, 
                     "/block/{blockId}/receipts",
                     get(handlers::get_block_receipts),
                 )
-                .route("/sendRawTransaction", post(handlers::send_raw_transaction))
-                .route("/filter", post(handlers::new_filter))
-                .route("/filter/{filterId}", delete(handlers::uninstall_filter)),
+                .route("/sendRawTransaction", post(handlers::send_raw_transaction)),
+        )
+        .layer(CompressionLayer::new())
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
         )
 }

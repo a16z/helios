@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, Bytes};
 use alloy::rpc::types::TransactionRequest;
 use dotenv::dotenv;
@@ -9,10 +10,7 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::common::types::BlockTag;
-use helios::ethereum::{
-    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
-};
+use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -35,12 +33,13 @@ async fn main() -> eyre::Result<()> {
 
     // Construct the client
     let data_dir = PathBuf::from("/tmp/helios");
-    let mut client: EthereumClient<FileDB> = EthereumClientBuilder::new()
+    let client: EthereumClient = EthereumClientBuilder::new()
         .network(Network::Mainnet)
         .data_dir(data_dir)
         .consensus_rpc(consensus_rpc)
         .execution_rpc(&eth_rpc_url)
         .load_external_fallback()
+        .with_file_db()
         .build()?;
 
     info!(
@@ -48,8 +47,7 @@ async fn main() -> eyre::Result<()> {
         Network::Mainnet
     );
 
-    // Start the client
-    client.start().await?;
+    // Wait for Helios to sync
     client.wait_synced().await;
 
     // Call on helios client
@@ -67,7 +65,7 @@ async fn main() -> eyre::Result<()> {
         ..Default::default()
     };
 
-    let result = client.call(&tx, BlockTag::Latest).await?;
+    let result = client.call(&tx, BlockNumberOrTag::Latest.into()).await?;
     info!("[HELIOS] DAI total supply: {:?}", result);
 
     Ok(())

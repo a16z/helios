@@ -9,7 +9,7 @@ helios-common = { path = "../common" }
 helios-verifiable-api-client = { path = "../verifiable-api/client" }
 
 # execution
-alloy.workspace = true
+alloy = { workspace = true, features = ["rand"] }
 alloy-trie.workspace = true
 revm.workspace = true
 
@@ -37,6 +37,7 @@ openssl.workspace = true
 wasm-bindgen-futures = "0.4.33"
 gloo-timers = "0.3.0"
 wasmtimer = "0.2.0"
+getrandom = { version = "0.3.1", features = ["wasm_js"] }
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }

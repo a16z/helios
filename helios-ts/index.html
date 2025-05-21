@@ -190,14 +190,14 @@
         await helios.init();
         const key = "<ALCHEMY_KEY>";
 
-        const networks = [
+        window.networks = [
           {
             name: "ethereum",
             blockTime: 12,
             cfg: {
               executionRpc: `https://eth-mainnet.g.alchemy.com/v2/${key}`,
               checkpoint:
-                "3c1bb71804eb385dfd8ffa8a32467fca6db823eda75ebd7a622a4a7d59fc4a5e",
+                "0x8272e1969bc4e6f7f90c2510775af261adc153606d4a30b95bf87bbf0ccee712",
               dbType: "localstorage",
             },
             kind: "ethereum",
@@ -233,17 +233,16 @@
 
         // Sync each network and attach ethers provider
         await Promise.all(
-          networks.map((n) =>
+          window.networks.map((n) =>
             (async () => {
               n.provider = new helios.HeliosProvider(n.cfg, n.kind);
-              await n.provider.sync();
               n.ethers = new ethers.providers.Web3Provider(n.provider);
             })()
           )
         );
 
         // Poll for latest blocks
-        networks.forEach((n) => {
+        window.networks.forEach((n) => {
           setInterval(async () => {
             try {
               const latestNumber = await n.ethers.getBlockNumber();

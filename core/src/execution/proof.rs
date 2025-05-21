@@ -1,5 +1,5 @@
 use alloy::consensus::{Account as TrieAccount, BlockHeader};
-use alloy::network::{BlockResponse, ReceiptResponse};
+use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::EIP1186AccountProofResponse;
@@ -11,7 +11,7 @@ use alloy_trie::{
 };
 use eyre::{eyre, Result};
 
-use helios_common::{network_spec::NetworkSpec, types::BlockTag};
+use helios_common::network_spec::NetworkSpec;
 
 use super::errors::ExecutionError;
 
@@ -152,6 +152,53 @@ pub fn verify_receipt_proof<N: NetworkSpec>(
     verify_proof(root, key, expected_value, proof).map_err(|e| eyre!(e))
 }
 
+/// Create a MPT proof for a given transaction in a list of transactions.
+pub fn create_transaction_proof<N: NetworkSpec>(
+    transactions: Vec<N::TransactionResponse>,
+    target_index: usize,
+) -> Vec<Bytes> {
+    // Initialise the trie builder with proof retainer for the target index
+    let transactions_len = transactions.len();
+    let retainer = ProofRetainer::new(vec![Nibbles::unpack(rlp::encode_fixed_size(&target_index))]);
+    let mut hb = HashBuilder::default().with_proof_retainer(retainer);
+
+    // Iterate over each receipt, adding it to the trie
+    for i in 0..transactions_len {
+        let index = adjust_index_for_rlp(i, transactions_len);
+        let index_buffer = rlp::encode_fixed_size(&index);
+        hb.add_leaf(
+            Nibbles::unpack(&index_buffer),
+            N::encode_transaction(&transactions[index]).as_slice(),
+        );
+    }
+
+    // Note that calling `root()` is mandatory to build the trie
+    hb.root();
+
+    // Extract the proof nodes from the trie
+    hb.take_proof_nodes()
+        .into_nodes_sorted()
+        .into_iter()
+        .map(|n| n.1)
+        .collect::<Vec<_>>()
+}
+
+/// Given a transaction, the root hash, and a proof, verify the proof.
+pub fn verify_transaction_proof<N: NetworkSpec>(
+    tx: &N::TransactionResponse,
+    root: B256,
+    proof: &[Bytes],
+) -> Result<()> {
+    let key = {
+        let index = tx.transaction_index().unwrap() as usize;
+        let index_buffer = rlp::encode_fixed_size(&index);
+        Nibbles::unpack(&index_buffer)
+    };
+    let expected_value = Some(N::encode_transaction(tx));
+
+    verify_proof(root, key, expected_value, proof).map_err(|e| eyre!(e))
+}
+
 /// Calculate the receipts root hash from given list of receipts
 /// and verify it against the given block's receipts root.
 pub fn verify_block_receipts<N: NetworkSpec>(
@@ -162,10 +209,9 @@ pub fn verify_block_receipts<N: NetworkSpec>(
     let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
 
     if expected_receipt_root != block.header().receipts_root() {
-        return Err(ExecutionError::BlockReceiptsRootMismatch(BlockTag::Number(
-            block.header().number(),
-        ))
-        .into());
+        return Err(
+            ExecutionError::BlockReceiptsRootMismatch(block.header().number().into()).into(),
+        );
     }
 
     Ok(())
