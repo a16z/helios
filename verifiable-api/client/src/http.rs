@@ -209,12 +209,14 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             self.base_url,
             serialize_block_id(block_id)
         );
-        let response = self
+
+        let request = self
             .client
             .get(&url)
-            .query(&[("transactionDetailFlag", full_tx)])
-            .send()
-            .await?;
+            .query(&[("transactionDetailFlag", full_tx)]);
+
+        let response = request.send().await?;
+
         handle_response(response).await
     }
 
@@ -257,7 +259,10 @@ async fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
 
 fn serialize_block_id(block_id: BlockId) -> String {
     match block_id {
-        BlockId::Number(number) => serde_json::to_string(&number).unwrap(),
         BlockId::Hash(hash) => hash.block_hash.to_string(),
+        BlockId::Number(number) => serde_json::to_string(&number)
+            .unwrap()
+            .trim_matches('"')
+            .to_string(),
     }
 }
