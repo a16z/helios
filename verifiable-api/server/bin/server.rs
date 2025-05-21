@@ -15,7 +15,7 @@ async fn main() {
     // construct and start the server
     let mut server = VerifiableApiServer::new(cli.network);
 
-    server.start().await;
+    server.start().await.unwrap();
 }
 
 fn enable_tracing() {

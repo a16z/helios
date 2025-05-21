@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use clap::{Args, Subcommand};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tracing::debug;
 use url::Url;
 
@@ -27,7 +28,7 @@ impl VerifiableApiServer {
         }
     }
 
-    pub async fn start(&mut self) -> () {
+    pub fn start(&mut self) -> JoinHandle<()> {
         // Create a shutdown signal channel
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
@@ -50,13 +51,16 @@ impl VerifiableApiServer {
             }
         };
 
-        let listener = TcpListener::bind(server_addr).await.unwrap();
-        axum::serve(listener, app)
-            .with_graceful_shutdown(async {
-                let _ = shutdown_rx.await;
-            })
-            .await
-            .unwrap();
+        tokio::spawn(async move {
+            let listener = TcpListener::bind(server_addr).await.unwrap();
+
+            axum::serve(listener, app)
+                .with_graceful_shutdown(async {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap();
+        })
     }
 
     pub fn shutdown(&mut self) {
@@ -96,12 +100,12 @@ mod tests {
 
         // Start the server in a background task
         let mut server = VerifiableApiServer::new(network);
-        let server_handle = server.start();
+        let handle = server.start();
 
         // Shutdown the server
         server.shutdown();
 
-        // Wait for the server to shut down
-        server_handle.await;
+        // Wait for shutdown
+        handle.await.unwrap();
     }
 }
