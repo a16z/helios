@@ -224,8 +224,8 @@ async fn get_block_receipts() {
     let helios_rpc = providers[1].clone();
     let provider = providers[2].clone();
 
-    let helios_api_block_num = helios_api.get_block_number().await.unwrap();
-    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap();
+    let helios_api_block_num = helios_api.get_block_number().await.unwrap() - 10;
+    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap() - 10;
 
     let receipts = helios_api
         .get_block_receipts(helios_api_block_num.into())
