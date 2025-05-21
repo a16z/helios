@@ -20,7 +20,7 @@ use super::VerifiableApi;
 
 #[derive(Clone)]
 pub struct HttpVerifiableApi<N: NetworkSpec> {
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     base_url: String,
     phantom: PhantomData<N>,
 }
@@ -29,8 +29,7 @@ pub struct HttpVerifiableApi<N: NetworkSpec> {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
-        //let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
-        let client = Arc::new(reqwest::ClientBuilder::default()
+        let client = reqwest::ClientBuilder::default()
             // Keep 30 connections ready per host
             .pool_max_idle_per_host(30)
             // Disable idle timeout - keep connections indefinitely
@@ -43,17 +42,21 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             .http2_keep_alive_while_idle(true)
             // Prevent connection closure
             .tcp_nodelay(true)
-            .gzip(true)
+            // Fast decompression
+            .brotli(true)
+            // Faster DNS resolution
             .hickory_dns(true)
+            // Use http2
             .http2_prior_knowledge()
             .build()
-            .unwrap());
+            .unwrap();
 
-        // let client = Arc::new(
-        //     ClientBuilder::new(client)
-        //         //.with(RetryTransientMiddleware::new_with_policy(retry_policy))
-        //         .build(),
-        // );
+        let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+        let client = Arc::new(
+            ClientBuilder::new(client)
+                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .build(),
+        );
 
         let client_ref = client.clone();
         let base_url_ref = base_url.to_string();
@@ -61,7 +64,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         tokio::spawn(async move {
             loop {
                 _ = client_ref.head(&base_url_ref).send().await;
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(10)).await;
             }
         });
 
@@ -240,7 +243,8 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
 
 async fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
     if response.status().is_success() {
-        Ok(response.json::<T>().await?)
+        let bytes = response.bytes().await?;
+        Ok(serde_json::from_slice(&bytes)?)
     } else {
         let error_response = response.json::<ErrorResponse>().await?;
         Err(eyre!(error_response.error.to_string()))

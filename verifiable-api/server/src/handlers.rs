@@ -6,10 +6,11 @@ use alloy::{
     rpc::types::{BlockId, Filter, FilterSet},
 };
 use axum::{
-    body::{Body, HttpBody}, extract::{Path, State}, http::StatusCode, response::Json
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
 };
 use axum_extra::extract::Query;
-use bytes::Bytes;
 use eyre::{eyre, Report, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -17,7 +18,6 @@ use helios_common::network_spec::NetworkSpec;
 use helios_core::execution::errors::ExecutionError;
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::*;
-use tokio::time::Instant;
 
 use crate::state::ApiState;
 
@@ -257,14 +257,14 @@ pub async fn get_transaction_by_location<N: NetworkSpec>(
 pub async fn get_logs<N: NetworkSpec>(
     Query(logs_filter_query): Query<LogsQuery>,
     State(ApiState { api_service }): State<ApiState<N>>,
-) -> Result<axum::response::Response, (StatusCode, Json<ErrorResponse>)> {
+) -> Response<LogsResponse<N>> {
     let filter: Filter = logs_filter_query.try_into().map_err(map_server_err)?;
 
     api_service
         .get_logs(&filter)
         .await
+        .map(Json)
         .map_err(map_server_err)
-        .map(json_response)
 }
 
 /// Returns a list of all addresses and storage keys (along with their EIP-1186 proofs) that are accessed by a given transaction.
@@ -414,24 +414,4 @@ pub async fn openapi() -> Result<String, (StatusCode, String)> {
 
 pub async fn ping() -> Result<String, (StatusCode, String)> {
     Ok("pong".to_string())
-}
-
-fn json_response<T: Serialize>(val: T) -> axum::response::Response {
-    let start = Instant::now();
-    let json_bytes = Bytes::from(serde_json::to_vec(&val).unwrap());
-    let len = json_bytes.len().to_string();
-
-
-    let res = axum::response::Response::builder()
-        .status(StatusCode::OK)
-        .header(axum::http::header::CONTENT_TYPE, "application/json")
-        .header(axum::http::header::CONTENT_LENGTH, len)
-        .body(Body::from(json_bytes))
-        .unwrap();
-
-    let end = Instant::now();
-    let duration = end.duration_since(start);
-    println!("json handling: {}ms", duration.as_millis());
-
-    res
 }

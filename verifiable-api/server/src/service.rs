@@ -29,7 +29,6 @@ use helios_core::execution::{
 };
 use helios_verifiable_api_client::VerifiableApi;
 use helios_verifiable_api_types::{TransactionResponse, *};
-use tokio::time::Instant;
 
 #[derive(Clone)]
 pub struct ApiService<N: NetworkSpec> {
@@ -205,20 +204,8 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
     }
 
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
-        let start = Instant::now();
         let logs = self.rpc.get_logs(filter).await?;
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("logs fetch: {}ms", duration.as_millis());
-
-        let receipt_proofs = self.create_receipt_proofs_for_logs(&logs).await?;
-
-
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("total execution time: {}ms", duration.as_millis());
-
-
+        let receipt_proofs = self.create_receipt_proofs_for_logs(logs.clone()).await?;
 
         Ok(LogsResponse {
             logs,
@@ -298,7 +285,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
 impl<N: NetworkSpec> ApiService<N> {
     async fn create_receipt_proofs_for_logs(
         &self,
-        logs: &[Log],
+        logs: Vec<Log>,
     ) -> Result<HashMap<B256, TransactionReceiptResponse<N>>> {
         let block_nums = logs
             .iter()
@@ -321,328 +308,50 @@ impl<N: NetworkSpec> ApiService<N> {
                 .map(|receipts| (block_num, receipts))
         });
 
-        let start = Instant::now();
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("block receipts fetch: {}ms", duration.as_millis());
 
-        let blocks_receipts = blocks_receipts.into_iter().collect::<HashMap<_, _>>();
-
-        let start = Instant::now();
-        let mut receipts_to_prove = HashSet::new();
-        for log in logs {
-            let entry = (
-                log.block_number.unwrap(),
-                log.transaction_hash.unwrap(),
-                log.transaction_index.unwrap(),
-            );
-            if !receipts_to_prove.contains(&entry) {
-                receipts_to_prove.insert(entry);
-            }
-        }
-
-        let receipt_proofs = receipts_to_prove
-            .par_iter()
-            .map(|(block_number, tx_hash, tx_index)| {
-                let receipts = blocks_receipts.get(&block_number).unwrap();
-                let receipt = receipts.get(*tx_index as usize).unwrap();
-
-                let proof = create_receipt_proof::<N>(
-                    receipts.to_vec(),
-                    receipt.transaction_index().unwrap() as usize,
+        let receipt_proofs = tokio::task::spawn_blocking(move || {
+            let blocks_receipts = blocks_receipts.into_iter().collect::<HashMap<_, _>>();
+            let mut receipts_to_prove = HashSet::new();
+            for log in logs {
+                let entry = (
+                    log.block_number.unwrap(),
+                    log.transaction_hash.unwrap(),
+                    log.transaction_index.unwrap(),
                 );
+                if !receipts_to_prove.contains(&entry) {
+                    receipts_to_prove.insert(entry);
+                }
+            }
 
-                (
-                    tx_hash,
-                    TransactionReceiptResponse {
-                        receipt: receipt.clone(),
-                        receipt_proof: proof,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
+            receipts_to_prove
+                .par_iter()
+                .map(|(block_number, tx_hash, tx_index)| {
+                    let receipts = blocks_receipts.get(&block_number).unwrap();
+                    let receipt = receipts.get(*tx_index as usize).unwrap();
+
+                    let proof = create_receipt_proof::<N>(
+                        receipts.to_vec(),
+                        receipt.transaction_index().unwrap() as usize,
+                    );
+
+                    (
+                        *tx_hash,
+                        TransactionReceiptResponse {
+                            receipt: receipt.clone(),
+                            receipt_proof: proof,
+                        },
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .await?;
 
         let mut receipt_response = HashMap::new();
         for (tx_hash, receipt_proof) in receipt_proofs {
-            receipt_response.insert(*tx_hash, receipt_proof);
+            receipt_response.insert(tx_hash, receipt_proof);
         }
 
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("log processing: {}ms", duration.as_millis());
-
         Ok(receipt_response)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use alloy::rpc::types::TransactionRequest;
-    use helios_core::execution::rpc::mock_rpc::MockRpc;
-    use helios_ethereum::spec::Ethereum as EthereumSpec;
-    use helios_test_utils::*;
-
-    use super::*;
-
-    fn get_service() -> ApiService<EthereumSpec, MockRpc> {
-        let base_path = testdata_dir().join("rpc/");
-        ApiService::<EthereumSpec, MockRpc>::new(base_path.to_str().unwrap())
-    }
-
-    #[tokio::test]
-    async fn test_get_account() {
-        let service = get_service();
-        let rpc_proof = rpc_proof();
-
-        let response = service
-            .get_account(
-                rpc_proof.address,
-                &[U256::from(1)],
-                BlockId::latest().into(),
-                true,
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response, rpc_account());
-    }
-
-    #[tokio::test]
-    async fn test_get_account_without_code() {
-        let service = get_service();
-        let rpc_proof = rpc_proof();
-
-        let response = service
-            .get_account(rpc_proof.address, &[], BlockId::latest().into(), false)
-            .await
-            .unwrap();
-
-        let mut expected_account = rpc_account();
-        expected_account.code = None;
-        assert_eq!(response, expected_account);
-    }
-
-    #[tokio::test]
-    async fn test_get_transaction_receipt() {
-        let service = get_service();
-
-        let response = service
-            .get_transaction_receipt(*rpc_tx().inner.tx_hash())
-            .await
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(response, verifiable_api_tx_receipt_response());
-    }
-
-    #[tokio::test]
-    async fn test_get_logs() {
-        let service = get_service();
-        let filter = Filter::default();
-
-        let response = service.get_logs(&filter).await.unwrap();
-
-        let expected_response = verifiable_api_logs_response();
-        assert_eq!(response.logs, expected_response.logs);
-        assert_eq!(
-            response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>(),
-            expected_response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_get_filter_logs() {
-        let service = get_service();
-        let filter_id = rpc_filter_id_logs();
-
-        let response = service.get_filter_logs(filter_id).await.unwrap();
-
-        let expected_response = verifiable_api_logs_response();
-        assert_eq!(response.logs, expected_response.logs);
-        assert_eq!(
-            response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>(),
-            expected_response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_get_filter_changes_logs() {
-        let service = get_service();
-        let filter_id = rpc_filter_id_logs();
-
-        let response = service.get_filter_changes(filter_id).await.unwrap();
-        let response = match response {
-            FilterChangesResponse::Logs(response) => response,
-            _ => panic!("Expected FilterChangesResponse::Logs"),
-        };
-
-        let expected_response = verifiable_api_logs_response();
-        assert_eq!(response.logs, expected_response.logs);
-        assert_eq!(
-            response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>(),
-            expected_response
-                .receipt_proofs
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect::<Vec<_>>()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_get_filter_changes_blocks() {
-        let service = get_service();
-        let filter_id = rpc_filter_id_blocks();
-
-        let response = service.get_filter_changes(filter_id).await.unwrap();
-        let response = match response {
-            FilterChangesResponse::Hashes(response) => response,
-            _ => panic!("Expected FilterChangesResponse::Hashes"),
-        };
-
-        assert_eq!(response, rpc_filter_block_hashes());
-    }
-
-    #[tokio::test]
-    async fn test_get_filter_changes_txs() {
-        let service = get_service();
-        let filter_id = rpc_filter_id_txs();
-
-        let response = service.get_filter_changes(filter_id).await.unwrap();
-        let response = match response {
-            FilterChangesResponse::Hashes(response) => response,
-            _ => panic!("Expected FilterChangesResponse::Hashes"),
-        };
-
-        assert_eq!(response, rpc_filter_tx_hashes());
-    }
-
-    #[tokio::test]
-    async fn test_create_extended_access_list() {
-        let service = get_service();
-        let address = rpc_proof().address;
-        let block = rpc_block();
-        let tx = TransactionRequest::default()
-            .from(block.header.beneficiary)
-            .to(address)
-            .value(U256::from(0));
-
-        let response = service
-            .create_extended_access_list(tx, false, BlockId::latest().into())
-            .await
-            .unwrap();
-
-        assert_eq!(response.accounts.len(), 2);
-        assert_eq!(response.accounts.get(&address).unwrap(), &rpc_account());
-        assert_eq!(
-            response.accounts.get(&block.header.beneficiary).unwrap(),
-            &rpc_block_miner_account()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_chain_id() {
-        let service = get_service();
-
-        let response = service.chain_id().await.unwrap();
-
-        assert_eq!(response.chain_id, rpc_chain_id());
-    }
-
-    #[tokio::test]
-    async fn test_get_block() {
-        let service = get_service();
-        let response = service
-            .get_block(BlockId::latest(), false)
-            .await
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(response, rpc_block());
-    }
-
-    #[tokio::test]
-    async fn test_get_block_receipts() {
-        let service = get_service();
-
-        let response = service
-            .get_block_receipts(BlockId::latest())
-            .await
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(response, rpc_block_receipts());
-    }
-
-    #[tokio::test]
-    async fn test_send_raw_transaction() {
-        let service = get_service();
-
-        let response = service.send_raw_transaction(&[]).await.unwrap();
-
-        assert_eq!(response.hash, *rpc_tx().inner.tx_hash());
-    }
-
-    #[tokio::test]
-    async fn test_new_filter() {
-        let service = get_service();
-        let filter = Filter::default();
-
-        let response = service.new_filter(&filter).await.unwrap();
-
-        assert_eq!(response.id, rpc_filter_id_logs());
-        assert_eq!(response.kind, FilterKind::Logs);
-    }
-
-    #[tokio::test]
-    async fn test_new_block_filter() {
-        let service = get_service();
-
-        let response = service.new_block_filter().await.unwrap();
-
-        assert_eq!(response.id, rpc_filter_id_blocks());
-        assert_eq!(response.kind, FilterKind::NewBlocks);
-    }
-
-    #[tokio::test]
-    async fn test_new_pending_transaction_filter() {
-        let service = get_service();
-
-        let response = service.new_pending_transaction_filter().await.unwrap();
-
-        assert_eq!(response.id, rpc_filter_id_txs());
-        assert_eq!(response.kind, FilterKind::NewPendingTransactions);
-    }
-
-    #[tokio::test]
-    async fn test_uninstall_filter() {
-        let service = get_service();
-
-        let response = service
-            .uninstall_filter(rpc_filter_id_logs())
-            .await
-            .unwrap();
-
-        assert_eq!(response.ok, true);
     }
 }

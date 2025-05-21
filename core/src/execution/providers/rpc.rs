@@ -21,7 +21,6 @@ use async_trait::async_trait;
 use eyre::{eyre, Result};
 use futures::future::{join_all, try_join_all};
 use reqwest::Url;
-use tokio::time::Instant;
 
 use helios_common::{network_spec::NetworkSpec, types::Account};
 
@@ -80,12 +79,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
             .into_iter()
             .map(|block_num| async move { self.get_block_receipts(block_num.into()).await });
 
-        let start = Instant::now();
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("verify block receipts: {}ms", duration.as_millis());
-
         let receipts = blocks_receipts
             .into_iter()
             .flatten()
@@ -139,7 +133,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
                     .number();
 
                 Ok(number)
-            },
+            }
             Some(BlockNumberOrTag::Finalized) => {
                 let number = self
                     .get_block(BlockId::Number(BlockNumberOrTag::Finalized), false)
@@ -149,7 +143,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
                     .number();
 
                 Ok(number)
-            },
+            }
             Some(BlockNumberOrTag::Number(number)) => Ok(number),
             _ => Err(eyre!("block not found")),
         }
@@ -341,12 +335,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvide
         let mut filter = filter.clone();
         filter.block_option = block_option;
 
-        let start = Instant::now();
         let logs = self.provider.get_logs(&filter).await?;
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("untrusted log fetch: {}ms", duration.as_millis());
-
         self.verify_logs(&logs).await?;
         ensure_logs_match_filter(&logs, &filter)?;
         Ok(logs)

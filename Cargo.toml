@@ -65,10 +65,11 @@ revm = { version = "22.0.1", default-features = false, features = [
 # async/futures
 async-trait = "0.1.57"
 futures = "0.3.23"
-tokio = { version = "1", features = ["rt", "sync", "macros"] }
+# tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
+tokio = { version = "1", features = ["full"] }
 
 # io
-reqwest = { version = "0.12.4", features = ["json", "gzip", "deflate", "hickory-dns"] }
+reqwest = { version = "0.12.4", features = ["json", "gzip", "deflate", "zstd", "brotli", "hickory-dns"] }
 reqwest-middleware = { version = "0.4.2", features = ["json"] }
 reqwest-retry = "0.7.0"
 url = { version = "2.5.2", features = ["serde"] }

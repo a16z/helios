@@ -3757,7 +3757,7 @@ dependencies = [
  "helios-test-utils",
  "helios-verifiable-api-client",
  "helios-verifiable-api-types",
- "hyper 1.6.0",
+ "rand 0.9.1",
  "rayon",
  "serde",
  "serde_json",

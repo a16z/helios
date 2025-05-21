@@ -16,7 +16,7 @@ pub struct ErrorResponse {
 
 pub type AccountResponse = Account;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionReceiptResponse<N: NetworkSpec> {
     pub receipt: N::ReceiptResponse,
@@ -30,7 +30,7 @@ pub struct TransactionResponse<N: NetworkSpec> {
     pub transaction_proof: Vec<Bytes>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[serde(bound = "N: NetworkSpec")]
 pub struct LogsResponse<N: NetworkSpec> {

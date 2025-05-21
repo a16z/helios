@@ -21,7 +21,6 @@ use helios_verifiable_api_client::{
     },
     VerifiableApi,
 };
-use tokio::time::Instant;
 
 use crate::execution::{
     errors::ExecutionError,
@@ -268,15 +267,10 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecutionProvider<N, B> {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
-        let total_start = Instant::now();
-        let start = Instant::now();
         let LogsResponse {
             logs,
             receipt_proofs,
         } = self.api.get_logs(filter).await?;
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("log proof fetch: {}ms", duration.as_millis());
 
         // Map of tx_hash -> encoded receipt logs to avoid encoding multiple times
         let mut txhash_encodedlogs_map: HashMap<B256, Vec<Vec<u8>>> = HashMap::new();
@@ -329,18 +323,12 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
             Ok::<_, eyre::Report>((*block_hash, root))
         });
 
-        let start = Instant::now();
         let receipts_root_vec = try_join_all(receipts_roots_fut).await?;
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("blocks fetch: {}ms", duration.as_millis());
-
         let mut receipts_roots = HashMap::new();
         for (block_hash, receipts_root) in receipts_root_vec {
             receipts_roots.insert(block_hash, receipts_root);
         }
 
-        let start = Instant::now();
         // Verify all receipts
         for receipt_proof in receipt_proofs {
             let (_, receipt_response) = receipt_proof;
@@ -352,16 +340,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
 
             verify_receipt_proof::<N>(&receipt, *receipts_root, &proof)?;
         }
-        let finish = Instant::now();
-        let duration = finish.duration_since(start);
-        println!("proof verification: {}ms", duration.as_millis());
 
         ensure_logs_match_filter(&logs, filter)?;
-
-        let total_finish = Instant::now();
-        let total_duration = total_finish.duration_since(total_start);
-        println!("total duration: {}ms", total_duration.as_millis());
-
         Ok(logs)
     }
 }

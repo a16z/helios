@@ -1,6 +1,6 @@
 mod handlers;
 mod router;
-mod service;
+pub mod service;
 mod state;
 
 pub mod server;

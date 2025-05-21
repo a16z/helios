@@ -2,7 +2,10 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::{compression::CompressionLayer, trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer}};
+use tower_http::{
+    compression::CompressionLayer,
+    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
+};
 
 use helios_common::network_spec::NetworkSpec;
 use tracing::Level;
@@ -41,6 +44,6 @@ pub fn build_router<N: NetworkSpec>() -> Router<ApiState<N>> {
         .layer(
             TraceLayer::new_for_http()
                 .on_request(DefaultOnRequest::new().level(Level::INFO))
-                .on_response(DefaultOnResponse::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
         )
 }
