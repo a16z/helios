@@ -229,7 +229,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
 
         let block_id = block.header().hash().into();
 
-        // initialize exection provider for the given block
+        // initialize execution provider for the given block
         let block_provider = BlockCache::<N>::new();
         let provider = RpcExecutionProvider::new(self.rpc_url.parse().unwrap(), block_provider);
         provider.push_block(block, block_id).await;
