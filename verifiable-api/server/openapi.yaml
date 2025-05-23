@@ -15,6 +15,7 @@ paths:
       summary: Get Account Information
       description: >
         Returns information about an address along with its EIP-1186 account proof.
+        https://eips.ethereum.org/EIPS/eip-1186
 
         ### Why is this useful?
 
