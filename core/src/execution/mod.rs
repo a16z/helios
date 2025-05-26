@@ -37,6 +37,7 @@ pub struct ExecutionClient<N: NetworkSpec> {
     client: Arc<dyn ExecutionInner<N>>,
     state: State<N>,
     fork_schedule: ForkSchedule,
+    chain_id: u64,
 }
 
 impl<N: NetworkSpec> ExecutionClient<N> {
@@ -44,11 +45,13 @@ impl<N: NetworkSpec> ExecutionClient<N> {
         client: Arc<dyn ExecutionInner<N>>,
         state: State<N>,
         fork_schedule: ForkSchedule,
+        chain_id: u64,
     ) -> Result<Self> {
         Ok(Self {
             client,
             state,
             fork_schedule,
+            chain_id,
         })
     }
 
@@ -149,6 +152,12 @@ impl<N: NetworkSpec> ExecutionClient<N> {
             SubscriptionType::NewHeads => Ok(self.state.subscribe_blocks().await),
             _ => Err(eyre::eyre!("Unsupported subscription type: {:?}", sub_type)),
         }
+    }
+
+    async fn chain_id(&self) -> Result<u64> {
+        // Return the chain_id from config instead of making RPC calls
+        // This improves performance and reliability
+        Ok(self.chain_id)
     }
 }
 
@@ -259,11 +268,6 @@ impl<N: NetworkSpec> ExecutionSpec<N> for ExecutionClient<N> {
         self.client
             .create_extended_access_list(tx, validate_tx, block)
             .await
-    }
-
-    async fn chain_id(&self) -> Result<u64> {
-        // ToDo: verify the response from RPC/API or just return from config?
-        self.client.chain_id().await
     }
 
     async fn get_block(
