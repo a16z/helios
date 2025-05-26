@@ -49,8 +49,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>> Node<N, C> {
                 state.clone(),
             )
             .map_err(ClientError::InternalError)?;
+        let chain_id = consensus.chain_id();
         let execution = Arc::new(
-            ExecutionClient::new(client_inner, state.clone(), fork_schedule)
+            ExecutionClient::new(client_inner, state.clone(), fork_schedule, chain_id)
                 .map_err(ClientError::InternalError)?,
         );
 
