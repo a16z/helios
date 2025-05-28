@@ -209,7 +209,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             self.base_url,
             serialize_block_id(block_id)
         );
-        
+
         let request = self
             .client
             .get(&url)
