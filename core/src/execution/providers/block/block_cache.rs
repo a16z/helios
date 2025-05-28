@@ -12,6 +12,7 @@ use eyre::Result;
 use helios_common::network_spec::NetworkSpec;
 use tokio::sync::RwLock;
 
+use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
 use crate::execution::providers::BlockProvider;
 
 pub struct BlockCache<N: NetworkSpec> {
@@ -29,7 +30,7 @@ impl<N: NetworkSpec> BlockCache<N> {
             finalized: Arc::default(),
             blocks: Arc::default(),
             hashes: Arc::default(),
-            size: 256,
+            size: MAX_STATE_HISTORY_LENGTH,
         }
     }
 }
