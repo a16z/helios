@@ -23,6 +23,7 @@ pub enum Network {
     Mainnet,
     Sepolia,
     Holesky,
+    Hoodi,
 }
 
 impl FromStr for Network {
@@ -33,6 +34,7 @@ impl FromStr for Network {
             "mainnet" => Ok(Self::Mainnet),
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
+            "hoodi" => Ok(Self::Hoodi),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -44,6 +46,7 @@ impl Display for Network {
             Self::Mainnet => "mainnet",
             Self::Sepolia => "sepolia",
             Self::Holesky => "holesky",
+            Self::Hoodi => "hoodi",
         };
 
         f.write_str(str)
@@ -56,6 +59,7 @@ impl Network {
             Self::Mainnet => mainnet(),
             Self::Sepolia => sepolia(),
             Self::Holesky => holesky(),
+            Self::Hoodi => hoodi(),
         }
     }
 
@@ -64,6 +68,7 @@ impl Network {
             1 => Ok(Network::Mainnet),
             11155111 => Ok(Network::Sepolia),
             17000 => Ok(Network::Holesky),
+            560048 => Ok(Network::Hoodi),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -209,6 +214,54 @@ pub fn holesky() -> BaseConfig {
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Holesky)),
+        ..std::default::Default::default()
+    }
+}
+
+pub fn hoodi() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "689dc3d39faf53c360ada45a734139bfb195f96d04416c797bb0c1a46da903ad"
+        ),
+        rpc_port: 8545,
+        consensus_rpc: None,
+        chain: ChainConfig {
+            chain_id: 560048,
+            genesis_time: 1742213400,
+            genesis_root: b256!("212f13fc4df078b6cb7db228f1c8307566dcecf900867401a92023d7ba99cb5f"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("10000910"),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("20000910"),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("30000910"),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("40000910"),
+            },
+            deneb: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("50000910"),
+            },
+            electra: Fork {
+                epoch: 2048,
+                fork_version: fixed_bytes!("60000910"),
+            },
+        },
+        execution_forks: ForkSchedule {
+            prague_timestamp: 1742999832,
+        },
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::Hoodi)),
         ..std::default::Default::default()
     }
 }
