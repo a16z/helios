@@ -1,3 +1,5 @@
+use std::{marker::PhantomData, sync::Arc};
+
 use alloy::{
     eips::BlockId,
     primitives::{Address, B256, U256},
@@ -5,8 +7,11 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
-use reqwest::{Client, Response};
+use reqwest::{self, Response};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
+use tokio::time::Duration;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -14,18 +19,63 @@ use helios_verifiable_api_types::*;
 use super::VerifiableApi;
 
 #[derive(Clone)]
-pub struct HttpVerifiableApi {
-    client: Client,
+pub struct HttpVerifiableApi<N: NetworkSpec> {
+    client: Arc<ClientWithMiddleware>,
     base_url: String,
+    phantom: PhantomData<N>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
+impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     fn new(base_url: &str) -> Self {
+        let builder = reqwest::ClientBuilder::default();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let builder = builder
+            // Keep 30 connections ready per host
+            .pool_max_idle_per_host(30)
+            // Disable idle timeout - keep connections indefinitely
+            .pool_idle_timeout(None)
+            // Aggressive TCP keepalive
+            .tcp_keepalive(Some(Duration::from_secs(30)))
+            // HTTP/2 specific settings
+            .http2_keep_alive_interval(Some(Duration::from_secs(30)))
+            .http2_keep_alive_timeout(Duration::from_secs(30))
+            .http2_keep_alive_while_idle(true)
+            // Prevent connection closure
+            .tcp_nodelay(true)
+            // Fast decompression
+            .brotli(true)
+            // Faster DNS resolution
+            .hickory_dns(true)
+            // Use http2
+            .http2_prior_knowledge();
+
+        let client = builder.build().unwrap();
+
+        let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+        let client = Arc::new(
+            ClientBuilder::new(client)
+                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .build(),
+        );
+
+        let client_ref = client.clone();
+        let base_url_ref = base_url.to_string();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(async move {
+            loop {
+                _ = client_ref.head(&base_url_ref).send().await;
+                tokio::time::sleep(Duration::from_secs(10)).await;
+            }
+        });
+
         Self {
-            client: Client::new(),
+            client,
             base_url: base_url.trim_end_matches("/").to_string(),
+            phantom: PhantomData,
         }
     }
 
@@ -39,7 +89,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
         let mut request = self.client.get(&url);
         if let Some(block_id) = block_id {
-            request = request.query(&[("block", block_id.to_string())]);
+            request = request.query(&[("block", block_id)]);
         }
         for slot in storage_slots {
             request = request.query(&[("storageSlots", slot)]);
@@ -53,9 +103,27 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
+        let url = format!("{}/eth/v1/proof/receipt/{}", self.base_url, tx_hash);
+        let response = self.client.get(&url).send().await?;
+        handle_response(response).await
+    }
+
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
+        let url = format!("{}/eth/v1/proof/transaction/{}", self.base_url, tx_hash);
+        let response = self.client.get(&url).send().await?;
+        handle_response(response).await
+    }
+
+    async fn get_transaction_by_location(
+        &self,
+        block_id: BlockId,
+        index: u64,
+    ) -> Result<Option<TransactionResponse<N>>> {
         let url = format!(
-            "{}/eth/v1/proof/transaction/{}/receipt",
-            self.base_url, tx_hash
+            "{}/eth/v1/proof/transaction/{}/{}",
+            self.base_url,
+            serialize_block_id(block_id),
+            index
         );
         let response = self.client.get(&url).send().await?;
         handle_response(response).await
@@ -105,25 +173,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         handle_response(response).await
     }
 
-    async fn get_filter_logs(&self, filter_id: U256) -> Result<FilterLogsResponse<N>> {
-        let url = format!("{}/eth/v1/proof/filterLogs/{}", self.base_url, filter_id);
-        let response = self.client.get(&url).send().await?;
-        handle_response(response).await
-    }
-
-    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChangesResponse<N>> {
-        let url = format!("{}/eth/v1/proof/filterChanges/{}", self.base_url, filter_id);
-        let response = self.client.get(&url).send().await?;
-        handle_response(response).await
-    }
-
-    async fn create_extended_access_list(
+    async fn get_execution_hint(
         &self,
         tx: N::TransactionRequest,
         validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
-        let url = format!("{}/eth/v1/proof/createExtendedAccessList", self.base_url);
+        let url = format!("{}/eth/v1/proof/getExecutionHint", self.base_url);
         let response = self
             .client
             .post(&url)
@@ -148,13 +204,19 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let url = format!("{}/eth/v1/block/{}", self.base_url, block_id);
-        let response = self
+        let url = format!(
+            "{}/eth/v1/block/{}",
+            self.base_url,
+            serialize_block_id(block_id)
+        );
+
+        let request = self
             .client
             .get(&url)
-            .query(&[("transactionDetailFlag", full_tx)])
-            .send()
-            .await?;
+            .query(&[("transactionDetailFlag", full_tx)]);
+
+        let response = request.send().await?;
+
         handle_response(response).await
     }
 
@@ -162,7 +224,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let url = format!("{}/eth/v1/block/{}/receipts", self.base_url, block_id);
+        let url = format!(
+            "{}/eth/v1/block/{}/receipts",
+            self.base_url,
+            serialize_block_id(block_id)
+        );
         let response = self.client.get(&url).send().await?;
         handle_response(response).await
     }
@@ -179,61 +245,24 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi {
             .await?;
         handle_response(response).await
     }
-
-    async fn new_filter(&self, filter: &Filter) -> Result<NewFilterResponse> {
-        let url = format!("{}/eth/v1/filter", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&NewFilterRequest {
-                kind: FilterKind::Logs,
-                filter: Some(filter.clone()),
-            })
-            .send()
-            .await?;
-        handle_response(response).await
-    }
-
-    async fn new_block_filter(&self) -> Result<NewFilterResponse> {
-        let url = format!("{}/eth/v1/filter", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&NewFilterRequest {
-                kind: FilterKind::NewBlocks,
-                filter: None,
-            })
-            .send()
-            .await?;
-        handle_response(response).await
-    }
-
-    async fn new_pending_transaction_filter(&self) -> Result<NewFilterResponse> {
-        let url = format!("{}/eth/v1/filter", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&NewFilterRequest {
-                kind: FilterKind::NewPendingTransactions,
-                filter: None,
-            })
-            .send()
-            .await?;
-        handle_response(response).await
-    }
-
-    async fn uninstall_filter(&self, filter_id: U256) -> Result<UninstallFilterResponse> {
-        let url = format!("{}/eth/v1/filter/{}", self.base_url, filter_id);
-        let response = self.client.delete(&url).send().await?;
-        handle_response(response).await
-    }
 }
 
 async fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
     if response.status().is_success() {
-        Ok(response.json::<T>().await?)
+        let bytes = response.bytes().await?;
+        Ok(serde_json::from_slice(&bytes)?)
     } else {
         let error_response = response.json::<ErrorResponse>().await?;
         Err(eyre!(error_response.error.to_string()))
+    }
+}
+
+fn serialize_block_id(block_id: BlockId) -> String {
+    match block_id {
+        BlockId::Hash(hash) => hash.block_hash.to_string(),
+        BlockId::Number(number) => serde_json::to_string(&number)
+            .unwrap()
+            .trim_matches('"')
+            .to_string(),
     }
 }

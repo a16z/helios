@@ -3,6 +3,7 @@ use alloy::{
         proofs::{calculate_transaction_root, calculate_withdrawals_root},
         BlockHeader, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
     },
+    eips::Encodable2718,
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
@@ -40,6 +41,10 @@ impl NetworkSpec for Ethereum {
             TxType::Legacy => encoded,
             _ => [vec![tx_type as u8], encoded].concat(),
         }
+    }
+
+    fn encode_transaction(tx: &Self::TransactionResponse) -> Vec<u8> {
+        tx.inner.encoded_2718()
     }
 
     fn is_hash_valid(block: &Self::BlockResponse) -> bool {

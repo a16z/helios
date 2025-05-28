@@ -1,12 +1,12 @@
 use std::net::SocketAddr;
 
 use clap::{Args, Subcommand};
+use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::debug;
 use url::Url;
 
-use helios_core::execution::rpc::http_rpc::HttpRpc;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
 use helios_opstack::spec::OpStack as OpStackSpec;
 use helios_verifiable_api_client::VerifiableApi;
@@ -38,29 +38,22 @@ impl VerifiableApiServer {
             Network::Ethereum(args) => {
                 let server_addr = args.server_address;
                 let execution_rpc = &args.execution_rpc;
-                let api_service =
-                    ApiService::<EthereumSpec, HttpRpc<EthereumSpec>>::new(execution_rpc.as_str());
+                let api_service = ApiService::<EthereumSpec>::new(execution_rpc.as_str());
                 let router = build_router().with_state(ApiState { api_service });
                 (server_addr, router)
             }
             Network::OpStack(args) => {
                 let server_addr = args.server_address;
                 let execution_rpc = &args.execution_rpc;
-                let api_service =
-                    ApiService::<OpStackSpec, HttpRpc<OpStackSpec>>::new(execution_rpc.as_str());
+                let api_service = ApiService::<OpStackSpec>::new(execution_rpc.as_str());
                 let router = build_router().with_state(ApiState { api_service });
                 (server_addr, router)
             }
         };
 
-        // run the server
         tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind(server_addr).await.unwrap();
-            debug!(
-                target: "helios::verifiable-api-server",
-                "listening on {}",
-                listener.local_addr().unwrap()
-            );
+            let listener = TcpListener::bind(server_addr).await.unwrap();
+
             axum::serve(listener, app)
                 .with_graceful_shutdown(async {
                     let _ = shutdown_rx.await;
@@ -107,12 +100,12 @@ mod tests {
 
         // Start the server in a background task
         let mut server = VerifiableApiServer::new(network);
-        let server_handle = server.start();
+        let handle = server.start();
 
         // Shutdown the server
         server.shutdown();
 
-        // Wait for the server to shut down
-        server_handle.await.unwrap();
+        // Wait for shutdown
+        handle.await.unwrap();
     }
 }

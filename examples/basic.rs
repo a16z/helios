@@ -1,15 +1,13 @@
 use std::{path::PathBuf, str::FromStr};
 
+use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{utils::format_ether, Address};
 use eyre::Result;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
 
-use helios::common::types::BlockTag;
-use helios::ethereum::{
-    config::networks::Network, database::FileDB, EthereumClient, EthereumClientBuilder,
-};
+use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,12 +28,13 @@ async fn main() -> Result<()> {
     let consensus_rpc = "https://www.lightclientdata.org";
     info!("Using consensus RPC URL: {}", consensus_rpc);
 
-    let mut client: EthereumClient<FileDB> = EthereumClientBuilder::new()
+    let client: EthereumClient = EthereumClientBuilder::new()
         .network(Network::Mainnet)
         .consensus_rpc(consensus_rpc)
         .execution_rpc(untrusted_rpc_url)
         .load_external_fallback()
         .data_dir(PathBuf::from("/tmp/helios"))
+        .with_file_db()
         .build()?;
 
     info!(
@@ -43,14 +42,13 @@ async fn main() -> Result<()> {
         Network::Mainnet
     );
 
-    client.start().await?;
     client.wait_synced().await;
 
-    let client_version = client.client_version().await;
+    let client_version = client.get_client_version().await;
     let head_block_num = client.get_block_number().await?;
     let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
-    let block = BlockTag::Latest;
-    let balance = client.get_balance(addr, block).await?;
+    let block = BlockNumberOrTag::Latest;
+    let balance = client.get_balance(addr, block.into()).await?;
 
     info!("client version: {}", client_version);
     info!("synced up to block: {}", head_block_num);

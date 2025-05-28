@@ -3,6 +3,7 @@ use alloy::{
         proofs::calculate_transaction_root, BlockHeader, Receipt, ReceiptWithBloom, TxReceipt,
         TxType,
     },
+    eips::Encodable2718,
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
@@ -70,6 +71,10 @@ impl NetworkSpec for OpStack {
             OpTxType::Legacy => raw_encoded,
             _ => [vec![tx_type as u8], raw_encoded].concat(),
         }
+    }
+
+    fn encode_transaction(tx: &Self::TransactionResponse) -> Vec<u8> {
+        tx.inner.inner.encoded_2718()
     }
 
     fn is_hash_valid(block: &Self::BlockResponse) -> bool {

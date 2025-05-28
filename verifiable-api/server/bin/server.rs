@@ -4,7 +4,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use helios_verifiable_api_server::server::{Network, VerifiableApiServer};
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() {
     // Pre setup
     enable_tracing();

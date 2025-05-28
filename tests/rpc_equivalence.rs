@@ -1,4 +1,5 @@
 use std::env;
+use std::net::SocketAddr;
 
 use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::address;
@@ -10,16 +11,14 @@ use pretty_assertions::assert_eq;
 use rand::Rng;
 use url::Url;
 
-use helios::ethereum::{
-    config::networks::Network, database::ConfigDB, EthereumClient, EthereumClientBuilder,
-};
+use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
 use helios_verifiable_api_server::server::{
     Network as ApiNetwork, ServerArgs, VerifiableApiServer,
 };
 
 async fn setup() -> (
-    EthereumClient<ConfigDB>,
-    EthereumClient<ConfigDB>,
+    EthereumClient,
+    EthereumClient,
     VerifiableApiServer,
     Vec<RootProvider>,
 ) {
@@ -34,17 +33,16 @@ async fn setup() -> (
     // Helios provider (RPC)
     let (helios_client, helios_provider) = {
         let port = rng.gen_range(1024..=65535);
-        let mut helios_client = EthereumClientBuilder::new()
+        let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .execution_rpc(&execution_rpc)
             .consensus_rpc(consensus_rpc)
             .load_external_fallback()
             .strict_checkpoint_age()
-            .rpc_port(port)
+            .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
+            .with_config_db()
             .build()
             .unwrap();
-
-        helios_client.start().await.unwrap();
 
         let url = format!("http://localhost:{}", port).parse().unwrap();
         let helios_provider = RootProvider::new_http(url);
@@ -58,22 +56,21 @@ async fn setup() -> (
         server_address: format!("127.0.0.1:{api_port}").parse().unwrap(),
         execution_rpc: Url::parse(&execution_rpc).unwrap(),
     }));
-    api_server.start();
+    let _handle = api_server.start();
 
     // Helios provider (Verifiable API)
     let (helios_client_api, helios_provider_api) = {
         let port = rng.gen_range(1024..=65535);
-        let mut helios_client = EthereumClientBuilder::new()
+        let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
-            .execution_verifiable_api(&format!("http://localhost:{api_port}"))
+            .verifiable_api(&format!("http://localhost:{api_port}"))
             .consensus_rpc(consensus_rpc)
             .load_external_fallback()
             .strict_checkpoint_age()
-            .rpc_port(port)
+            .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
+            .with_config_db()
             .build()
             .unwrap();
-
-        helios_client.start().await.unwrap();
 
         let url = format!("http://localhost:{}", port).parse().unwrap();
         let helios_provider = RootProvider::new_http(url);
@@ -227,8 +224,8 @@ async fn get_block_receipts() {
     let helios_rpc = providers[1].clone();
     let provider = providers[2].clone();
 
-    let helios_api_block_num = helios_api.get_block_number().await.unwrap();
-    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap();
+    let helios_api_block_num = helios_api.get_block_number().await.unwrap() - 10;
+    let helios_rpc_block_num = helios_rpc.get_block_number().await.unwrap() - 10;
 
     let receipts = helios_api
         .get_block_receipts(helios_api_block_num.into())
