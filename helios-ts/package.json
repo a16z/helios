@@ -6,9 +6,9 @@
   "types": "./dist/lib.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/lib.d.ts",
       "import": "./dist/lib.mjs",
-      "require": "./dist/lib.umd.js",
-      "types": "./dist/lib.d.ts"
+      "require": "./dist/lib.umd.js"
     }
   },
   "scripts": {
