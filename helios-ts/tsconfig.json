@@ -2,12 +2,19 @@
   "compilerOptions": {
     "outDir": "./dist/",
     "noImplicitAny": true,
-    "module": "es6",
+    "module": "ESNext",
     "target": "es6",
-    "jsx": "react",
     "allowJs": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "sourceMap": true,
     "declaration": true
-  }
+  },
+  "files": [
+    "./lib.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src",
+  ]
 }
