@@ -1,10 +1,9 @@
-import { EventEmitter } from "events";
+import { EventEmitter } from "eventemitter3";
 import { v4 as uuidv4 } from "uuid";
-import initWasm, { EthereumClient, OpStackClient, LineaClient } from "./pkg/index";
+import initWasm, { EthereumClient, OpStackClient, LineaClient } from "./pkg";
 
 export async function init() {
-  const wasmData = require("./pkg/index_bg.wasm");
-  await initWasm(wasmData);
+  await initWasm();
 }
 
 /// An EIP-1193 compliant Ethereum provider. Treat this the same as you
@@ -14,7 +13,6 @@ export class HeliosProvider {
   #chainId;
   #eventEmitter;
 
-  /// Do not use this constructor. Instead use the createHeliosProvider function.
   constructor(config: Config, kind: "ethereum" | "opstack") {
     const executionRpc = config.executionRpc;
     const verifiableApi = config.verifiableApi;
