@@ -12,7 +12,6 @@ use alloy::rpc::types::{
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 use revm::context_interface::block::BlobExcessGasAndPrice;
-use tokio::time::interval;
 use tokio::{select, sync::broadcast::Sender};
 use tracing::{info, warn};
 
@@ -27,7 +26,7 @@ use crate::errors::ClientError;
 use crate::execution::evm::Evm;
 use crate::execution::filter_state::{FilterState, FilterType};
 use crate::execution::providers::ExecutionProivder;
-use crate::time::{SystemTime, UNIX_EPOCH};
+use crate::time::{interval, SystemTime, UNIX_EPOCH};
 
 use super::api::HeliosApi;
 
