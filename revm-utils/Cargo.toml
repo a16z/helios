@@ -1,0 +1,17 @@
+[package]
+name = "helios-revm-utils"
+version = "0.1.0"
+edition = "2021"
+description = "Utilities for integrating REVM with Helios"
+
+[dependencies]
+alloy.workspace = true 
+eyre.workspace = true 
+hex.workspace = true 
+revm.workspace = true 
+tracing.workspace = true
+thiserror.workspace = true 
+
+# self crates
+helios-common = { path = "../common" }
+helios-core = { path = "../core" }

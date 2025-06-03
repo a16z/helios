@@ -1,8 +1,9 @@
 use alloy::eips::BlockId;
 use eyre::Report;
+use helios_common::types::EvmError;
 use thiserror::Error;
 
-use crate::execution::errors::{EvmError, ExecutionError};
+use crate::execution::errors::ExecutionError;
 
 #[derive(Debug, Error)]
 pub enum ClientError {

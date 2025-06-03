@@ -4,9 +4,10 @@ use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::{address, B256, U256};
 use eyre::{eyre, Result};
 
-use helios_common::network_spec::NetworkSpec;
-
-use crate::execution::providers::{AccountProvider, BlockProvider};
+use helios_common::{
+    execution_provider::{AccountProvider, BlockProvider},
+    network_spec::NetworkSpec,
+};
 
 pub async fn get_block<N: NetworkSpec, P: BlockProvider<N> + AccountProvider<N>>(
     block_id: BlockId,
