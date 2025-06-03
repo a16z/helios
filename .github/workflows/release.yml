@@ -258,3 +258,56 @@ jobs:
             helios_linux_riscv64gc.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-npm-package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./helios-ts
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          override: true
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build helios-ts package
+        run: npm run build
+
+      - name: Create npm package tarball
+        id: pack
+        run: |
+          PACKAGE_FILENAME=$(npm pack)
+          echo "Packed file: $PACKAGE_FILENAME"
+          echo "::set-output name=package_filename::$PACKAGE_FILENAME"
+
+      - name: Generate tag name
+        id: tag
+        # This step runs in the workspace root, not ./helios-ts default
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+
+      - name: Release npm package to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          prerelease: true
+          files: helios-ts/${{ steps.pack.outputs.package_filename }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
