@@ -18,11 +18,13 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 reqwest.workspace = true
 url.workspace = true
 futures.workspace = true
+async-trait.workspace = true
 
 # consensus
 alloy.workspace = true
 alloy-trie.workspace = true
 revm.workspace = true
+op-revm = { version = "3.0.0" }
 sha2.workspace = true
 ethereum_ssz_derive.workspace = true
 ethereum_ssz.workspace = true
@@ -41,6 +43,7 @@ helios-common = { path = "../common" }
 helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 helios-consensus-core = { path = "../ethereum/consensus-core" }
+helios-revm-utils = { path = "../revm-utils" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # server
