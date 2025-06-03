@@ -3529,10 +3529,13 @@ name = "helios-common"
 version = "0.8.8"
 dependencies = [
  "alloy",
+ "async-trait",
  "eyre",
+ "hex",
  "revm",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tokio",
 ]
 
