@@ -10,3 +10,6 @@ serde_json.workspace = true
 revm.workspace = true
 eyre.workspace = true
 tokio.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+hex.workspace = true
