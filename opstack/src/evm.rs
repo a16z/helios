@@ -11,7 +11,7 @@ use helios_core::execution::errors::ExecutionError;
 use helios_revm_utils::proof_db::ProofDB;
 use op_alloy_consensus::OpTxType;
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
-use op_revm::{DefaultOp, OpBuilder, OpContext, OpHaltReason, OpTransaction};
+use op_revm::{DefaultOp, OpBuilder, OpContext, OpHaltReason, OpSpecId, OpTransaction};
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
@@ -113,6 +113,7 @@ impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
         }
 
         let mut cfg = CfgEnv::default();
+        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp(), &self.fork_schedule);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
@@ -180,5 +181,27 @@ impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price,
         }
+    }
+}
+
+pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> OpSpecId {
+    if timestamp >= fork_schedule.isthmus_timestamp {
+        OpSpecId::ISTHMUS
+    } else if timestamp >= fork_schedule.holocene_timestamp {
+        OpSpecId::HOLOCENE
+    } else if timestamp >= fork_schedule.granite_timestamp {
+        OpSpecId::GRANITE
+    } else if timestamp >= fork_schedule.fjord_timestamp {
+        OpSpecId::FJORD
+    } else if timestamp >= fork_schedule.ecotone_timestamp {
+        OpSpecId::ECOTONE
+    } else if timestamp >= fork_schedule.canyon_timestamp {
+        OpSpecId::CANYON
+    } else if timestamp >= fork_schedule.regolith_timestamp {
+        OpSpecId::REGOLITH
+    } else if timestamp >= fork_schedule.bedrock_timestamp {
+        OpSpecId::BEDROCK
+    } else {
+        OpSpecId::default()
     }
 }

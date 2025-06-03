@@ -10,7 +10,7 @@ use eyre::Result;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    primitives::Address,
+    primitives::{hardfork::SpecId, Address},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
 use tracing::debug;
@@ -109,6 +109,7 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
         }
 
         let mut cfg = CfgEnv::default();
+        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
@@ -170,5 +171,47 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
         }
+    }
+}
+
+pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> SpecId {
+    if timestamp >= fork_schedule.prague_timestamp {
+        SpecId::PRAGUE
+    } else if timestamp >= fork_schedule.cancun_timestamp {
+        SpecId::CANCUN
+    } else if timestamp >= fork_schedule.shanghai_timestamp {
+        SpecId::SHANGHAI
+    } else if timestamp >= fork_schedule.paris_timestamp {
+        SpecId::MERGE
+    } else if timestamp >= fork_schedule.gray_glacier_timestamp {
+        SpecId::GRAY_GLACIER
+    } else if timestamp >= fork_schedule.arrow_glacier_timestamp {
+        SpecId::ARROW_GLACIER
+    } else if timestamp >= fork_schedule.london_timestamp {
+        SpecId::LONDON
+    } else if timestamp >= fork_schedule.berlin_timestamp {
+        SpecId::BERLIN
+    } else if timestamp >= fork_schedule.muir_glacier_timestamp {
+        SpecId::MUIR_GLACIER
+    } else if timestamp >= fork_schedule.istanbul_timestamp {
+        SpecId::ISTANBUL
+    } else if timestamp >= fork_schedule.petersburg_timestamp {
+        SpecId::PETERSBURG
+    } else if timestamp >= fork_schedule.constantinople_timestamp {
+        SpecId::CONSTANTINOPLE
+    } else if timestamp >= fork_schedule.byzantium_timestamp {
+        SpecId::BYZANTIUM
+    } else if timestamp >= fork_schedule.spurious_dragon_timestamp {
+        SpecId::SPURIOUS_DRAGON
+    } else if timestamp >= fork_schedule.tangerine_timestamp {
+        SpecId::TANGERINE
+    } else if timestamp >= fork_schedule.dao_timestamp {
+        SpecId::DAO_FORK
+    } else if timestamp >= fork_schedule.homestead_timestamp {
+        SpecId::HOMESTEAD
+    } else if timestamp >= fork_schedule.frontier_timestamp {
+        SpecId::FRONTIER
+    } else {
+        SpecId::default()
     }
 }
