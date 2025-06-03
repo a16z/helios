@@ -244,7 +244,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
         )
         .await?;
 
-        Ok(ExtendedAccessListResponse { accounts: accounts })
+        Ok(ExtendedAccessListResponse { accounts })
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
