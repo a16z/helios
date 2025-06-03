@@ -1,24 +1,35 @@
+use std::{collections::HashMap, sync::Arc};
+
 use alloy::{
     consensus::{
         proofs::{calculate_transaction_root, calculate_withdrawals_root},
-        BlockHeader, Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
+        Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
     },
-    eips::Encodable2718,
+    eips::{BlockId, Encodable2718},
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
+use async_trait::async_trait;
+use revm::context::result::{ExecutionResult, HaltReason};
 
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
-use revm::{
-    context::{BlockEnv, TxEnv},
-    context_interface::block::BlobExcessGasAndPrice,
+use helios_common::{
+    execution_provider::ExecutionProivder,
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{Account, EvmError},
 };
+
+use crate::evm::EthereumEvm;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ethereum;
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl NetworkSpec for Ethereum {
+    type HaltReason = HaltReason;
+
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
         let tx_type = receipt.transaction_type();
         let receipt = receipt.inner.as_receipt_with_bloom().unwrap();
@@ -86,54 +97,17 @@ impl NetworkSpec for Ethereum {
         receipt.inner.logs().to_vec()
     }
 
-    fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
-        TxEnv {
-            tx_type: tx.transaction_type.unwrap_or_default(),
-            caller: tx.from.unwrap_or_default(),
-            gas_limit: <TransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
-                .unwrap_or(u64::MAX),
-            gas_price: <TransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-                .unwrap_or_default(),
-            kind: tx.to.unwrap_or_default(),
-            value: tx.value.unwrap_or_default(),
-            data: <TransactionRequest as TransactionBuilder<Self>>::input(tx)
-                .unwrap_or_default()
-                .clone(),
-            nonce: <TransactionRequest as TransactionBuilder<Self>>::nonce(tx).unwrap_or_default(),
-            chain_id: <TransactionRequest as TransactionBuilder<Self>>::chain_id(tx),
-            access_list: <TransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-                .cloned()
-                .unwrap_or_default(),
-            gas_priority_fee:
-                <TransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx),
-            max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap_or_default(),
-            blob_hashes: tx
-                .blob_versioned_hashes
-                .as_ref()
-                .map(|v| v.to_vec())
-                .unwrap_or_default(),
-            authorization_list: vec![],
-        }
-    }
+    async fn transact<E: ExecutionProivder<Self>>(
+        tx: &Self::TransactionRequest,
+        validate_tx: bool,
+        execution: Arc<E>,
+        chain_id: u64,
+        fork_schedule: ForkSchedule,
+        block_id: BlockId,
+    ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
+        let mut evm = EthereumEvm::new(execution, chain_id, fork_schedule, block_id);
 
-    fn block_env(block: &Self::BlockResponse, fork_schedule: &ForkSchedule) -> BlockEnv {
-        let is_prague = block.header.timestamp >= fork_schedule.prague_timestamp;
-        let blob_excess_gas_and_price = block
-            .header
-            .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
-            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
-
-        BlockEnv {
-            number: block.header.number(),
-            beneficiary: block.header.beneficiary(),
-            timestamp: block.header.timestamp(),
-            gas_limit: block.header.gas_limit(),
-            basefee: block.header.base_fee_per_gas().unwrap_or_default(),
-            difficulty: block.header.difficulty(),
-            prevrandao: block.header.mix_hash(),
-            blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
-        }
+        evm.transact_inner(tx, validate_tx).await
     }
 }
 

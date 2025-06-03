@@ -151,7 +151,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> He
         self.check_blocktag_age(&block_id).await?;
         let (result, ..) = N::transact(
             tx,
-            true,
+            false,
             self.execution.clone(),
             self.get_chain_id().await,
             self.fork_schedule,

@@ -13,6 +13,7 @@ use types::ExecutionPayload;
 mod builder;
 pub mod config;
 pub mod consensus;
+pub(crate) mod evm;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod server;
 pub mod spec;
