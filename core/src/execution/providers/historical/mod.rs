@@ -1,9 +1,10 @@
 use alloy::eips::BlockId;
 use async_trait::async_trait;
 use eyre::Result;
-use helios_common::network_spec::NetworkSpec;
-
-use crate::execution::providers::{AccountProvider, BlockProvider};
+use helios_common::{
+    execution_provider::{AccountProvider, BlockProvider},
+    network_spec::NetworkSpec,
+};
 
 pub mod eip2935;
 

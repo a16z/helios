@@ -22,7 +22,14 @@ use eyre::{eyre, Result};
 use futures::future::{join_all, try_join_all};
 use reqwest::Url;
 
-use helios_common::{network_spec::NetworkSpec, types::Account};
+use helios_common::{
+    execution_provider::{
+        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider,
+        ReceiptProvider, TransactionProvider,
+    },
+    network_spec::NetworkSpec,
+    types::Account,
+};
 
 use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
@@ -30,10 +37,7 @@ use crate::execution::{
     proof::{
         verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
     },
-    providers::{
-        historical::HistoricalBlockProvider, AccountProvider, BlockProvider, ExecutionHintProvider,
-        ExecutionProivder, LogProvider, ReceiptProvider, TransactionProvider,
-    },
+    providers::historical::HistoricalBlockProvider,
 };
 
 use super::utils::ensure_logs_match_filter;

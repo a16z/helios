@@ -7,10 +7,12 @@ use alloy::primitives::{address, B256, U256};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
-use helios_common::network_spec::NetworkSpec;
+use helios_common::{
+    execution_provider::{AccountProvider, BlockProvider},
+    network_spec::NetworkSpec,
+};
 
 use super::HistoricalBlockProvider;
-use crate::execution::providers::{AccountProvider, BlockProvider};
 
 /// EIP-2935 historical block provider for Ethereum and OpStack chains.
 ///
