@@ -44,6 +44,18 @@ helios opstack --network $NETWORK --execution-rpc $ETH_RPC_URL
 
 Currently supported network values are `op-mainnet` and `base`, with more to come soon.
 
+### Linea
+
+To run Helios on Linea, run the command below, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy:
+
+```
+helios linea --execution-rpc $ETH_RPC_URL
+```
+
+`$ETH_RPC_URL` must be a [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the eth_getProof endpoint. We recommend using Alchemy or other compatible providers.
+
+Helios will now run a local RPC server at `http://127.0.0.1:8545`.
+
 ### Additional Ethereum CLI Options <a id="additional-cli-options"></a>
 
 `--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
