@@ -236,9 +236,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             validate_tx,
             Arc::new(provider),
             self.rpc.get_chain_id().await?,
-            ForkSchedule {
-                prague_timestamp: u64::MAX,
-            },
+            ForkSchedule::default(),
             block_id,
         )
         .await?;
