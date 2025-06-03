@@ -24,7 +24,13 @@ async-trait.workspace = true
 alloy.workspace = true
 alloy-trie.workspace = true
 revm.workspace = true
-op-revm = { version = "3.0.0" }
+op-revm = { version = "3.0.0", default-features = false, features = [
+    "std",
+    "serde",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+] }
 sha2.workspace = true
 ethereum_ssz_derive.workspace = true
 ethereum_ssz.workspace = true
