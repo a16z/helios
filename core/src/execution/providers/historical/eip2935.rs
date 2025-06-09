@@ -84,7 +84,28 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
             return Err(eyre!("failed to get latest trusted block"));
         };
 
+        let latest_number = latest_block.header().number();
         let latest_hash = latest_block.header().hash();
+
+        // Check if the target block is within the EIP-2935 ring buffer range
+        // The ring buffer stores the last `ring_buffer_size` block hashes
+        if target_number + self.ring_buffer_size <= latest_number {
+            return Err(eyre!(
+                "block {} is outside EIP-2935 ring buffer range (latest: {}, buffer size: {})",
+                target_number,
+                latest_number,
+                self.ring_buffer_size
+            ));
+        }
+
+        // Also check if target block is in the future
+        if target_number > latest_number {
+            return Err(eyre!(
+                "block {} is in the future (latest: {})",
+                target_number,
+                latest_number
+            ));
+        }
 
         // Calculate the storage slot in the EIP-2935 contract
         let slot = B256::from(U256::from(target_number % self.ring_buffer_size));
