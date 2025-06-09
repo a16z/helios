@@ -50,7 +50,8 @@ impl<N: NetworkSpec> Eip2935Provider<N> {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
     async fn get_historical_block<E>(
         &self,

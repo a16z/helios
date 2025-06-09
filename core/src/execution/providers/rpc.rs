@@ -39,7 +39,8 @@ use crate::execution::{
 use super::utils::ensure_logs_match_filter;
 
 // Implementation for unit type to provide no historical block support
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> HistoricalBlockProvider<N> for () {
     async fn get_historical_block<E>(
         &self,
