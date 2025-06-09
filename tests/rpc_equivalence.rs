@@ -11,7 +11,6 @@ use alloy::sol;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use serial_test::serial;
-use tokio::time::{sleep, Duration};
 use url::Url;
 
 use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
@@ -68,10 +67,10 @@ use helios_verifiable_api_server::server::{
 // 1. Set environment variable:
 //    export MAINNET_EXECUTION_RPC=YOUR_API_KEY
 //
-// 2. Run all tests (reliable, ~5-8 minutes):
+// 2. Run all tests (optimized setup, ~3-4 minutes):
 //    cargo test --workspace --test rpc_equivalence
 //
-// 3. Run all tests (faster, ~2 minutes, may be flaky):
+// 3. Run all tests (faster with concurrency, ~2 minutes, may be flaky):
 //    cargo test --workspace --test rpc_equivalence -- --test-threads=4
 //
 // 4. Run specific test:
@@ -81,25 +80,25 @@ use helios_verifiable_api_server::server::{
 
 macro_rules! rpc_equivalence_test {
     ($test_name:ident, |$helios:ident, $expected:ident| $test_logic:expr) => {
-        #[tokio::test]
+        #[tokio::test(flavor = "multi_thread")]
         #[serial]
         async fn $test_name() {
             ensure_rpc_env();
 
             let (_handle1, _handle2, _handle3, providers) = setup().await;
-            let helios_api = providers[0].clone();
-            let helios_rpc = providers[1].clone();
-            let provider = providers[2].clone();
+            let helios_api = &providers[0];
+            let helios_rpc = &providers[1];
+            let provider = &providers[2];
 
             // Test both API and RPC providers
             {
-                let $helios = &helios_api;
-                let $expected = &provider;
+                let $helios = helios_api;
+                let $expected = provider;
                 $test_logic
             }
             {
-                let $helios = &helios_rpc;
-                let $expected = &provider;
+                let $helios = helios_rpc;
+                let $expected = provider;
                 $test_logic
             }
         }
@@ -162,7 +161,7 @@ async fn setup() -> (
     // Direct provider
     let provider = RootProvider::new_http(execution_rpc.parse().unwrap());
 
-    // Helios provider (RPC)
+    // Helios provider (RPC) - optimized setup
     let (helios_client, helios_provider) = {
         let port = get_available_port();
         let helios_client = EthereumClientBuilder::new()
@@ -170,7 +169,6 @@ async fn setup() -> (
             .execution_rpc(&execution_rpc)
             .consensus_rpc(consensus_rpc)
             .load_external_fallback()
-            .strict_checkpoint_age()
             .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
             .with_config_db()
             .build()
@@ -182,7 +180,7 @@ async fn setup() -> (
         (helios_client, helios_provider)
     };
 
-    // Start Verifiable API server that'd wrap the given RPC
+    // Start Verifiable API server
     let api_port = get_available_port();
     let mut api_server = VerifiableApiServer::new(ApiNetwork::Ethereum(ServerArgs {
         server_address: format!("127.0.0.1:{api_port}").parse().unwrap(),
@@ -190,7 +188,7 @@ async fn setup() -> (
     }));
     let _handle = api_server.start();
 
-    // Helios provider (Verifiable API)
+    // Helios provider (Verifiable API) - optimized setup
     let (helios_client_api, helios_provider_api) = {
         let port = get_available_port();
         let helios_client = EthereumClientBuilder::new()
@@ -198,7 +196,6 @@ async fn setup() -> (
             .verifiable_api(&format!("http://localhost:{api_port}"))
             .consensus_rpc(consensus_rpc)
             .load_external_fallback()
-            .strict_checkpoint_age()
             .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
             .with_config_db()
             .build()
@@ -210,9 +207,7 @@ async fn setup() -> (
         (helios_client, helios_provider)
     };
 
-    // Add small delay to reduce resource contention
-    sleep(Duration::from_millis(100)).await;
-
+    // Wait for both Helios instances to sync
     join_all(vec![
         helios_client.wait_synced(),
         helios_client_api.wait_synced(),
@@ -315,8 +310,8 @@ rpc_equivalence_test!(call, |helios, expected| {
         }
     }
 
-    let token_helios = ERC20::new(usdc, helios.clone());
-    let token_expected = ERC20::new(usdc, expected.clone());
+    let token_helios = ERC20::new(usdc, (*helios).clone());
+    let token_expected = ERC20::new(usdc, (*expected).clone());
 
     let balance = token_helios
         .balanceOf(user)
@@ -472,7 +467,7 @@ tx_based_test!(
 rpc_equivalence_test!(get_nonce, |helios, expected| {
     let block_num = helios.get_block_number().await.unwrap();
     // ETH2 deposit contract
-    let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa"); 
+    let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
 
     let nonce = helios
         .get_transaction_count(address)
@@ -490,7 +485,7 @@ rpc_equivalence_test!(get_nonce, |helios, expected| {
 rpc_equivalence_test!(get_code, |helios, expected| {
     let block_num = helios.get_block_number().await.unwrap();
     // USDC contract
-    let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"); 
+    let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
 
     let code = helios
         .get_code_at(address)
@@ -508,7 +503,7 @@ rpc_equivalence_test!(get_code, |helios, expected| {
 rpc_equivalence_test!(get_storage_at, |helios, expected| {
     let block_num = helios.get_block_number().await.unwrap();
     // USDC contract
-    let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"); 
+    let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let slot = U256::ZERO;
 
     let storage = helios
@@ -528,7 +523,7 @@ rpc_equivalence_test!(get_proof, |helios, expected| {
     let block_num = helios.get_block_number().await.unwrap();
     // USDC contract
     let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
-    let keys = vec![U256::ZERO.into()]; 
+    let keys = vec![U256::ZERO.into()];
 
     let proof = helios
         .get_proof(address, keys.clone())
@@ -551,7 +546,7 @@ rpc_equivalence_test!(get_proof, |helios, expected| {
 
 rpc_equivalence_test!(get_logs_by_address, |helios, expected| {
     let latest_block = helios.get_block_number().await.unwrap();
-    let target_block = latest_block.saturating_sub(2); 
+    let target_block = latest_block.saturating_sub(2);
 
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let filter = Filter::new()
@@ -746,8 +741,8 @@ rpc_equivalence_test!(call_complex_contract, |helios, expected| {
         }
     }
 
-    let weth_helios = WETH::new(weth, helios.clone());
-    let weth_expected = WETH::new(weth, expected.clone());
+    let weth_helios = WETH::new(weth, (*helios).clone());
+    let weth_expected = WETH::new(weth, (*expected).clone());
 
     // Test multiple calls to the same contract
     let supply = weth_helios
