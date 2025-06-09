@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use eyre::Result;
 use helios_common::network_spec::NetworkSpec;
 use tokio::sync::RwLock;
+use tracing::warn;
 
 use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
 use crate::execution::providers::BlockProvider;
@@ -31,6 +32,25 @@ impl<N: NetworkSpec> BlockCache<N> {
             blocks: Arc::default(),
             hashes: Arc::default(),
             size: MAX_STATE_HISTORY_LENGTH,
+        }
+    }
+
+    /// Clear all cached blocks except the finalized block
+    /// Finalized blocks are preserved since they cannot be reorganized
+    async fn clear(&self) {
+        let finalized_block = self.finalized.read().await.clone();
+
+        self.blocks.write().await.clear();
+        self.hashes.write().await.clear();
+        *self.latest.write().await = None;
+
+        // Re-insert finalized block if it exists
+        if let Some(finalized) = finalized_block {
+            let block_number = finalized.header().number();
+            let block_hash = finalized.header().hash();
+
+            self.blocks.write().await.insert(block_number, finalized);
+            self.hashes.write().await.insert(block_hash, block_number);
         }
     }
 }
@@ -91,6 +111,47 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
     }
 
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {
+        let block_number = block.header().number();
+        let block_hash = block.header().hash();
+        let parent_hash = block.header().parent_hash();
+
+        // Check if this block builds on top of existing history
+        let is_consistent = if block_id.is_finalized() {
+            // Skip check for finalized blocks
+            true
+        } else if block_number == 0 {
+            // Genesis block is always consistent
+            true
+        } else {
+            let blocks = self.blocks.read().await;
+
+            // Check if parent block exists and has the expected hash
+            if let Some(parent_block) = blocks.get(&(block_number - 1)) {
+                parent_block.header().hash() == parent_hash
+            } else {
+                // No parent block in cache - check if cache is empty except finalized blocks
+                let finalized = self.finalized.read().await;
+                if let Some((latest_number, _)) = blocks.last_key_value() {
+                    // All blocks in cache are finalized
+                    *latest_number
+                        <= finalized
+                            .as_ref()
+                            .map(|block| block.header().number())
+                            .unwrap_or_default()
+                } else {
+                    // Block cache is completely empty
+                    true
+                }
+            }
+        };
+
+        // If the block is inconsistent with existing history, clear the cache
+        if !is_consistent {
+            warn!("inconsistent block history detected: clearing cache");
+            self.clear().await;
+        }
+
+        // Update latest/finalized references
         if let BlockId::Number(tag) = block_id {
             match tag {
                 BlockNumberOrTag::Latest => *self.latest.write().await = Some(block.clone()),
@@ -99,23 +160,24 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             }
         }
 
-        self.hashes
-            .write()
-            .await
-            .insert(block.header().hash(), block.header().number());
+        // Insert the new block
+        self.hashes.write().await.insert(block_hash, block_number);
 
-        self.blocks
-            .write()
-            .await
-            .insert(block.header().number(), block);
+        self.blocks.write().await.insert(block_number, block);
 
+        // Maintain cache size limit
         while self.blocks.read().await.len() > self.size {
-            let blocks = self.blocks.read().await;
-            let entry = blocks.first_key_value();
-            let (num, block) = entry.as_ref().unwrap();
-            let block_hash = block.header().hash();
-            self.blocks.write().await.remove(num).unwrap();
-            self.hashes.write().await.remove(&block_hash);
+            let (num, old_block_hash) = {
+                let blocks = self.blocks.read().await;
+                if let Some((num, block)) = blocks.first_key_value() {
+                    (*num, block.header().hash())
+                } else {
+                    break;
+                }
+            };
+
+            self.blocks.write().await.remove(&num).unwrap();
+            self.hashes.write().await.remove(&old_block_hash);
         }
     }
 }
