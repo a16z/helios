@@ -15,10 +15,12 @@ serde.workspace = true
 
 #misc
 alloy.workspace = true
+async-trait.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 strum = { version = "0.26.2", features = ["derive"] }
 url = "2.5.0"
+reqwest = "0.12"
 
 helios-common = { path = "../common" }
 helios-core = { path = "../core" }

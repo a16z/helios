@@ -1,6 +1,7 @@
 use eyre::{eyre, Result};
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
+use reqwest::Url;
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -9,6 +10,7 @@ use helios_common::fork_schedule::ForkSchedule;
 
 use crate::config::{Config, Network};
 use crate::consensus::ConsensusClient;
+use crate::historical::LineaHistoricalProvider;
 use crate::spec::Linea;
 use crate::LineaClient;
 
@@ -120,8 +122,14 @@ impl LineaClientBuilder {
         };
 
         let block_provider = BlockCache::<Linea>::new();
-        let execution =
-            RpcExecutionProvider::new(config.execution_rpc.parse().unwrap(), block_provider);
+        // Create Linea historical block provider
+        let rpc_url: Url = config.execution_rpc.parse().unwrap();
+        let historical_provider = LineaHistoricalProvider::new(config.chain.unsafe_signer);
+        let execution = RpcExecutionProvider::with_historical_provider(
+            rpc_url,
+            block_provider,
+            historical_provider,
+        );
 
         Ok(LineaClient::new(
             consensus,

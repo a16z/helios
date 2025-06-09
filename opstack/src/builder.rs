@@ -1,7 +1,7 @@
 use eyre::Result;
 use helios_core::execution::providers::{
-    block::block_cache::BlockCache, rpc::RpcExecutionProvider,
-    verifiable_api::VerifiableApiExecutionProvider,
+    block::block_cache::BlockCache, historical::eip2935::Eip2935Provider,
+    rpc::RpcExecutionProvider, verifiable_api::VerifiableApiExecutionProvider,
 };
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
@@ -89,10 +89,16 @@ impl OpStackClientBuilder {
         };
 
         let consensus = ConsensusClient::new(&config);
-        let block_provider = BlockCache::<OpStack>::new();
 
         if let Some(verifiable_api) = &config.verifiable_api {
-            let execution = VerifiableApiExecutionProvider::new(verifiable_api, block_provider);
+            let block_provider = BlockCache::<OpStack>::new();
+            // Create EIP-2935 historical block provider
+            let historical_provider = Eip2935Provider::new();
+            let execution = VerifiableApiExecutionProvider::with_historical_provider(
+                verifiable_api,
+                block_provider,
+                historical_provider,
+            );
 
             Ok(OpStackClient::new(
                 consensus,
@@ -102,9 +108,14 @@ impl OpStackClientBuilder {
                 config.rpc_socket,
             ))
         } else {
-            let execution = RpcExecutionProvider::new(
-                config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+            let block_provider = BlockCache::<OpStack>::new();
+            // Create EIP-2935 historical block provider
+            let rpc_url: Url = config.execution_rpc.as_ref().unwrap().parse().unwrap();
+            let historical_provider = Eip2935Provider::new();
+            let execution = RpcExecutionProvider::with_historical_provider(
+                rpc_url,
                 block_provider,
+                historical_provider,
             );
 
             Ok(OpStackClient::new(

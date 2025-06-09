@@ -31,22 +31,64 @@ use crate::execution::{
         verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
     },
     providers::{
-        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider,
-        ReceiptProvider, TransactionProvider,
+        historical::HistoricalBlockProvider, AccountProvider, BlockProvider, ExecutionHintProvider,
+        ExecutionProivder, LogProvider, ReceiptProvider, TransactionProvider,
     },
 };
 
-use super::{block::eip2935, utils::ensure_logs_match_filter};
+use super::utils::ensure_logs_match_filter;
 
-pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>> {
-    provider: RootProvider<N>,
-    block_provider: B,
+// Implementation for unit type to provide no historical block support
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl<N: NetworkSpec> HistoricalBlockProvider<N> for () {
+    async fn get_historical_block<E>(
+        &self,
+        _block_id: BlockId,
+        _full_tx: bool,
+        _execution_provider: &E,
+    ) -> Result<Option<N::BlockResponse>>
+    where
+        E: BlockProvider<N> + AccountProvider<N>,
+    {
+        Ok(None)
+    }
 }
 
-impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionProivder<N> for RpcExecutionProvider<N, B> {}
+pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
+{
+    provider: RootProvider<N>,
+    block_provider: B,
+    historical_provider: Option<H>,
+}
 
-impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
-    pub fn new(rpc_url: Url, block_provider: B) -> Self {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProivder<N>
+    for RpcExecutionProvider<N, B, H>
+{
+}
+
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
+    RpcExecutionProvider<N, B, H>
+{
+    pub fn new(rpc_url: Url, block_provider: B) -> RpcExecutionProvider<N, B, ()> {
+        let client = ClientBuilder::default()
+            .layer(RetryBackoffLayer::new(100, 50, 300))
+            .http(rpc_url);
+
+        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
+
+        RpcExecutionProvider {
+            provider,
+            block_provider,
+            historical_provider: None,
+        }
+    }
+
+    pub fn with_historical_provider(
+        rpc_url: Url,
+        block_provider: B,
+        historical_provider: H,
+    ) -> Self {
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);
@@ -56,6 +98,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
         Self {
             provider,
             block_provider,
+            historical_provider: Some(historical_provider),
         }
     }
 
@@ -152,7 +195,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> RpcExecutionProvider<N, B> {
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N> for RpcExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> AccountProvider<N>
+    for RpcExecutionProvider<N, B, H>
+{
     async fn get_account(
         &self,
         address: Address,
@@ -198,19 +243,34 @@ impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N> for RpcExecutionPro
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> BlockProvider<N>
+    for RpcExecutionProvider<N, B, H>
+{
     async fn get_block(
         &self,
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
+        // 1. Try block cache first
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
-            Ok(Some(block))
-        } else if block_id != BlockNumberOrTag::Latest.into() {
-            eip2935::get_block(block_id, full_tx, self).await.map(Some)
-        } else {
-            Ok(None)
+            return Ok(Some(block));
         }
+
+        // 2. Try historical provider if available and not requesting latest
+        if let Some(historical) = &self.historical_provider {
+            if block_id != BlockNumberOrTag::Latest.into() {
+                if let Some(block) = historical
+                    .get_historical_block(block_id, full_tx, self)
+                    .await?
+                {
+                    // Note: Do NOT cache historical blocks to avoid interfering with consistency detection
+                    return Ok(Some(block));
+                }
+            }
+        }
+
+        // 3. No historical block found
+        Ok(None)
     }
 
     async fn get_untrusted_block(
@@ -232,7 +292,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N> for RpcExecutionProvi
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> TransactionProvider<N>
+    for RpcExecutionProvider<N, B, H>
+{
     async fn get_transaction(&self, hash: B256) -> Result<Option<N::TransactionResponse>> {
         let tx = self.provider.get_transaction_by_hash(hash).await?;
         if let Some(tx) = tx {
@@ -267,7 +329,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N> for RpcExecutio
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ReceiptProvider<N>
+    for RpcExecutionProvider<N, B, H>
+{
     async fn get_receipt(&self, hash: B256) -> Result<Option<N::ReceiptResponse>> {
         let receipt = self
             .provider
@@ -315,7 +379,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N> for RpcExecutionPro
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProvider<N>
+    for RpcExecutionProvider<N, B, H>
+{
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         let block_option = match filter.block_option {
             FilterBlockOption::Range {
@@ -344,7 +410,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for RpcExecutionProvide
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N> for RpcExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionHintProvider<N>
+    for RpcExecutionProvider<N, B, H>
+{
     async fn get_execution_hint(
         &self,
         tx: &N::TransactionRequest,

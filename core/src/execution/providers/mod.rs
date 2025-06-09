@@ -11,6 +11,7 @@ use eyre::Result;
 use helios_common::{network_spec::NetworkSpec, types::Account};
 
 pub mod block;
+pub mod historical;
 pub mod rpc;
 pub mod utils;
 pub mod verifiable_api;
