@@ -3634,11 +3634,13 @@ name = "helios-linea"
 version = "0.8.8"
 dependencies = [
  "alloy",
+ "async-trait",
  "eyre",
  "figment",
  "helios-common",
  "helios-core",
  "helios-ethereum",
+ "reqwest",
  "serde",
  "strum 0.26.3",
  "tokio",

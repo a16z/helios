@@ -31,25 +31,42 @@ use crate::execution::{
 };
 
 use super::{
-    block::eip2935, utils::ensure_logs_match_filter, AccountProvider, BlockProvider,
-    ExecutionHintProvider, ExecutionProivder, LogProvider, ReceiptProvider, TransactionProvider,
+    historical::HistoricalBlockProvider, utils::ensure_logs_match_filter, AccountProvider,
+    BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider, ReceiptProvider,
+    TransactionProvider,
 };
 
-pub struct VerifiableApiExecutionProvider<N: NetworkSpec, B: BlockProvider<N>> {
+pub struct VerifiableApiExecutionProvider<
+    N: NetworkSpec,
+    B: BlockProvider<N>,
+    H: HistoricalBlockProvider<N>,
+> {
     api: HttpVerifiableApi<N>,
     block_provider: B,
+    historical_provider: Option<H>,
 }
 
-impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionProivder<N>
-    for VerifiableApiExecutionProvider<N, B>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProivder<N>
+    for VerifiableApiExecutionProvider<N, B, H>
 {
 }
 
-impl<N: NetworkSpec, B: BlockProvider<N>> VerifiableApiExecutionProvider<N, B> {
-    pub fn new(url: &str, block_provider: B) -> Self {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
+    VerifiableApiExecutionProvider<N, B, H>
+{
+    pub fn new(url: &str, block_provider: B) -> VerifiableApiExecutionProvider<N, B, ()> {
+        VerifiableApiExecutionProvider {
+            api: HttpVerifiableApi::new(url),
+            block_provider,
+            historical_provider: None,
+        }
+    }
+
+    pub fn with_historical_provider(url: &str, block_provider: B, historical_provider: H) -> Self {
         Self {
             api: HttpVerifiableApi::new(url),
             block_provider,
+            historical_provider: Some(historical_provider),
         }
     }
 
@@ -83,8 +100,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> VerifiableApiExecutionProvider<N, B> {
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N>
-    for VerifiableApiExecutionProvider<N, B>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> AccountProvider<N>
+    for VerifiableApiExecutionProvider<N, B, H>
 {
     async fn get_account(
         &self,
@@ -112,8 +129,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> AccountProvider<N>
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N>
-    for VerifiableApiExecutionProvider<N, B>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> BlockProvider<N>
+    for VerifiableApiExecutionProvider<N, B, H>
 {
     async fn push_block(&self, block: <N>::BlockResponse, block_id: BlockId) {
         self.block_provider.push_block(block, block_id).await;
@@ -124,13 +141,26 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N>
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<<N>::BlockResponse>> {
+        // 1. Try block cache first
         if let Some(block) = self.block_provider.get_block(block_id, full_tx).await? {
-            Ok(Some(block))
-        } else if block_id != BlockNumberOrTag::Latest.into() {
-            eip2935::get_block(block_id, full_tx, self).await.map(Some)
-        } else {
-            Ok(None)
+            return Ok(Some(block));
         }
+
+        // 2. Try historical provider if available and not requesting latest
+        if let Some(historical) = &self.historical_provider {
+            if block_id != BlockNumberOrTag::Latest.into() {
+                if let Some(block) = historical
+                    .get_historical_block(block_id, full_tx, self)
+                    .await?
+                {
+                    // Note: Do NOT cache historical blocks to avoid interfering with consistency detection
+                    return Ok(Some(block));
+                }
+            }
+        }
+
+        // 3. No historical block found
+        Ok(None)
     }
 
     async fn get_untrusted_block(
@@ -144,8 +174,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> BlockProvider<N>
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N>
-    for VerifiableApiExecutionProvider<N, B>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> TransactionProvider<N>
+    for VerifiableApiExecutionProvider<N, B, H>
 {
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
         let SendRawTxResponse { hash } = self.api.send_raw_transaction(bytes).await?;
@@ -213,8 +243,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> TransactionProvider<N>
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
-    for VerifiableApiExecutionProvider<N, B>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ReceiptProvider<N>
+    for VerifiableApiExecutionProvider<N, B, H>
 {
     async fn get_receipt(&self, hash: B256) -> Result<Option<N::ReceiptResponse>> {
         let Some(receipt_response) = self.api.get_transaction_receipt(hash).await? else {
@@ -265,7 +295,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>> ReceiptProvider<N>
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecutionProvider<N, B> {
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProvider<N>
+    for VerifiableApiExecutionProvider<N, B, H>
+{
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
         let LogsResponse {
             logs,
@@ -348,8 +380,8 @@ impl<N: NetworkSpec, B: BlockProvider<N>> LogProvider<N> for VerifiableApiExecut
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-impl<N: NetworkSpec, B: BlockProvider<N>> ExecutionHintProvider<N>
-    for VerifiableApiExecutionProvider<N, B>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionHintProvider<N>
+    for VerifiableApiExecutionProvider<N, B, H>
 {
     async fn get_execution_hint(
         &self,

@@ -7,9 +7,11 @@ use std::sync::Arc;
 
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
+use reqwest::Url;
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::execution::providers::block::block_cache::BlockCache;
+use helios_core::execution::providers::historical::eip2935::Eip2935Provider;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
 use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
 
@@ -233,10 +235,15 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             config.clone(),
         )?;
 
-        let block_provider = BlockCache::<Ethereum>::new();
-
         if let Some(verifiable_api) = &config.verifiable_api {
-            let execution = VerifiableApiExecutionProvider::new(verifiable_api, block_provider);
+            let block_provider = BlockCache::<Ethereum>::new();
+            // Create EIP-2935 historical block provider
+            let historical_provider = Eip2935Provider::new();
+            let execution = VerifiableApiExecutionProvider::with_historical_provider(
+                verifiable_api,
+                block_provider,
+                historical_provider,
+            );
 
             Ok(EthereumClient::new(
                 consensus,
@@ -246,9 +253,14 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 rpc_address,
             ))
         } else {
-            let execution = RpcExecutionProvider::new(
-                config.execution_rpc.as_ref().unwrap().parse().unwrap(),
+            let block_provider = BlockCache::<Ethereum>::new();
+            // Create EIP-2935 historical block provider
+            let rpc_url: Url = config.execution_rpc.as_ref().unwrap().parse().unwrap();
+            let historical_provider = Eip2935Provider::new();
+            let execution = RpcExecutionProvider::with_historical_provider(
+                rpc_url,
                 block_provider,
+                historical_provider,
             );
 
             Ok(EthereumClient::new(

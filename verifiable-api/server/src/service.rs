@@ -225,7 +225,10 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
 
         // initialize execution provider for the given block
         let block_provider = BlockCache::<N>::new();
-        let provider = RpcExecutionProvider::new(self.rpc_url.parse().unwrap(), block_provider);
+        let provider = RpcExecutionProvider::<N, BlockCache<N>, ()>::new(
+            self.rpc_url.parse().unwrap(),
+            block_provider,
+        );
         provider.push_block(block, block_id).await;
 
         // call EVM with the transaction, collect accounts and storage keys

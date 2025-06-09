@@ -147,7 +147,7 @@ impl Inner {
     }
 }
 
-fn verify_block(curr_signer: Address, block: &Block<Transaction>) -> Result<()> {
+pub fn verify_block(curr_signer: Address, block: &Block<Transaction>) -> Result<()> {
     let extra_data = block.header.inner.extra_data.clone();
 
     let length = extra_data.len();
