@@ -120,6 +120,7 @@ tempfile = "3.4.0"
 hex = "0.4.3"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
+serial_test = "3.0"
 
 ######################################
 # Dependency Patches
@@ -184,3 +185,11 @@ harness = false
 [[bench]]
 name = "sync"
 harness = false
+
+######################################
+# Integration Tests
+######################################
+
+[[test]]
+name = "rpc_equivalence"
+path = "tests/rpc_equivalence.rs"
