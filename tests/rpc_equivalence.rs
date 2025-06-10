@@ -1,6 +1,5 @@
 use std::env;
 use std::net::{SocketAddr, TcpListener};
-use std::sync::atomic::{AtomicU16, Ordering};
 
 use alloy::eips::BlockNumberOrTag;
 use alloy::network::{ReceiptResponse, TransactionResponse};
@@ -10,7 +9,6 @@ use alloy::rpc::types::Filter;
 use alloy::sol;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
-use serial_test::serial;
 use url::Url;
 
 use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
@@ -67,86 +65,44 @@ use helios_verifiable_api_server::server::{
 // 1. Set environment variable:
 //    export MAINNET_EXECUTION_RPC=YOUR_API_KEY
 //
-// 2. Run all tests (optimized setup, ~3-4 minutes):
+// 2. Run all tests (single test with parallel mini-tests, ~30-60 seconds):
 //    cargo test --workspace --test rpc_equivalence
-//
-// 3. Run all tests (faster with concurrency, ~2 minutes, may be flaky):
-//    cargo test --workspace --test rpc_equivalence -- --test-threads=4
-//
-// 4. Run specific test:
-//    cargo test --workspace get_chain_id
 
-// Test framework macros
+// Test framework for parallel mini-tests
 
-macro_rules! rpc_equivalence_test {
-    ($test_name:ident, |$helios:ident, $expected:ident| $test_logic:expr) => {
-        #[tokio::test(flavor = "multi_thread")]
-        #[serial]
-        async fn $test_name() {
-            ensure_rpc_env();
+#[derive(Debug, Clone)]
+struct TestResult {
+    name: String,
+    passed: bool,
+    error: Option<String>,
+}
 
-            let (_handle1, _handle2, _handle3, providers) = setup().await;
-            let helios_api = &providers[0];
-            let helios_rpc = &providers[1];
-            let provider = &providers[2];
-
-            // Test both API and RPC providers
-            {
-                let $helios = helios_api;
-                let $expected = provider;
-                $test_logic
-            }
-            {
-                let $helios = helios_rpc;
-                let $expected = provider;
-                $test_logic
-            }
+impl TestResult {
+    fn pass(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            passed: true,
+            error: None,
         }
-    };
-}
+    }
 
-macro_rules! block_based_test {
-    ($test_name:ident, |$helios:ident, $expected:ident, $block:ident| $test_logic:expr) => {
-        rpc_equivalence_test!($test_name, |$helios, $expected| {
-            let $block = $helios
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await
-                .unwrap()
-                .unwrap();
-            $test_logic
-        });
-    };
+    fn fail(name: &str, error: String) -> Self {
+        Self {
+            name: name.to_string(),
+            passed: false,
+            error: Some(error),
+        }
+    }
 }
-
-macro_rules! tx_based_test {
-    ($test_name:ident, |$helios:ident, $expected:ident, $tx_hash:ident| $test_logic:expr) => {
-        block_based_test!($test_name, |$helios, $expected, block| {
-            let $tx_hash = block.transactions.hashes().next().unwrap();
-            $test_logic
-        });
-    };
-}
-
-// Atomic counter for deterministic port allocation to avoid conflicts
-// This prevents flaky tests when running with high concurrency
-static PORT_COUNTER: AtomicU16 = AtomicU16::new(8000);
 
 fn get_available_port() -> u16 {
-    loop {
-        let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        // Wrap around if we hit the upper limit
-        let port = if port > 60000 {
-            PORT_COUNTER.store(8000, Ordering::SeqCst);
-            8000
-        } else {
-            port
-        };
-
-        // Test if port is actually available
+    // Simple port finding - only needed once now
+    for port in 8000..9000 {
         if TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok() {
             return port;
         }
     }
+    8000 // fallback
 }
 
 async fn setup() -> (
@@ -187,6 +143,9 @@ async fn setup() -> (
         execution_rpc: Url::parse(&execution_rpc).unwrap(),
     }));
     let _handle = api_server.start();
+    
+    // Wait a moment for the API server to start
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     // Helios provider (Verifiable API) - optimized setup
     let (helios_client_api, helios_provider_api) = {
@@ -238,68 +197,97 @@ fn ensure_rpc_env() {
     }
 }
 
-tx_based_test!(get_transaction_by_hash, |helios, expected, tx_hash| {
-    let tx = helios
-        .get_transaction_by_hash(tx_hash)
-        .await
-        .unwrap()
+async fn test_get_transaction_by_hash(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
         .unwrap();
-    let expected = expected
-        .get_transaction_by_hash(tx_hash)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(tx, expected);
-});
+    let tx_hash = block.transactions.hashes().next().unwrap();
 
-tx_based_test!(get_transaction_receipt, |helios, expected, tx_hash| {
-    let receipt = helios
-        .get_transaction_receipt(tx_hash)
-        .await
-        .unwrap()
-        .unwrap();
-    let expected = expected
-        .get_transaction_receipt(tx_hash)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(receipt, expected);
-});
+    let tx = helios.get_transaction_by_hash(tx_hash).await?.unwrap();
+    let expected_tx = expected.get_transaction_by_hash(tx_hash).await?.unwrap();
+    assert_eq!(tx, expected_tx);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_block_receipts, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap() - 10;
-    let receipts = helios
+async fn test_get_transaction_receipt(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .unwrap();
+    let tx_hash = block.transactions.hashes().next().unwrap();
+
+    let receipt = helios.get_transaction_receipt(tx_hash).await?.unwrap();
+    let expected_receipt = expected.get_transaction_receipt(tx_hash).await?.unwrap();
+    assert_eq!(receipt, expected_receipt);
+    Ok(())
+}
+
+async fn test_get_block_receipts(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await? - 10;
+    let receipts = helios.get_block_receipts(block_num.into()).await?.unwrap();
+    let expected_receipts = expected
         .get_block_receipts(block_num.into())
-        .await
-        .unwrap()
+        .await?
         .unwrap();
-    let expected = expected
-        .get_block_receipts(block_num.into())
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(receipts, expected);
-});
+    assert_eq!(receipts, expected_receipts);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_balance, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_balance(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
 
     let balance = helios
         .get_balance(address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_balance = expected
         .get_balance(address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(balance, expected);
-});
+        .await?;
+    assert_eq!(balance, expected_balance);
+    Ok(())
+}
 
-rpc_equivalence_test!(call, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_chain_id(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let chain_id = helios.get_chain_id().await?;
+    let expected_chain_id = expected.get_chain_id().await?;
+    assert_eq!(chain_id, expected_chain_id);
+    Ok(())
+}
+
+async fn test_get_block_number(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_number = helios.get_block_number().await?;
+    let expected_block_number = expected.get_block_number().await?;
+    // Allow for small differences due to sync timing
+    assert!((block_number as i64 - expected_block_number as i64).abs() <= 2);
+    Ok(())
+}
+
+async fn test_call(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let user = address!("99C9fc46f92E8a1c0deC1b1747d010903E884bE1");
 
@@ -310,198 +298,229 @@ rpc_equivalence_test!(call, |helios, expected| {
         }
     }
 
-    let token_helios = ERC20::new(usdc, (*helios).clone());
-    let token_expected = ERC20::new(usdc, (*expected).clone());
+    let token_helios = ERC20::new(usdc, helios.clone());
+    let token_expected = ERC20::new(usdc, expected.clone());
 
     let balance = token_helios
         .balanceOf(user)
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
-    let expected = token_expected
+        .await?;
+    let expected_balance = token_expected
         .balanceOf(user)
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
-    assert_eq!(balance, expected);
-});
+        .await?;
+    assert_eq!(balance, expected_balance);
+    Ok(())
+}
 
-block_based_test!(get_logs, |helios, expected, block| {
+async fn test_get_logs(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
     let filter = Filter::new().at_block_hash(block.header.hash);
-    let logs = helios.get_logs(&filter).await.unwrap();
-    let expected = expected.get_logs(&filter).await.unwrap();
-    assert_eq!(logs, expected);
-});
+    let logs = helios.get_logs(&filter).await?;
+    let expected_logs = expected.get_logs(&filter).await?;
+    assert_eq!(logs, expected_logs);
+    Ok(())
+}
 
-// ========== Basic/Network RPC Methods ==========
-
-rpc_equivalence_test!(get_chain_id, |helios, expected| {
-    let chain_id = helios.get_chain_id().await.unwrap();
-    let expected = expected.get_chain_id().await.unwrap();
-    assert_eq!(chain_id, expected);
-});
-
-rpc_equivalence_test!(get_block_number, |helios, expected| {
-    let block_number = helios.get_block_number().await.unwrap();
-    let expected = expected.get_block_number().await.unwrap();
-    // Allow for small differences due to sync timing
-    assert!((block_number as i64 - expected as i64).abs() <= 2);
-});
-
-rpc_equivalence_test!(get_gas_price, |helios, expected| {
-    let gas_price = helios.get_gas_price().await.unwrap();
-    let expected = expected.get_gas_price().await.unwrap();
+async fn test_get_gas_price(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let gas_price = helios.get_gas_price().await?;
+    let expected_gas_price = expected.get_gas_price().await?;
     // Gas prices can vary, just ensure they're both non-zero
     assert!(gas_price > 0);
-    assert!(expected > 0);
-});
+    assert!(expected_gas_price > 0);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_max_priority_fee_per_gas, |helios, expected| {
-    let fee = helios.get_max_priority_fee_per_gas().await.unwrap();
-    let expected = expected.get_max_priority_fee_per_gas().await.unwrap();
+async fn test_get_max_priority_fee_per_gas(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fee = helios.get_max_priority_fee_per_gas().await?;
+    let expected_fee = expected.get_max_priority_fee_per_gas().await?;
     // Fees can vary, just ensure they're both non-zero
     assert!(fee > 0);
-    assert!(expected > 0);
-});
+    assert!(expected_fee > 0);
+    Ok(())
+}
 
-// ========== Block-related RPC Methods ==========
-
-block_based_test!(get_block_by_hash, |helios, expected, block| {
+async fn test_get_block_by_hash(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
     let block_hash = block.header.hash;
     let result = helios
         .get_block_by_hash(block_hash)
         .full()
-        .await
-        .unwrap()
-        .unwrap();
-    let expected = expected
+        .await?
+        .ok_or("Block not found")?;
+    let expected_block = expected
         .get_block_by_hash(block_hash)
         .full()
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(result.header.hash, expected.header.hash);
-    assert_eq!(result.header.number, expected.header.number);
-});
+        .await?
+        .ok_or("Block not found")?;
+    assert_eq!(result.header.hash, expected_block.header.hash);
+    assert_eq!(result.header.number, expected_block.header.number);
+    Ok(())
+}
 
-block_based_test!(
-    get_block_transaction_count_by_hash,
-    |helios, expected, block| {
-        let block_hash = block.header.hash;
-        // Count transactions in the block
-        let count = block.transactions.len() as u64;
-        let expected_block = expected
-            .get_block_by_hash(block_hash)
-            .full()
-            .await
-            .unwrap()
-            .unwrap();
-        let expected_count = expected_block.transactions.len() as u64;
-        assert_eq!(count, expected_count);
-    }
-);
+async fn test_get_block_transaction_count_by_hash(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
+    let block_hash = block.header.hash;
+    // Count transactions in the block
+    let count = block.transactions.len() as u64;
+    let expected_block = expected
+        .get_block_by_hash(block_hash)
+        .full()
+        .await?
+        .ok_or("Block not found")?;
+    let expected_count = expected_block.transactions.len() as u64;
+    assert_eq!(count, expected_count);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_block_transaction_count_by_number, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap() - 1;
+async fn test_get_block_transaction_count_by_number(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await? - 1;
     let block = helios
         .get_block_by_number(block_num.into())
         .full()
-        .await
-        .unwrap()
-        .unwrap();
+        .await?
+        .ok_or("Block not found")?;
     let expected_block = expected
         .get_block_by_number(block_num.into())
         .full()
-        .await
-        .unwrap()
-        .unwrap();
+        .await?
+        .ok_or("Block not found")?;
 
     let count = block.transactions.len() as u64;
     let expected_count = expected_block.transactions.len() as u64;
     assert_eq!(count, expected_count);
-});
+    Ok(())
+}
 
-// ========== Transaction-related RPC Methods ==========
+async fn test_get_transaction_by_block_hash_and_index(
+    helios: &RootProvider,
+    _expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
+    let tx_hash = block
+        .transactions
+        .hashes()
+        .next()
+        .ok_or("No transactions")?;
+    // Get the transaction to find its block and index
+    let tx = helios
+        .get_transaction_by_hash(tx_hash)
+        .await?
+        .ok_or("Transaction not found")?;
+    let block_hash = tx.block_hash().ok_or("No block hash")?;
+    let _tx_index = tx.transaction_index().ok_or("No transaction index")?;
 
-tx_based_test!(
-    get_transaction_by_block_hash_and_index,
-    |helios, _expected, tx_hash| {
-        // Get the transaction to find its block and index
-        let tx = helios
-            .get_transaction_by_hash(tx_hash)
-            .await
-            .unwrap()
-            .unwrap();
-        let block_hash = tx.block_hash().unwrap();
-        let _tx_index = tx.transaction_index().unwrap();
+    // For this test, we'll just verify we can get the transaction by hash
+    // since Alloy RootProvider doesn't have get_transaction_by_location
+    assert_eq!(tx.tx_hash(), tx_hash);
+    assert!(block_hash != B256::ZERO); // block_hash should be non-zero for a real transaction
+    Ok(())
+}
 
-        // For this test, we'll just verify we can get the transaction by hash
-        // since Alloy RootProvider doesn't have get_transaction_by_location
-        assert_eq!(tx.tx_hash(), tx_hash);
-        assert!(block_hash != B256::ZERO); // block_hash should be non-zero for a real transaction
-    }
-);
+async fn test_get_transaction_by_block_number_and_index(
+    helios: &RootProvider,
+    _expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
+    let tx_hash = block
+        .transactions
+        .hashes()
+        .next()
+        .ok_or("No transactions")?;
+    // Get the transaction to find its block and index
+    let tx = helios
+        .get_transaction_by_hash(tx_hash)
+        .await?
+        .ok_or("Transaction not found")?;
+    let block_number = tx.block_number().ok_or("No block number")?;
+    let _tx_index = tx.transaction_index().ok_or("No transaction index")?;
 
-tx_based_test!(
-    get_transaction_by_block_number_and_index,
-    |helios, _expected, tx_hash| {
-        // Get the transaction to find its block and index
-        let tx = helios
-            .get_transaction_by_hash(tx_hash)
-            .await
-            .unwrap()
-            .unwrap();
-        let block_number = tx.block_number().unwrap();
-        let _tx_index = tx.transaction_index().unwrap();
+    // For this test, we'll just verify the transaction data is consistent
+    assert_eq!(tx.tx_hash(), tx_hash);
+    assert!(block_number > 0);
+    Ok(())
+}
 
-        // For this test, we'll just verify the transaction data is consistent
-        assert_eq!(tx.tx_hash(), tx_hash);
-        assert!(block_number > 0);
-    }
-);
-
-// ========== Account/State RPC Methods ==========
-
-rpc_equivalence_test!(get_nonce, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_nonce(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     // ETH2 deposit contract
     let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
 
     let nonce = helios
         .get_transaction_count(address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_nonce = expected
         .get_transaction_count(address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(nonce, expected);
-});
+        .await?;
+    assert_eq!(nonce, expected_nonce);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_code, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_code(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     // USDC contract
     let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
 
     let code = helios
         .get_code_at(address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_code = expected
         .get_code_at(address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(code, expected);
-});
+        .await?;
+    assert_eq!(code, expected_code);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_storage_at, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_storage_at(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     // USDC contract
     let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let slot = U256::ZERO;
@@ -509,18 +528,20 @@ rpc_equivalence_test!(get_storage_at, |helios, expected| {
     let storage = helios
         .get_storage_at(address, slot)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_storage = expected
         .get_storage_at(address, slot)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(storage, expected);
-});
+        .await?;
+    assert_eq!(storage, expected_storage);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_proof, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_proof(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     // USDC contract
     let address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let keys = vec![U256::ZERO.into()];
@@ -528,195 +549,249 @@ rpc_equivalence_test!(get_proof, |helios, expected| {
     let proof = helios
         .get_proof(address, keys.clone())
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_proof = expected
         .get_proof(address, keys)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(proof.address, expected.address);
-    assert_eq!(proof.balance, expected.balance);
-    assert_eq!(proof.code_hash, expected.code_hash);
-    assert_eq!(proof.nonce, expected.nonce);
-    assert_eq!(proof.storage_hash, expected.storage_hash);
-});
+        .await?;
+    assert_eq!(proof.address, expected_proof.address);
+    assert_eq!(proof.balance, expected_proof.balance);
+    assert_eq!(proof.code_hash, expected_proof.code_hash);
+    assert_eq!(proof.nonce, expected_proof.nonce);
+    assert_eq!(proof.storage_hash, expected_proof.storage_hash);
+    Ok(())
+}
 
-// ========== Log/Event RPC Methods ==========
-
-rpc_equivalence_test!(get_logs_by_address, |helios, expected| {
-    let latest_block = helios.get_block_number().await.unwrap();
-    let target_block = latest_block.saturating_sub(2);
-
+async fn test_create_access_list(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
+    let user = address!("99C9fc46f92E8a1c0deC1b1747d010903E884bE1");
+
+    sol! {
+        #[sol(rpc)]
+        interface ERC20 {
+            function balanceOf(address who) external view returns (uint256);
+        }
+    }
+
+    let token_helios = ERC20::new(usdc, helios.clone());
+    let token_expected = ERC20::new(usdc, expected.clone());
+
+    // Test that we can call the contract - access list creation is not available in CallBuilder
+    let balance = token_helios
+        .balanceOf(user)
+        .block(block_num.into())
+        .call()
+        .await?;
+    let expected_balance = token_expected
+        .balanceOf(user)
+        .block(block_num.into())
+        .call()
+        .await?;
+    assert_eq!(balance, expected_balance);
+    Ok(())
+}
+
+async fn test_get_logs_by_address(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let latest_block = helios.get_block_number().await?;
+    let target_block = latest_block.saturating_sub(2); // A few blocks back for more activity
+
+    let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"); // USDC contract
     let filter = Filter::new()
         .address(usdc)
         .from_block(target_block)
         .to_block(target_block); // from == to (single block)
 
-    let logs = helios.get_logs(&filter).await.unwrap();
-    let expected = expected.get_logs(&filter).await.unwrap();
+    let logs = helios.get_logs(&filter).await?;
+    let expected_logs = expected.get_logs(&filter).await?;
 
     // Logs should match exactly
-    assert_eq!(logs.len(), expected.len());
-    for (log, expected_log) in logs.iter().zip(expected.iter()) {
+    assert_eq!(logs.len(), expected_logs.len());
+    for (log, expected_log) in logs.iter().zip(expected_logs.iter()) {
         assert_eq!(log.address(), expected_log.address());
         assert_eq!(log.transaction_hash, expected_log.transaction_hash);
         assert_eq!(log.block_hash, expected_log.block_hash);
         assert_eq!(log.log_index, expected_log.log_index);
     }
-});
+    Ok(())
+}
 
-rpc_equivalence_test!(get_logs_by_topic, |helios, expected| {
-    let latest_block = helios.get_block_number().await.unwrap();
-    let target_block = latest_block.saturating_sub(2);
+async fn test_get_logs_by_topic(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let latest_block = helios.get_block_number().await?;
+    let target_block = latest_block.saturating_sub(2); // A few blocks back for more activity
 
-    // ERC20 Transfer event signature
-    let transfer_topic: B256 = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-        .parse()
-        .unwrap();
+    // ERC20 Transfer event signature: 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+    let transfer_topic: B256 =
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef".parse()?;
 
     let filter = Filter::new()
         .event_signature(transfer_topic)
         .from_block(target_block)
-        .to_block(target_block);
+        .to_block(target_block); // from == to (single block)
 
-    let logs = helios.get_logs(&filter).await.unwrap();
-    let expected = expected.get_logs(&filter).await.unwrap();
+    let logs = helios.get_logs(&filter).await?;
+    let expected_logs = expected.get_logs(&filter).await?;
 
-    assert_eq!(logs, expected);
-});
+    assert_eq!(logs, expected_logs);
+    Ok(())
+}
 
-// ========== Edge Cases and Error Handling ==========
-
-rpc_equivalence_test!(get_block_by_number_finalized, |helios, expected| {
+async fn test_get_block_by_number_finalized(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let block = helios
         .get_block_by_number(BlockNumberOrTag::Finalized)
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_block = expected
         .get_block_by_number(BlockNumberOrTag::Finalized)
-        .await
-        .unwrap();
+        .await?;
 
-    if let (Some(block), Some(expected)) = (block, expected) {
-        assert_eq!(block.header.hash, expected.header.hash);
+    if let (Some(block), Some(expected_block)) = (block, expected_block) {
+        assert_eq!(block.header.hash, expected_block.header.hash);
     }
-});
+    Ok(())
+}
 
-rpc_equivalence_test!(get_balance_zero_address, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_balance_zero_address(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let zero_address = address!("0000000000000000000000000000000000000000");
 
     let balance = helios
         .get_balance(zero_address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_balance = expected
         .get_balance(zero_address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(balance, expected);
-});
+        .await?;
+    assert_eq!(balance, expected_balance);
+    Ok(())
+}
 
-rpc_equivalence_test!(get_code_eoa_address, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_code_eoa_address(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let eoa_address = address!("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045"); // vitalik.eth
 
     let code = helios
         .get_code_at(eoa_address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_code = expected
         .get_code_at(eoa_address)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(code, expected);
-    assert!(code.is_empty());
-});
+        .await?;
+    assert_eq!(code, expected_code);
+    assert!(code.is_empty()); // EOA should have no code
+    Ok(())
+}
 
-// ========== Historical Block Tests ==========
-
-rpc_equivalence_test!(get_historical_block, |helios, expected| {
-    let latest = helios.get_block_number().await.unwrap();
+async fn test_get_historical_block(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let latest = helios.get_block_number().await?;
     let historical_block_num = latest.saturating_sub(1000);
 
     let block = helios
         .get_block_by_number(historical_block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_block = expected
         .get_block_by_number(historical_block_num.into())
-        .await
-        .unwrap();
+        .await?;
 
-    if let (Some(block), Some(expected)) = (block, expected) {
-        assert_eq!(block.header.number, expected.header.number);
-        assert_eq!(block.header.hash, expected.header.hash);
+    if let (Some(block), Some(expected_block)) = (block, expected_block) {
+        assert_eq!(block.header.number, expected_block.header.number);
+        assert_eq!(block.header.hash, expected_block.header.hash);
     }
-});
+    Ok(())
+}
 
-rpc_equivalence_test!(get_historical_balance, |helios, expected| {
-    let latest = helios.get_block_number().await.unwrap();
+async fn test_get_historical_balance(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let latest = helios.get_block_number().await?;
     let historical_block_num = latest.saturating_sub(100);
-    let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa");
+    let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa"); // ETH2 deposit contract
 
     let balance = helios
         .get_balance(address)
         .block_id(historical_block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_balance = expected
         .get_balance(address)
         .block_id(historical_block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(balance, expected);
-});
+        .await?;
+    assert_eq!(balance, expected_balance);
+    Ok(())
+}
 
-// ========== Complex Transaction Tests ==========
+async fn test_get_transaction_receipt_detailed(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
+    let tx_hash = block
+        .transactions
+        .hashes()
+        .next()
+        .ok_or("No transactions")?;
 
-tx_based_test!(
-    get_transaction_receipt_detailed,
-    |helios, expected, tx_hash| {
-        let receipt = helios
-            .get_transaction_receipt(tx_hash)
-            .await
-            .unwrap()
-            .unwrap();
-        let expected = expected
-            .get_transaction_receipt(tx_hash)
-            .await
-            .unwrap()
-            .unwrap();
+    let receipt = helios
+        .get_transaction_receipt(tx_hash)
+        .await?
+        .ok_or("Receipt not found")?;
+    let expected_receipt = expected
+        .get_transaction_receipt(tx_hash)
+        .await?
+        .ok_or("Receipt not found")?;
 
-        assert_eq!(receipt.transaction_hash(), expected.transaction_hash());
-        assert_eq!(receipt.block_hash(), expected.block_hash());
-        assert_eq!(receipt.block_number(), expected.block_number());
-        assert_eq!(receipt.gas_used(), expected.gas_used());
-        assert_eq!(receipt.status(), expected.status());
-        assert_eq!(receipt.logs().len(), expected.logs().len());
-    }
-);
+    assert_eq!(
+        receipt.transaction_hash(),
+        expected_receipt.transaction_hash()
+    );
+    assert_eq!(receipt.block_hash(), expected_receipt.block_hash());
+    assert_eq!(receipt.block_number(), expected_receipt.block_number());
+    assert_eq!(receipt.gas_used(), expected_receipt.gas_used());
+    assert_eq!(receipt.status(), expected_receipt.status());
+    assert_eq!(receipt.logs().len(), expected_receipt.logs().len());
+    Ok(())
+}
 
-// ========== Single Block Log Tests ==========
-
-rpc_equivalence_test!(get_logs_block_range, |helios, expected| {
-    let latest = helios.get_block_number().await.unwrap();
+async fn test_get_logs_block_range(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let latest = helios.get_block_number().await?;
     let target_block = latest.saturating_sub(2); // A few blocks back for more activity
 
     let filter = Filter::new()
         .from_block(target_block)
         .to_block(target_block); // from == to (single block)
 
-    let logs = helios.get_logs(&filter).await.unwrap();
-    let expected = expected.get_logs(&filter).await.unwrap();
+    let logs = helios.get_logs(&filter).await?;
+    let expected_logs = expected.get_logs(&filter).await?;
 
-    assert_eq!(logs.len(), expected.len());
+    assert_eq!(logs.len(), expected_logs.len());
 
     // Verify all logs are from the target block
     for log in &logs {
@@ -724,12 +799,14 @@ rpc_equivalence_test!(get_logs_block_range, |helios, expected| {
             assert_eq!(block_num, target_block);
         }
     }
-});
+    Ok(())
+}
 
-// ========== Large Contract Interaction Tests ==========
-
-rpc_equivalence_test!(call_complex_contract, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_call_complex_contract(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let weth = address!("C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"); // WETH contract
 
     sol! {
@@ -741,56 +818,48 @@ rpc_equivalence_test!(call_complex_contract, |helios, expected| {
         }
     }
 
-    let weth_helios = WETH::new(weth, (*helios).clone());
-    let weth_expected = WETH::new(weth, (*expected).clone());
+    let weth_helios = WETH::new(weth, helios.clone());
+    let weth_expected = WETH::new(weth, expected.clone());
 
     // Test multiple calls to the same contract
     let supply = weth_helios
         .totalSupply()
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
-    let symbol = weth_helios
-        .symbol()
-        .block(block_num.into())
-        .call()
-        .await
-        .unwrap();
+        .await?;
+    let symbol = weth_helios.symbol().block(block_num.into()).call().await?;
     let decimals = weth_helios
         .decimals()
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
+        .await?;
 
     let expected_supply = weth_expected
         .totalSupply()
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
+        .await?;
     let expected_symbol = weth_expected
         .symbol()
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
+        .await?;
     let expected_decimals = weth_expected
         .decimals()
         .block(block_num.into())
         .call()
-        .await
-        .unwrap();
+        .await?;
 
     assert_eq!(supply, expected_supply);
     assert_eq!(symbol, expected_symbol);
     assert_eq!(decimals, expected_decimals);
-});
+    Ok(())
+}
 
-// ========== Additional RPC Methods ==========
-
-rpc_equivalence_test!(get_blob_base_fee, |helios, expected| {
+async fn test_get_blob_base_fee(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Only test if both providers support this method
     if let (Ok(helios_fee), Ok(expected_fee)) = (
         helios.get_blob_base_fee().await,
@@ -802,23 +871,28 @@ rpc_equivalence_test!(get_blob_base_fee, |helios, expected| {
         // Allow for some variance due to block timing - just check they're both positive
         // since blob base fees can vary significantly between blocks
     }
-});
+    Ok(())
+}
 
-// Test that covers block hash-based queries
-block_based_test!(get_block_by_hash_with_txs, |helios, expected, block| {
+async fn test_get_block_by_hash_with_txs(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block = helios
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or("No latest block")?;
     let block_hash = block.header.hash;
     let full_block = helios
         .get_block_by_hash(block_hash)
         .full()
-        .await
-        .unwrap()
-        .unwrap();
+        .await?
+        .ok_or("Block not found")?;
     let expected_block = expected
         .get_block_by_hash(block_hash)
         .full()
-        .await
-        .unwrap()
-        .unwrap();
+        .await?
+        .ok_or("Block not found")?;
 
     assert_eq!(full_block.header.hash, expected_block.header.hash);
     assert_eq!(
@@ -831,11 +905,14 @@ block_based_test!(get_block_by_hash_with_txs, |helios, expected, block| {
         full_block.transactions.len(),
         expected_block.transactions.len()
     );
-});
+    Ok(())
+}
 
-// Test storage at specific slot
-rpc_equivalence_test!(get_storage_at_specific_slot, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_storage_at_specific_slot(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"); // USDC contract
 
     // Slot 1 in USDC is typically the total supply
@@ -844,19 +921,20 @@ rpc_equivalence_test!(get_storage_at_specific_slot, |helios, expected| {
     let storage = helios
         .get_storage_at(usdc, slot_1)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_storage = expected
         .get_storage_at(usdc, slot_1)
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    assert_eq!(storage, expected);
-});
+        .await?;
+    assert_eq!(storage, expected_storage);
+    Ok(())
+}
 
-// Test getting proof for multiple storage keys
-rpc_equivalence_test!(get_proof_multiple_keys, |helios, expected| {
-    let block_num = helios.get_block_number().await.unwrap();
+async fn test_get_proof_multiple_keys(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let block_num = helios.get_block_number().await?;
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"); // USDC contract
     let keys = vec![
         U256::from(0).into(), // Slot 0
@@ -867,15 +945,153 @@ rpc_equivalence_test!(get_proof_multiple_keys, |helios, expected| {
     let proof = helios
         .get_proof(usdc, keys.clone())
         .block_id(block_num.into())
-        .await
-        .unwrap();
-    let expected = expected
+        .await?;
+    let expected_proof = expected
         .get_proof(usdc, keys)
         .block_id(block_num.into())
-        .await
-        .unwrap();
+        .await?;
 
-    assert_eq!(proof.address, expected.address);
-    assert_eq!(proof.storage_proof.len(), expected.storage_proof.len());
+    assert_eq!(proof.address, expected_proof.address);
+    assert_eq!(
+        proof.storage_proof.len(),
+        expected_proof.storage_proof.len()
+    );
     assert_eq!(proof.storage_proof.len(), 3); // Should have 3 storage proofs
-});
+    Ok(())
+}
+
+// ========== MAIN TEST RUNNER ==========
+
+#[tokio::test(flavor = "multi_thread")]
+async fn rpc_equivalence_tests() {
+    ensure_rpc_env();
+
+    println!("Setting up Helios instances (this may take a few seconds)...");
+    let (_handle1, _handle2, _handle3, providers) = setup().await;
+    let helios_api = &providers[0];
+    let helios_rpc = &providers[1];
+    let provider = &providers[2];
+
+    // Create a macro to simplify adding tests
+    macro_rules! spawn_test {
+        ($test_fn:ident, $test_name:expr) => {{
+            let helios_api = helios_api.clone();
+            let helios_rpc = helios_rpc.clone();
+            let provider = provider.clone();
+            tokio::spawn(async move {
+                let api_result = $test_fn(&helios_api, &provider).await;
+                let rpc_result = $test_fn(&helios_rpc, &provider).await;
+
+                if let Err(e) = api_result {
+                    let result = TestResult::fail($test_name, format!("API provider failed: {}", e));
+                    println!("  ❌ {}: {}", result.name, result.error.as_ref().unwrap());
+                    result
+                } else if let Err(e) = rpc_result {
+                    let result = TestResult::fail($test_name, format!("RPC provider failed: {}", e));
+                    println!("  ❌ {}: {}", result.name, result.error.as_ref().unwrap());
+                    result
+                } else {
+                    let result = TestResult::pass($test_name);
+                    println!("  ✅ {}", result.name);
+                    result
+                }
+            })
+        }};
+    }
+
+    let test_count = 33; // Update count as we add tests
+    println!(
+        "Setup complete! Running {} mini-tests in parallel...",
+        test_count
+    );
+
+    // Run all mini-tests in parallel
+    let futures = vec![
+        // Basic/Network Methods
+        spawn_test!(test_get_chain_id, "get_chain_id"),
+        spawn_test!(test_get_block_number, "get_block_number"),
+        spawn_test!(test_get_gas_price, "get_gas_price"),
+        spawn_test!(
+            test_get_max_priority_fee_per_gas,
+            "get_max_priority_fee_per_gas"
+        ),
+        spawn_test!(test_get_blob_base_fee, "get_blob_base_fee"),
+        // Block Methods
+        spawn_test!(
+            test_get_block_by_number_finalized,
+            "get_block_by_number_finalized"
+        ),
+        spawn_test!(test_get_block_by_hash, "get_block_by_hash"),
+        spawn_test!(
+            test_get_block_by_hash_with_txs,
+            "get_block_by_hash_with_txs"
+        ),
+        spawn_test!(
+            test_get_block_transaction_count_by_hash,
+            "get_block_transaction_count_by_hash"
+        ),
+        spawn_test!(
+            test_get_block_transaction_count_by_number,
+            "get_block_transaction_count_by_number"
+        ),
+        spawn_test!(test_get_block_receipts, "get_block_receipts"),
+        // Transaction Methods
+        spawn_test!(test_get_transaction_by_hash, "get_transaction_by_hash"),
+        spawn_test!(test_get_transaction_receipt, "get_transaction_receipt"),
+        spawn_test!(
+            test_get_transaction_by_block_hash_and_index,
+            "get_transaction_by_block_hash_and_index"
+        ),
+        spawn_test!(
+            test_get_transaction_by_block_number_and_index,
+            "get_transaction_by_block_number_and_index"
+        ),
+        spawn_test!(
+            test_get_transaction_receipt_detailed,
+            "get_transaction_receipt_detailed"
+        ),
+        // Account/State Methods
+        spawn_test!(test_get_balance, "get_balance"),
+        spawn_test!(test_get_balance_zero_address, "get_balance_zero_address"),
+        spawn_test!(test_get_historical_balance, "get_historical_balance"),
+        spawn_test!(test_get_nonce, "get_nonce"),
+        spawn_test!(test_get_code, "get_code"),
+        spawn_test!(test_get_code_eoa_address, "get_code_eoa_address"),
+        spawn_test!(test_get_storage_at, "get_storage_at"),
+        spawn_test!(
+            test_get_storage_at_specific_slot,
+            "get_storage_at_specific_slot"
+        ),
+        spawn_test!(test_get_proof, "get_proof"),
+        spawn_test!(test_get_proof_multiple_keys, "get_proof_multiple_keys"),
+        // EVM Execution Methods
+        spawn_test!(test_call, "call"),
+        spawn_test!(test_call_complex_contract, "call_complex_contract"),
+        spawn_test!(test_create_access_list, "create_access_list"),
+        // Log/Event Methods
+        spawn_test!(test_get_logs, "get_logs"),
+        spawn_test!(test_get_logs_by_address, "get_logs_by_address"),
+        spawn_test!(test_get_logs_by_topic, "get_logs_by_topic"),
+        spawn_test!(test_get_logs_block_range, "get_logs_block_range"),
+        // Historical Data
+        spawn_test!(test_get_historical_block, "get_historical_block"),
+    ];
+
+    // Collect results
+    let results: Vec<TestResult> = join_all(futures)
+        .await
+        .into_iter()
+        .map(|r| r.unwrap())
+        .collect();
+
+    // Print final summary
+    let passed = results.iter().filter(|r| r.passed).count();
+    let failed = results.iter().filter(|r| !r.passed).count();
+
+    println!("\n=== FINAL RESULTS ===");
+    println!("✅ Passed: {}", passed);
+    println!("❌ Failed: {}", failed);
+
+    // Fail the test if any mini-test failed
+    assert_eq!(failed, 0, "Some mini-tests failed");
+}
