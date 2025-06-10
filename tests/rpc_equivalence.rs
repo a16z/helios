@@ -2,12 +2,14 @@ use std::env;
 use std::net::{SocketAddr, TcpListener};
 
 use alloy::eips::BlockNumberOrTag;
-use alloy::network::{ReceiptResponse, TransactionResponse};
+use alloy::network::ReceiptResponse;
 use alloy::primitives::{address, B256, U256};
 use alloy::providers::{Provider, RootProvider};
 use alloy::rpc::types::Filter;
 use alloy::sol;
+use alloy::sol_types::SolCall;
 use eyre::Result;
+use serde_json::{json, Value};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use url::Url;
@@ -442,14 +444,15 @@ async fn test_get_block_transaction_count_by_hash(
         .await?
         .ok_or_else(|| eyre::eyre!("No latest block"))?;
     let block_hash = block.header.hash;
-    // Count transactions in the block
-    let count = block.transactions.len() as u64;
-    let expected_block = expected
-        .get_block_by_hash(block_hash)
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
-    let expected_count = expected_block.transactions.len() as u64;
+    
+    // Use the actual RPC method eth_getBlockTransactionCountByHash
+    let count: U256 = helios
+        .raw_request("eth_getBlockTransactionCountByHash".into(), vec![format!("{:#x}", block_hash)])
+        .await?;
+    let expected_count: U256 = expected
+        .raw_request("eth_getBlockTransactionCountByHash".into(), vec![format!("{:#x}", block_hash)])
+        .await?;
+    
     ensure_eq!(
         count,
         expected_count,
@@ -465,19 +468,15 @@ async fn test_get_block_transaction_count_by_number(
     expected: &RootProvider,
 ) -> Result<()> {
     let block_num = helios.get_block_number().await? - 1;
-    let block = helios
-        .get_block_by_number(block_num.into())
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
-    let expected_block = expected
-        .get_block_by_number(block_num.into())
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
+    
+    // Use the actual RPC method eth_getBlockTransactionCountByNumber
+    let count: U256 = helios
+        .raw_request("eth_getBlockTransactionCountByNumber".into(), vec![format!("{:#x}", block_num)])
+        .await?;
+    let expected_count: U256 = expected
+        .raw_request("eth_getBlockTransactionCountByNumber".into(), vec![format!("{:#x}", block_num)])
+        .await?;
 
-    let count = block.transactions.len() as u64;
-    let expected_count = expected_block.transactions.len() as u64;
     ensure_eq!(
         count,
         expected_count,
@@ -490,79 +489,61 @@ async fn test_get_block_transaction_count_by_number(
 
 async fn test_get_transaction_by_block_hash_and_index(
     helios: &RootProvider,
-    _expected: &RootProvider,
+    expected: &RootProvider,
 ) -> Result<()> {
     let block = helios
         .get_block_by_number(BlockNumberOrTag::Latest)
         .await?
         .ok_or_else(|| eyre::eyre!("No latest block"))?;
-    let tx_hash = block
-        .transactions
-        .hashes()
-        .next()
-        .ok_or_else(|| eyre::eyre!("No transactions"))?;
-    // Get the transaction to find its block and index
-    let tx = helios
-        .get_transaction_by_hash(tx_hash)
-        .await?
-        .ok_or_else(|| eyre::eyre!("Transaction not found"))?;
-    let block_hash = tx
-        .block_hash()
-        .ok_or_else(|| eyre::eyre!("No block hash"))?;
-    let _tx_index = tx
-        .transaction_index()
-        .ok_or_else(|| eyre::eyre!("No transaction index"))?;
-
-    // For this test, we'll just verify we can get the transaction by hash
-    // since Alloy RootProvider doesn't have get_transaction_by_location
+    let block_hash = block.header.hash;
+    let tx_index = 0u64; // Get the first transaction
+    
+    // Use the actual RPC method eth_getTransactionByBlockHashAndIndex
+    let tx: Value = helios
+        .raw_request("eth_getTransactionByBlockHashAndIndex".into(), 
+            vec![format!("{:#x}", block_hash), format!("{:#x}", tx_index)])
+        .await?;
+    let expected_tx: Value = expected
+        .raw_request("eth_getTransactionByBlockHashAndIndex".into(), 
+            vec![format!("{:#x}", block_hash), format!("{:#x}", tx_index)])
+        .await?;
+    
+    // Compare the transaction objects
     ensure_eq!(
-        tx.tx_hash(),
-        tx_hash,
-        "Transaction hash mismatch: expected {:?}, got {:?}",
-        tx_hash,
-        tx.tx_hash()
-    );
-    ensure!(
-        block_hash != B256::ZERO,
-        "Block hash should not be zero for a real transaction"
+        tx,
+        expected_tx,
+        "Transaction mismatch for block hash {:?} index {}",
+        block_hash,
+        tx_index
     );
     Ok(())
 }
 
 async fn test_get_transaction_by_block_number_and_index(
     helios: &RootProvider,
-    _expected: &RootProvider,
+    expected: &RootProvider,
 ) -> Result<()> {
-    let block = helios
-        .get_block_by_number(BlockNumberOrTag::Latest)
-        .await?
-        .ok_or_else(|| eyre::eyre!("No latest block"))?;
-    let tx_hash = block
-        .transactions
-        .hashes()
-        .next()
-        .ok_or_else(|| eyre::eyre!("No transactions"))?;
-    // Get the transaction to find its block and index
-    let tx = helios
-        .get_transaction_by_hash(tx_hash)
-        .await?
-        .ok_or_else(|| eyre::eyre!("Transaction not found"))?;
-    let block_number = tx
-        .block_number()
-        .ok_or_else(|| eyre::eyre!("No block number"))?;
-    let _tx_index = tx
-        .transaction_index()
-        .ok_or_else(|| eyre::eyre!("No transaction index"))?;
-
-    // For this test, we'll just verify the transaction data is consistent
+    let block_num = helios.get_block_number().await?;
+    let tx_index = 0u64; // Get the first transaction
+    
+    // Use the actual RPC method eth_getTransactionByBlockNumberAndIndex
+    let tx: Value = helios
+        .raw_request("eth_getTransactionByBlockNumberAndIndex".into(), 
+            vec![format!("{:#x}", block_num), format!("{:#x}", tx_index)])
+        .await?;
+    let expected_tx: Value = expected
+        .raw_request("eth_getTransactionByBlockNumberAndIndex".into(), 
+            vec![format!("{:#x}", block_num), format!("{:#x}", tx_index)])
+        .await?;
+    
+    // Compare the transaction objects
     ensure_eq!(
-        tx.tx_hash(),
-        tx_hash,
-        "Transaction hash mismatch: expected {:?}, got {:?}",
-        tx_hash,
-        tx.tx_hash()
+        tx,
+        expected_tx,
+        "Transaction mismatch for block number {} index {}",
+        block_num,
+        tx_index
     );
-    ensure!(block_number > 0, "Block number should be positive");
     Ok(())
 }
 
@@ -693,33 +674,39 @@ async fn test_create_access_list(helios: &RootProvider, expected: &RootProvider)
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let user = address!("99C9fc46f92E8a1c0deC1b1747d010903E884bE1");
 
+    // Create a transaction request for balanceOf call
+    use alloy::rpc::types::TransactionRequest;
+    use alloy::sol;
+    
     sol! {
-        #[sol(rpc)]
-        interface ERC20 {
-            function balanceOf(address who) external view returns (uint256);
-        }
+        function balanceOf(address who) external view returns (uint256);
     }
+    
+    let call_data = balanceOfCall { who: user }.abi_encode();
+    let tx_request = TransactionRequest::default()
+        .to(usdc)
+        .input(call_data.into());
 
-    let token_helios = ERC20::new(usdc, helios.clone());
-    let token_expected = ERC20::new(usdc, expected.clone());
-
-    // Test that we can call the contract - access list creation is not available in CallBuilder
-    let balance = token_helios
-        .balanceOf(user)
-        .block(block_num.into())
-        .call()
+    // Use the actual RPC method eth_createAccessList
+    let tx_json = json!({
+        "to": format!("{:#x}", usdc),
+        "data": format!("0x{}", hex::encode(&tx_request.input.clone().unwrap_or_default())),
+    });
+    
+    let access_list: Value = helios
+        .raw_request("eth_createAccessList".into(), 
+            vec![json!(tx_json.clone()), json!(format!("{:#x}", block_num))])
         .await?;
-    let expected_balance = token_expected
-        .balanceOf(user)
-        .block(block_num.into())
-        .call()
+    let expected_access_list: Value = expected
+        .raw_request("eth_createAccessList".into(), 
+            vec![json!(tx_json), json!(format!("{:#x}", block_num))]))
         .await?;
+    
+    // Compare the access lists
     ensure_eq!(
-        balance,
-        expected_balance,
-        "Balance mismatch: expected {}, got {}",
-        expected_balance,
-        balance
+        access_list,
+        expected_access_list,
+        "Access list mismatch"
     );
     Ok(())
 }

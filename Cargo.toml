@@ -103,6 +103,8 @@ tokio.workspace = true
 futures.workspace = true
 url.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
 dotenv = "0.15.0"
 helios-verifiable-api-server = { path = "verifiable-api/server" }
 
