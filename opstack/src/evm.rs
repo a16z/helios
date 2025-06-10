@@ -7,8 +7,6 @@ use alloy::{
     rpc::types::{Block, Header},
 };
 use eyre::Result;
-use helios_core::execution::errors::ExecutionError;
-use helios_revm_utils::proof_db::ProofDB;
 use op_alloy_consensus::OpTxType;
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
 use op_revm::{DefaultOp, OpBuilder, OpContext, OpHaltReason, OpSpecId, OpTransaction};
@@ -26,6 +24,8 @@ use helios_common::{
     fork_schedule::ForkSchedule,
     types::{Account, EvmError},
 };
+use helios_core::execution::errors::ExecutionError;
+use helios_revm_utils::proof_db::ProofDB;
 
 use crate::spec::OpStack;
 
