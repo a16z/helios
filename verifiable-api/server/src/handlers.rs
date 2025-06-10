@@ -217,8 +217,7 @@ pub async fn get_transaction<N: NetworkSpec>(
 /// - Verify the given `transactionProof` against the trusted block's transaction root with the
 ///   transaction hash as the leaf.
 pub async fn get_transaction_by_location<N: NetworkSpec>(
-    Path(block_id): Path<BlockId>,
-    Path(index): Path<u64>,
+    Path((block_id, index)): Path<(BlockId, u64)>,
     State(ApiState { api_service }): State<ApiState<N>>,
 ) -> Response<Option<TransactionResponse<N>>> {
     api_service
