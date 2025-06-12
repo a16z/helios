@@ -16,7 +16,7 @@ pub struct CliConfig {
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub data_dir: Option<PathBuf>,
-    pub fallback: Option<String>,
+    pub fallback: Option<Url>,
     pub load_external_fallback: Option<bool>,
     pub strict_checkpoint_age: Option<bool>,
 }
@@ -54,7 +54,7 @@ impl CliConfig {
         }
 
         if let Some(fallback) = &self.fallback {
-            user_dict.insert("fallback", Value::from(fallback.clone()));
+            user_dict.insert("fallback", Value::from(fallback.to_string()));
         }
 
         if let Some(l) = self.load_external_fallback {

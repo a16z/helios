@@ -2,6 +2,7 @@
 use std::{path::PathBuf, str::FromStr};
 
 use alloy::primitives::{Address, B256, U256};
+use url::Url;
 
 use helios_common::types::BlockTag;
 use helios_ethereum::{
@@ -42,8 +43,8 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<EthereumClient<Fil
 
     let mut client = EthereumClientBuilder::new()
         .network(networks::Network::Mainnet)
-        .consensus_rpc("https://www.lightclientdata.org")
-        .execution_rpc(&benchmark_rpc_url)
+        .consensus_rpc(Url::parse("https://www.lightclientdata.org")?)
+        .execution_rpc(Url::parse(&benchmark_rpc_url)?)
         .load_external_fallback()
         .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
@@ -62,8 +63,8 @@ pub async fn construct_mainnet_client_with_checkpoint(
 
     let mut client = EthereumClientBuilder::new()
         .network(networks::Network::Mainnet)
-        .consensus_rpc("https://www.lightclientdata.org")
-        .execution_rpc(&benchmark_rpc_url)
+        .consensus_rpc(Url::parse("https://www.lightclientdata.org")?)
+        .execution_rpc(Url::parse(&benchmark_rpc_url)?)
         .checkpoint(checkpoint)
         .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;

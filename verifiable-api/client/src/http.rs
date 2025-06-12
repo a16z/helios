@@ -12,6 +12,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
 use tokio::time::Duration;
+use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -21,7 +22,7 @@ use super::VerifiableApi;
 #[derive(Clone)]
 pub struct HttpVerifiableApi<N: NetworkSpec> {
     client: Arc<ClientWithMiddleware>,
-    base_url: String,
+    base_url: Url,
     phantom: PhantomData<N>,
 }
 
@@ -62,19 +63,20 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         );
 
         let client_ref = client.clone();
-        let base_url_ref = base_url.to_string();
+        let base_url_parsed = Url::parse(base_url.trim_end_matches("/")).unwrap();
+        let base_url_str = base_url_parsed.to_string();
 
         #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(async move {
             loop {
-                _ = client_ref.head(&base_url_ref).send().await;
+                _ = client_ref.head(&base_url_str).send().await;
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
         });
 
         Self {
             client,
-            base_url: base_url.trim_end_matches("/").to_string(),
+            base_url: base_url_parsed,
             phantom: PhantomData,
         }
     }
@@ -86,8 +88,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: Option<BlockId>,
         include_code: bool,
     ) -> Result<AccountResponse> {
-        let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
-        let mut request = self.client.get(&url);
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/proof/account/{}", address))
+            .unwrap();
+        let mut request = self.client.get(url.as_str());
         if let Some(block_id) = block_id {
             request = request.query(&[("block", block_id)]);
         }
@@ -103,14 +108,20 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
-        let url = format!("{}/eth/v1/proof/receipt/{}", self.base_url, tx_hash);
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/proof/receipt/{}", tx_hash))
+            .unwrap();
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
     async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
-        let url = format!("{}/eth/v1/proof/transaction/{}", self.base_url, tx_hash);
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/proof/transaction/{}", tx_hash))
+            .unwrap();
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
@@ -119,20 +130,22 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: BlockId,
         index: u64,
     ) -> Result<Option<TransactionResponse<N>>> {
-        let url = format!(
-            "{}/eth/v1/proof/transaction/{}/{}",
-            self.base_url,
-            serialize_block_id(block_id),
-            index
-        );
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!(
+                "eth/v1/proof/transaction/{}/{}",
+                serialize_block_id(block_id),
+                index
+            ))
+            .unwrap();
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
-        let url = format!("{}/eth/v1/proof/logs", self.base_url);
+        let url = self.base_url.join("eth/v1/proof/logs").unwrap();
 
-        let mut request = self.client.get(&url);
+        let mut request = self.client.get(url.as_str());
         if let Some(from_block) = filter.get_from_block() {
             request = request.query(&[("fromBlock", U256::from(from_block))]);
         }
@@ -179,10 +192,10 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
-        let url = format!("{}/eth/v1/proof/getExecutionHint", self.base_url);
+        let url = self.base_url.join("eth/v1/proof/getExecutionHint").unwrap();
         let response = self
             .client
-            .post(&url)
+            .post(url.as_str())
             .json(&ExtendedAccessListRequest::<N> {
                 tx,
                 validate_tx,
@@ -194,8 +207,8 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
-        let url = format!("{}/eth/v1/chainId", self.base_url);
-        let response = self.client.get(&url).send().await?;
+        let url = self.base_url.join("eth/v1/chainId").unwrap();
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
@@ -204,15 +217,14 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let url = format!(
-            "{}/eth/v1/block/{}",
-            self.base_url,
-            serialize_block_id(block_id)
-        );
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/block/{}", serialize_block_id(block_id)))
+            .unwrap();
 
         let request = self
             .client
-            .get(&url)
+            .get(url.as_str())
             .query(&[("transactionDetailFlag", full_tx)]);
 
         let response = request.send().await?;
@@ -224,20 +236,22 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let url = format!(
-            "{}/eth/v1/block/{}/receipts",
-            self.base_url,
-            serialize_block_id(block_id)
-        );
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!(
+                "eth/v1/block/{}/receipts",
+                serialize_block_id(block_id)
+            ))
+            .unwrap();
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
-        let url = format!("{}/eth/v1/sendRawTransaction", self.base_url);
+        let url = self.base_url.join("eth/v1/sendRawTransaction").unwrap();
         let response = self
             .client
-            .post(&url)
+            .post(url.as_str())
             .json(&SendRawTxRequest {
                 bytes: bytes.to_vec(),
             })

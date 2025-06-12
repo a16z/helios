@@ -15,6 +15,7 @@ use eyre::Result;
 use futures::future::join_all;
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
+use url::Url;
 
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
@@ -237,7 +238,7 @@ fn save_new_checkpoints<DB: Database>(
 
 async fn sync_fallback<S: ConsensusSpec, R: ConsensusRpc<S>>(
     inner: &mut Inner<S, R>,
-    fallback: &str,
+    fallback: &Url,
 ) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
     inner.sync(checkpoint).await

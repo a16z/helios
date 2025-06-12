@@ -13,6 +13,7 @@ reqwest-retry.workspace = true
 reqwest-middleware.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
+url.workspace = true
 
 # self crates
 helios-verifiable-api-types = { path = "../types" }

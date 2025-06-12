@@ -27,16 +27,16 @@ use crate::EthereumClient;
 
 pub struct EthereumClientBuilder<DB: Database> {
     network: Option<Network>,
-    consensus_rpc: Option<String>,
-    execution_rpc: Option<String>,
-    verifiable_api: Option<String>,
+    consensus_rpc: Option<Url>,
+    execution_rpc: Option<Url>,
+    verifiable_api: Option<Url>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_address: Option<SocketAddr>,
     #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
-    fallback: Option<String>,
+    fallback: Option<Url>,
     load_external_fallback: bool,
     strict_checkpoint_age: bool,
     phantom: PhantomData<DB>,
@@ -73,18 +73,18 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn consensus_rpc(mut self, consensus_rpc: &str) -> Self {
-        self.consensus_rpc = Some(consensus_rpc.to_string());
+    pub fn consensus_rpc(mut self, consensus_rpc: Url) -> Self {
+        self.consensus_rpc = Some(consensus_rpc);
         self
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
-        self.execution_rpc = Some(execution_rpc.to_string());
+    pub fn execution_rpc(mut self, execution_rpc: Url) -> Self {
+        self.execution_rpc = Some(execution_rpc);
         self
     }
 
-    pub fn verifiable_api(mut self, verifiable_api: &str) -> Self {
-        self.verifiable_api = Some(verifiable_api.to_string());
+    pub fn verifiable_api(mut self, verifiable_api: Url) -> Self {
+        self.verifiable_api = Some(verifiable_api);
         self
     }
 
@@ -110,8 +110,8 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn fallback(mut self, fallback: &str) -> Self {
-        self.fallback = Some(fallback.to_string());
+    pub fn fallback(mut self, fallback: Url) -> Self {
+        self.fallback = Some(fallback);
         self
     }
 
@@ -231,7 +231,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
 
         let config = Arc::new(config);
         let consensus = ConsensusClient::<MainnetConsensusSpec, HttpRpc, DB>::new(
-            &config.consensus_rpc,
+            config.consensus_rpc.as_str(),
             config.clone(),
         )?;
 
@@ -240,7 +240,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             // Create EIP-2935 historical block provider
             let historical_provider = Eip2935Provider::new();
             let execution = VerifiableApiExecutionProvider::with_historical_provider(
-                verifiable_api,
+                verifiable_api.as_str(),
                 block_provider,
                 historical_provider,
             );
@@ -255,7 +255,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         } else {
             let block_provider = BlockCache::<Ethereum>::new();
             // Create EIP-2935 historical block provider
-            let rpc_url: Url = config.execution_rpc.as_ref().unwrap().parse().unwrap();
+            let rpc_url = config.execution_rpc.as_ref().unwrap().clone();
             let historical_provider = Eip2935Provider::new();
             let execution = RpcExecutionProvider::with_historical_provider(
                 rpc_url,

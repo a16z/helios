@@ -133,8 +133,8 @@ struct EthereumArgs {
     consensus_rpc: Option<Url>,
     #[arg(short, long, env)]
     data_dir: Option<String>,
-    #[arg(short = 'f', long, env)]
-    fallback: Option<String>,
+    #[arg(short = 'f', long, env, value_parser = parse_url)]
+    fallback: Option<Url>,
     #[arg(short = 'l', long, env)]
     load_external_fallback: bool,
     #[arg(short = 's', long, env)]

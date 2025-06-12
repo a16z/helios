@@ -144,9 +144,9 @@ impl Default for BaseConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Default, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    pub execution_rpc: String,
+    pub execution_rpc: Url,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub chain: ChainConfig,
@@ -196,12 +196,23 @@ impl Config {
     }
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            execution_rpc: Url::parse("http://localhost:8545").unwrap(),
+            rpc_bind_ip: None,
+            rpc_port: None,
+            chain: ChainConfig::default(),
+        }
+    }
+}
+
 impl From<BaseConfig> for Config {
     fn from(base: BaseConfig) -> Self {
         Config {
             rpc_bind_ip: Some(base.rpc_bind_ip),
             rpc_port: Some(base.rpc_port),
-            execution_rpc: String::new(),
+            execution_rpc: Url::parse("http://localhost:8545").unwrap(),
             chain: base.chain,
         }
     }

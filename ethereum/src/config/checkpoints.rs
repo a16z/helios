@@ -8,6 +8,7 @@ use serde::{
     de::{self, Error},
     Deserialize, Serialize,
 };
+use url::Url;
 
 use crate::config::networks;
 
@@ -53,10 +54,10 @@ pub struct Health {
 }
 
 /// A checkpoint fallback service.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckpointFallbackService {
     /// The endpoint for the checkpoint sync service.
-    pub endpoint: String,
+    pub endpoint: Url,
     /// The checkpoint sync service name.
     pub name: String,
     /// The service state.
@@ -151,9 +152,9 @@ impl CheckpointFallback {
         Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
 
-    async fn query_service(endpoint: &str) -> Option<RawSlotResponse> {
+    async fn query_service(endpoint: &Url) -> Option<RawSlotResponse> {
         let constructed_url = Self::construct_url(endpoint);
-        let res = get(&constructed_url).await.ok()?;
+        let res = get(constructed_url.as_str()).await.ok()?;
         let raw: RawSlotResponse = res.json().await.ok()?;
         Some(raw)
     }
@@ -226,10 +227,10 @@ impl CheckpointFallback {
 
     /// Associated function to fetch the latest checkpoint from a specific checkpoint sync fallback
     /// service api url.
-    pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<B256> {
+    pub async fn fetch_checkpoint_from_api(url: &Url) -> eyre::Result<B256> {
         // Fetch the url
         let constructed_url = Self::construct_url(url);
-        let res = get(&constructed_url).await?;
+        let res = get(constructed_url.as_str()).await?;
         let raw: RawSlotResponse = res.json().await?;
         let slot = raw.data.slots[0].clone();
         slot.block_root
@@ -242,12 +243,14 @@ impl CheckpointFallback {
     ///
     /// ```rust
     /// use helios_ethereum::config::checkpoints::CheckpointFallback;
+    /// use url::Url;
     ///
-    /// let url = CheckpointFallback::construct_url("https://sync-mainnet.beaconcha.in");
-    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
+    /// let endpoint = Url::parse("https://sync-mainnet.beaconcha.in").unwrap();
+    /// let url = CheckpointFallback::construct_url(&endpoint);
+    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url.as_str());
     /// ```
-    pub fn construct_url(endpoint: &str) -> String {
-        format!("{endpoint}/checkpointz/v1/beacon/slots")
+    pub fn construct_url(endpoint: &Url) -> Url {
+        endpoint.join("checkpointz/v1/beacon/slots").unwrap()
     }
 
     /// Returns a list of all checkpoint fallback endpoints.
@@ -255,7 +258,7 @@ impl CheckpointFallback {
     /// ### Warning
     ///
     /// These services are not health-checked **nor** trustworthy and may act with malice by returning invalid checkpoints.
-    pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
+    pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<Url> {
         self.services[network]
             .iter()
             .map(|service| service.endpoint.clone())
@@ -267,7 +270,7 @@ impl CheckpointFallback {
     /// ### Warning
     ///
     /// These services are not trustworthy and may act with malice by returning invalid checkpoints.
-    pub fn get_healthy_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
+    pub fn get_healthy_fallback_endpoints(&self, network: &networks::Network) -> Vec<Url> {
         self.services[network]
             .iter()
             .filter(|service| service.state)
