@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # Don't inherit workspace version to not inherit all of the features defined in the workspace
-alloy = { version = "0.14.0", features = [
+alloy = { version = "1.0.3", features = [
     "consensus",
     "rpc-types",
     "ssz",
@@ -13,7 +13,7 @@ alloy = { version = "0.14.0", features = [
     "k256",
     "eips",
 ] }
-alloy-rlp = "0.3.10"
+alloy-rlp = "0.3.12"
 bls12_381.workspace = true
 ssz_types.workspace = true
 ethereum_ssz_derive.workspace = true

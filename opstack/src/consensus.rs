@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
+use alloy::consensus::transaction::SignerRecoverable;
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
 use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
