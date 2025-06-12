@@ -9,12 +9,11 @@ use alloy::rpc::types::BlockTransactions;
 use async_trait::async_trait;
 
 use eyre::Result;
-use helios_common::network_spec::NetworkSpec;
+use helios_common::{execution_provider::BlockProvider, network_spec::NetworkSpec};
 use tokio::sync::RwLock;
 use tracing::warn;
 
 use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
-use crate::execution::providers::BlockProvider;
 
 pub struct BlockCache<N: NetworkSpec> {
     latest: Arc<RwLock<Option<N::BlockResponse>>>,

@@ -5,8 +5,8 @@ use alloy::rpc::types::{Block, Transaction};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
+use helios_common::execution_provider::{AccountProvider, BlockProvider};
 use helios_core::execution::providers::historical::HistoricalBlockProvider;
-use helios_core::execution::providers::{AccountProvider, BlockProvider};
 
 use crate::consensus::verify_block;
 use crate::spec::Linea;

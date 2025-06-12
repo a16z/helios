@@ -3531,10 +3531,13 @@ name = "helios-common"
 version = "0.8.8"
 dependencies = [
  "alloy",
+ "async-trait",
  "eyre",
+ "hex",
  "revm",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tokio",
 ]
 
@@ -3611,6 +3614,7 @@ dependencies = [
  "helios-common",
  "helios-consensus-core",
  "helios-core",
+ "helios-revm-utils",
  "hex",
  "openssl",
  "parking_lot 0.12.3",
@@ -3658,6 +3662,7 @@ dependencies = [
  "alloy",
  "alloy-rlp",
  "alloy-trie",
+ "async-trait",
  "axum 0.7.9",
  "clap",
  "discv5",
@@ -3671,12 +3676,14 @@ dependencies = [
  "helios-consensus-core",
  "helios-core",
  "helios-ethereum",
+ "helios-revm-utils",
  "hex",
  "libp2p",
  "libp2p-identity",
  "op-alloy-consensus",
  "op-alloy-network",
  "op-alloy-rpc-types",
+ "op-revm",
  "parking_lot 0.12.3",
  "reqwest",
  "revm",
@@ -3691,6 +3698,20 @@ dependencies = [
  "unsigned-varint",
  "url",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "helios-revm-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "eyre",
+ "helios-common",
+ "helios-core",
+ "hex",
+ "revm",
+ "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
@@ -5660,6 +5681,18 @@ dependencies = [
  "op-alloy-consensus",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "op-revm"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12f8646cb935063087579f44da58fe1dea329c280c3b35898d6fd01a928de91f"
+dependencies = [
+ "auto_impl",
+ "once_cell",
+ "revm",
+ "serde",
 ]
 
 [[package]]

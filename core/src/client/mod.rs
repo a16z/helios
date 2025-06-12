@@ -1,11 +1,13 @@
 use std::{net::SocketAddr, ops::Deref, sync::Arc};
 
 use futures::future::pending;
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
+use helios_common::{
+    execution_provider::ExecutionProivder, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
+};
 
+use crate::consensus::Consensus;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::jsonrpc;
-use crate::{consensus::Consensus, execution::providers::ExecutionProivder};
 
 use self::{api::HeliosApi, node::Node};
 

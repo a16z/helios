@@ -1,14 +1,19 @@
+use std::{collections::HashMap, sync::Arc};
+
 use alloy::{
-    consensus::{
-        proofs::calculate_transaction_root, BlockHeader, Receipt, ReceiptWithBloom, TxReceipt,
-        TxType,
-    },
-    eips::Encodable2718,
+    consensus::{proofs::calculate_transaction_root, Receipt, ReceiptWithBloom, TxReceipt, TxType},
+    eips::{BlockId, Encodable2718},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
     rpc::types::{AccessList, Log, TransactionRequest},
 };
 
-use helios_common::{fork_schedule::ForkSchedule, network_spec::NetworkSpec};
+use async_trait::async_trait;
+use helios_common::{
+    execution_provider::ExecutionProivder,
+    fork_schedule::ForkSchedule,
+    network_spec::NetworkSpec,
+    types::{Account, EvmError},
+};
 use op_alloy_consensus::{
     OpDepositReceipt, OpDepositReceiptWithBloom, OpReceiptEnvelope, OpTxEnvelope, OpTxType,
     OpTypedTransaction,
@@ -17,15 +22,19 @@ use op_alloy_network::{
     BuildResult, Ethereum, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError,
 };
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
-use revm::{
-    context::{BlockEnv, TxEnv},
-    context_interface::block::BlobExcessGasAndPrice,
-};
+use op_revm::OpHaltReason;
+use revm::context::result::ExecutionResult;
+
+use crate::evm::OpStackEvm;
 
 #[derive(Clone, Copy, Debug)]
 pub struct OpStack;
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl NetworkSpec for OpStack {
+    type HaltReason = OpHaltReason;
+
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8> {
         let receipt = &receipt.inner.inner;
         let bloom = receipt.bloom();
@@ -117,56 +126,17 @@ impl NetworkSpec for OpStack {
         receipt.inner.inner.logs().to_vec()
     }
 
-    fn tx_env(tx: &Self::TransactionRequest) -> TxEnv {
-        TxEnv {
-            tx_type: <OpTransactionRequest as TransactionBuilder<Self>>::output_tx_type(tx).into(),
-            caller: <OpTransactionRequest as TransactionBuilder<Self>>::from(tx)
-                .unwrap_or_default(),
-            gas_limit: <OpTransactionRequest as TransactionBuilder<Self>>::gas_limit(tx)
-                .unwrap_or(u64::MAX),
-            gas_price: <OpTransactionRequest as TransactionBuilder<Self>>::gas_price(tx)
-                .unwrap_or_default(),
-            kind: <OpTransactionRequest as TransactionBuilder<Self>>::kind(tx).unwrap_or_default(),
-            value: <OpTransactionRequest as TransactionBuilder<Self>>::value(tx)
-                .unwrap_or_default(),
-            data: <OpTransactionRequest as TransactionBuilder<Self>>::input(tx)
-                .unwrap_or_default()
-                .clone(),
-            nonce: <OpTransactionRequest as TransactionBuilder<Self>>::nonce(tx)
-                .unwrap_or_default(),
-            chain_id: <OpTransactionRequest as TransactionBuilder<Self>>::chain_id(tx),
-            access_list: <OpTransactionRequest as TransactionBuilder<Self>>::access_list(tx)
-                .cloned()
-                .unwrap_or_default(),
-            gas_priority_fee:
-                <OpTransactionRequest as TransactionBuilder<Self>>::max_priority_fee_per_gas(tx),
-            max_fee_per_blob_gas: 0,
-            blob_hashes: tx
-                .as_ref()
-                .blob_versioned_hashes
-                .as_ref()
-                .map(|v| v.to_vec())
-                .unwrap_or_default(),
-            authorization_list: vec![],
-        }
-    }
+    async fn transact<E: ExecutionProivder<Self>>(
+        tx: &Self::TransactionRequest,
+        validate_tx: bool,
+        execution: Arc<E>,
+        chain_id: u64,
+        fork_schedule: ForkSchedule,
+        block_id: BlockId,
+    ) -> Result<(ExecutionResult<Self::HaltReason>, HashMap<Address, Account>), EvmError> {
+        let mut evm = OpStackEvm::new(execution, chain_id, fork_schedule, block_id);
 
-    fn block_env(block: &Self::BlockResponse, _fork_schedule: &ForkSchedule) -> BlockEnv {
-        let blob_excess_gas_and_price = Some(BlobExcessGasAndPrice {
-            excess_blob_gas: 0,
-            blob_gasprice: 0,
-        });
-
-        BlockEnv {
-            number: block.header.number(),
-            beneficiary: block.header.beneficiary(),
-            timestamp: block.header.timestamp(),
-            gas_limit: block.header.gas_limit(),
-            basefee: block.header.base_fee_per_gas().unwrap_or(0_u64),
-            difficulty: block.header.difficulty(),
-            prevrandao: block.header.mix_hash(),
-            blob_excess_gas_and_price,
-        }
+        evm.transact_inner(tx, validate_tx).await
     }
 }
 

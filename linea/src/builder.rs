@@ -118,7 +118,8 @@ impl LineaClientBuilder {
         let consensus = ConsensusClient::new(&config);
 
         let fork_schedule = ForkSchedule {
-            prague_timestamp: u64::MAX,
+            london_timestamp: 1688655600,
+            ..Default::default()
         };
 
         let block_provider = BlockCache::<Linea>::new();

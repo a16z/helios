@@ -12,7 +12,14 @@ use async_trait::async_trait;
 use eyre::{eyre, Result};
 
 use futures::future::try_join_all;
-use helios_common::{network_spec::NetworkSpec, types::Account};
+use helios_common::{
+    execution_provider::{
+        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider,
+        ReceiptProvider, TransactionProvider,
+    },
+    network_spec::NetworkSpec,
+    types::Account,
+};
 use helios_verifiable_api_client::{
     http::HttpVerifiableApi,
     types::{
@@ -30,11 +37,7 @@ use crate::execution::{
     },
 };
 
-use super::{
-    historical::HistoricalBlockProvider, utils::ensure_logs_match_filter, AccountProvider,
-    BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider, ReceiptProvider,
-    TransactionProvider,
-};
+use super::{historical::HistoricalBlockProvider, utils::ensure_logs_match_filter};
 
 pub struct VerifiableApiExecutionProvider<
     N: NetworkSpec,
