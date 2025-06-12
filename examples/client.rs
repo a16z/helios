@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use alloy::primitives::b256;
 use eyre::Result;
-use url::Url;
 
 use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
 
@@ -13,9 +12,9 @@ async fn main() -> Result<()> {
         // Set the network to mainnet
         .network(Network::Mainnet)
         // Set the consensus rpc url
-        .consensus_rpc(Url::parse("https://www.lightclientdata.org")?)
+        .consensus_rpc("https://www.lightclientdata.org")
         // Set the execution rpc url
-        .execution_rpc(Url::parse("https://eth-mainnet.g.alchemy.com/v2/XXXXX")?)
+        .execution_rpc("https://eth-mainnet.g.alchemy.com/v2/XXXXX")
         // Set the checkpoint to the last known checkpoint
         .checkpoint(b256!(
             "85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
@@ -25,7 +24,7 @@ async fn main() -> Result<()> {
         // Set the data dir
         .data_dir(PathBuf::from("/tmp/helios"))
         // Set the fallback service
-        .fallback(Url::parse("https://sync-mainnet.beaconcha.in")?)
+        .fallback("https://sync-mainnet.beaconcha.in")
         // Enable lazy checkpoints
         .load_external_fallback()
         // Select the FileDB

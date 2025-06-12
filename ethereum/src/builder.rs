@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
-use reqwest::Url;
+use reqwest::{IntoUrl, Url};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::execution::providers::block::block_cache::BlockCache;
@@ -73,18 +73,18 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn consensus_rpc(mut self, consensus_rpc: Url) -> Self {
-        self.consensus_rpc = Some(consensus_rpc);
+    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Self {
+        self.consensus_rpc = Some(consensus_rpc.into_url().unwrap());
         self
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: Url) -> Self {
-        self.execution_rpc = Some(execution_rpc);
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
+        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
         self
     }
 
-    pub fn verifiable_api(mut self, verifiable_api: Url) -> Self {
-        self.verifiable_api = Some(verifiable_api);
+    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Self {
+        self.verifiable_api = Some(verifiable_api.into_url().unwrap());
         self
     }
 
@@ -110,8 +110,8 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn fallback(mut self, fallback: Url) -> Self {
-        self.fallback = Some(fallback);
+    pub fn fallback<T: IntoUrl>(mut self, fallback: T) -> Self {
+        self.fallback = Some(fallback.into_url().unwrap());
         self
     }
 
@@ -231,7 +231,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
 
         let config = Arc::new(config);
         let consensus = ConsensusClient::<MainnetConsensusSpec, HttpRpc, DB>::new(
-            config.consensus_rpc.as_str(),
+            &config.consensus_rpc,
             config.clone(),
         )?;
 

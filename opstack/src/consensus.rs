@@ -179,15 +179,15 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 eth_config.default_checkpoint = checkpoint;
             }
 
-            let consensus_rpc_str = eth_config
+            let consensus_rpc = eth_config
                 .consensus_rpc
                 .as_ref()
                 .ok_or_else(|| eyre!("missing consensus rpc"))?
-                .to_string();
+                .clone();
 
             let mut eth_consensus =
                 EthConsensusClient::<MainnetConsensusSpec, HttpRpc, ConfigDB>::new(
-                    &consensus_rpc_str,
+                    &consensus_rpc,
                     Arc::new(eth_config.into()),
                 )?;
 

@@ -82,7 +82,7 @@ pub struct CheckpointFallback {
     pub networks: Vec<networks::Network>,
 }
 
-async fn get(req: &str) -> Result<reqwest::Response> {
+async fn get(url: &Url) -> Result<reqwest::Response> {
     retry(
         || async {
             #[cfg(not(target_arch = "wasm32"))]
@@ -94,7 +94,7 @@ async fn get(req: &str) -> Result<reqwest::Response> {
             #[cfg(target_arch = "wasm32")]
             let client = ClientBuilder::new().build().unwrap();
 
-            Ok::<_, eyre::Report>(client.get(req).send().await?)
+            Ok::<_, eyre::Report>(client.get(url.as_str()).send().await?)
         },
         BackoffSettings::default(),
     )
@@ -119,7 +119,8 @@ impl CheckpointFallback {
     /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
     pub async fn build(mut self) -> eyre::Result<Self> {
         // Fetch the services
-        let res = get(CHECKPOINT_SYNC_SERVICES_LIST).await?;
+        let url = Url::parse(CHECKPOINT_SYNC_SERVICES_LIST)?;
+        let res = get(&url).await?;
         let yaml = res.text().await?;
 
         // Parse the yaml content results.
@@ -154,7 +155,7 @@ impl CheckpointFallback {
 
     async fn query_service(endpoint: &Url) -> Option<RawSlotResponse> {
         let constructed_url = Self::construct_url(endpoint);
-        let res = get(constructed_url.as_str()).await.ok()?;
+        let res = get(&constructed_url).await.ok()?;
         let raw: RawSlotResponse = res.json().await.ok()?;
         Some(raw)
     }
@@ -230,7 +231,7 @@ impl CheckpointFallback {
     pub async fn fetch_checkpoint_from_api(url: &Url) -> eyre::Result<B256> {
         // Fetch the url
         let constructed_url = Self::construct_url(url);
-        let res = get(constructed_url.as_str()).await?;
+        let res = get(&constructed_url).await?;
         let raw: RawSlotResponse = res.json().await?;
         let slot = raw.data.slots[0].clone();
         slot.block_root

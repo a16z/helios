@@ -7,6 +7,7 @@ use std::str::FromStr;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::Filter;
+use url::Url;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
 
@@ -50,6 +51,16 @@ impl OpStackClient {
         let consensus_rpc = network_config
             .consensus_rpc
             .ok_or(JsError::new("consensus rpc not found"))?;
+
+        let execution_rpc = execution_rpc
+            .map(|url| Url::parse(&url))
+            .transpose()
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {}", e)))?;
+
+        let verifiable_api = verifiable_api
+            .map(|url| Url::parse(&url))
+            .transpose()
+            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {}", e)))?;
 
         let config = Config {
             execution_rpc,

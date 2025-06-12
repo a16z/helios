@@ -88,7 +88,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
 }
 
 impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, DB> {
-    pub fn new(rpc: &str, config: Arc<Config>) -> Result<ConsensusClient<S, R, DB>> {
+    pub fn new(rpc: &Url, config: Arc<Config>) -> Result<ConsensusClient<S, R, DB>> {
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
@@ -691,6 +691,8 @@ mod tests {
     use helios_consensus_core::types::bls::{PublicKey, Signature};
     use helios_consensus_core::types::Update;
 
+    use url::Url;
+
     use crate::{
         config::{networks, Config},
         consensus::calc_sync_period,
@@ -705,7 +707,7 @@ mod tests {
     ) -> Inner<MainnetConsensusSpec, MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
-            consensus_rpc: String::new(),
+            consensus_rpc: Url::parse("http://localhost:8080").unwrap(),
             chain: base_config.chain,
             forks: base_config.forks,
             strict_checkpoint_age,

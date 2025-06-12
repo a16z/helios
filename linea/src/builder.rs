@@ -1,7 +1,7 @@
 use eyre::{eyre, Result};
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
-use reqwest::Url;
+use reqwest::{IntoUrl, Url};
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -35,8 +35,8 @@ impl LineaClientBuilder {
         self
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: Url) -> Self {
-        self.execution_rpc = Some(execution_rpc);
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
+        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
         self
     }
 

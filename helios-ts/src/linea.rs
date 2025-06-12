@@ -7,6 +7,7 @@ use std::str::FromStr;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, TransactionRequest};
+use url::Url;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
 
@@ -41,9 +42,12 @@ impl LineaClient {
         };
 
         let chain_id = network_config.chain.chain_id;
-        let Some(execution_rpc) = execution_rpc else {
+        let Some(execution_rpc_str) = execution_rpc else {
             return Err(JsError::new("execution rpc required"));
         };
+
+        let execution_rpc = Url::parse(&execution_rpc_str)
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {}", e)))?;
 
         let config = Config {
             execution_rpc,

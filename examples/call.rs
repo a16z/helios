@@ -9,7 +9,6 @@ use dotenv::dotenv;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::FmtSubscriber;
-use url::Url;
 
 use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
 
@@ -37,8 +36,8 @@ async fn main() -> eyre::Result<()> {
     let client: EthereumClient = EthereumClientBuilder::new()
         .network(Network::Mainnet)
         .data_dir(data_dir)
-        .consensus_rpc(Url::parse(consensus_rpc)?)
-        .execution_rpc(Url::parse(&eth_rpc_url)?)
+        .consensus_rpc(consensus_rpc)
+        .execution_rpc(&eth_rpc_url)
         .load_external_fallback()
         .with_file_db()
         .build()?;

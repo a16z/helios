@@ -20,7 +20,8 @@ async fn setup() -> ConsensusClient<MainnetConsensusSpec, MockRpc, ConfigDB> {
         ..Default::default()
     };
 
-    ConsensusClient::new("testdata/", Arc::new(config)).unwrap()
+    let url = Url::parse("file://testdata/").unwrap();
+    ConsensusClient::new(&url, Arc::new(config)).unwrap()
 }
 
 #[tokio::test]
