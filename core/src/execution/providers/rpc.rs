@@ -79,7 +79,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);
 
-        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
+        let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 
         RpcExecutionProvider {
             provider,
@@ -97,7 +97,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);
 
-        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
+        let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 
         Self {
             provider,

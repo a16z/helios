@@ -40,7 +40,7 @@ sha2 = "0.9"
 bls12_381 = { version = "0.8.0", features = ["experimental"] }
 
 # execution
-alloy = { version = "0.14.0", features = [
+alloy = { version = "1.0.3", features = [
     "rpc-types",
     "consensus",
     "rlp",
@@ -53,7 +53,7 @@ alloy = { version = "0.14.0", features = [
     "signers",
 ] }
 alloy-trie = "0.8.1"
-op-alloy-rpc-types = "0.14.0"
+op-alloy-rpc-types = "0.18.0"
 revm = { version = "22.0.1", default-features = false, features = [
     "std",
     "serde",
@@ -109,7 +109,7 @@ dotenv = "0.15.0"
 helios-verifiable-api-server = { path = "verifiable-api/server" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-alloy = { version = "0.14.0", features = ["full"] }
+alloy = { version = "1.0.3", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
 dirs = "5.0.1"

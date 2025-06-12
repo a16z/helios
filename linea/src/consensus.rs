@@ -106,7 +106,7 @@ struct Inner {
 impl Inner {
     pub async fn advance(&mut self) -> Result<()> {
         let rpc_url = Url::parse(self.server_url.as_str())?;
-        let provider = ProviderBuilder::new().on_http(rpc_url);
+        let provider = ProviderBuilder::new().connect_http(rpc_url);
 
         let block = provider
             .get_block_by_number(BlockNumberOrTag::Latest)

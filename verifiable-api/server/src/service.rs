@@ -46,7 +46,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc.parse().unwrap());
 
-        let provider = ProviderBuilder::<_, _, N>::default().on_client(client);
+        let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 
         Self {
             rpc_url: rpc.to_string(),
