@@ -25,8 +25,15 @@ pub struct MockRpc {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
     fn new(path: &str) -> Self {
+        // Handle file:// URLs by extracting the path
+        let testdata = if path.starts_with("file://") {
+            PathBuf::from(&path[7..])
+        } else {
+            PathBuf::from(path)
+        };
+
         MockRpc {
-            testdata: PathBuf::from(path),
+            testdata,
             fetched_updates: Arc::new(Mutex::new(false)),
         }
     }
