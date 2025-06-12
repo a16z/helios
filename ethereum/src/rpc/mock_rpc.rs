@@ -26,8 +26,8 @@ pub struct MockRpc {
 impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
     fn new(path: &str) -> Self {
         // Handle file:// URLs by extracting the path
-        let testdata = if path.starts_with("file://") {
-            PathBuf::from(&path[7..])
+        let testdata = if let Some(stripped) = path.strip_prefix("file://") {
+            PathBuf::from(stripped)
         } else {
             PathBuf::from(path)
         };
