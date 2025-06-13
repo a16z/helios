@@ -81,9 +81,8 @@ async fn run_app<B: Backend, N: NetworkSpec>(
             _ = tokio::time::sleep(Duration::from_millis(50)) => {
                 if event::poll(Duration::from_millis(0))? {
                     if let Event::Key(key) = event::read()? {
-                        match key.code {
-                            KeyCode::Char('q') => return Ok(()),
-                            _ => {}
+                        if let KeyCode::Char('q') = key.code {
+                            return Ok(());
                         }
                     }
                 }
