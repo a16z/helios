@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use alloy::primitives::B256;
 use serde::Serialize;
+use url::Url;
 
 use crate::config::types::ChainConfig;
 use helios_common::fork_schedule::ForkSchedule;
@@ -14,7 +15,7 @@ use helios_consensus_core::types::Forks;
 pub struct BaseConfig {
     pub rpc_bind_ip: IpAddr,
     pub rpc_port: u16,
-    pub consensus_rpc: Option<String>,
+    pub consensus_rpc: Option<Url>,
     pub default_checkpoint: B256,
     pub chain: ChainConfig,
     pub forks: Forks,

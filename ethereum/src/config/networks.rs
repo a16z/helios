@@ -9,6 +9,7 @@ use dirs::home_dir;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
+use url::Url;
 
 use helios_common::fork_schedule::ForkSchedule;
 use helios_consensus_core::types::{Fork, Forks};
@@ -80,7 +81,7 @@ pub fn mainnet() -> BaseConfig {
             "0xe4163704b79dbb52a91ba6be1ae6f5504b060522f5495c73b6c55865412b428c"
         ),
         rpc_port: 8545,
-        consensus_rpc: Some("https://ethereum.operationsolarstorm.org".to_string()),
+        consensus_rpc: Some(Url::parse("https://ethereum.operationsolarstorm.org").unwrap()),
         chain: ChainConfig {
             chain_id: 1,
             genesis_time: 1606824023,

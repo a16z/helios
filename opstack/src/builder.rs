@@ -18,8 +18,8 @@ pub struct OpStackClientBuilder {
     config: Option<Config>,
     network: Option<Network>,
     consensus_rpc: Option<Url>,
-    execution_rpc: Option<String>,
-    verifiable_api: Option<String>,
+    execution_rpc: Option<Url>,
+    verifiable_api: Option<Url>,
     rpc_socket: Option<SocketAddr>,
     verify_unsafe_signer: Option<bool>,
 }
@@ -39,13 +39,13 @@ impl OpStackClientBuilder {
         self
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
-        self.execution_rpc = Some(execution_rpc.to_string());
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
+        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
         self
     }
 
-    pub fn verifiable_api(mut self, verifiable_api: &str) -> Self {
-        self.verifiable_api = Some(verifiable_api.to_string());
+    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Self {
+        self.verifiable_api = Some(verifiable_api.into_url().unwrap());
         self
     }
 
@@ -110,7 +110,7 @@ impl OpStackClientBuilder {
         } else {
             let block_provider = BlockCache::<OpStack>::new();
             // Create EIP-2935 historical block provider
-            let rpc_url: Url = config.execution_rpc.as_ref().unwrap().parse().unwrap();
+            let rpc_url = config.execution_rpc.as_ref().unwrap().clone();
             let historical_provider = Eip2935Provider::new();
             let execution = RpcExecutionProvider::with_historical_provider(
                 rpc_url,

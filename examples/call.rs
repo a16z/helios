@@ -36,8 +36,8 @@ async fn main() -> eyre::Result<()> {
     let client: EthereumClient = EthereumClientBuilder::new()
         .network(Network::Mainnet)
         .data_dir(data_dir)
-        .consensus_rpc(consensus_rpc)
-        .execution_rpc(&eth_rpc_url)
+        .consensus_rpc(consensus_rpc)?
+        .execution_rpc(&eth_rpc_url)?
         .load_external_fallback()
         .with_file_db()
         .build()?;

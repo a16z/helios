@@ -8,6 +8,7 @@ use figment::{
     Figment,
 };
 use serde::Deserialize;
+use url::Url;
 
 use helios_common::fork_schedule::ForkSchedule;
 use helios_consensus_core::types::Forks;
@@ -24,11 +25,11 @@ pub mod networks;
 mod base;
 mod types;
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug)]
 pub struct Config {
-    pub consensus_rpc: String,
-    pub execution_rpc: Option<String>,
-    pub verifiable_api: Option<String>,
+    pub consensus_rpc: Url,
+    pub execution_rpc: Option<Url>,
+    pub verifiable_api: Option<Url>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub default_checkpoint: B256,
@@ -38,7 +39,7 @@ pub struct Config {
     pub forks: Forks,
     pub execution_forks: ForkSchedule,
     pub max_checkpoint_age: u64,
-    pub fallback: Option<String>,
+    pub fallback: Option<Url>,
     pub load_external_fallback: bool,
     pub strict_checkpoint_age: bool,
     pub database_type: Option<String>,
@@ -101,7 +102,9 @@ impl From<BaseConfig> for Config {
         Config {
             rpc_bind_ip: Some(base.rpc_bind_ip),
             rpc_port: Some(base.rpc_port),
-            consensus_rpc: base.consensus_rpc.unwrap_or_default(),
+            consensus_rpc: base
+                .consensus_rpc
+                .unwrap_or_else(|| Url::parse("http://localhost:8545").unwrap()),
             execution_rpc: None,
             verifiable_api: None,
             checkpoint: None,
@@ -114,6 +117,29 @@ impl From<BaseConfig> for Config {
             fallback: None,
             load_external_fallback: base.load_external_fallback,
             strict_checkpoint_age: base.strict_checkpoint_age,
+            database_type: None,
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            consensus_rpc: Url::parse("http://localhost:8545").unwrap(),
+            execution_rpc: None,
+            verifiable_api: None,
+            rpc_bind_ip: None,
+            rpc_port: None,
+            default_checkpoint: B256::default(),
+            checkpoint: None,
+            data_dir: None,
+            chain: ChainConfig::default(),
+            forks: Forks::default(),
+            execution_forks: ForkSchedule::default(),
+            max_checkpoint_age: 0,
+            fallback: None,
+            load_external_fallback: false,
+            strict_checkpoint_age: false,
             database_type: None,
         }
     }

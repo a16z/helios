@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use alloy::primitives::B256;
 use eyre::{eyre, Result};
-use reqwest::Url;
+use reqwest::{IntoUrl, Url};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::execution::providers::block::block_cache::BlockCache;
@@ -27,16 +27,16 @@ use crate::EthereumClient;
 
 pub struct EthereumClientBuilder<DB: Database> {
     network: Option<Network>,
-    consensus_rpc: Option<String>,
-    execution_rpc: Option<String>,
-    verifiable_api: Option<String>,
+    consensus_rpc: Option<Url>,
+    execution_rpc: Option<Url>,
+    verifiable_api: Option<Url>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_address: Option<SocketAddr>,
     #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
-    fallback: Option<String>,
+    fallback: Option<Url>,
     load_external_fallback: bool,
     strict_checkpoint_age: bool,
     phantom: PhantomData<DB>,
@@ -73,19 +73,31 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn consensus_rpc(mut self, consensus_rpc: &str) -> Self {
-        self.consensus_rpc = Some(consensus_rpc.to_string());
-        self
+    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Result<Self> {
+        self.consensus_rpc = Some(
+            consensus_rpc
+                .into_url()
+                .map_err(|_| eyre!("Invalid consensus RPC URL"))?,
+        );
+        Ok(self)
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
-        self.execution_rpc = Some(execution_rpc.to_string());
-        self
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Result<Self> {
+        self.execution_rpc = Some(
+            execution_rpc
+                .into_url()
+                .map_err(|_| eyre!("Invalid execution RPC URL"))?,
+        );
+        Ok(self)
     }
 
-    pub fn verifiable_api(mut self, verifiable_api: &str) -> Self {
-        self.verifiable_api = Some(verifiable_api.to_string());
-        self
+    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Result<Self> {
+        self.verifiable_api = Some(
+            verifiable_api
+                .into_url()
+                .map_err(|_| eyre!("Invalid verifiable API URL"))?,
+        );
+        Ok(self)
     }
 
     pub fn checkpoint(mut self, checkpoint: B256) -> Self {
@@ -110,9 +122,13 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn fallback(mut self, fallback: &str) -> Self {
-        self.fallback = Some(fallback.to_string());
-        self
+    pub fn fallback<T: IntoUrl>(mut self, fallback: T) -> Result<Self> {
+        self.fallback = Some(
+            fallback
+                .into_url()
+                .map_err(|_| eyre!("Invalid fallback URL"))?,
+        );
+        Ok(self)
     }
 
     pub fn load_external_fallback(mut self) -> Self {
@@ -255,7 +271,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         } else {
             let block_provider = BlockCache::<Ethereum>::new();
             // Create EIP-2935 historical block provider
-            let rpc_url: Url = config.execution_rpc.as_ref().unwrap().parse().unwrap();
+            let rpc_url = config.execution_rpc.as_ref().unwrap().clone();
             let historical_provider = Eip2935Provider::new();
             let execution = RpcExecutionProvider::with_historical_provider(
                 rpc_url,

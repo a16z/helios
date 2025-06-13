@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use alloy::primitives::b256;
+use url::Url;
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_ethereum::config::{networks, Config};
@@ -9,7 +10,7 @@ use helios_ethereum::{consensus::ConsensusClient, database::ConfigDB, rpc::mock_
 async fn setup() -> ConsensusClient<MainnetConsensusSpec, MockRpc, ConfigDB> {
     let base_config = networks::mainnet();
     let config = Config {
-        consensus_rpc: String::new(),
+        consensus_rpc: Url::parse("http://localhost:8545").unwrap(),
         chain: base_config.chain,
         forks: base_config.forks,
         max_checkpoint_age: 123123123,
@@ -19,7 +20,8 @@ async fn setup() -> ConsensusClient<MainnetConsensusSpec, MockRpc, ConfigDB> {
         ..Default::default()
     };
 
-    ConsensusClient::new("testdata/", Arc::new(config)).unwrap()
+    let url = Url::parse("file://testdata/").unwrap();
+    ConsensusClient::new(&url, Arc::new(config)).unwrap()
 }
 
 #[tokio::test]

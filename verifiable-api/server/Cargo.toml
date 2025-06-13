@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "server"
+name = "verifiable-api-server"
 path = "./bin/server.rs"
 
 [dependencies]

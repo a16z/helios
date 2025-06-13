@@ -12,6 +12,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
 use tokio::time::Duration;
+use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -21,14 +22,14 @@ use super::VerifiableApi;
 #[derive(Clone)]
 pub struct HttpVerifiableApi<N: NetworkSpec> {
     client: Arc<ClientWithMiddleware>,
-    base_url: String,
+    base_url: Url,
     phantom: PhantomData<N>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
-    fn new(base_url: &str) -> Self {
+    fn new(base_url: &Url) -> Self {
         let builder = reqwest::ClientBuilder::default();
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -52,7 +53,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             // Use http2
             .http2_prior_knowledge();
 
-        let client = builder.build().unwrap();
+        let client = builder.build().expect("Failed to build HTTP client");
 
         let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
         let client = Arc::new(
@@ -62,19 +63,19 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         );
 
         let client_ref = client.clone();
-        let base_url_ref = base_url.to_string();
+        let base_url_str = base_url.to_string();
 
         #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(async move {
             loop {
-                _ = client_ref.head(&base_url_ref).send().await;
+                _ = client_ref.head(&base_url_str).send().await;
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
         });
 
         Self {
             client,
-            base_url: base_url.trim_end_matches("/").to_string(),
+            base_url: base_url.clone(),
             phantom: PhantomData,
         }
     }
@@ -86,8 +87,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: Option<BlockId>,
         include_code: bool,
     ) -> Result<AccountResponse> {
-        let url = format!("{}/eth/v1/proof/account/{}", self.base_url, address);
-        let mut request = self.client.get(&url);
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/proof/account/{}", address))
+            .map_err(|e| eyre!("Failed to construct account URL: {}", e))?;
+        let mut request = self.client.get(url.as_str());
         if let Some(block_id) = block_id {
             request = request.query(&[("block", block_id)]);
         }
@@ -103,14 +107,20 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         &self,
         tx_hash: B256,
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
-        let url = format!("{}/eth/v1/proof/receipt/{}", self.base_url, tx_hash);
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/proof/receipt/{}", tx_hash))
+            .map_err(|e| eyre!("Failed to construct receipt URL: {}", e))?;
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
     async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
-        let url = format!("{}/eth/v1/proof/transaction/{}", self.base_url, tx_hash);
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/proof/transaction/{}", tx_hash))
+            .map_err(|e| eyre!("Failed to construct transaction URL: {}", e))?;
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
@@ -119,20 +129,25 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: BlockId,
         index: u64,
     ) -> Result<Option<TransactionResponse<N>>> {
-        let url = format!(
-            "{}/eth/v1/proof/transaction/{}/{}",
-            self.base_url,
-            serialize_block_id(block_id),
-            index
-        );
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!(
+                "eth/v1/proof/transaction/{}/{}",
+                serialize_block_id(block_id),
+                index
+            ))
+            .map_err(|e| eyre!("Failed to construct transaction by location URL: {}", e))?;
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
-        let url = format!("{}/eth/v1/proof/logs", self.base_url);
+        let url = self
+            .base_url
+            .join("eth/v1/proof/logs")
+            .map_err(|e| eyre!("Failed to construct logs URL: {}", e))?;
 
-        let mut request = self.client.get(&url);
+        let mut request = self.client.get(url.as_str());
         if let Some(from_block) = filter.get_from_block() {
             request = request.query(&[("fromBlock", U256::from(from_block))]);
         }
@@ -179,10 +194,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         validate_tx: bool,
         block_id: Option<BlockId>,
     ) -> Result<ExtendedAccessListResponse> {
-        let url = format!("{}/eth/v1/proof/getExecutionHint", self.base_url);
+        let url = self
+            .base_url
+            .join("eth/v1/proof/getExecutionHint")
+            .map_err(|e| eyre!("Failed to construct execution hint URL: {}", e))?;
         let response = self
             .client
-            .post(&url)
+            .post(url.as_str())
             .json(&ExtendedAccessListRequest::<N> {
                 tx,
                 validate_tx,
@@ -194,8 +212,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
-        let url = format!("{}/eth/v1/chainId", self.base_url);
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join("eth/v1/chainId")
+            .map_err(|e| eyre!("Failed to construct chain ID URL: {}", e))?;
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
@@ -204,15 +225,14 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let url = format!(
-            "{}/eth/v1/block/{}",
-            self.base_url,
-            serialize_block_id(block_id)
-        );
+        let url = self
+            .base_url
+            .join(&format!("eth/v1/block/{}", serialize_block_id(block_id)))
+            .map_err(|e| eyre!("Failed to construct block URL: {}", e))?;
 
         let request = self
             .client
-            .get(&url)
+            .get(url.as_str())
             .query(&[("transactionDetailFlag", full_tx)]);
 
         let response = request.send().await?;
@@ -224,20 +244,25 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let url = format!(
-            "{}/eth/v1/block/{}/receipts",
-            self.base_url,
-            serialize_block_id(block_id)
-        );
-        let response = self.client.get(&url).send().await?;
+        let url = self
+            .base_url
+            .join(&format!(
+                "eth/v1/block/{}/receipts",
+                serialize_block_id(block_id)
+            ))
+            .map_err(|e| eyre!("Failed to construct block receipts URL: {}", e))?;
+        let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
-        let url = format!("{}/eth/v1/sendRawTransaction", self.base_url);
+        let url = self
+            .base_url
+            .join("eth/v1/sendRawTransaction")
+            .map_err(|e| eyre!("Failed to construct send transaction URL: {}", e))?;
         let response = self
             .client
-            .post(&url)
+            .post(url.as_str())
             .json(&SendRawTxRequest {
                 bytes: bytes.to_vec(),
             })
@@ -261,7 +286,7 @@ fn serialize_block_id(block_id: BlockId) -> String {
     match block_id {
         BlockId::Hash(hash) => hash.block_hash.to_string(),
         BlockId::Number(number) => serde_json::to_string(&number)
-            .unwrap()
+            .expect("Failed to serialize block number")
             .trim_matches('"')
             .to_string(),
     }

@@ -1,7 +1,7 @@
 use eyre::{eyre, Result};
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
-use reqwest::Url;
+use reqwest::{IntoUrl, Url};
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use crate::LineaClient;
 #[derive(Default)]
 pub struct LineaClientBuilder {
     network: Option<Network>,
-    execution_rpc: Option<String>,
+    execution_rpc: Option<Url>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_bind_ip: Option<IpAddr>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -35,9 +35,13 @@ impl LineaClientBuilder {
         self
     }
 
-    pub fn execution_rpc(mut self, execution_rpc: &str) -> Self {
-        self.execution_rpc = Some(execution_rpc.to_string());
-        self
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Result<Self> {
+        self.execution_rpc = Some(
+            execution_rpc
+                .into_url()
+                .map_err(|_| eyre!("Invalid execution RPC URL"))?,
+        );
+        Ok(self)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -124,7 +128,7 @@ impl LineaClientBuilder {
 
         let block_provider = BlockCache::<Linea>::new();
         // Create Linea historical block provider
-        let rpc_url: Url = config.execution_rpc.parse().unwrap();
+        let rpc_url = config.execution_rpc.clone();
         let historical_provider = LineaHistoricalProvider::new(config.chain.unsafe_signer);
         let execution = RpcExecutionProvider::with_historical_provider(
             rpc_url,

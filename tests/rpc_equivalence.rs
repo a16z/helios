@@ -151,7 +151,9 @@ async fn setup() -> (
         let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .execution_rpc(&execution_rpc)
+            .unwrap()
             .consensus_rpc(consensus_rpc)
+            .unwrap()
             .load_external_fallback()
             .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
             .with_config_db()
@@ -181,7 +183,9 @@ async fn setup() -> (
         let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
             .verifiable_api(&format!("http://localhost:{api_port}"))
+            .unwrap()
             .consensus_rpc(consensus_rpc)
+            .unwrap()
             .load_external_fallback()
             .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
             .with_config_db()
@@ -730,14 +734,25 @@ async fn test_create_access_list(helios: &RootProvider, expected: &RootProvider)
     let call_data = balanceOfCall { who: user }.abi_encode();
 
     // Use the actual RPC method eth_createAccessList
-    // Get current gas price to avoid "gas price is less than basefee" error
-    let gas_price = helios.get_gas_price().await?;
+    // Get the block to determine base fee
+    let block = helios
+        .get_block_by_number(block_num.into())
+        .await?
+        .ok_or_else(|| eyre::eyre!("Block not found"))?;
+
+    // Use EIP-1559 gas parameters
+    let base_fee = U256::from(block.header.base_fee_per_gas.unwrap_or_default());
+    let max_priority_fee = U256::from(2_000_000_000u64); // 2 gwei
+    let max_fee = base_fee + max_priority_fee;
+
+    // For eth_createAccessList at a specific block, we need to use the transaction format
+    // that matches the block's context
     let tx_json = json!({
         "from": "0x0000000000000000000000000000000000000000",
         "to": format!("{:#x}", usdc),
         "data": format!("0x{}", hex::encode(&call_data)),
-        "gasPrice": format!("{:#x}", gas_price),
         "gas": "0x30000", // 196608 - enough gas for contract call
+        "gasPrice": format!("{:#x}", max_fee), // Use gasPrice for compatibility
     });
 
     let access_list: Value = helios

@@ -9,6 +9,7 @@ use alloy::hex::FromHex;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use eyre::Result;
+use url::Url;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys::Function;
 
@@ -90,11 +91,22 @@ impl EthereumClient {
         );
 
         let consensus_rpc = if let Some(rpc) = consensus_rpc {
-            rpc
+            Url::parse(&rpc)
+                .map_err(|e| JsError::new(&format!("Invalid consensus RPC URL: {}", e)))?
         } else {
             base.consensus_rpc
                 .ok_or(JsError::new("consensus rpc not found"))?
         };
+
+        let execution_rpc = execution_rpc
+            .map(|url| Url::parse(&url))
+            .transpose()
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {}", e)))?;
+
+        let verifiable_api = verifiable_api
+            .map(|url| Url::parse(&url))
+            .transpose()
+            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {}", e)))?;
 
         let config = Config {
             execution_rpc,

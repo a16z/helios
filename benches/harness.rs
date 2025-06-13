@@ -42,8 +42,8 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<EthereumClient<Fil
 
     let mut client = EthereumClientBuilder::new()
         .network(networks::Network::Mainnet)
-        .consensus_rpc("https://www.lightclientdata.org")
-        .execution_rpc(&benchmark_rpc_url)
+        .consensus_rpc("https://www.lightclientdata.org")?
+        .execution_rpc(&benchmark_rpc_url)?
         .load_external_fallback()
         .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
@@ -62,8 +62,8 @@ pub async fn construct_mainnet_client_with_checkpoint(
 
     let mut client = EthereumClientBuilder::new()
         .network(networks::Network::Mainnet)
-        .consensus_rpc("https://www.lightclientdata.org")
-        .execution_rpc(&benchmark_rpc_url)
+        .consensus_rpc("https://www.lightclientdata.org")?
+        .execution_rpc(&benchmark_rpc_url)?
         .checkpoint(checkpoint)
         .data_dir(PathBuf::from("/tmp/helios"))
         .build()?;
@@ -100,8 +100,8 @@ pub fn construct_sepolia_client(
         let benchmark_rpc_url = std::env::var("SEPOLIA_EXECUTION_RPC")?;
         let mut client = EthereumClientBuilder::new()
             .network(networks::Network::Sepolia)
-            .consensus_rpc("http://unstable.sepolia.beacon-api.nimbus.team/")
-            .execution_rpc(&benchmark_rpc_url)
+            .consensus_rpc("http://unstable.sepolia.beacon-api.nimbus.team/")?
+            .execution_rpc(&benchmark_rpc_url)?
             .data_dir(PathBuf::from("/tmp/helios"))
             .load_external_fallback()
             .build()?;

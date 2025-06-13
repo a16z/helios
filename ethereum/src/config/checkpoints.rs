@@ -8,6 +8,7 @@ use serde::{
     de::{self, Error},
     Deserialize, Serialize,
 };
+use url::Url;
 
 use crate::config::networks;
 
@@ -53,10 +54,10 @@ pub struct Health {
 }
 
 /// A checkpoint fallback service.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckpointFallbackService {
     /// The endpoint for the checkpoint sync service.
-    pub endpoint: String,
+    pub endpoint: Url,
     /// The checkpoint sync service name.
     pub name: String,
     /// The service state.
@@ -81,7 +82,7 @@ pub struct CheckpointFallback {
     pub networks: Vec<networks::Network>,
 }
 
-async fn get(req: &str) -> Result<reqwest::Response> {
+async fn get(url: &Url) -> Result<reqwest::Response> {
     retry(
         || async {
             #[cfg(not(target_arch = "wasm32"))]
@@ -93,7 +94,7 @@ async fn get(req: &str) -> Result<reqwest::Response> {
             #[cfg(target_arch = "wasm32")]
             let client = ClientBuilder::new().build().unwrap();
 
-            Ok::<_, eyre::Report>(client.get(req).send().await?)
+            Ok::<_, eyre::Report>(client.get(url.as_str()).send().await?)
         },
         BackoffSettings::default(),
     )
@@ -118,7 +119,8 @@ impl CheckpointFallback {
     /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
     pub async fn build(mut self) -> eyre::Result<Self> {
         // Fetch the services
-        let res = get(CHECKPOINT_SYNC_SERVICES_LIST).await?;
+        let url = Url::parse(CHECKPOINT_SYNC_SERVICES_LIST)?;
+        let res = get(&url).await?;
         let yaml = res.text().await?;
 
         // Parse the yaml content results.
@@ -151,7 +153,7 @@ impl CheckpointFallback {
         Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
 
-    async fn query_service(endpoint: &str) -> Option<RawSlotResponse> {
+    async fn query_service(endpoint: &Url) -> Option<RawSlotResponse> {
         let constructed_url = Self::construct_url(endpoint);
         let res = get(&constructed_url).await.ok()?;
         let raw: RawSlotResponse = res.json().await.ok()?;
@@ -226,7 +228,7 @@ impl CheckpointFallback {
 
     /// Associated function to fetch the latest checkpoint from a specific checkpoint sync fallback
     /// service api url.
-    pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<B256> {
+    pub async fn fetch_checkpoint_from_api(url: &Url) -> eyre::Result<B256> {
         // Fetch the url
         let constructed_url = Self::construct_url(url);
         let res = get(&constructed_url).await?;
@@ -242,12 +244,16 @@ impl CheckpointFallback {
     ///
     /// ```rust
     /// use helios_ethereum::config::checkpoints::CheckpointFallback;
+    /// use url::Url;
     ///
-    /// let url = CheckpointFallback::construct_url("https://sync-mainnet.beaconcha.in");
-    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
+    /// let endpoint = Url::parse("https://sync-mainnet.beaconcha.in").unwrap();
+    /// let url = CheckpointFallback::construct_url(&endpoint);
+    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url.as_str());
     /// ```
-    pub fn construct_url(endpoint: &str) -> String {
-        format!("{endpoint}/checkpointz/v1/beacon/slots")
+    pub fn construct_url(endpoint: &Url) -> Url {
+        endpoint
+            .join("checkpointz/v1/beacon/slots")
+            .expect("Failed to construct checkpoint URL - invalid base URL")
     }
 
     /// Returns a list of all checkpoint fallback endpoints.
@@ -255,7 +261,7 @@ impl CheckpointFallback {
     /// ### Warning
     ///
     /// These services are not health-checked **nor** trustworthy and may act with malice by returning invalid checkpoints.
-    pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
+    pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<Url> {
         self.services[network]
             .iter()
             .map(|service| service.endpoint.clone())
@@ -267,7 +273,7 @@ impl CheckpointFallback {
     /// ### Warning
     ///
     /// These services are not trustworthy and may act with malice by returning invalid checkpoints.
-    pub fn get_healthy_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
+    pub fn get_healthy_fallback_endpoints(&self, network: &networks::Network) -> Vec<Url> {
         self.services[network]
             .iter()
             .filter(|service| service.state)
