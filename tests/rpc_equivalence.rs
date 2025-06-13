@@ -150,8 +150,8 @@ async fn setup() -> (
         let port = get_available_port();
         let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
-            .execution_rpc(&execution_rpc)
-            .consensus_rpc(consensus_rpc)
+            .execution_rpc(&execution_rpc)?
+            .consensus_rpc(consensus_rpc)?
             .load_external_fallback()
             .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
             .with_config_db()
@@ -180,8 +180,8 @@ async fn setup() -> (
         let port = get_available_port();
         let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
-            .verifiable_api(&format!("http://localhost:{api_port}"))
-            .consensus_rpc(consensus_rpc)
+            .verifiable_api(&format!("http://localhost:{api_port}"))?
+            .consensus_rpc(consensus_rpc)?
             .load_external_fallback()
             .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
             .with_config_db()

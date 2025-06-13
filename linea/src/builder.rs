@@ -35,9 +35,13 @@ impl LineaClientBuilder {
         self
     }
 
-    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
-        self.execution_rpc = Some(execution_rpc.into_url().expect("Invalid execution RPC URL"));
-        self
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Result<Self> {
+        self.execution_rpc = Some(
+            execution_rpc
+                .into_url()
+                .map_err(|_| eyre!("Invalid execution RPC URL"))?,
+        );
+        Ok(self)
     }
 
     #[cfg(not(target_arch = "wasm32"))]

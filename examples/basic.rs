@@ -30,8 +30,8 @@ async fn main() -> Result<()> {
 
     let client: EthereumClient = EthereumClientBuilder::new()
         .network(Network::Mainnet)
-        .consensus_rpc(consensus_rpc)
-        .execution_rpc(untrusted_rpc_url)
+        .consensus_rpc(consensus_rpc)?
+        .execution_rpc(untrusted_rpc_url)?
         .load_external_fallback()
         .data_dir(PathBuf::from("/tmp/helios"))
         .with_file_db()

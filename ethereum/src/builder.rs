@@ -73,23 +73,31 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Self {
-        self.consensus_rpc = Some(consensus_rpc.into_url().expect("Invalid consensus RPC URL"));
-        self
+    pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Result<Self> {
+        self.consensus_rpc = Some(
+            consensus_rpc
+                .into_url()
+                .map_err(|_| eyre!("Invalid consensus RPC URL"))?,
+        );
+        Ok(self)
     }
 
-    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
-        self.execution_rpc = Some(execution_rpc.into_url().expect("Invalid execution RPC URL"));
-        self
+    pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Result<Self> {
+        self.execution_rpc = Some(
+            execution_rpc
+                .into_url()
+                .map_err(|_| eyre!("Invalid execution RPC URL"))?,
+        );
+        Ok(self)
     }
 
-    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Self {
+    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Result<Self> {
         self.verifiable_api = Some(
             verifiable_api
                 .into_url()
-                .expect("Invalid verifiable API URL"),
+                .map_err(|_| eyre!("Invalid verifiable API URL"))?,
         );
-        self
+        Ok(self)
     }
 
     pub fn checkpoint(mut self, checkpoint: B256) -> Self {
@@ -114,9 +122,13 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         self
     }
 
-    pub fn fallback<T: IntoUrl>(mut self, fallback: T) -> Self {
-        self.fallback = Some(fallback.into_url().expect("Invalid fallback URL"));
-        self
+    pub fn fallback<T: IntoUrl>(mut self, fallback: T) -> Result<Self> {
+        self.fallback = Some(
+            fallback
+                .into_url()
+                .map_err(|_| eyre!("Invalid fallback URL"))?,
+        );
+        Ok(self)
     }
 
     pub fn load_external_fallback(mut self) -> Self {
