@@ -74,17 +74,21 @@ impl<DB: Database> EthereumClientBuilder<DB> {
     }
 
     pub fn consensus_rpc<T: IntoUrl>(mut self, consensus_rpc: T) -> Self {
-        self.consensus_rpc = Some(consensus_rpc.into_url().unwrap());
+        self.consensus_rpc = Some(consensus_rpc.into_url().expect("Invalid consensus RPC URL"));
         self
     }
 
     pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Self {
-        self.execution_rpc = Some(execution_rpc.into_url().unwrap());
+        self.execution_rpc = Some(execution_rpc.into_url().expect("Invalid execution RPC URL"));
         self
     }
 
     pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Self {
-        self.verifiable_api = Some(verifiable_api.into_url().unwrap());
+        self.verifiable_api = Some(
+            verifiable_api
+                .into_url()
+                .expect("Invalid verifiable API URL"),
+        );
         self
     }
 
@@ -111,7 +115,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
     }
 
     pub fn fallback<T: IntoUrl>(mut self, fallback: T) -> Self {
-        self.fallback = Some(fallback.into_url().unwrap());
+        self.fallback = Some(fallback.into_url().expect("Invalid fallback URL"));
         self
     }
 

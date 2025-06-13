@@ -251,7 +251,9 @@ impl CheckpointFallback {
     /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url.as_str());
     /// ```
     pub fn construct_url(endpoint: &Url) -> Url {
-        endpoint.join("checkpointz/v1/beacon/slots").unwrap()
+        endpoint
+            .join("checkpointz/v1/beacon/slots")
+            .expect("Failed to construct checkpoint URL - invalid base URL")
     }
 
     /// Returns a list of all checkpoint fallback endpoints.
