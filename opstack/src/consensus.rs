@@ -22,7 +22,7 @@ use tokio::sync::{
     mpsc::{channel, Receiver},
     watch,
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::Consensus;
@@ -153,7 +153,7 @@ impl Inner {
                     self.latest_block = Some(block.header.number);
                     _ = self.block_send.send(block).await;
 
-                    tracing::info!(
+                    tracing::debug!(
                         "unsafe head updated: block={} age={}s",
                         number,
                         age.as_secs()
@@ -246,7 +246,7 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
             {
                 let mut curr_signer = signer.lock().map_err(|_| eyre!("failed to lock signer"))?;
                 if verified_signer != *curr_signer {
-                    info!(target: "helios::opstack", "unsafe signer updated: {}", verified_signer);
+                    debug!(target: "helios::opstack", "unsafe signer updated: {}", verified_signer);
                     *curr_signer = verified_signer;
                 }
             }

@@ -135,7 +135,7 @@ impl Inner {
                 self.latest_block = Some(number);
                 _ = self.block_send.send(block).await;
 
-                tracing::info!(
+                tracing::debug!(
                     "unsafe head updated: block={} age={}s",
                     number,
                     age.as_secs()

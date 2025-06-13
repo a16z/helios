@@ -369,7 +369,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
-        info!(
+        debug!(
             target: "helios::consensus",
             "consensus client in sync with checkpoint: 0x{}",
             hex::encode(checkpoint)
@@ -425,7 +425,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
                 let res = self.verify_update(update);
 
                 if res.is_ok() {
-                    info!(target: "helios::consensus", "updating sync committee");
+                    debug!(target: "helios::consensus", "updating sync committee");
                     self.apply_update(update);
                 }
             }
@@ -540,7 +540,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.finalized_header.beacon().slot);
 
-        info!(
+        debug!(
             target: "helios::consensus",
             "finalized slot             slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             self.store.finalized_header.beacon().slot,
@@ -559,7 +559,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.optimistic_header.beacon().slot);
 
-        info!(
+        debug!(
             target: "helios::consensus",
             "updated head               slot={}  confidence={:.decimals$}%  age={:02}:{:02}:{:02}:{:02}",
             self.store.optimistic_header.beacon().slot,
