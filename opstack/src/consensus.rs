@@ -2,6 +2,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use url::Url;
+
 use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
 use alloy::consensus::transaction::SignerRecoverable;
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
@@ -49,7 +51,7 @@ impl ConsensusClient {
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
 
         let mut inner = Inner {
-            server_url: config.consensus_rpc.to_string(),
+            server_url: config.consensus_rpc.clone(),
             unsafe_signer: Arc::new(Mutex::new(config.chain.unsafe_signer)),
             chain_id: config.chain.chain_id,
             latest_block: None,
@@ -109,7 +111,7 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
 
 #[allow(dead_code)]
 struct Inner {
-    server_url: String,
+    server_url: Url,
     unsafe_signer: Arc<Mutex<Address>>,
     chain_id: u64,
     latest_block: Option<u64>,
@@ -119,8 +121,11 @@ struct Inner {
 
 impl Inner {
     pub async fn advance(&mut self) -> Result<()> {
-        let req = format!("{}latest", self.server_url);
-        let commitment = reqwest::get(req)
+        let url = self
+            .server_url
+            .join("latest")
+            .map_err(|e| eyre!("Failed to construct latest URL: {}", e))?;
+        let commitment = reqwest::get(url)
             .await?
             .json::<SequencerCommitment>()
             .await?;
@@ -199,11 +204,11 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 .ok_or_eyre("failed to receive block")?;
 
             // Query proof from op consensus server
-            let req = format!(
-                "{}unsafe_signer_proof/{}",
-                config.consensus_rpc, block.header.hash
-            );
-            let proof = reqwest::get(req)
+            let url = config
+                .consensus_rpc
+                .join(&format!("unsafe_signer_proof/{}", block.header.hash))
+                .map_err(|e| eyre!("Failed to construct proof URL: {}", e))?;
+            let proof = reqwest::get(url)
                 .await?
                 .json::<EIP1186AccountProofResponse>()
                 .await?;

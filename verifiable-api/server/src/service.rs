@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use eyre::{eyre, Ok, OptionExt, Report, Result};
 use futures::future::try_join_all;
 use rayon::prelude::*;
+use url::Url;
 
 use helios_common::{
     execution_provider::BlockProvider, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
@@ -41,15 +42,15 @@ pub struct ApiService<N: NetworkSpec> {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
-    fn new(rpc: &str) -> Self {
+    fn new(rpc_url: &Url) -> Self {
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
-            .http(rpc.parse().unwrap());
+            .http(rpc_url.to_string().parse().expect("Invalid RPC URL"));
 
         let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 
         Self {
-            rpc_url: rpc.to_string(),
+            rpc_url: rpc_url.to_string(),
             rpc: provider,
         }
     }

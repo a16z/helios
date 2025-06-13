@@ -95,7 +95,7 @@ impl OpStackClientBuilder {
             // Create EIP-2935 historical block provider
             let historical_provider = Eip2935Provider::new();
             let execution = VerifiableApiExecutionProvider::with_historical_provider(
-                verifiable_api.as_str(),
+                verifiable_api,
                 block_provider,
                 historical_provider,
             );

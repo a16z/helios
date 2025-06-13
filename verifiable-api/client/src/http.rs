@@ -29,7 +29,7 @@ pub struct HttpVerifiableApi<N: NetworkSpec> {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
-    fn new(base_url: &str) -> Self {
+    fn new(base_url: &Url) -> Self {
         let builder = reqwest::ClientBuilder::default();
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -63,9 +63,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
         );
 
         let client_ref = client.clone();
-        let base_url_parsed = Url::parse(base_url.trim_end_matches("/"))
-            .expect("Invalid base URL for verifiable API");
-        let base_url_str = base_url_parsed.to_string();
+        let base_url_str = base_url.to_string();
 
         #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(async move {
@@ -77,7 +75,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
 
         Self {
             client,
-            base_url: base_url_parsed,
+            base_url: base_url.clone(),
             phantom: PhantomData,
         }
     }

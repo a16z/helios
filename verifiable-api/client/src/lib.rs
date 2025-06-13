@@ -5,6 +5,7 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::Result;
+use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -17,7 +18,7 @@ pub use helios_verifiable_api_types as types;
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait VerifiableApi<N: NetworkSpec>: Send + Clone + Sync + Sized + 'static {
-    fn new(base_url: &str) -> Self
+    fn new(base_url: &Url) -> Self
     where
         Self: Sized;
     // Methods augmented with proof

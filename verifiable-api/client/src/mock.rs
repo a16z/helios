@@ -8,6 +8,7 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
+use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_verifiable_api_types::*;
@@ -22,8 +23,13 @@ pub struct MockVerifiableApi {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
-    fn new(base_path: &str) -> Self {
-        let path = PathBuf::from(base_path);
+    fn new(base_url: &Url) -> Self {
+        // For mock, we expect a file:// URL or just use the path portion
+        let path = if base_url.scheme() == "file" {
+            PathBuf::from(base_url.path())
+        } else {
+            PathBuf::from(base_url.as_str())
+        };
         Self { path }
     }
 

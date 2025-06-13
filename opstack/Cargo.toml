@@ -4,7 +4,7 @@ version.workspace = true
 edition = "2021"
 
 [[bin]]
-name = "server"
+name = "opstack-server"
 path = "./bin/server.rs"
 
 [dependencies]

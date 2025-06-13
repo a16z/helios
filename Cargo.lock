@@ -3647,6 +3647,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "url",
  "wasm-bindgen-futures",
  "wasmtimer 0.2.1",
 ]

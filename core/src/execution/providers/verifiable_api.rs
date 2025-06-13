@@ -10,6 +10,7 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
+use url::Url;
 
 use futures::future::try_join_all;
 use helios_common::{
@@ -57,7 +58,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
     VerifiableApiExecutionProvider<N, B, H>
 {
-    pub fn new(url: &str, block_provider: B) -> VerifiableApiExecutionProvider<N, B, ()> {
+    pub fn new(url: &Url, block_provider: B) -> VerifiableApiExecutionProvider<N, B, ()> {
         VerifiableApiExecutionProvider {
             api: HttpVerifiableApi::new(url),
             block_provider,
@@ -65,7 +66,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
         }
     }
 
-    pub fn with_historical_provider(url: &str, block_provider: B, historical_provider: H) -> Self {
+    pub fn with_historical_provider(url: &Url, block_provider: B, historical_provider: H) -> Self {
         Self {
             api: HttpVerifiableApi::new(url),
             block_provider,

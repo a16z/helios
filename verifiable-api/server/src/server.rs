@@ -38,14 +38,14 @@ impl VerifiableApiServer {
             Network::Ethereum(args) => {
                 let server_addr = args.server_address;
                 let execution_rpc = &args.execution_rpc;
-                let api_service = ApiService::<EthereumSpec>::new(execution_rpc.as_str());
+                let api_service = ApiService::<EthereumSpec>::new(execution_rpc);
                 let router = build_router().with_state(ApiState { api_service });
                 (server_addr, router)
             }
             Network::OpStack(args) => {
                 let server_addr = args.server_address;
                 let execution_rpc = &args.execution_rpc;
-                let api_service = ApiService::<OpStackSpec>::new(execution_rpc.as_str());
+                let api_service = ApiService::<OpStackSpec>::new(execution_rpc);
                 let router = build_router().with_state(ApiState { api_service });
                 (server_addr, router)
             }
