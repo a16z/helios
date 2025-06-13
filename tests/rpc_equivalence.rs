@@ -736,12 +736,12 @@ async fn test_create_access_list(helios: &RootProvider, expected: &RootProvider)
     // Use the actual RPC method eth_createAccessList
     // Get the block to determine base fee
     let block = helios
-        .get_block_by_number(block_num.into(), false)
+        .get_block_by_number(block_num.into())
         .await?
         .ok_or_else(|| eyre::eyre!("Block not found"))?;
 
     // Use EIP-1559 gas parameters
-    let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
+    let base_fee = U256::from(block.header.base_fee_per_gas.unwrap_or_default());
     let max_priority_fee = U256::from(2_000_000_000u64); // 2 gwei
     let max_fee = base_fee + max_priority_fee;
 
