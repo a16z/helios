@@ -30,27 +30,56 @@ use helios_linea::{
 };
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 
+mod tui;
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    enable_tracer();
-
     let cli = Cli::parse();
+
+    if !cli.tui {
+        enable_tracer();
+    }
+
     match cli.command {
         Command::Ethereum(ethereum) => {
             let client = ethereum.make_client();
-            register_shutdown_handler(client);
+            if cli.tui {
+                if let Err(e) = tui::run(client).await {
+                    error!(target: "helios::tui", "TUI error: {}", e);
+                    exit(1);
+                }
+            } else {
+                register_shutdown_handler(client);
+                std::future::pending().await
+            }
         }
         Command::OpStack(opstack) => {
             let client = opstack.make_client();
-            register_shutdown_handler(client);
+            if cli.tui {
+                if let Err(e) = tui::run(client).await {
+                    error!(target: "helios::tui", "TUI error: {}", e);
+                    exit(1);
+                }
+            } else {
+                register_shutdown_handler(client);
+                std::future::pending().await
+            }
         }
         Command::Linea(linea) => {
             let client = linea.make_client();
-            register_shutdown_handler(client);
+            if cli.tui {
+                if let Err(e) = tui::run(client).await {
+                    error!(target: "helios::tui", "TUI error: {}", e);
+                    exit(1);
+                }
+            } else {
+                register_shutdown_handler(client);
+                std::future::pending().await
+            }
         }
     }
 
-    std::future::pending().await
+    Ok(())
 }
 
 fn enable_tracer() {
@@ -103,6 +132,9 @@ fn register_shutdown_handler<N: NetworkSpec>(client: HeliosClient<N>) {
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    #[arg(long, global = true, help = "Enable terminal user interface")]
+    tui: bool,
 }
 
 #[derive(Subcommand)]
