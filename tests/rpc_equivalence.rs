@@ -745,13 +745,14 @@ async fn test_create_access_list(helios: &RootProvider, expected: &RootProvider)
     let max_priority_fee = U256::from(2_000_000_000u64); // 2 gwei
     let max_fee = base_fee + max_priority_fee;
 
+    // For eth_createAccessList at a specific block, we need to use the transaction format
+    // that matches the block's context
     let tx_json = json!({
         "from": "0x0000000000000000000000000000000000000000",
         "to": format!("{:#x}", usdc),
         "data": format!("0x{}", hex::encode(&call_data)),
-        "maxFeePerGas": format!("{:#x}", max_fee),
-        "maxPriorityFeePerGas": format!("{:#x}", max_priority_fee),
         "gas": "0x30000", // 196608 - enough gas for contract call
+        "gasPrice": format!("{:#x}", max_fee), // Use gasPrice for compatibility
     });
 
     let access_list: Value = helios
