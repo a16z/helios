@@ -55,10 +55,30 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
+            let mut last_finalized_block_number = None;
+
             loop {
                 select! {
                     block = block_recv.recv() => {
                         if let Some(block) = block {
+                            let block_number = block.header().number();
+                            let timestamp = block.header().timestamp();
+
+                            // Calculate age of the block
+                            let current_time = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+
+                            let age = current_time.saturating_sub(timestamp);
+
+                            info!(
+                                target: "helios::client",
+                                "latest block     number={} age={}s",
+                                block_number,
+                                age
+                            );
+
                             execution_ref.push_block(
                                 block.clone(),
                                 BlockId::Number(BlockNumberOrTag::Latest)
@@ -70,6 +90,18 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
                     _ = finalized_block_recv.changed() => {
                         let block = finalized_block_recv.borrow_and_update().clone();
                         if let Some(block) = block {
+                            let block_number = block.header().number();
+
+                            // Only log if this is a new finalized block
+                            if last_finalized_block_number != Some(block_number) {
+                                info!(
+                                    target: "helios::client",
+                                    "finalized block  number={}",
+                                    block_number
+                                );
+                                last_finalized_block_number = Some(block_number);
+                            }
+
                             execution_ref.push_block(
                                 block,
                                 BlockId::Number(BlockNumberOrTag::Finalized)
