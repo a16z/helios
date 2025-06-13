@@ -25,6 +25,7 @@ pub struct BlockInfo {
 pub enum BlockType {
     Latest,
     Finalized,
+    Safe,
 }
 
 pub struct App<N: NetworkSpec> {
@@ -34,24 +35,15 @@ pub struct App<N: NetworkSpec> {
     pub safe_block: Option<u64>,
     pub sync_status: SyncStatus,
     pub chain_name: String,
-    pub network_type: NetworkType,
     pub uptime: Instant,
     pub block_history: VecDeque<BlockInfo>,
 }
 
-#[derive(Clone, PartialEq)]
-pub enum NetworkType {
-    Ethereum,
-    OpStack,
-    Linea,
-}
 
 #[derive(Clone)]
 pub enum SyncStatus {
     Synced,
-    Syncing { current: u64, highest: u64 },
-    Starting,
-    Unknown,
+    Syncing,
 }
 
 impl<N: NetworkSpec> App<N> {
@@ -59,16 +51,15 @@ impl<N: NetworkSpec> App<N> {
         let chain_id = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(client.get_chain_id())
         });
-        let (chain_name, network_type) = get_chain_info(chain_id);
+        let chain_name = get_chain_name(chain_id);
 
         Self {
             client,
             latest_block: None,
             finalized_block: None,
             safe_block: None,
-            sync_status: SyncStatus::Starting,
+            sync_status: SyncStatus::Syncing,
             chain_name,
-            network_type,
             uptime: Instant::now(),
             block_history: VecDeque::new(),
         }
@@ -76,84 +67,57 @@ impl<N: NetworkSpec> App<N> {
 
     pub async fn update(&mut self) {
         // Update latest block
-        match self.client.get_block_number().await {
-            Ok(block_number_u256) => {
-                let block_number: u64 = block_number_u256.try_into().unwrap_or(0);
+        self.update_block_type(BlockNumberOrTag::Latest, BlockType::Latest)
+            .await;
 
-                // Always update latest_block
-                self.latest_block = Some(block_number);
+        // Update finalized block (if supported by the network)
+        self.update_block_type(BlockNumberOrTag::Finalized, BlockType::Finalized)
+            .await;
 
-                // Check if this is a new block for history
-                let should_add_to_history = self.block_history.is_empty()
-                    || self
-                        .block_history
-                        .iter()
-                        .all(|b| b.number != block_number || b.block_type != BlockType::Latest);
+        // Update safe block (if supported by the network)
+        self.update_block_type(BlockNumberOrTag::Safe, BlockType::Safe)
+            .await;
 
-                if should_add_to_history && block_number > 0 {
-                    // Get block timestamp
-                    match self
-                        .client
-                        .get_block(BlockNumberOrTag::Latest.into(), false)
-                        .await
-                    {
-                        Ok(Some(block)) => {
-                            let header = block.header();
-                            let timestamp = header.timestamp();
-
-                            let block_info = BlockInfo {
-                                number: block_number,
-                                timestamp,
-                                block_type: BlockType::Latest,
-                                hash: header.hash(),
-                                gas_used: header.gas_used(),
-                                gas_limit: header.gas_limit(),
-                                base_fee: header.base_fee_per_gas(),
-                                transactions_count: block.transactions().len(),
-                            };
-
-                            self.add_block_to_history(block_info);
-                        }
-                        Ok(None) => {
-                            // Block not found, client might not be ready
-                        }
-                        Err(_) => {
-                            // Error getting block, client might not be ready
-                        }
-                    }
-                }
+        // Update sync status
+        match self.client.syncing().await {
+            Ok(alloy::rpc::types::SyncStatus::None) => {
+                self.sync_status = SyncStatus::Synced;
+            }
+            Ok(alloy::rpc::types::SyncStatus::Info(_)) => {
+                self.sync_status = SyncStatus::Syncing;
             }
             Err(_) => {
-                // Error getting block number, client might not be ready yet
+                // If we can't get sync status, assume syncing
+                self.sync_status = SyncStatus::Syncing;
             }
         }
+    }
 
-        // Update finalized block (only for Ethereum)
-        if self.network_type == NetworkType::Ethereum {
-            if let Ok(Some(block)) = self
-                .client
-                .get_block(BlockNumberOrTag::Finalized.into(), false)
-                .await
-            {
-                let block_number = block.header().number();
+    async fn update_block_type(&mut self, tag: BlockNumberOrTag, block_type: BlockType) {
+        if let Ok(Some(block)) = self.client.get_block(tag.into(), false).await {
+            let block_number = block.header().number();
 
-                // Always update finalized_block
-                self.finalized_block = Some(block_number);
+            // Update the appropriate block number field
+            match block_type {
+                BlockType::Latest => self.latest_block = Some(block_number),
+                BlockType::Finalized => self.finalized_block = Some(block_number),
+                BlockType::Safe => self.safe_block = Some(block_number),
+            }
 
+            // Only add Latest and Finalized blocks to history (not Safe blocks)
+            if matches!(block_type, BlockType::Latest | BlockType::Finalized) {
                 // Check if this is a new block for history
                 let should_add_to_history = self
                     .block_history
                     .iter()
-                    .all(|b| b.number != block_number || b.block_type != BlockType::Finalized);
+                    .all(|b| b.number != block_number || b.block_type != block_type);
 
                 if should_add_to_history {
                     let header = block.header();
-                    let timestamp = header.timestamp();
-
                     let block_info = BlockInfo {
                         number: block_number,
-                        timestamp,
-                        block_type: BlockType::Finalized,
+                        timestamp: header.timestamp(),
+                        block_type,
                         hash: header.hash(),
                         gas_used: header.gas_used(),
                         gas_limit: header.gas_limit(),
@@ -162,61 +126,6 @@ impl<N: NetworkSpec> App<N> {
                     };
 
                     self.add_block_to_history(block_info);
-                }
-            }
-        }
-
-        // Update safe block (only for Ethereum)
-        if self.network_type == NetworkType::Ethereum {
-            if let Ok(Some(block)) = self
-                .client
-                .get_block(BlockNumberOrTag::Safe.into(), false)
-                .await
-            {
-                self.safe_block = Some(block.header().number());
-            }
-        }
-
-        // Update sync status
-        match self.client.syncing().await {
-            Ok(alloy::rpc::types::SyncStatus::None) => {
-                // Only mark as synced if we have a block number
-                if self.latest_block.is_some() && self.latest_block.unwrap() > 0 {
-                    self.sync_status = SyncStatus::Synced;
-                } else {
-                    self.sync_status = SyncStatus::Starting;
-                }
-            }
-            Ok(alloy::rpc::types::SyncStatus::Info(info)) => {
-                if let (Ok(current), Ok(highest)) = (
-                    info.current_block.try_into() as Result<u64, _>,
-                    info.highest_block.try_into() as Result<u64, _>,
-                ) {
-                    // For OpStack/Linea, highest_block is u64::MAX, so check differently
-                    if highest == u64::MAX {
-                        // For OpStack/Linea, check if we have blocks
-                        if current > 0 {
-                            self.sync_status = SyncStatus::Synced;
-                        } else {
-                            self.sync_status = SyncStatus::Starting;
-                        }
-                    } else if current >= highest && current > 0 {
-                        self.sync_status = SyncStatus::Synced;
-                    } else if current > 0 {
-                        self.sync_status = SyncStatus::Syncing { current, highest };
-                    } else {
-                        self.sync_status = SyncStatus::Starting;
-                    }
-                } else {
-                    self.sync_status = SyncStatus::Unknown;
-                }
-            }
-            Err(_) => {
-                // If we can't get sync status, base it on whether we have blocks
-                if self.latest_block.is_some() && self.latest_block.unwrap() > 0 {
-                    self.sync_status = SyncStatus::Unknown;
-                } else {
-                    self.sync_status = SyncStatus::Starting;
                 }
             }
         }
@@ -243,20 +152,21 @@ impl BlockInfo {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
+
         Duration::from_secs(current_time.saturating_sub(self.timestamp))
     }
 }
 
-fn get_chain_info(chain_id: u64) -> (String, NetworkType) {
+fn get_chain_name(chain_id: u64) -> String {
     match chain_id {
-        1 => ("Ethereum Mainnet".to_string(), NetworkType::Ethereum),
-        11155111 => ("Sepolia Testnet".to_string(), NetworkType::Ethereum),
-        10 => ("OP Mainnet".to_string(), NetworkType::OpStack),
-        11155420 => ("OP Sepolia".to_string(), NetworkType::OpStack),
-        8453 => ("Base Mainnet".to_string(), NetworkType::OpStack),
-        84532 => ("Base Sepolia".to_string(), NetworkType::OpStack),
-        59144 => ("Linea Mainnet".to_string(), NetworkType::Linea),
-        59141 => ("Linea Sepolia".to_string(), NetworkType::Linea),
-        _ => (format!("Chain {}", chain_id), NetworkType::Ethereum),
+        1 => "Ethereum Mainnet".to_string(),
+        11155111 => "Sepolia Testnet".to_string(),
+        10 => "OP Mainnet".to_string(),
+        11155420 => "OP Sepolia".to_string(),
+        8453 => "Base Mainnet".to_string(),
+        84532 => "Base Sepolia".to_string(),
+        59144 => "Linea Mainnet".to_string(),
+        59141 => "Linea Sepolia".to_string(),
+        _ => format!("Chain {}", chain_id),
     }
 }

@@ -8,7 +8,7 @@ use ratatui::{
 
 use helios_common::network_spec::NetworkSpec;
 
-use super::app::{App, BlockType, NetworkType, SyncStatus};
+use super::app::{App, BlockType, SyncStatus};
 
 pub fn draw<N: NetworkSpec>(f: &mut Frame, app: &App<N>) {
     let chunks = Layout::default()
@@ -45,29 +45,12 @@ fn draw_header<N: NetworkSpec>(f: &mut Frame, app: &App<N>, area: Rect) {
                 .add_modifier(Modifier::BOLD),
             "✓",
         ),
-        SyncStatus::Syncing { current, highest } => {
-            let progress = (*current as f64 / *highest as f64 * 100.0) as u8;
-            (
-                format!("Syncing {}%", progress),
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-                "⟳",
-            )
-        }
-        SyncStatus::Starting => (
+        SyncStatus::Syncing => (
             "Syncing".to_string(),
             Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD),
             "⟳",
-        ),
-        SyncStatus::Unknown => (
-            "Unknown".to_string(),
-            Style::default()
-                .fg(Color::Gray)
-                .add_modifier(Modifier::BOLD),
-            "?",
         ),
     };
 
@@ -108,6 +91,7 @@ fn draw_block_stats<N: NetworkSpec>(f: &mut Frame, app: &App<N>, area: Rect) {
         .map(|b| format!("{}s", b.age().as_secs()))
         .unwrap_or_else(|| "N/A".to_string());
 
+    // Show latest block
     let mut block_stats = vec![Line::from(vec![
         Span::raw("Latest:    "),
         Span::styled(
@@ -118,32 +102,26 @@ fn draw_block_stats<N: NetworkSpec>(f: &mut Frame, app: &App<N>, area: Rect) {
         ),
     ])];
 
-    // Show safe block if available (Ethereum only)
-    if app.safe_block.is_some() {
+    // Show safe block if available
+    if let Some(safe_block) = app.safe_block {
         block_stats.push(Line::from(vec![
             Span::raw("Safe:      "),
-            Span::styled(
-                app.safe_block
-                    .map(|n| n.to_string())
-                    .unwrap_or_else(|| "N/A".to_string()),
-                Style::default().fg(Color::Cyan),
-            ),
+            Span::styled(safe_block.to_string(), Style::default().fg(Color::Cyan)),
         ]));
     }
 
-    // Only show finalized block for Ethereum
-    if app.network_type == NetworkType::Ethereum {
+    // Show finalized block if available
+    if let Some(finalized_block) = app.finalized_block {
         block_stats.push(Line::from(vec![
             Span::raw("Finalized: "),
             Span::styled(
-                app.finalized_block
-                    .map(|n| n.to_string())
-                    .unwrap_or_else(|| "N/A".to_string()),
+                finalized_block.to_string(),
                 Style::default().fg(Color::Blue),
             ),
         ]));
     }
 
+    // Show latest block age
     block_stats.extend(vec![
         Line::from(""),
         Line::from(vec![
@@ -168,104 +146,51 @@ fn draw_latest_block_details<N: NetworkSpec>(f: &mut Frame, app: &App<N>, area: 
         .iter()
         .find(|b| b.block_type == BlockType::Latest)
     {
-        let timestamp_str =
-            chrono::DateTime::<chrono::Utc>::from_timestamp(latest_block.timestamp as i64, 0)
-                .map(|dt| {
-                    dt.with_timezone(&chrono::Local)
-                        .format("%H:%M:%S")
-                        .to_string()
-                })
-                .unwrap_or_else(|| "??:??:??".to_string());
-
+        let timestamp_str = format_timestamp(latest_block.timestamp);
         let gas_percentage =
             (latest_block.gas_used as f64 / latest_block.gas_limit as f64 * 100.0) as u8;
-        let gas_color = if gas_percentage > 90 {
-            Color::Red
-        } else if gas_percentage > 70 {
-            Color::Yellow
-        } else {
-            Color::Green
-        };
 
         let mut details = vec![
-            Line::from(vec![
-                Span::raw("Number:   "),
-                Span::styled(
-                    latest_block.number.to_string(),
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]),
-            Line::from(vec![
-                Span::raw("Hash:     "),
-                Span::styled(
-                    latest_block.hash.to_string(),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ]),
-            Line::from(vec![
-                Span::raw("Time:     "),
-                Span::styled(timestamp_str, Style::default().fg(Color::White)),
-            ]),
-            Line::from(vec![
-                Span::raw("Txs:      "),
-                Span::styled(
-                    latest_block.transactions_count.to_string(),
-                    Style::default().fg(Color::Cyan),
-                ),
-            ]),
-            Line::from(vec![
-                Span::raw("Gas:      "),
-                Span::styled(
-                    format!("{}%", gas_percentage),
-                    Style::default().fg(gas_color),
-                ),
-                Span::raw(" "),
-                Span::styled(
-                    format!(
-                        "({}/{})",
-                        format_gas(latest_block.gas_used),
-                        format_gas(latest_block.gas_limit)
-                    ),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ]),
+            create_detail_line(
+                "Number:   ",
+                latest_block.number.to_string(),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            create_detail_line(
+                "Hash:     ",
+                latest_block.hash.to_string(),
+                Style::default().fg(Color::DarkGray),
+            ),
+            create_detail_line(
+                "Time:     ",
+                timestamp_str,
+                Style::default().fg(Color::White),
+            ),
+            create_detail_line(
+                "Txs:      ",
+                latest_block.transactions_count.to_string(),
+                Style::default().fg(Color::Cyan),
+            ),
+            create_gas_line(
+                gas_percentage,
+                latest_block.gas_used,
+                latest_block.gas_limit,
+            ),
         ];
 
         if let Some(base_fee) = latest_block.base_fee {
-            details.push(Line::from(vec![
-                Span::raw("Base Fee: "),
-                Span::styled(
-                    format!("{} gwei", base_fee / 1_000_000_000),
-                    Style::default().fg(Color::Magenta),
-                ),
-            ]));
+            details.push(create_detail_line(
+                "Base Fee: ",
+                format!("{} gwei", base_fee / 1_000_000_000),
+                Style::default().fg(Color::Magenta),
+            ));
         }
 
         details
     } else {
-        match &app.sync_status {
-            SyncStatus::Syncing { current, highest } => {
-                let progress = (*current as f64 / *highest as f64 * 100.0) as u8;
-                vec![
-                    Line::from(vec![
-                        Span::raw("Syncing: "),
-                        Span::styled(format!("{}%", progress), Style::default().fg(Color::Yellow)),
-                    ]),
-                    Line::from(vec![
-                        Span::raw("Current: "),
-                        Span::styled(current.to_string(), Style::default().fg(Color::White)),
-                    ]),
-                    Line::from(vec![
-                        Span::raw("Target:  "),
-                        Span::styled(highest.to_string(), Style::default().fg(Color::White)),
-                    ]),
-                ]
-            }
-            SyncStatus::Starting => vec![],
-            _ => vec![],
-        }
+        vec![]
     };
 
     let block = Paragraph::new(block_details).block(
@@ -286,16 +211,10 @@ fn draw_block_history<N: NetworkSpec>(f: &mut Frame, app: &App<N>, area: Rect) {
             let (block_type_symbol, block_type_text, type_style) = match block.block_type {
                 BlockType::Latest => ("▶", "Latest", Style::default().fg(Color::Green)),
                 BlockType::Finalized => ("■", "Final ", Style::default().fg(Color::Blue)),
+                BlockType::Safe => ("◆", "Safe  ", Style::default().fg(Color::Cyan)),
             };
 
-            let timestamp =
-                chrono::DateTime::<chrono::Utc>::from_timestamp(block.timestamp as i64, 0)
-                    .map(|dt| {
-                        dt.with_timezone(&chrono::Local)
-                            .format("%H:%M:%S")
-                            .to_string()
-                    })
-                    .unwrap_or_else(|| "??:??:??".to_string());
+            let timestamp = format_timestamp(block.timestamp);
 
             let age = block.age();
             let age_str = if age.as_secs() < 60 {
@@ -358,4 +277,44 @@ fn format_gas(gas: u64) -> String {
     } else {
         gas.to_string()
     }
+}
+
+fn format_timestamp(timestamp: u64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp as i64, 0)
+        .map(|dt| {
+            dt.with_timezone(&chrono::Local)
+                .format("%H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_else(|| "N/A".to_string())
+}
+
+fn get_gas_color(percentage: u8) -> Color {
+    if percentage > 90 {
+        Color::Red
+    } else if percentage > 70 {
+        Color::Yellow
+    } else {
+        Color::Green
+    }
+}
+
+fn create_detail_line(label: &'static str, value: String, style: Style) -> Line<'static> {
+    Line::from(vec![Span::raw(label), Span::styled(value, style)])
+}
+
+fn create_gas_line(gas_percentage: u8, gas_used: u64, gas_limit: u64) -> Line<'static> {
+    let gas_color = get_gas_color(gas_percentage);
+    Line::from(vec![
+        Span::raw("Gas:      "),
+        Span::styled(
+            format!("{}%", gas_percentage),
+            Style::default().fg(gas_color),
+        ),
+        Span::raw(" "),
+        Span::styled(
+            format!("({}/{})", format_gas(gas_used), format_gas(gas_limit)),
+            Style::default().fg(Color::DarkGray),
+        ),
+    ])
 }

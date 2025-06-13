@@ -1,9 +1,3 @@
-mod app;
-mod ui;
-
-pub use app::App;
-pub use ui::draw;
-
 use std::io;
 use std::time::Duration;
 
@@ -21,6 +15,12 @@ use tokio::time::interval;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::client::HeliosClient;
+
+use app::App;
+use ui::draw;
+
+mod app;
+mod ui;
 
 /// Run the TUI application
 pub async fn run<N: NetworkSpec>(client: HeliosClient<N>) -> Result<(), io::Error> {
