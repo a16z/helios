@@ -734,13 +734,23 @@ async fn test_create_access_list(helios: &RootProvider, expected: &RootProvider)
     let call_data = balanceOfCall { who: user }.abi_encode();
 
     // Use the actual RPC method eth_createAccessList
-    // Get current gas price to avoid "gas price is less than basefee" error
-    let gas_price = helios.get_gas_price().await?;
+    // Get the block to determine base fee
+    let block = helios
+        .get_block_by_number(block_num.into(), false)
+        .await?
+        .ok_or_else(|| eyre::eyre!("Block not found"))?;
+
+    // Use EIP-1559 gas parameters
+    let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
+    let max_priority_fee = U256::from(2_000_000_000u64); // 2 gwei
+    let max_fee = base_fee + max_priority_fee;
+
     let tx_json = json!({
         "from": "0x0000000000000000000000000000000000000000",
         "to": format!("{:#x}", usdc),
         "data": format!("0x{}", hex::encode(&call_data)),
-        "gasPrice": format!("{:#x}", gas_price),
+        "maxFeePerGas": format!("{:#x}", max_fee),
+        "maxPriorityFeePerGas": format!("{:#x}", max_priority_fee),
         "gas": "0x30000", // 196608 - enough gas for contract call
     });
 
