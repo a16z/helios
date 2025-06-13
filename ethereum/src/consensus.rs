@@ -707,7 +707,7 @@ mod tests {
     ) -> Inner<MainnetConsensusSpec, MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
-            consensus_rpc: Url::parse("http://localhost:8080").unwrap(),
+            consensus_rpc: Url::parse("http://localhost:8545").unwrap(),
             chain: base_config.chain,
             forks: base_config.forks,
             strict_checkpoint_age,
