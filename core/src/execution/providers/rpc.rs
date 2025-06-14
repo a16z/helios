@@ -263,10 +263,11 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> BlockPr
         // 2. Try historical provider if available and not requesting latest
         if let Some(historical) = &self.historical_provider {
             if block_id != BlockNumberOrTag::Latest.into() {
-                if let Some(block) = historical
+                let historical_result = historical
                     .get_historical_block(block_id, full_tx, self)
-                    .await?
-                {
+                    .await;
+
+                if let Ok(Some(block)) = historical_result {
                     // Note: Do NOT cache historical blocks to avoid interfering with consistency detection
                     return Ok(Some(block));
                 }
