@@ -440,9 +440,22 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let finalized_slot = self.store.finalized_header.beacon().slot;
         let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
-        self.block_send.send(payload_to_block(payload)).await?;
-        self.finalized_block_send
-            .send(Some(payload_to_block(finalized_payload)))?;
+        // Convert payloads to blocks in parallel using spawn_blocking
+        // This moves the expensive signature recovery off the async runtime
+        let block_future = tokio::task::spawn_blocking(move || payload_to_block(payload));
+        let finalized_block_future =
+            tokio::task::spawn_blocking(move || payload_to_block(finalized_payload));
+
+        // Wait for both conversions to complete
+        let block = block_future
+            .await
+            .map_err(|e| eyre::eyre!("Failed to convert block: {}", e))?;
+        let finalized_block = finalized_block_future
+            .await
+            .map_err(|e| eyre::eyre!("Failed to convert finalized block: {}", e))?;
+
+        self.block_send.send(block).await?;
+        self.finalized_block_send.send(Some(finalized_block))?;
         self.checkpoint_send.send(self.last_checkpoint)?;
 
         Ok(())
@@ -610,27 +623,61 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
     let empty_uncle_hash =
         b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
 
+    let block_hash = *value.block_hash();
+    let block_number = *value.block_number();
+    let base_fee = Some(value.base_fee_per_gas().to());
+
+    // Helper function to process a single transaction
+    let process_tx = |i: usize,
+                      tx_bytes: &helios_consensus_core::types::Transaction,
+                      block_hash: B256,
+                      block_number: u64,
+                      base_fee: Option<u128>|
+     -> Transaction {
+        let tx_bytes = tx_bytes.inner.to_vec();
+        let mut tx_bytes_slice = tx_bytes.as_slice();
+        let tx_envelope = TxEnvelope::decode(&mut tx_bytes_slice).unwrap();
+        let effective_gas_price = tx_envelope.effective_gas_price(base_fee.map(|v| v as u64));
+        let recovered = tx_envelope.try_into_recovered().unwrap();
+
+        Transaction {
+            block_hash: Some(block_hash),
+            block_number: Some(block_number),
+            transaction_index: Some(i as u64),
+            effective_gas_price: Some(effective_gas_price),
+            inner: recovered,
+        }
+    };
+
+    // Process transactions - use parallel processing on native, sequential on WASM
+    #[cfg(not(target_arch = "wasm32"))]
+    let txs = {
+        use rayon::prelude::*;
+
+        // Create a custom thread pool with larger stack size for signature recovery
+        let pool = rayon::ThreadPoolBuilder::new()
+            .stack_size(4 * 1024 * 1024) // 4MB stack per thread
+            .build()
+            .unwrap();
+
+        pool.install(|| {
+            value
+                .transactions()
+                .par_iter()
+                .enumerate()
+                .map(|(i, tx_bytes)| process_tx(i, tx_bytes, block_hash, block_number, base_fee))
+                .collect::<Vec<_>>()
+        })
+    };
+
+    #[cfg(target_arch = "wasm32")]
     let txs = value
         .transactions()
         .iter()
         .enumerate()
-        .map(|(i, tx_bytes)| {
-            let tx_bytes = tx_bytes.inner.to_vec();
-            let mut tx_bytes_slice = tx_bytes.as_slice();
-            let tx_envelope = TxEnvelope::decode(&mut tx_bytes_slice).unwrap();
-            let base_fee = Some(value.base_fee_per_gas().to());
-            let effective_gas_price = tx_envelope.effective_gas_price(base_fee);
-            let recovered = tx_envelope.try_into_recovered().unwrap();
-
-            Transaction {
-                block_hash: Some(*value.block_hash()),
-                block_number: Some(*value.block_number()),
-                transaction_index: Some(i as u64),
-                effective_gas_price: Some(effective_gas_price),
-                inner: recovered,
-            }
-        })
+        .map(|(i, tx_bytes)| process_tx(i, tx_bytes, block_hash, block_number, base_fee))
         .collect::<Vec<_>>();
+
     let tx_envelopes = txs.iter().map(|tx| tx.inner.clone()).collect::<Vec<_>>();
     let txs_root = calculate_transaction_root(&tx_envelopes);
 

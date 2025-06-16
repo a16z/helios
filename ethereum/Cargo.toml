@@ -49,6 +49,7 @@ getrandom = { version = "0.3.1", features = ["wasm_js"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openssl.workspace = true
 dirs = "5.0.1"
+rayon = "1.7"
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }

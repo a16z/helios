@@ -3672,6 +3672,7 @@ dependencies = [
  "hex",
  "openssl",
  "parking_lot 0.12.4",
+ "rayon",
  "reqwest",
  "retri",
  "revm",
