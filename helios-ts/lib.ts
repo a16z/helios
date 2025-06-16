@@ -18,7 +18,7 @@ async function ensureInitialized() {
  */
 export async function createHeliosProvider(config: Config, kind: "ethereum" | "opstack"): Promise<HeliosProvider> {
   await ensureInitialized();
-  return HeliosProvider.create(config, kind);
+  return HeliosProvider.createInternal(config, kind);
 }
 
 /// An EIP-1193 compliant Ethereum provider. Treat this the same as you
@@ -60,9 +60,11 @@ export class HeliosProvider {
     this.#eventEmitter = new EventEmitter();
   }
 
-  static create(config: Config, kind: "ethereum" | "opstack"): HeliosProvider {
+  /** @internal */
+  static createInternal(config: Config, kind: "ethereum" | "opstack"): HeliosProvider {
     return new HeliosProvider(config, kind);
   }
+
 
   async waitSynced() {
     await this.#client.wait_synced();
