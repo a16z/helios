@@ -11,6 +11,7 @@ use reqwest::{self, Response};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::time::Duration;
 use url::Url;
 
@@ -62,16 +63,17 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
                 .build(),
         );
 
-        let client_ref = client.clone();
-        let base_url_str = base_url.to_string();
-
         #[cfg(not(target_arch = "wasm32"))]
-        tokio::spawn(async move {
-            loop {
-                _ = client_ref.head(&base_url_str).send().await;
-                tokio::time::sleep(Duration::from_secs(10)).await;
-            }
-        });
+        {
+            let client_ref = client.clone();
+            let base_url_str = base_url.to_string();
+            tokio::spawn(async move {
+                loop {
+                    _ = client_ref.head(&base_url_str).send().await;
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                }
+            });
+        }
 
         Self {
             client,
