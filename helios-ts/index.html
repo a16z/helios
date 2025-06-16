@@ -187,7 +187,6 @@
       }
 
       (async () => {
-        await helios.init();
         const key = "<ALCHEMY_KEY>";
 
         window.networks = [
@@ -231,11 +230,11 @@
           },
         ];
 
-        // Sync each network and attach ethers provider
+        // Create providers for each network and attach ethers provider
         await Promise.all(
           window.networks.map((n) =>
             (async () => {
-              n.provider = new helios.HeliosProvider(n.cfg, n.kind);
+              n.provider = await helios.createHeliosProvider(n.cfg, n.kind);
               n.ethers = new ethers.providers.Web3Provider(n.provider);
             })()
           )

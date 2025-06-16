@@ -13,23 +13,26 @@ npm install @a16z/helios
 
 Basic usage in your project (e.g., `index.js` or `index.mjs` or `main.ts`):
 ```typescript
-import { init, HeliosProvider } from '@a16z/helios';
+import { createHeliosProvider } from '@a16z/helios';
 
 async function main() {
-  await init(); // Initialize Helios WASM
-  const heliosProvider = new HeliosProvider({
-    network: 'mainnet',
+  // Create provider - WASM initialization is handled automatically
+  const heliosProvider = await createHeliosProvider({
     executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
+    consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+    network: 'mainnet',
     checkpoint: "0x..."
-  });
+  }, 'ethereum');
 
   await heliosProvider.waitSynced();
   console.log('Helios is synced and ready!');
   
   // Example: Get latest block number
-  const blockNumber = await heliosProvider.request({ method: 'eth_blockNumber' });
+  const blockNumber = await heliosProvider.request({ method: 'eth_blockNumber', params: [] });
   console.log('Latest block number:', parseInt(blockNumber, 16));
 }
+
+main().catch(console.error);
 ```
 
 ### 2. Loading on a webpage from a CDN
@@ -46,8 +49,20 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
 </head>
 <body>
   <script>
-    // Helios will be available via a global variable `helios`, call helios.init() to initialize it
-    // and use helios.HeliosProvider constructor to create a provider
+    async function main() {
+      // Helios is available via global variable `helios`
+      const provider = await helios.createHeliosProvider({
+        executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
+        consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+        network: 'mainnet',
+        checkpoint: "0x..."
+      }, 'ethereum');
+      
+      await provider.waitSynced();
+      console.log('Helios is ready!');
+    }
+    
+    main().catch(console.error);
   </script>
 </body>
 </html>
@@ -62,8 +77,21 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
 </head>
 <body>
   <script type="module">
-    import { init, HeliosProvider } from 'https://unpkg.com/@a16z/helios/dist/lib.mjs';
-    // your code here
+    import { createHeliosProvider } from 'https://unpkg.com/@a16z/helios/dist/lib.mjs';
+    
+    async function main() {
+      const provider = await createHeliosProvider({
+        executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
+        consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+        network: 'mainnet',
+        checkpoint: "0x..."
+      }, 'ethereum');
+      
+      await provider.waitSynced();
+      console.log('Helios is ready!');
+    }
+    
+    main().catch(console.error);
   </script>
 </body>
 </html>
@@ -76,7 +104,19 @@ Helios can be used as an EIP-1193 provider. Once initialized and synced (as show
 Example with ethers.js:
 ```typescript
 import { ethers } from 'ethers';
-// Assuming heliosProvider is initialized and synced as shown in the Node.js/Bundler example
+import { createHeliosProvider } from '@a16z/helios';
+
+// Create and sync Helios provider
+const heliosProvider = await createHeliosProvider({
+  executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
+  consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+  network: 'mainnet',
+  checkpoint: "0x..."
+}, 'ethereum');
+
+await heliosProvider.waitSynced();
+
+// Use with ethers.js
 const ethersProvider = new ethers.providers.Web3Provider(heliosProvider);
 const blockNumber = await ethersProvider.getBlockNumber();
 console.log('Latest block number:', blockNumber);
