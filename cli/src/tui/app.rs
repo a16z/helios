@@ -39,7 +39,6 @@ pub struct App<N: NetworkSpec> {
     pub block_history: VecDeque<BlockInfo>,
 }
 
-
 #[derive(Clone)]
 pub enum SyncStatus {
     Synced,
