@@ -2,13 +2,13 @@ import { EventEmitter } from "eventemitter3";
 import { v4 as uuidv4 } from "uuid";
 import initWasm, { EthereumClient, OpStackClient, LineaClient } from "./pkg";
 
-let isInitialized = false;
+let initPromise: Promise<any> | null = null;
 
 async function ensureInitialized() {
-  if (!isInitialized) {
-    await initWasm();
-    isInitialized = true;
+  if (!initPromise) {
+    initPromise = initWasm();
   }
+  await initPromise;
 }
 
 /**

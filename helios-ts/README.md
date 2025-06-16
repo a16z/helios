@@ -19,7 +19,7 @@ async function main() {
   // Create provider - WASM initialization is handled automatically
   const heliosProvider = await createHeliosProvider({
     executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
-    consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+    consensusRpc: 'https://ethereum.operationsolarstorm.org',
     network: 'mainnet',
     checkpoint: "0x..."
   }, 'ethereum');
@@ -53,7 +53,7 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
       // Helios is available via global variable `helios`
       const provider = await helios.createHeliosProvider({
         executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
-        consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+        consensusRpc: 'https://ethereum.operationsolarstorm.org',
         network: 'mainnet',
         checkpoint: "0x..."
       }, 'ethereum');
@@ -82,7 +82,7 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
     async function main() {
       const provider = await createHeliosProvider({
         executionRpc: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
-        consensusRpc: 'https://lodestar-mainnet.chainsafe.io',
+        consensusRpc: 'https://ethereum.operationsolarstorm.org',
         network: 'mainnet',
         checkpoint: "0x..."
       }, 'ethereum');
