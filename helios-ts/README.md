@@ -42,7 +42,7 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
 <html>
 <head>
   <title>Helios UMD Test</title>
-  <script src="https://unpkg.com/@a16z/helios/dist/lib.umd.js"></script>
+  <script src=""></script>
 </head>
 <body>
   <script>
@@ -62,7 +62,7 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
 </head>
 <body>
   <script type="module">
-    import { init, HeliosProvider } from 'https://unpkg.com/@a16z/helios/dist/lib.mjs';
+    import { init, HeliosProvider } from '';
     // your code here
   </script>
 </body>
