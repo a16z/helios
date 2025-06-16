@@ -21,6 +21,11 @@ dirs = "5.0.1"
 ctrlc = "3.2.3"
 url = "2.5.0"
 
+# TUI dependencies
+ratatui = "0.26.1"
+crossterm = "0.27.0"
+chrono = "0.4"
+
 # self crates
 helios-common = { path = "../common" }
 helios-core = { path = "../core" }
