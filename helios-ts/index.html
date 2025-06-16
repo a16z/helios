@@ -187,7 +187,6 @@
       }
 
       (async () => {
-        await helios.init();
         const key = "<ALCHEMY_KEY>";
 
         window.networks = [
@@ -197,7 +196,7 @@
             cfg: {
               executionRpc: `https://eth-mainnet.g.alchemy.com/v2/${key}`,
               checkpoint:
-                "0x8272e1969bc4e6f7f90c2510775af261adc153606d4a30b95bf87bbf0ccee712",
+                "0x872dbe854d76a78fd22c8c7f2e157467a1604f585785e5e6fbbc2987c1b1980e",
               dbType: "localstorage",
             },
             kind: "ethereum",
@@ -231,11 +230,11 @@
           },
         ];
 
-        // Sync each network and attach ethers provider
+        // Create providers for each network and attach ethers provider
         await Promise.all(
           window.networks.map((n) =>
             (async () => {
-              n.provider = new helios.HeliosProvider(n.cfg, n.kind);
+              n.provider = await helios.createHeliosProvider(n.cfg, n.kind);
               n.ethers = new ethers.providers.Web3Provider(n.provider);
             })()
           )
