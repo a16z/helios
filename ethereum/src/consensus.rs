@@ -440,19 +440,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let finalized_slot = self.store.finalized_header.beacon().slot;
         let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
-        // Convert payloads to blocks in parallel using spawn_blocking
-        // This moves the expensive signature recovery off the async runtime
-        let block_future = tokio::task::spawn_blocking(move || payload_to_block(payload));
-        let finalized_block_future =
-            tokio::task::spawn_blocking(move || payload_to_block(finalized_payload));
-
-        // Wait for both conversions to complete
-        let block = block_future
-            .await
-            .map_err(|e| eyre::eyre!("Failed to convert block: {}", e))?;
-        let finalized_block = finalized_block_future
-            .await
-            .map_err(|e| eyre::eyre!("Failed to convert finalized block: {}", e))?;
+        let block = payload_to_block(payload);
+        let finalized_block = payload_to_block(finalized_payload);
 
         self.block_send.send(block).await?;
         self.finalized_block_send.send(Some(finalized_block))?;
