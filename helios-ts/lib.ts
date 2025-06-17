@@ -434,7 +434,7 @@ export type Config = {
  * @remarks
  * Networks are organized by their network kind:
  * - Ethereum networks: MAINNET, SEPOLIA, HOLESKY, HOODI
- * - OP Stack networks: OPTIMISM, BASE, WORLDCHAIN, ZORA, UNICHAIN
+ * - OP Stack networks: OP_MAINNET, BASE, WORLDCHAIN, ZORA, UNICHAIN
  * - Linea networks: LINEA, LINEA_SEPOLIA
  * 
  * @example
@@ -449,8 +449,8 @@ export type Config = {
  * // For Optimism
  * const config: Config = {
  *   executionRpc: "https://mainnet.optimism.io",
- *   verifiableApi: "https://api.oplabs.co/api/v1/verifiable",
- *   network: Network.OPTIMISM
+ *   consensusRpc: "https://op-mainnet.operationsolarstorm.org",
+ *   network: Network.OP_MAINNET
  * };
  * ```
  */
