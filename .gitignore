@@ -9,4 +9,15 @@ helios-ts/pkg
 helios-ts/LICENSE
 
 .vscode
+
 CLAUDE.md
+.dockerignore
+.CLAUDE_SESIONS.md
+CLAUDE_DOCKER_README.md
+CLAUDE_SESSIONS.md
+Dockerfile.claude
+claude-docker.sh
+docker-compose.claude.yml
+worktrees/
+
+RELEASE_NOTES_*
