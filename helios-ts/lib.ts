@@ -433,9 +433,9 @@ export type Config = {
  * 
  * @remarks
  * Networks are organized by their network kind:
- * - Ethereum networks: MAINNET, SEPOLIA, HOLESKY, HOODI
- * - OP Stack networks: OP_MAINNET, BASE, WORLDCHAIN, ZORA, UNICHAIN
- * - Linea networks: LINEA, LINEA_SEPOLIA
+ * - Ethereum networks: "mainnet", "sepolia", "holesky", "hoodi"
+ * - OP Stack networks: "op-mainnet", "base", "worldchain", "zora", "unichain"
+ * - Linea networks: "linea", "linea-sepolia"
  * 
  * @example
  * ```typescript
@@ -443,48 +443,33 @@ export type Config = {
  * const config: Config = {
  *   executionRpc: "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY",
  *   consensusRpc: "https://www.lightclientdata.org",
- *   network: Network.MAINNET
+ *   network: "mainnet"
  * };
  * 
  * // For Optimism
  * const config: Config = {
  *   executionRpc: "https://mainnet.optimism.io",
  *   consensusRpc: "https://op-mainnet.operationsolarstorm.org",
- *   network: Network.OP_MAINNET
+ *   network: "op-mainnet"
  * };
  * ```
  */
-export enum Network {
+export type Network = 
   // Ethereum networks
-  /** Ethereum mainnet (chain ID: 1) */
-  MAINNET = "mainnet",
-  /** Goerli testnet (deprecated) */
-  GOERLI = "goerli",
-  /** Sepolia testnet (chain ID: 11155111) */
-  SEPOLIA = "sepolia",
-  /** Holesky testnet (chain ID: 17000) */
-  HOLESKY = "holesky",
-  /** Hoodi testnet (chain ID: 560048) */
-  HOODI = "hoodi",
-  
+  | "mainnet"      // Ethereum mainnet (chain ID: 1)
+  | "goerli"       // Goerli testnet (deprecated)
+  | "sepolia"      // Sepolia testnet (chain ID: 11155111)
+  | "holesky"      // Holesky testnet (chain ID: 17000)
+  | "hoodi"        // Hoodi testnet (chain ID: 560048)
   // OP Stack networks
-  /** OP Mainnet (chain ID: 10) */
-  OP_MAINNET = "op-mainnet",
-  /** Base mainnet (chain ID: 8453) */
-  BASE = "base",
-  /** Worldchain mainnet (chain ID: 480) */
-  WORLDCHAIN = "worldchain",
-  /** Zora mainnet (chain ID: 7777777) */
-  ZORA = "zora",
-  /** Unichain mainnet (chain ID: 130) */
-  UNICHAIN = "unichain",
-  
+  | "op-mainnet"   // OP Mainnet (chain ID: 10)
+  | "base"         // Base mainnet (chain ID: 8453)
+  | "worldchain"   // Worldchain mainnet (chain ID: 480)
+  | "zora"         // Zora mainnet (chain ID: 7777777)
+  | "unichain"     // Unichain mainnet (chain ID: 130)
   // Linea networks
-  /** Linea mainnet (chain ID: 59144) */
-  LINEA = "linea",
-  /** Linea Sepolia testnet (chain ID: 59141) */
-  LINEA_SEPOLIA = "linea-sepolia",
-}
+  | "linea"        // Linea mainnet (chain ID: 59144)
+  | "linea-sepolia"; // Linea Sepolia testnet (chain ID: 59141)
 
 type Request = {
   method: string;
