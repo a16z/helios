@@ -1,4 +1,6 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
 
 use alloy::primitives::B256;
 use eyre::Result;
