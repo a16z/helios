@@ -1,7 +1,18 @@
-use alloy::rpc::types::{Filter, Log};
+use alloy::rpc::types::{BlockId, BlockNumberOrTag, Filter, Log};
 use eyre::Result;
 
 use crate::execution::errors::ExecutionError;
+
+/// Determines if a block ID should be fetched from the historical provider.
+/// Historical providers should only be used for specific block numbers or hashes,
+/// never for block tags like Latest, Safe, Finalized, etc.
+pub fn should_use_historical_provider(block_id: &BlockId) -> bool {
+    match block_id {
+        BlockId::Number(BlockNumberOrTag::Number(_)) => true,
+        BlockId::Hash(_) => true,
+        _ => false, // Don't use for Latest, Safe, Finalized, Pending, Earliest
+    }
+}
 
 pub fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
     fn log_matches_filter(log: &Log, filter: &Filter) -> bool {
