@@ -59,7 +59,7 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
 
         let mut evm = self
             .get_context(tx, self.block_id, validate_tx)
-            .await
+            .await?
             .with_db(db)
             .build_mainnet();
 
@@ -88,14 +88,14 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
         tx: &TransactionRequest,
         block_id: BlockId,
         validate_tx: bool,
-    ) -> Context {
+    ) -> Result<Context, EvmError> {
         let block = self
             .execution
             .get_block(block_id, false)
             .await
-            .unwrap()
+            .map_err(|err| EvmError::Generic(err.to_string()))?
             .ok_or(ExecutionError::BlockNotFound(block_id))
-            .unwrap();
+            .map_err(|err| EvmError::Generic(err.to_string()))?;
 
         let mut tx_env = Self::tx_env(tx);
 
@@ -116,10 +116,10 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
         cfg.disable_base_fee = !validate_tx;
         cfg.disable_nonce_check = !validate_tx;
 
-        Context::mainnet()
+        Ok(Context::mainnet()
             .with_tx(tx_env)
             .with_block(Self::block_env(&block, &self.fork_schedule))
-            .with_cfg(cfg)
+            .with_cfg(cfg))
     }
 
     fn tx_env(tx: &TransactionRequest) -> TxEnv {

@@ -984,26 +984,57 @@ async fn test_get_historical_block(helios: &RootProvider, expected: &RootProvide
     Ok(())
 }
 
+async fn test_get_too_old_block(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
+    // Fetch the latest block number from the trusted provider
+    let latest_block = expected.get_block_number().await?;
+    let latest_block_num = latest_block;
+
+    // Calculate a block number that is guaranteed to be outside the EIP-2935 ring buffer
+    let old_block_num = latest_block_num - 20000;
+
+    // Query Helios for the very old block
+    let helios_block = helios
+        .get_block_by_number(old_block_num.into())
+        .await?;
+
+    // Helios should gracefully return None, not panic
+    ensure!(
+        helios_block.is_none(),
+        "Helios should return None for a block outside the proof window"
+    );
+
+    // For comparison, the direct provider should successfully fetch the block
+    let expected_block = expected
+        .get_block_by_number(old_block_num.into())
+        .await?;
+
+    ensure!(
+        expected_block.is_some(),
+        "The trusted provider should have returned the historical block"
+    );
+
+    Ok(())
+}
+
 async fn test_get_historical_balance(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
-    let latest = helios.get_block_number().await?;
-    let historical_block_num = latest.saturating_sub(100);
+    let latest_block = helios.get_block_number().await?;
+    let target_block_num = latest_block - 100;
     let address = address!("00000000219ab540356cBB839Cbe05303d7705Fa"); // ETH2 deposit contract
 
     let balance = helios
         .get_balance(address)
-        .block_id(historical_block_num.into())
+        .block_id(target_block_num.into())
         .await?;
     let expected_balance = expected
         .get_balance(address)
-        .block_id(historical_block_num.into())
+        .block_id(target_block_num.into())
         .await?;
     ensure_eq!(
         balance,
         expected_balance,
-        "Balance mismatch: expected {}, got {}",
-        expected_balance,
-        balance
+        "Historical balance mismatch"
     );
+
     Ok(())
 }
 
@@ -1423,6 +1454,7 @@ async fn rpc_equivalence_tests() {
         spawn_test!(test_get_logs_block_range, "get_logs_block_range"),
         // Historical Data
         spawn_test!(test_get_historical_block, "get_historical_block"),
+        spawn_test!(test_get_too_old_block, "get_too_old_block"),
     ];
 
     // Collect results
