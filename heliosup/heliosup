@@ -9,10 +9,33 @@ NAME=helios
 DIR=$HOME/.$NAME
 BIN_DIR=$DIR/bin
 
+# Parse command line arguments
+NIGHTLY=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --nightly)
+      NIGHTLY=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Usage: $0 [--nightly]"
+      exit 1
+      ;;
+  esac
+done
+
 # delete existing binaries
 rm -f $BIN_DIR/$NAME
 
-TAG=$(curl https://api.github.com/repos/$REPO/releases/latest | grep -o '"tag_name": "[^"]*' | grep -o '[^"]*$')
+# Get the appropriate release tag
+if [ "$NIGHTLY" = true ]; then
+  # For nightly, get the most recent release (including pre-releases)
+  TAG=$(curl -s https://api.github.com/repos/$REPO/releases | jq -r '.[0].tag_name')
+else
+  # For stable, get the latest non-pre-release
+  TAG=$(curl -s https://api.github.com/repos/$REPO/releases/latest | grep -o '"tag_name": "[^"]*' | grep -o '[^"]*$')
+fi
 
 PLATFORM="$(uname -s)"
 case $PLATFORM in
@@ -46,6 +69,17 @@ else
 fi
 
 TARBALL_URL="https://github.com/$REPO/releases/download/${TAG}/${NAME}_${PLATFORM}_${ARCHITECTURE}.tar.gz"
+
+if [ "$NIGHTLY" = true ]; then
+  echo "Installing $NAME nightly version $TAG..."
+else
+  echo "Installing $NAME stable version $TAG..."
+fi
+
 curl -L $TARBALL_URL | tar -xzC $BIN_DIR
 
-echo "Installed $NAME"
+if [ "$NIGHTLY" = true ]; then
+  echo "Installed $NAME nightly version $TAG"
+else
+  echo "Installed $NAME stable version $TAG"
+fi
