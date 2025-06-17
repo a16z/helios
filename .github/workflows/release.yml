@@ -292,16 +292,16 @@ jobs:
       - name: Create npm package tarball
         id: pack
         run: |
-          PACKAGE_FILENAME=$(npm pack)
+          PACKAGE_FILENAME=$(npm pack | tail -1)
           echo "Packed file: $PACKAGE_FILENAME"
-          echo "::set-output name=package_filename::$PACKAGE_FILENAME"
+          echo "package_filename=$PACKAGE_FILENAME" >> $GITHUB_OUTPUT
 
       - name: Generate tag name
         id: tag
         # This step runs in the workspace root, not ./helios-ts default
         working-directory: ${{ github.workspace }}
         run: |
-          echo "::set-output name=release_tag::nightly-${GITHUB_SHA}"
+          echo "release_tag=nightly-${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
       - name: Release npm package to GitHub Releases
         uses: softprops/action-gh-release@v1
