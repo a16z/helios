@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Helios TypeScript Demo – Latest Blocks</title>
+
+    <style>
+      /* ---------- Layout ---------- */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        display: flex;
+        flex-direction: column;
+        color: #333;
+      }
+
+      h1,
+      h2 {
+        color: #ff8800;
+        margin: 0 0 0.3rem 0;
+      }
+      .header {
+        padding: 10px 25px;
+      }
+
+      /* ---------- Panel grid ---------- */
+      .panels-container {
+        flex: 1 1 auto;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        padding: 0 20px 20px;
+        box-sizing: border-box;
+      }
+      @media (max-width: 900px) {
+        .panels-container {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ---------- Card ---------- */
+      .panel {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        background: #fafafa;
+        min-height: 260px;
+      }
+
+      /* ---------- Block read‑out ---------- */
+      .block-info {
+        position: relative;
+        overflow: hidden;
+        background: #f4f4f4;
+        border-radius: 6px;
+        font-size: 22px;
+        line-height: 1.4;
+        padding: 20px 18px;
+        margin: 0;
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        white-space: pre-line;
+      }
+      .block-number {
+        color: #ff8800;
+        font-weight: 700;
+        font-size: 1.8em;
+      }
+
+      /* ---------- Loading wheel ---------- */
+      .loading:before {
+        content: "";
+        width: 32px;
+        height: 32px;
+        border: 4px solid #ff8800;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ---------- Loading bar (bottom, 12 px) ---------- */
+      .block-info.animate::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 12px;
+        background: #ff8800;
+        opacity: 0.6;
+        transform-origin: left;
+        transform: scaleX(0);
+        animation: loadBar var(--duration, 2s) linear forwards;
+        pointer-events: none;
+      }
+      @keyframes loadBar {
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      /* ---------- Opacity flash on update ---------- */
+      .block-info.flash {
+        animation: flashOpacity 0.8s ease-out;
+      }
+      @keyframes flashOpacity {
+        0% {
+          opacity: 0.25;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ---------- Header ---------- -->
+    <div class="header">
+      <h1>Helios TypeScript Demo</h1>
+      <p><em>Fast, secure &amp; portable multichain light client</em></p>
+    </div>
+
+    <!-- ---------- Panels ---------- -->
+    <div class="panels-container">
+      <div class="panel">
+        <h2>Ethereum</h2>
+        <pre class="block-info loading" id="ethereum-latest"></pre>
+      </div>
+      <div class="panel">
+        <h2>OP Mainnet</h2>
+        <pre class="block-info loading" id="op-mainnet-latest"></pre>
+      </div>
+      <div class="panel">
+        <h2>Base</h2>
+        <pre class="block-info loading" id="base-latest"></pre>
+      </div>
+      <div class="panel">
+        <h2>Linea</h2>
+        <pre class="block-info loading" id="linea-latest"></pre>
+      </div>
+    </div>
+
+    <!-- ---------- Script ---------- -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

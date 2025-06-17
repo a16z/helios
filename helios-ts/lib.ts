@@ -30,7 +30,7 @@ export type NetworkKind = "ethereum" | "opstack" | "linea";
  * 
  * @remarks
  * This function creates an EIP-1193 compliant Ethereum provider that can be used
- * with popular web3 libraries like ethers.js or web3.js. Treat this the same as
+ * with popular web3 libraries like viem, ethers.js or web3.js. Treat this the same as
  * you would `window.ethereum` when constructing a provider.
  * 
  * @example
@@ -38,7 +38,7 @@ export type NetworkKind = "ethereum" | "opstack" | "linea";
  * const provider = await createHeliosProvider({
  *   executionRpc: "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY",
  *   consensusRpc: "https://www.lightclientdata.org",
- *   network: Network.MAINNET
+ *   network: "mainnet"
  * }, "ethereum");
  * ```
  */
@@ -56,21 +56,25 @@ export async function createHeliosProvider(config: Config, kind: NetworkKind): P
  * trustless access to Ethereum without relying on centralized RPC providers.
  * 
  * The provider supports all standard Ethereum JSON-RPC methods and maintains
- * compatibility with popular libraries like ethers.js, web3.js, and viem.
+ * compatibility with popular libraries like viem, ethers.js, and web3.js.
  * 
  * @example
  * ```typescript
+ * // Using with viem
+ * import { createPublicClient, custom } from 'viem';
+ * import { mainnet } from 'viem/chains';
+ * 
+ * const heliosProvider = await createHeliosProvider(config, "ethereum");
+ * const client = createPublicClient({
+ *   chain: mainnet,
+ *   transport: custom(heliosProvider)
+ * });
+ * 
  * // Using with ethers.js
  * import { BrowserProvider } from 'ethers';
  * 
  * const heliosProvider = await createHeliosProvider(config, "ethereum");
  * const ethersProvider = new BrowserProvider(heliosProvider);
- * 
- * // Using with web3.js
- * import Web3 from 'web3';
- * 
- * const heliosProvider = await createHeliosProvider(config, "ethereum");
- * const web3 = new Web3(heliosProvider);
  * ```
  */
 export class HeliosProvider {
@@ -85,7 +89,7 @@ export class HeliosProvider {
     if (kind === "ethereum") {
       const consensusRpc = config.consensusRpc;
       const checkpoint = config.checkpoint;
-      const network = config.network ?? Network.MAINNET;
+      const network = config.network ?? "mainnet";
       const dbType = config.dbType ?? "localstorage";
 
       this.#client = new EthereumClient(
