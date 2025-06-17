@@ -12,23 +12,73 @@ async function ensureInitialized() {
 }
 
 /**
- * Creates a new HeliosProvider instance.
- * An EIP-1193 compliant Ethereum provider. Treat this the same as you
- * would window.ethereum when constructing an ethers or web3 provider.
+ * Supported network kinds for the Helios light client.
+ * 
+ * @remarks
+ * - `ethereum` - Standard Ethereum networks (mainnet, testnets)
+ * - `opstack` - Optimism Stack based L2 networks
+ * - `linea` - Linea L2 network
  */
-export async function createHeliosProvider(config: Config, kind: "ethereum" | "opstack"): Promise<HeliosProvider> {
+export type NetworkKind = "ethereum" | "opstack" | "linea";
+
+/**
+ * Creates a new HeliosProvider instance.
+ * 
+ * @param config - Configuration object for the provider
+ * @param kind - The type of network to connect to
+ * @returns A promise that resolves to an initialized HeliosProvider instance
+ * 
+ * @remarks
+ * This function creates an EIP-1193 compliant Ethereum provider that can be used
+ * with popular web3 libraries like ethers.js or web3.js. Treat this the same as
+ * you would `window.ethereum` when constructing a provider.
+ * 
+ * @example
+ * ```typescript
+ * const provider = await createHeliosProvider({
+ *   executionRpc: "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY",
+ *   consensusRpc: "https://www.lightclientdata.org",
+ *   network: Network.MAINNET
+ * }, "ethereum");
+ * ```
+ */
+export async function createHeliosProvider(config: Config, kind: NetworkKind): Promise<HeliosProvider> {
   await ensureInitialized();
   return HeliosProvider.createInternal(config, kind);
 }
 
-/// An EIP-1193 compliant Ethereum provider. Treat this the same as you
-/// would window.ethereum when constructing an ethers or web3 provider.
+/**
+ * An EIP-1193 compliant Ethereum provider powered by the Helios light client.
+ * 
+ * @remarks
+ * HeliosProvider implements the Ethereum Provider API (EIP-1193) and can be used
+ * as a drop-in replacement for `window.ethereum` in web3 applications. It provides
+ * trustless access to Ethereum without relying on centralized RPC providers.
+ * 
+ * The provider supports all standard Ethereum JSON-RPC methods and maintains
+ * compatibility with popular libraries like ethers.js, web3.js, and viem.
+ * 
+ * @example
+ * ```typescript
+ * // Using with ethers.js
+ * import { BrowserProvider } from 'ethers';
+ * 
+ * const heliosProvider = await createHeliosProvider(config, "ethereum");
+ * const ethersProvider = new BrowserProvider(heliosProvider);
+ * 
+ * // Using with web3.js
+ * import Web3 from 'web3';
+ * 
+ * const heliosProvider = await createHeliosProvider(config, "ethereum");
+ * const web3 = new Web3(heliosProvider);
+ * ```
+ */
 export class HeliosProvider {
   #client;
   #chainId;
   #eventEmitter;
 
-  private constructor(config: Config, kind: "ethereum" | "opstack") {
+  private constructor(config: Config, kind: NetworkKind) {
     const executionRpc = config.executionRpc;
     const verifiableApi = config.verifiableApi;
 
@@ -61,15 +111,58 @@ export class HeliosProvider {
   }
 
   /** @internal */
-  static createInternal(config: Config, kind: "ethereum" | "opstack"): HeliosProvider {
+  static createInternal(config: Config, kind: NetworkKind): HeliosProvider {
     return new HeliosProvider(config, kind);
   }
 
 
+  /**
+   * Waits for the light client to sync with the network.
+   * 
+   * @returns A promise that resolves when the client is fully synced
+   * 
+   * @remarks
+   * This method blocks until the light client has synchronized with the network
+   * and is ready to process requests. It's recommended to call this before
+   * making any RPC requests to ensure accurate data.
+   * 
+   * @example
+   * ```typescript
+   * const provider = await createHeliosProvider(config, "ethereum");
+   * await provider.waitSynced();
+   * console.log("Provider is ready!");
+   * ```
+   */
   async waitSynced() {
     await this.#client.wait_synced();
   }
 
+  /**
+   * Sends an RPC request to the provider.
+   * 
+   * @param req - The RPC request object containing method and params
+   * @returns A promise that resolves with the RPC response
+   * @throws {Error} If the RPC method is not supported or the request fails
+   * 
+   * @remarks
+   * This is the main entry point for all Ethereum JSON-RPC requests. It implements
+   * the EIP-1193 provider interface and supports all standard Ethereum RPC methods.
+   * 
+   * @example
+   * ```typescript
+   * // Get the latest block number
+   * const blockNumber = await provider.request({
+   *   method: "eth_blockNumber",
+   *   params: []
+   * });
+   * 
+   * // Get account balance
+   * const balance = await provider.request({
+   *   method: "eth_getBalance",
+   *   params: [address, "latest"]
+   * });
+   * ```
+   */
   async request(req: Request): Promise<any> {
     try {
       return await this.#req(req);
@@ -218,6 +311,33 @@ export class HeliosProvider {
     }
   }
 
+  /**
+   * Registers an event listener for provider events.
+   * 
+   * @param eventName - The name of the event to listen for
+   * @param handler - The callback function to handle the event
+   * 
+   * @remarks
+   * Supports standard EIP-1193 provider events including:
+   * - `message` - For subscription updates
+   * - `connect` - When the provider connects
+   * - `disconnect` - When the provider disconnects
+   * - `chainChanged` - When the chain ID changes
+   * - `accountsChanged` - When accounts change (if applicable)
+   * 
+   * @example
+   * ```typescript
+   * provider.on("message", (message) => {
+   *   console.log("Received message:", message);
+   * });
+   * 
+   * // Subscribe to new blocks
+   * const subId = await provider.request({
+   *   method: "eth_subscribe",
+   *   params: ["newHeads"]
+   * });
+   * ```
+   */
   on(
     eventName: string,
     handler: (data: any) => void
@@ -225,6 +345,27 @@ export class HeliosProvider {
     this.#eventEmitter.on(eventName, handler);
   }
 
+  /**
+   * Removes an event listener from the provider.
+   * 
+   * @param eventName - The name of the event to stop listening for
+   * @param handler - The callback function to remove
+   * 
+   * @remarks
+   * Removes a previously registered event listener. The handler must be
+   * the same function reference that was passed to `on()`.
+   * 
+   * @example
+   * ```typescript
+   * const handler = (data) => console.log(data);
+   * 
+   * // Add listener
+   * provider.on("message", handler);
+   * 
+   * // Remove listener
+   * provider.removeListener("message", handler);
+   * ```
+   */
   removeListener(
     eventName: string,
     handler: (data: any) => void
@@ -233,19 +374,116 @@ export class HeliosProvider {
   }
 }
 
+/**
+ * Configuration options for creating a Helios provider.
+ * 
+ * @remarks
+ * Different network kinds require different configuration options:
+ * - For Ethereum networks: executionRpc, consensusRpc, and optionally checkpoint are required
+ * - For OpStack networks: executionRpc and verifiableApi are required
+ * - For Linea networks: executionRpc is required
+ */
 export type Config = {
+  /**
+   * The RPC endpoint for execution layer requests.
+   * This is required for all network types.
+   * @example "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
+   */
   executionRpc?: string;
+  
+  /**
+   * The verifiable API endpoint for any networks.
+   * Not recommended for use currently.
+   * @example "https://verifiable-api-ethereum.operationsolarstorm.org
+   */
   verifiableApi?: string;
+  
+  /**
+   * The consensus layer RPC endpoint for Ethereum and OP Stack networks.
+   * Required for Ethereum and OP Stack networks to sync.
+   * @example "https://www.lightclientdata.org"
+   */
   consensusRpc?: string;
+  
+  /**
+   * A trusted checkpoint for faster initial sync on Ethereum networks.
+   * Optional but recommended for better performance.
+   * @example "0x1234567890abcdef..."
+   */
   checkpoint?: string;
+  
+  /**
+   * The network to connect to.
+   * Defaults to Network.MAINNET for Ethereum networks.
+   */
   network?: Network;
-  /** Where to cache checkpoints, default to "localstorage" */
+  
+  /**
+   * Where to cache checkpoints for persistence.
+   * @defaultValue "localstorage"
+   * @remarks
+   * - `localstorage` - Store in browser's localStorage (web environments)
+   * - `config` - Store in configuration (node environments)
+   */
   dbType?: "localstorage" | "config";
 };
 
+/**
+ * Supported networks across all network kinds for the Helios provider.
+ * 
+ * @remarks
+ * Networks are organized by their network kind:
+ * - Ethereum networks: MAINNET, SEPOLIA, HOLESKY, HOODI
+ * - OP Stack networks: OPTIMISM, BASE, WORLDCHAIN, ZORA, UNICHAIN
+ * - Linea networks: LINEA, LINEA_SEPOLIA
+ * 
+ * @example
+ * ```typescript
+ * // For Ethereum mainnet
+ * const config: Config = {
+ *   executionRpc: "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY",
+ *   consensusRpc: "https://www.lightclientdata.org",
+ *   network: Network.MAINNET
+ * };
+ * 
+ * // For Optimism
+ * const config: Config = {
+ *   executionRpc: "https://mainnet.optimism.io",
+ *   verifiableApi: "https://api.oplabs.co/api/v1/verifiable",
+ *   network: Network.OPTIMISM
+ * };
+ * ```
+ */
 export enum Network {
+  // Ethereum networks
+  /** Ethereum mainnet (chain ID: 1) */
   MAINNET = "mainnet",
+  /** Goerli testnet (deprecated) */
   GOERLI = "goerli",
+  /** Sepolia testnet (chain ID: 11155111) */
+  SEPOLIA = "sepolia",
+  /** Holesky testnet (chain ID: 17000) */
+  HOLESKY = "holesky",
+  /** Hoodi testnet (chain ID: 560048) */
+  HOODI = "hoodi",
+  
+  // OP Stack networks
+  /** OP Mainnet (chain ID: 10) */
+  OP_MAINNET = "op-mainnet",
+  /** Base mainnet (chain ID: 8453) */
+  BASE = "base",
+  /** Worldchain mainnet (chain ID: 480) */
+  WORLDCHAIN = "worldchain",
+  /** Zora mainnet (chain ID: 7777777) */
+  ZORA = "zora",
+  /** Unichain mainnet (chain ID: 130) */
+  UNICHAIN = "unichain",
+  
+  // Linea networks
+  /** Linea mainnet (chain ID: 59144) */
+  LINEA = "linea",
+  /** Linea Sepolia testnet (chain ID: 59141) */
+  LINEA_SEPOLIA = "linea-sepolia",
 }
 
 type Request = {
