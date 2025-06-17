@@ -99,11 +99,12 @@ For a quick test, you can try Helios directly in an HTML file using a CDN like u
 
 ## Usage as EIP-1193 provider
 
-Helios can be used as an EIP-1193 provider. Once initialized and synced (as shown in the examples above), `heliosProvider` can be used with libraries like ethers.js, web3.js, etc.
+Helios can be used as an EIP-1193 provider. Once initialized and synced (as shown in the examples above), `heliosProvider` can be used with libraries like viem, ethers.js, web3.js, etc.
 
-Example with ethers.js:
+Example with viem:
 ```typescript
-import { ethers } from 'ethers';
+import { createPublicClient, custom } from 'viem';
+import { mainnet } from 'viem/chains';
 import { createHeliosProvider } from '@a16z/helios';
 
 // Create and sync Helios provider
@@ -116,9 +117,13 @@ const heliosProvider = await createHeliosProvider({
 
 await heliosProvider.waitSynced();
 
-// Use with ethers.js
-const ethersProvider = new ethers.providers.Web3Provider(heliosProvider);
-const blockNumber = await ethersProvider.getBlockNumber();
+// Use with viem
+const client = createPublicClient({
+  chain: mainnet,
+  transport: custom(heliosProvider)
+});
+
+const blockNumber = await client.getBlockNumber();
 console.log('Latest block number:', blockNumber);
 ```
 
