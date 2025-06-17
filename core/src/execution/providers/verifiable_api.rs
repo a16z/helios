@@ -2,7 +2,7 @@ use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use alloy::{
     consensus::BlockHeader,
-    eips::{BlockId, BlockNumberOrTag},
+    eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionResponse},
     primitives::{Address, B256, U256},
     rlp,
@@ -150,9 +150,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> BlockPr
             return Ok(Some(block));
         }
 
-        // 2. Try historical provider if available and not requesting latest
+        // 2. Try historical provider if available and only for block numbers or hashes (not tags)
         if let Some(historical) = &self.historical_provider {
-            if block_id != BlockNumberOrTag::Latest.into() {
+            if super::utils::should_use_historical_provider(&block_id) {
                 if let Some(block) = historical
                     .get_historical_block(block_id, full_tx, self)
                     .await?
