@@ -24,11 +24,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+        uses: dtolnay/rust-toolchain@stable
         
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
