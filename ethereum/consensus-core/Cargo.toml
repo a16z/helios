@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # Don't inherit workspace version to not inherit all of the features defined in the workspace
-alloy = { version = "1.0.3", features = [
+alloy = { version = "1.0.3", default-features = false, features = [
     "consensus",
     "rpc-types",
     "ssz",
