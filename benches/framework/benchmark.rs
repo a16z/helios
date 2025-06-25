@@ -59,7 +59,6 @@ impl Benchmark {
         standard_proxy: ProxyHandle,
         runs: usize,
     ) -> Result<Self> {
-        // Create alloy provider for standard RPC
         let url = standard_proxy.url.parse()?;
         #[allow(deprecated)]
         let provider = ProviderBuilder::new().on_http(url);

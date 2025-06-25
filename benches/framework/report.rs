@@ -250,49 +250,6 @@ impl BenchmarkReport {
     }
 
     pub fn summary(&self) -> String {
-        let mut output = String::new();
-
-        let avg_time_multiple = self
-            .results
-            .iter()
-            .map(|r| r.time_diff_multiple())
-            .sum::<f64>()
-            / self.results.len() as f64;
-
-        let avg_bytes_multiple = self
-            .results
-            .iter()
-            .map(|r| r.bytes_diff_multiple())
-            .sum::<f64>()
-            / self.results.len() as f64;
-
-        let avg_requests_multiple = self
-            .results
-            .iter()
-            .map(|r| r.requests_diff_multiple())
-            .sum::<f64>()
-            / self.results.len() as f64;
-
-        writeln!(&mut output, "\nSummary:").unwrap();
-        writeln!(
-            &mut output,
-            "  Average time multiple: {:.2}x",
-            avg_time_multiple
-        )
-        .unwrap();
-        writeln!(
-            &mut output,
-            "  Average data multiple: {:.2}x",
-            avg_bytes_multiple
-        )
-        .unwrap();
-        writeln!(
-            &mut output,
-            "  Average requests multiple: {:.2}x",
-            avg_requests_multiple
-        )
-        .unwrap();
-
-        output
+        String::new()
     }
 }
