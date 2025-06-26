@@ -6,6 +6,7 @@ use helios_ethereum::{
 };
 use tempfile::tempdir;
 
+#[path = "../lib/harness.rs"]
 mod harness;
 
 criterion_group! {
