@@ -269,10 +269,6 @@ impl Benchmark {
         &self,
         historical: bool,
     ) -> Result<(Duration, Duration, bool)> {
-        // Reset metrics for this benchmark
-        self.execution_proxy.metrics.reset();
-        self.standard_proxy.metrics.reset();
-
         // Get a transaction hash from a block
         let mut tx_hash = None;
         for i in 0..20 {
@@ -281,7 +277,7 @@ impl Benchmark {
                 current.to::<u64>().saturating_sub(5000 + i)
             } else {
                 let helios_block_number = self.helios_client.get_block_number().await?;
-                helios_block_number.to::<u64>().saturating_sub(10 + i)
+                helios_block_number.to::<u64>().saturating_sub(i)
             };
 
             let block_id = BlockNumberOrTag::Number(block_number).into();
@@ -305,6 +301,10 @@ impl Benchmark {
 
         let tx_hash =
             tx_hash.ok_or_else(|| eyre::eyre!("No transactions found in recent blocks"))?;
+
+        // Reset metrics for this benchmark after finding the transaction
+        self.execution_proxy.metrics.reset();
+        self.standard_proxy.metrics.reset();
 
         // Benchmark Helios
         let helios_start = Instant::now();
@@ -332,10 +332,6 @@ impl Benchmark {
         &self,
         historical: bool,
     ) -> Result<(Duration, Duration, bool)> {
-        // Reset metrics for this benchmark
-        self.execution_proxy.metrics.reset();
-        self.standard_proxy.metrics.reset();
-
         // Get a transaction hash from a block
         let mut tx_hash = None;
         for i in 0..20 {
@@ -344,7 +340,7 @@ impl Benchmark {
                 current.to::<u64>().saturating_sub(5000 + i)
             } else {
                 let helios_block_number = self.helios_client.get_block_number().await?;
-                helios_block_number.to::<u64>().saturating_sub(10 + i)
+                helios_block_number.to::<u64>().saturating_sub(i)
             };
 
             let block_id = BlockNumberOrTag::Number(block_number).into();
@@ -368,6 +364,10 @@ impl Benchmark {
 
         let tx_hash =
             tx_hash.ok_or_else(|| eyre::eyre!("No transactions found in recent blocks"))?;
+
+        // Reset metrics for this benchmark after finding the transaction
+        self.execution_proxy.metrics.reset();
+        self.standard_proxy.metrics.reset();
 
         // Benchmark Helios
         let helios_start = Instant::now();
