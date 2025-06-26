@@ -3,6 +3,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use helios_common::types::BlockTag;
 
+#[path = "../lib/harness.rs"]
 mod harness;
 
 criterion_main!(sync);

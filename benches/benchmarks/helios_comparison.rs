@@ -4,10 +4,10 @@ use helios_ethereum::EthereumClientBuilder;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-mod framework;
-mod harness;
+#[path = "../lib/mod.rs"]
+mod lib;
 
-use framework::{proxy, Benchmark, BenchmarkCase, BenchmarkReport};
+use lib::{start_proxy_pair, Benchmark, BenchmarkCase, BenchmarkReport};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -29,8 +29,7 @@ async fn main() -> Result<()> {
     println!("  Runs per benchmark: {}\n", runs);
 
     println!("Starting proxy services...");
-    let (execution_proxy, standard_proxy) =
-        proxy::start_proxy_pair(&execution_rpc, &standard_rpc).await?;
+    let (execution_proxy, standard_proxy) = start_proxy_pair(&execution_rpc, &standard_rpc).await?;
     println!("  Execution proxy started at: {}", execution_proxy.url);
     println!("  Standard proxy started at: {}\n", standard_proxy.url);
 
@@ -100,7 +99,6 @@ async fn main() -> Result<()> {
 
     let report = BenchmarkReport::new(results);
     report.print();
-    println!("{}", report.summary());
 
     Ok(())
 }

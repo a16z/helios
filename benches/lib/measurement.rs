@@ -1,4 +1,4 @@
-use crate::framework::proxy::ProxyHandle;
+use crate::lib::proxy::ProxyHandle;
 use alloy::dyn_abi::DynSolValue;
 use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{Address, Bytes};

@@ -134,19 +134,19 @@ Generate flamegraphs to identify bottlenecks:
 cargo install flamegraph
 
 # Generate flamegraph for a specific example
-cargo flamegraph --example client -o ./flamegraphs/client.svg
+cargo flamegraph --example client -o ./benches/flamegraphs/client.svg
 
 # Generate flamegraph for benchmarks
-cargo flamegraph --bench helios_comparison -o ./flamegraphs/benchmark.svg
+cargo flamegraph --bench helios_comparison -o ./benches/flamegraphs/benchmark.svg
 ```
 
 ### Custom Benchmarks
 
 To add new benchmarks:
 
-1. Add a new case to `BenchmarkCase` enum in `framework/benchmark.rs`
-2. Implement the benchmark logic in the `Benchmark` impl
-3. Add the case to the `cases` vector in `helios_comparison.rs`
+1. Create a new benchmark file in `benchmarks/` directory
+2. Add the benchmark configuration to `Cargo.toml` with the appropriate path
+3. Implement the benchmark using the provided harness and measurement utilities from `lib/`
 
 ## Troubleshooting
 
@@ -167,9 +167,19 @@ RUST_LOG=debug cargo bench -p helios --bench helios_comparison
 
 The benchmark framework consists of:
 
-- `framework/proxy.rs`: HTTP proxy for measuring RPC traffic
-- `framework/benchmark.rs`: Core benchmarking logic and test cases
-- `framework/report.rs`: Report generation with dynamic table formatting
-- `helios_comparison.rs`: Main benchmark runner
+- `lib/proxy/`: HTTP proxy module for measuring RPC traffic
+  - `mod.rs`: Main proxy implementation
+  - `metrics.rs`: Traffic metrics collection
+- `lib/measurement.rs`: Core benchmarking logic and test cases
+- `lib/report/`: Report generation module
+  - `mod.rs`: Report generation with dynamic table formatting
+  - `formatters.rs`: Output formatting utilities
+- `lib/harness.rs`: Benchmark harness implementation
+- `benchmarks/`: Individual benchmark implementations
+  - `helios_comparison.rs`: Main benchmark runner comparing Helios vs standard RPC
+  - `file_db.rs`: Database performance benchmarks
+  - `get_balance.rs`: Balance retrieval benchmarks
+  - `get_code.rs`: Contract code retrieval benchmarks
+  - `sync.rs`: Synchronization performance benchmarks
 
 The proxy intercepts all HTTP traffic to measure exact bytes transferred and request counts, while the benchmark framework ensures fair comparison by using the same block heights for both Helios and RPC queries.

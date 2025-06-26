@@ -174,30 +174,37 @@ path = "examples/call.rs"
 
 [[bench]]
 name = "file_db"
+path = "benches/benchmarks/file_db.rs"
 harness = false
 
 [[bench]]
 name = "get_balance"
+path = "benches/benchmarks/get_balance.rs"
 harness = false
 
 [[bench]]
 name = "get_code"
+path = "benches/benchmarks/get_code.rs"
 harness = false
 
 [[bench]]
 name = "sync"
+path = "benches/benchmarks/sync.rs"
 harness = false
 
 [[bench]]
 name = "helios_comparison"
+path = "benches/benchmarks/helios_comparison.rs"
 harness = false
 
 [[bench]]
 name = "helios_rpc_comparison"
+path = "benches/benchmarks/helios_rpc_comparison.rs"
 harness = false
 
 [[bench]]
 name = "simple_benchmark"
+path = "benches/benchmarks/simple_benchmark.rs"
 harness = false
 
 ######################################
