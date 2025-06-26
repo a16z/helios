@@ -44,7 +44,7 @@ impl OpStackClient {
             "worldchain" => NetworkConfig::from(Network::Worldchain),
             "zora" => NetworkConfig::from(Network::Zora),
             "unichain" => NetworkConfig::from(Network::Unichain),
-            other => Err(JsError::new(&format!("invalid network: {}", other)))?,
+            other => Err(JsError::new(&format!("invalid network: {other}")))?,
         };
 
         let chain_id = network_config.chain.chain_id;
@@ -55,12 +55,12 @@ impl OpStackClient {
         let execution_rpc = execution_rpc
             .map(|url| Url::parse(&url))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?;
 
         let verifiable_api = verifiable_api
             .map(|url| Url::parse(&url))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {e}")))?;
 
         let config = Config {
             execution_rpc,

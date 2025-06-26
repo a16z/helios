@@ -67,7 +67,7 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
     }
 
     async fn get_block(&self, slot: u64) -> Result<BeaconBlock<S>> {
-        let path = self.testdata.join(format!("blocks/{}.json", slot));
+        let path = self.testdata.join(format!("blocks/{slot}.json"));
         let res = read_to_string(path)?;
         let block: BeaconBlockResponse<S> = serde_json::from_str(&res)?;
         Ok(block.data.message)

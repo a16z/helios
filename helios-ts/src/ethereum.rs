@@ -77,7 +77,7 @@ impl EthereumClient {
             "mainnet" => networks::mainnet(),
             "sepolia" => networks::sepolia(),
             "holesky" => networks::holesky(),
-            other => Err(JsError::new(&format!("invalid network: {}", other)))?,
+            other => Err(JsError::new(&format!("invalid network: {other}")))?,
         };
 
         let chain_id = base.chain.chain_id;
@@ -92,7 +92,7 @@ impl EthereumClient {
 
         let consensus_rpc = if let Some(rpc) = consensus_rpc {
             Url::parse(&rpc)
-                .map_err(|e| JsError::new(&format!("Invalid consensus RPC URL: {}", e)))?
+                .map_err(|e| JsError::new(&format!("Invalid consensus RPC URL: {e}")))?
         } else {
             base.consensus_rpc
                 .ok_or(JsError::new("consensus rpc not found"))?
@@ -101,12 +101,12 @@ impl EthereumClient {
         let execution_rpc = execution_rpc
             .map(|url| Url::parse(&url))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?;
 
         let verifiable_api = verifiable_api
             .map(|url| Url::parse(&url))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {e}")))?;
 
         let config = Config {
             execution_rpc,

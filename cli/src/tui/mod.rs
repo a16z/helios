@@ -60,7 +60,7 @@ pub async fn run<N: NetworkSpec>(client: HeliosClient<N>) -> Result<(), io::Erro
     terminal.show_cursor()?;
 
     if let Err(err) = res {
-        eprintln!("{:?}", err);
+        eprintln!("{err:?}");
     }
 
     Ok(())
