@@ -38,7 +38,7 @@ impl LineaClient {
             "sepolia" => helios_linea::config::sepolia(),
             "linea-mainnet" => helios_linea::config::mainnet(),
             "linea-sepolia" => helios_linea::config::sepolia(),
-            other => Err(JsError::new(&format!("invalid network: {}", other)))?,
+            other => Err(JsError::new(&format!("invalid network: {other}")))?,
         };
 
         let chain_id = network_config.chain.chain_id;
@@ -47,7 +47,7 @@ impl LineaClient {
         };
 
         let execution_rpc = Url::parse(&execution_rpc_str)
-            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?;
 
         let config = Config {
             execution_rpc,
