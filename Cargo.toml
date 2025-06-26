@@ -117,7 +117,6 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing = "0.1.37"
 tracing-test = "0.2.4"
 criterion = { version = "0.5.1", features = ["async_tokio"] }
-# plotters = "0.3.4"
 tempfile = "3.4.0"
 hex = "0.4.3"
 pretty_assertions = "1.4.0"
