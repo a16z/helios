@@ -99,8 +99,6 @@ Legend:
 - **Requests**: Number of RPC calls made. Varies by operation type.
 - **Validated**: Confirms that Helios returned the same result as the RPC (✓ = matched).
 
-The "Difference" row shows multiples (e.g., "2.44x") rather than percentages for clearer comparison.
-
 ## Performance Expectations
 
 Helios trades performance for trustlessness. Expected characteristics:
