@@ -197,16 +197,6 @@ name = "helios_comparison"
 path = "benches/benchmarks/helios_comparison.rs"
 harness = false
 
-[[bench]]
-name = "helios_rpc_comparison"
-path = "benches/benchmarks/helios_rpc_comparison.rs"
-harness = false
-
-[[bench]]
-name = "simple_benchmark"
-path = "benches/benchmarks/simple_benchmark.rs"
-harness = false
-
 ######################################
 # Integration Tests
 ######################################
