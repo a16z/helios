@@ -261,9 +261,7 @@ pub fn hoodi() -> BaseConfig {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn data_dir(network: Network) -> PathBuf {
-    home_dir()
-        .unwrap()
-        .join(format!(".helios/data/{}", network))
+    home_dir().unwrap().join(format!(".helios/data/{network}"))
 }
 
 pub struct EthereumForkSchedule;

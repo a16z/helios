@@ -91,7 +91,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     ) -> Result<AccountResponse> {
         let url = self
             .base_url
-            .join(&format!("eth/v1/proof/account/{}", address))
+            .join(&format!("eth/v1/proof/account/{address}"))
             .map_err(|e| eyre!("Failed to construct account URL: {}", e))?;
         let mut request = self.client.get(url.as_str());
         if let Some(block_id) = block_id {
@@ -111,7 +111,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     ) -> Result<Option<TransactionReceiptResponse<N>>> {
         let url = self
             .base_url
-            .join(&format!("eth/v1/proof/receipt/{}", tx_hash))
+            .join(&format!("eth/v1/proof/receipt/{tx_hash}"))
             .map_err(|e| eyre!("Failed to construct receipt URL: {}", e))?;
         let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
@@ -120,7 +120,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
     async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
         let url = self
             .base_url
-            .join(&format!("eth/v1/proof/transaction/{}", tx_hash))
+            .join(&format!("eth/v1/proof/transaction/{tx_hash}"))
             .map_err(|e| eyre!("Failed to construct transaction URL: {}", e))?;
         let response = self.client.get(url.as_str()).send().await?;
         handle_response(response).await
@@ -175,11 +175,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             if let Some(topics) = filter.topics[idx].to_value_or_array() {
                 match topics {
                     ValueOrArray::Value(topic) => {
-                        request = request.query(&[(format!("topic{}", idx), topic)]);
+                        request = request.query(&[(format!("topic{idx}"), topic)]);
                     }
                     ValueOrArray::Array(topics) => {
                         for topic in topics {
-                            request = request.query(&[(format!("topic{}", idx), topic)]);
+                            request = request.query(&[(format!("topic{idx}"), topic)]);
                         }
                     }
                 }

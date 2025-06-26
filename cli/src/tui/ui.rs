@@ -58,8 +58,8 @@ fn draw_header<N: NetworkSpec>(f: &mut Frame, app: &App<N>, area: Rect) {
         Span::raw("Helios - "),
         Span::styled(&app.chain_name, Style::default().fg(Color::Cyan)),
         Span::raw("  |  Status: "),
-        Span::styled(format!("{} {}", status_text, status_symbol), status_style),
-        Span::raw(format!("  |  Uptime: {}h {}m {}s", hours, minutes, seconds)),
+        Span::styled(format!("{status_text} {status_symbol}"), status_style),
+        Span::raw(format!("  |  Uptime: {hours}h {minutes}m {seconds}s")),
     ])];
 
     let header = Paragraph::new(header_text)
@@ -307,10 +307,7 @@ fn create_gas_line(gas_percentage: u8, gas_used: u64, gas_limit: u64) -> Line<'s
     let gas_color = get_gas_color(gas_percentage);
     Line::from(vec![
         Span::raw("Gas:      "),
-        Span::styled(
-            format!("{}%", gas_percentage),
-            Style::default().fg(gas_color),
-        ),
+        Span::styled(format!("{gas_percentage}%"), Style::default().fg(gas_color)),
         Span::raw(" "),
         Span::styled(
             format!("({}/{})", format_gas(gas_used), format_gas(gas_limit)),

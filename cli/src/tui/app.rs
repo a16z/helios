@@ -166,6 +166,6 @@ fn get_chain_name(chain_id: u64) -> String {
         84532 => "Base Sepolia".to_string(),
         59144 => "Linea Mainnet".to_string(),
         59141 => "Linea Sepolia".to_string(),
-        _ => format!("Chain {}", chain_id),
+        _ => format!("Chain {chain_id}"),
     }
 }

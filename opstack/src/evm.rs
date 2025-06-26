@@ -84,7 +84,7 @@ impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
             }
         };
 
-        tx_res.map_err(|err| EvmError::Generic(format!("generic: {}", err)))
+        tx_res.map_err(|err| EvmError::Generic(format!("generic: {err}")))
     }
 
     async fn get_context(

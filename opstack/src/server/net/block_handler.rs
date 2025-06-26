@@ -17,7 +17,7 @@ impl BlockHandler {
             chain_id,
             signer,
             commitment_sender: sender,
-            blocks_v3_topic: IdentTopic::new(format!("/optimism/{}/2/blocks", chain_id)),
+            blocks_v3_topic: IdentTopic::new(format!("/optimism/{chain_id}/2/blocks")),
         }
     }
 
