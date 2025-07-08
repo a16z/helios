@@ -1,4 +1,3 @@
-
 import {createHeliosProvider} from '../../../dist/lib';
 
 import type { Config as NetworkConfig, HeliosProvider, Request, Config, NetworkKind } from '../../../dist/lib'
