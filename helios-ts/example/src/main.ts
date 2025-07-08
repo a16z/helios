@@ -145,7 +145,7 @@ async function main() {
   networks.forEach((n) => {
     setInterval(async () => {
       try {
-        if (!n.viemClient) return;        
+        if (!n.viemClient) return;
         
         const latestNumber = await n.viemClient.getBlockNumber();
         if (latestNumber !== n.lastSeen) {
