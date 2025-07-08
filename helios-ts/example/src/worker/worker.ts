@@ -28,10 +28,10 @@ self.onmessage = async (e) => {
     }
 };
 
-const handleNetworks = async (options: {method: string, params: {name: string, cfg: Config, kind: NetworkKind}}): Promise<any> => {
-    console.log(options);
-    const method = options.method
-    const params = options.params
+const handleNetworks = async (options: {method: string, params: {name?: string, cfg: Config, kind: NetworkKind}}): Promise<any> => {
+    const { method, params: { name = '', cfg, kind } } = options; // Set default value for name
+    // const method = options.method
+    // const params = options.params
     
     return new Promise(async (resolve, reject) => {
         try {
@@ -39,14 +39,14 @@ const handleNetworks = async (options: {method: string, params: {name: string, c
                 // If the name already exists resolve false, otherwise create the new networks Record and resolve true
                 // Reject with error if createHeliosProvider() fails
                 case 'create':
-                    if(params.name in networks) {
+                    if(name in networks) {
                         resolve(false)
                     } else {
                         try {
-                            networks[params.name] = {
-                                kind: params.kind,
-                                cfg: params.cfg,
-                                provider: await createHeliosProvider(params.cfg, params.kind)
+                            networks[name] = {
+                                kind: kind,
+                                cfg: cfg,
+                                provider: await createHeliosProvider(cfg, kind)
                             }   
                             resolve(true)
                         } catch(err) {
@@ -57,24 +57,24 @@ const handleNetworks = async (options: {method: string, params: {name: string, c
                 // Await for the network provider to sync the chain and then resolve with the entire network object and provider set to true
                 // Else resolve false
                 case 'read':
-                    if(params.name in networks) {
-                        let res = networks[params.name]
+                    if(name in networks) {
+                        let res = networks[name]
                         await res.provider?.waitSynced()
-                        resolve({name: params.name, kind: res.kind, cfg: res.cfg, provider: true})
+                        resolve({name: name, kind: res.kind, cfg: res.cfg, provider: true})
                     } else {
                         resolve(false)
                     }
                     break;
                 // Update the network object for a given name
                 case 'update':
-                    if(params.name in networks) {
+                    if(name in networks) {
                         try {
-                            networks[params.name].cfg = {
-                                ...networks[params.name].cfg,
-                                ...params.cfg,
+                            networks[name].cfg = {
+                                ...networks[name].cfg,
+                                ...cfg,
                             };
-                            if(params.kind) {
-                                networks[params.name].kind = params.kind
+                            if(kind) {
+                                networks[name].kind = kind
                             }
                             resolve(true)
                         } catch(err) {
@@ -86,8 +86,8 @@ const handleNetworks = async (options: {method: string, params: {name: string, c
                     break;
                 // Delete a network Record
                 case 'delete':
-                    if(params.name in networks) {
-                        delete networks[params.name]
+                    if(name in networks) {
+                        delete networks[name]
                         resolve(true)
                     } else {
                         resolve(false)

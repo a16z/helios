@@ -4,7 +4,7 @@ import { mainnet, optimism, base, linea } from 'viem/chains';
 // Import helios from the parent directory's built output
 // @ts-ignore - importing local build
 import * as helios from '../../dist/lib.mjs';
-import { WorkerProvider } from '../../dist/lib';
+import { createWorkerProvider } from '../../dist/lib';
 
 interface NetworkConfig {
   name: string;
@@ -115,7 +115,6 @@ async function main() {
 
           case 'op-mainnet':
             n.provider = await helios.createHeliosProvider(n.cfg, n.kind);
-            // Create a viem public client using the Helios provider
             n.viemClient = createPublicClient({
               chain: n.chain,
               transport: custom(n.provider),
@@ -123,16 +122,7 @@ async function main() {
             break;
 
           case 'ethereum':
-            n.provider = new WorkerProvider(heliosWorkerOne, n.name)
-            n.provider.networks({
-              method: 'create',
-              params: {
-                name: n.name,
-                kind: n.kind,
-                cfg: n.cfg
-              }
-            })
-            // Create a viem public client using the Helios provider
+            n.provider = await createWorkerProvider(heliosWorkerOne, {kind: n.kind, cfg: n.cfg})
             n.viemClient = createPublicClient({
               chain: n.chain,
               transport: custom(n.provider),
@@ -140,16 +130,16 @@ async function main() {
             break;
 
           default: 
-            n.provider = new WorkerProvider(heliosWorkerTwo, n.name)
-            n.provider.networks({
-              method: 'create',
-              params: {
-                name: n.name,
-                kind: n.kind,
-                cfg: n.cfg
-              }
-            })
-            // Create a viem public client using the Helios provider
+            // n.provider = new WorkerProvider(heliosWorkerTwo, n.name)
+            // n.provider.networks({
+            //   method: 'create',
+            //   params: {
+            //     name: n.name,
+            //     kind: n.kind,
+            //     cfg: n.cfg
+            //   }
+            // })
+            n.provider = await createWorkerProvider(heliosWorkerTwo, {name: n.name, kind: n.kind, cfg: n.cfg})
             n.viemClient = createPublicClient({
               chain: n.chain,
               transport: custom(n.provider),
