@@ -509,17 +509,17 @@ type NetworksCRUD = "create" | "read" | "update" | "delete"
  * ```
  */
 export async function createWorkerProvider(worker: Worker, network: {name?: string, kind:  NetworkKind, cfg: Config}): Promise<WorkerProvider> {
-  return new Promise(async (resolve, reject) => {
-    try {      
-      const provider = network.name
-        ? new WorkerProvider(worker, network.name)
-        : new WorkerProvider(worker);
-      await provider.networks({method: 'create', params: network})
-      resolve(provider)
-    } catch(err) {
-      reject(err)
-    }
-  })
+  try {      
+    // If network.name is included in arguments pass it to new WorkerProvider()
+    // Else only pass the worker to new WorkerProvider()
+    const provider = network.name
+      ? new WorkerProvider(worker, network.name)
+      : new WorkerProvider(worker);
+    await provider.networks({method: 'create', params: network})
+    return provider
+  } catch(err) {
+    throw err
+  }
 }
 
 /**
@@ -548,7 +548,7 @@ export class WorkerProvider {
     if(name) this.name = name
   }
 
-  async networks(params: {method: NetworksCRUD, params: {name?: string, kind?: NetworkKind, cfg?: Config}}): Promise<any> {
+  networks(params: {method: NetworksCRUD, params: {name?: string, kind?: NetworkKind, cfg?: Config}}): Promise<any> {
     return new Promise((resolve, reject) => {
       try {
 
@@ -578,10 +578,10 @@ export class WorkerProvider {
     })
   }
 
-  async request(eip1193: Request): Promise<any> {
+  request(eip1193: Request): Promise<any> {
     return new Promise((resolve, reject) => {
       try {
-        const id = Math.random().toString(36).slice(2);                
+        const id = uuidv4()              
         const handler = (event: MessageEvent) => {          
           if (event.data.id === id) {                        
             this.#worker.removeEventListener('message', handler);
