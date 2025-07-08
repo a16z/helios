@@ -129,16 +129,7 @@ async function main() {
             });   
             break;
 
-          default: 
-            // n.provider = new WorkerProvider(heliosWorkerTwo, n.name)
-            // n.provider.networks({
-            //   method: 'create',
-            //   params: {
-            //     name: n.name,
-            //     kind: n.kind,
-            //     cfg: n.cfg
-            //   }
-            // })
+          default:
             n.provider = await createWorkerProvider(heliosWorkerTwo, {name: n.name, kind: n.kind, cfg: n.cfg})
             n.viemClient = createPublicClient({
               chain: n.chain,
