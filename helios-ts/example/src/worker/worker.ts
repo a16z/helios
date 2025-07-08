@@ -75,6 +75,7 @@ const handleNetworks = async (options: {method: string, params: {name?: string, 
                             if(kind) {
                                 networks[name].kind = kind
                             }
+                            networks[name].provider = await createHeliosProvider(cfg, kind)
                             resolve(true)
                         } catch(err) {
                             reject(err)
