@@ -29,8 +29,6 @@ self.onmessage = async (e) => {
 
 const handleNetworks = async (options: {method: string, params: {name?: string, cfg: Config, kind: NetworkKind}}): Promise<any> => {
     const { method, params: { name = '', cfg, kind } } = options; // Set default value for name
-    // const method = options.method
-    // const params = options.params
     
     return new Promise(async (resolve, reject) => {
         try {
