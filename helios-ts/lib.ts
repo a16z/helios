@@ -505,7 +505,7 @@ type NetworksCRUD = "create" | "read" | "update" | "delete"
  * However, if multiple networks are intended to live inside the Worker then a name must be given to identify which network the WorkerProvider is pointing to inside the worker it is assigned to. 
  * 
  * @example
- * ```
+ * ```typescript
  * ```
  */
 export async function createWorkerProvider(worker: Worker, network: {name?: string, kind:  NetworkKind, cfg: Config}): Promise<WorkerProvider> {
@@ -552,7 +552,7 @@ export class WorkerProvider {
     return new Promise((resolve, reject) => {
       try {
 
-        const id = Math.random().toString(36).slice(2);                
+        const id = uuidv4()               
         const handler = (event: MessageEvent) => {
           if (event.data.id === id) {                        
             this.#worker.removeEventListener('message', handler);
