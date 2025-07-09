@@ -11,7 +11,7 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getCode` | `get_code` | Returns the code at a given address. | `client.get_code(&self, address: &str, block: BlockTag)` |
 | `eth_call` | `call` | Executes a new message call immediately without creating a transaction on the blockchain. | `client.call(&self, opts: CallOpts, block: BlockTag)` |
 | `eth_estimateGas` | `estimate_gas` | Generates and returns an estimate of how much gas is necessary to allow the transaction to be completed. | `client.estimate_gas(&self, opts: CallOpts, block: BlockTag)` |
-| `eth_createAccessList` | `create_access_list` | Creates an EIP2930 type `accessList` based on a given Transaction object. Returns list of addresses and storage keys that are read and written by the transaction (except precompiles), plus the estimated gas consumed when the access list is added. | `client.create_access_list(&self, opts: CallOpts, block: BlockTag)` |
+| `eth_createAccessList` | `create_access_list` | Creates an EIP2930 type `accessList` based on a given Transaction object. Returns a list of addresses and storage keys that are read and written by the transaction (except precompiles), plus the estimated gas consumed when the access list is added. | `client.create_access_list(&self, opts: CallOpts, block: BlockTag)` |
 | `eth_chainId` | `chain_id` | Returns the chain ID of the current network. | `client.chain_id(&self)` |
 | `eth_gasPrice` | `gas_price` | Returns the current price per gas in wei. | `client.gas_price(&self)` |
 | `eth_maxPriorityFeePerGas` | `max_priority_fee_per_gas` | Returns the current max priority fee per gas in wei. | `client.max_priority_fee_per_gas(&self)` |
