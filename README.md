@@ -52,7 +52,7 @@ To run Helios on Linea, run the command below, replacing `$ETH_RPC_URL` with an 
 helios linea --execution-rpc $ETH_RPC_URL
 ```
 
-`$ETH_RPC_URL` must be a [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the eth_getProof endpoint. We recommend using Alchemy or other compatible providers.
+`$ETH_RPC_URL` must be a supported Ethereum Execution API Provider that provides the eth_getProof endpoint. We recommend using Alchemy or other compatible providers.
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
