@@ -52,7 +52,7 @@ alloy = { version = "1.0.3", features = [
     "json-rpc",
     "signers",
 ] }
-alloy-trie = "0.8.1"
+alloy-trie = { version = "0.9", features = ["ethereum"] }
 op-alloy-rpc-types = "0.18.0"
 revm = { version = "22.0.1", default-features = false, features = [
     "std",

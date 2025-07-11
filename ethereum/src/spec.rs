@@ -141,6 +141,10 @@ impl TransactionBuilder<Ethereum> for TransactionRequest {
         self.nonce = Some(nonce);
     }
 
+    fn take_nonce(&mut self) -> Option<u64> {
+        self.nonce.take()
+    }
+
     fn input(&self) -> Option<&Bytes> {
         self.input.input()
     }
