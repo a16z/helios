@@ -13,3 +13,4 @@ mod constants;
 
 pub use builder::EthereumClientBuilder;
 pub type EthereumClient = HeliosClient<Ethereum>;
+pub use eyre;
