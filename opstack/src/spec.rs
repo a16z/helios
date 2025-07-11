@@ -170,6 +170,10 @@ impl TransactionBuilder<OpStack> for OpTransactionRequest {
         <TransactionRequest as TransactionBuilder<Ethereum>>::set_nonce(self.as_mut(), nonce);
     }
 
+    fn take_nonce(&mut self) -> Option<u64> {
+        <TransactionRequest as TransactionBuilder<Ethereum>>::take_nonce(self.as_mut())
+    }
+
     fn input(&self) -> Option<&Bytes> {
         <TransactionRequest as TransactionBuilder<Ethereum>>::input(self.as_ref())
     }
