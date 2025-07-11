@@ -27,12 +27,9 @@ impl PublicKey {
     fn point(&self) -> Result<G1Affine> {
         let bytes = self.inner.inner.to_vec();
         let bytes = bytes.as_slice().try_into()?;
-        let point_opt = G1Affine::from_compressed(bytes);
-        if point_opt.is_some().into() {
-            Ok(point_opt.unwrap())
-        } else {
-            Err(eyre!("invalid point"))
-        }
+        G1Affine::from_compressed(bytes)
+            .into()
+            .ok_or_else(|| eyre!("invalid point"))
     }
 }
 
@@ -79,12 +76,9 @@ impl Signature {
     fn point(&self) -> Result<G2Affine> {
         let bytes = self.inner.inner.to_vec();
         let bytes = bytes.as_slice().try_into()?;
-        let point_opt = G2Affine::from_compressed(bytes);
-        if point_opt.is_some().into() {
-            Ok(point_opt.unwrap())
-        } else {
-            Err(eyre!("invalid point"))
-        }
+        G2Affine::from_compressed(bytes)
+            .into()
+            .ok_or_else(|| eyre!("invalid point"))
     }
 }
 
