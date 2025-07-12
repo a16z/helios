@@ -35,7 +35,7 @@ async function main() {
 main().catch(console.error);
 ```
 
-### 2. Loading on a webpage from a CDN
+### 2. Loading a webpage from a CDN
 
 For a quick test, you can try Helios directly in an HTML file using a CDN like unpkg.
 

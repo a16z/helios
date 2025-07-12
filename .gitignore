@@ -12,7 +12,7 @@ helios-ts/LICENSE
 
 CLAUDE.md
 .dockerignore
-.CLAUDE_SESIONS.md
+.CLAUDE_SESSIONS.md
 CLAUDE_DOCKER_README.md
 CLAUDE_SESSIONS.md
 Dockerfile.claude
