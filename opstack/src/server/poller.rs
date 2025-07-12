@@ -17,7 +17,7 @@ pub fn start(urls: Vec<Url>, signer: Address, chain_id: u64, sender: Sender<Sequ
             .build()
             .unwrap();
 
-        let mut final_urls = Vec::new();
+        let mut final_urls = vec![];
         for url in urls {
             if let Ok(replica_chain_id) = get_chain_id(&client, &url).await {
                 if chain_id == replica_chain_id {
