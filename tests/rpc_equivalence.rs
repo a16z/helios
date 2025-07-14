@@ -961,11 +961,18 @@ async fn test_get_historical_block(helios: &RootProvider, expected: &RootProvide
     let block = helios
         .get_block_by_number(historical_block_num.into())
         .await?;
+
     let expected_block = expected
         .get_block_by_number(historical_block_num.into())
         .await?;
 
     if let (Some(block), Some(expected_block)) = (block, expected_block) {
+        let hash = block.header.hash;
+        let calculated_hash = block.header.hash_slow();
+        if hash != calculated_hash {
+            eyre::bail!("invalid block hash");
+        }
+
         if block.header.number != expected_block.header.number {
             return Err(eyre::eyre!(
                 "Historical block number mismatch: expected {:?}, got {:?}",
