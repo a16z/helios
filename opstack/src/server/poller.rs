@@ -12,10 +12,15 @@ use crate::SequencerCommitment;
 
 pub fn start(urls: Vec<Url>, signer: Address, chain_id: u64, sender: Sender<SequencerCommitment>) {
     tokio::spawn(async move {
-        let client = ClientBuilder::new()
+        let client = match ClientBuilder::new()
             .timeout(Duration::from_millis(500))
-            .build()
-            .unwrap();
+            .build() {
+                Ok(client) => client,
+                Err(e) => {
+                    warn!("Failed to build HTTP client: {}", e);
+                    return;
+                }
+            };
 
         let mut final_urls = Vec::new();
         for url in urls {
