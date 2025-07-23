@@ -46,7 +46,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>> No
         let mut finalized_block_recv = consensus.finalized_block_recv().unwrap();
         let execution = Arc::new(execution);
         let execution_ref = execution.clone();
-        let block_broadcast = Sender::new(100);
+        let (block_broadcast, _block_broadcast_rx) = tokio::sync::broadcast::channel(100);
         let block_broadcast_ref = block_broadcast.clone();
 
         #[cfg(not(target_arch = "wasm32"))]
