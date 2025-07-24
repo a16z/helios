@@ -63,7 +63,7 @@ impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
 
         let mut evm = self
             .get_context(tx, self.block_id, validate_tx)
-            .await
+            .await?
             .with_db(db)
             .build_op();
 
@@ -92,14 +92,14 @@ impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
         tx: &OpTransactionRequest,
         block_id: BlockId,
         validate_tx: bool,
-    ) -> OpContext<EmptyDB> {
+    ) -> Result<OpContext<EmptyDB>, EvmError> {
         let block = self
             .execution
             .get_block(block_id, false)
             .await
-            .unwrap()
+            .map_err(|err| EvmError::Generic(err.to_string()))?
             .ok_or(ExecutionError::BlockNotFound(block_id))
-            .unwrap();
+            .map_err(|err| EvmError::Generic(err.to_string()))?;
 
         let mut tx_env = Self::tx_env(tx);
 
@@ -123,10 +123,10 @@ impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
         let mut op_tx_env = OpTransaction::new(tx_env);
         op_tx_env.enveloped_tx = Some(Bytes::new());
 
-        Context::op()
+        Ok(Context::op()
             .with_tx(op_tx_env)
             .with_block(Self::block_env(&block, &self.fork_schedule))
-            .with_cfg(cfg)
+            .with_cfg(cfg))
     }
 
     fn tx_env(tx: &OpTransactionRequest) -> TxEnv {
