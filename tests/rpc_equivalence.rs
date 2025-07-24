@@ -997,10 +997,10 @@ async fn test_get_too_old_block(helios: &RootProvider, expected: &RootProvider) 
 
     let old_block_num = latest_block_num.saturating_sub(20000);
 
-    let helios_block = helios.get_block_by_number(old_block_num.into()).await?;
+    let helios_block = helios.get_block_by_number(old_block_num.into()).await;
 
     ensure!(
-        helios_block.is_none(),
+        helios_block.is_err(),
         "Helios should return None for a block outside the proof window"
     );
 
