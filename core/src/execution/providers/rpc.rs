@@ -24,7 +24,7 @@ use reqwest::Url;
 
 use helios_common::{
     execution_provider::{
-        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider,
+        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProvider, LogProvider,
         ReceiptProvider, TransactionProvider,
     },
     network_spec::NetworkSpec,
@@ -66,7 +66,7 @@ pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>, H: Historic
     historical_provider: Option<H>,
 }
 
-impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProivder<N>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProvider<N>
     for RpcExecutionProvider<N, B, H>
 {
 }

@@ -12,7 +12,7 @@ use crate::{network_spec::NetworkSpec, types::Account};
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-pub trait ExecutionProivder<N: NetworkSpec>:
+pub trait ExecutionProvider<N: NetworkSpec>:
     AccountProvider<N>
     + BlockProvider<N>
     + TransactionProvider<N>

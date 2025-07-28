@@ -15,7 +15,7 @@ use url::Url;
 use futures::future::try_join_all;
 use helios_common::{
     execution_provider::{
-        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProivder, LogProvider,
+        AccountProvider, BlockProvider, ExecutionHintProvider, ExecutionProvider, LogProvider,
         ReceiptProvider, TransactionProvider,
     },
     network_spec::NetworkSpec,
@@ -50,7 +50,7 @@ pub struct VerifiableApiExecutionProvider<
     historical_provider: Option<H>,
 }
 
-impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProivder<N>
+impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProvider<N>
     for VerifiableApiExecutionProvider<N, B, H>
 {
 }

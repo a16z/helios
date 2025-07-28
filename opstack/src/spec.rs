@@ -9,7 +9,7 @@ use alloy::{
 
 use async_trait::async_trait;
 use helios_common::{
-    execution_provider::ExecutionProivder,
+    execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
     types::{Account, EvmError},
@@ -126,7 +126,7 @@ impl NetworkSpec for OpStack {
         receipt.inner.inner.logs().to_vec()
     }
 
-    async fn transact<E: ExecutionProivder<Self>>(
+    async fn transact<E: ExecutionProvider<Self>>(
         tx: &Self::TransactionRequest,
         validate_tx: bool,
         execution: Arc<E>,
