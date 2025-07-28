@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use revm::context::result::ExecutionResult;
 
 use crate::{
-    execution_provider::ExecutionProivder,
+    execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
     types::{Account, EvmError},
 };
@@ -20,7 +20,7 @@ pub trait NetworkSpec: Network {
     fn is_hash_valid(block: &Self::BlockResponse) -> bool;
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool;
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log>;
-    async fn transact<E: ExecutionProivder<Self>>(
+    async fn transact<E: ExecutionProvider<Self>>(
         tx: &Self::TransactionRequest,
         validate_tx: bool,
         execution: Arc<E>,
