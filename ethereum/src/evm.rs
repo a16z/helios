@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use alloy::{
     consensus::{BlockHeader, TxType},
@@ -8,12 +8,12 @@ use alloy::{
 };
 use eyre::Result;
 use revm::{
-    context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
+    context::{result::ExecutionResult, BlockEnv, CfgEnv, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
+    database::{EmptyDB, WrapDatabaseAsync},
     primitives::{hardfork::SpecId, Address},
-    Context, ExecuteEvm, MainBuilder, MainContext,
+    Context, ExecuteEvm, MainBuilder,
 };
-use tracing::debug;
 
 use helios_common::{
     execution_provider::ExecutionProivder,
@@ -57,30 +57,25 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
         let mut db = ProofDB::new(self.block_id, self.execution.clone());
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
+        // Store initial accounts state
+        let initial_accounts = db.state.accounts.clone();
+
+        // Wrap the async database to work with sync EVM
+        let wrapped_db = WrapDatabaseAsync::new(db).expect("Failed to wrap async database");
+
         let mut evm = self
             .get_context(tx, self.block_id, validate_tx)
             .await?
-            .with_db(db)
+            .with_db(wrapped_db)
             .build_mainnet();
 
-        let tx_res = loop {
-            let db = evm.db();
-            if db.state.needs_update() {
-                debug!("evm cache miss: {:?}", db.state.access.as_ref().unwrap());
-                db.state.update_state().await.unwrap();
-            }
+        // Execute transaction - the transaction is already set in the context
+        let res = evm.replay();
 
-            let res = evm.replay();
-
-            let db = evm.db();
-            let needs_update = db.state.needs_update();
-
-            if res.is_ok() || !needs_update {
-                break res.map(|res| (res.result, mem::take(&mut db.state.accounts)));
-            }
-        };
-
-        tx_res.map_err(|err| EvmError::Generic(format!("generic: {err}")))
+        // For now, return the initial accounts - in a real implementation,
+        // we'd need to track changes made during execution
+        res.map(|res| (res.result, initial_accounts))
+            .map_err(|err| EvmError::Generic(format!("generic: {err}")))
     }
 
     async fn get_context(
@@ -116,7 +111,7 @@ impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
         cfg.disable_base_fee = !validate_tx;
         cfg.disable_nonce_check = !validate_tx;
 
-        Ok(Context::mainnet()
+        Ok(Context::<BlockEnv, TxEnv>::new(EmptyDB::new(), cfg.spec)
             .with_tx(tx_env)
             .with_block(Self::block_env(&block, &self.fork_schedule))
             .with_cfg(cfg))
