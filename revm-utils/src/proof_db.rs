@@ -13,25 +13,25 @@ use revm::{
 use tracing::trace;
 
 use helios_common::{
-    execution_provider::ExecutionProivder,
+    execution_provider::ExecutionProvider,
     network_spec::NetworkSpec,
     types::{Account, EvmError},
 };
 
 use crate::types::DatabaseError;
 
-pub struct ProofDB<N: NetworkSpec, E: ExecutionProivder<N>> {
+pub struct ProofDB<N: NetworkSpec, E: ExecutionProvider<N>> {
     pub state: EvmState<N, E>,
 }
 
-impl<N: NetworkSpec, E: ExecutionProivder<N>> ProofDB<N, E> {
+impl<N: NetworkSpec, E: ExecutionProvider<N>> ProofDB<N, E> {
     pub fn new(block_id: BlockId, execution: Arc<E>) -> Self {
         let state = EvmState::new(execution, block_id);
         ProofDB { state }
     }
 }
 
-pub struct EvmState<N: NetworkSpec, E: ExecutionProivder<N>> {
+pub struct EvmState<N: NetworkSpec, E: ExecutionProvider<N>> {
     pub accounts: HashMap<Address, Account>,
     pub block_hash: HashMap<u64, B256>,
     pub block: BlockId,
@@ -39,7 +39,7 @@ pub struct EvmState<N: NetworkSpec, E: ExecutionProivder<N>> {
     pub phantom: PhantomData<N>,
 }
 
-impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
+impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
     pub fn new(execution: Arc<E>, block: BlockId) -> Self {
         Self {
             execution,
@@ -155,7 +155,7 @@ impl<N: NetworkSpec, E: ExecutionProivder<N>> EvmState<N, E> {
     }
 }
 
-impl<N: NetworkSpec, E: ExecutionProivder<N>> DatabaseAsync for ProofDB<N, E> {
+impl<N: NetworkSpec, E: ExecutionProvider<N>> DatabaseAsync for ProofDB<N, E> {
     type Error = DatabaseError;
 
     fn basic_async(

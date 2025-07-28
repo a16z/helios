@@ -16,7 +16,7 @@ use revm::{
 };
 
 use helios_common::{
-    execution_provider::ExecutionProivder,
+    execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
     types::{Account, EvmError},
 };
@@ -25,7 +25,7 @@ use helios_revm_utils::proof_db::ProofDB;
 
 use crate::spec::Ethereum;
 
-pub struct EthereumEvm<E: ExecutionProivder<Ethereum>> {
+pub struct EthereumEvm<E: ExecutionProvider<Ethereum>> {
     execution: Arc<E>,
     chain_id: u64,
     block_id: BlockId,
@@ -33,7 +33,7 @@ pub struct EthereumEvm<E: ExecutionProivder<Ethereum>> {
     phantom: PhantomData<Ethereum>,
 }
 
-impl<E: ExecutionProivder<Ethereum>> EthereumEvm<E> {
+impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
     pub fn new(
         execution: Arc<E>,
         chain_id: u64,

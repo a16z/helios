@@ -19,7 +19,7 @@ use revm::{
 };
 
 use helios_common::{
-    execution_provider::ExecutionProivder,
+    execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
     types::{Account, EvmError},
 };
@@ -28,7 +28,7 @@ use helios_revm_utils::proof_db::ProofDB;
 
 use crate::spec::OpStack;
 
-pub struct OpStackEvm<E: ExecutionProivder<OpStack>> {
+pub struct OpStackEvm<E: ExecutionProvider<OpStack>> {
     execution: Arc<E>,
     chain_id: u64,
     block_id: BlockId,
@@ -36,7 +36,7 @@ pub struct OpStackEvm<E: ExecutionProivder<OpStack>> {
     phantom: PhantomData<OpStack>,
 }
 
-impl<E: ExecutionProivder<OpStack>> OpStackEvm<E> {
+impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
     pub fn new(
         execution: Arc<E>,
         chain_id: u64,

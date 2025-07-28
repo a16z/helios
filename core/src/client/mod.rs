@@ -5,7 +5,7 @@ use std::{ops::Deref, sync::Arc};
 #[cfg(not(target_arch = "wasm32"))]
 use futures::future::pending;
 use helios_common::{
-    execution_provider::ExecutionProivder, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
+    execution_provider::ExecutionProvider, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
 };
 
 use crate::consensus::Consensus;
@@ -22,7 +22,7 @@ pub struct HeliosClient<N: NetworkSpec> {
 }
 
 impl<N: NetworkSpec> HeliosClient<N> {
-    pub fn new<C: Consensus<N::BlockResponse>, E: ExecutionProivder<N>>(
+    pub fn new<C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>>(
         consensus: C,
         execution: E,
         fork_schedule: ForkSchedule,
