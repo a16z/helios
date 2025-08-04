@@ -79,7 +79,7 @@ impl ConsensusSpec for MinimalConsensusSpec {
     type MaxValidatorsPerSlot = typenum::U8192;
     type MaxDeposits = typenum::U16;
     type MaxVoluntaryExits = typenum::U16;
-    type MaxBlsToExecutionChanged = typenum::U16;
+    type MaxBlsToExecutionChanges = typenum::U16;
     type MaxBlobKzgCommitments = typenum::U4096;
     type MaxWithdrawals = typenum::U16;
     type MaxValidatorsPerCommittee = typenum::U2048;
