@@ -638,28 +638,6 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         }
     };
 
-    // Process transactions - use parallel processing on native, sequential on WASM
-    #[cfg(not(target_arch = "wasm32"))]
-    let txs = {
-        use rayon::prelude::*;
-
-        // Create a custom thread pool with larger stack size for signature recovery
-        let pool = rayon::ThreadPoolBuilder::new()
-            .stack_size(4 * 1024 * 1024) // 4MB stack per thread
-            .build()
-            .unwrap();
-
-        pool.install(|| {
-            value
-                .transactions()
-                .par_iter()
-                .enumerate()
-                .map(|(i, tx_bytes)| process_tx(i, tx_bytes, block_hash, block_number, base_fee))
-                .collect::<Vec<_>>()
-        })
-    };
-
-    #[cfg(target_arch = "wasm32")]
     let txs = value
         .transactions()
         .iter()
