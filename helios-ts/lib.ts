@@ -290,7 +290,7 @@ export class HeliosProvider {
         return this.#client.unsubscribe(req.params[0]);
       }
       default: {
-        throw `method not supported: ${req.method}`;
+        throw new Error(`method not supported: ${req.method}`);
       }
     }
   }
