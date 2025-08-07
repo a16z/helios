@@ -67,7 +67,10 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             let db = evm.db();
             if db.state.needs_update() {
                 debug!("evm cache miss: {:?}", db.state.access.as_ref().unwrap());
-                db.state.update_state().await.unwrap();
+                db.state
+                    .update_state()
+                    .await
+                    .map_err(|e| EvmError::Generic(e.to_string()))?;
             }
 
             let res = evm.replay();
