@@ -80,7 +80,7 @@ pub struct CheckpointFallback {
     /// Services Map
     pub services: HashMap<networks::Network, Vec<CheckpointFallbackService>>,
     /// A list of supported networks to build.
-    /// Default: [mainnet, goerli]
+    /// Default: [mainnet, sepolia, holesky]
     pub networks: Vec<networks::Network>,
 }
 
@@ -118,7 +118,7 @@ impl CheckpointFallback {
 
     /// Build the checkpoint fallback service from the community-maintained list by [ethPandaOps](https://github.com/ethpandaops).
     ///
-    /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
+    /// The list is defined in [ethPandaOps/checkpoint-sync-health-checks](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
     pub async fn build(mut self) -> eyre::Result<Self> {
         // Fetch the services
         let url = Url::parse(CHECKPOINT_SYNC_SERVICES_LIST)?;
@@ -166,7 +166,7 @@ impl CheckpointFallback {
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
     ) -> eyre::Result<B256> {
-        // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
+        // Iterate over all checkpoint sync services for the given network and get the latest checkpoint slot for each.
         let tasks: Vec<_> = services
             .iter()
             .map(|service| async move {
