@@ -273,9 +273,21 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         .map(|(i, tx_bytes)| {
             let tx_bytes = tx_bytes.to_vec();
             let mut tx_bytes_slice = tx_bytes.as_slice();
-            let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice).unwrap();
+            let tx_envelope = OpTxEnvelope::decode(&mut tx_bytes_slice)
+                .map_err(|e| eyre!("failed to decode tx #{i} in block {}: {e}", value.block_number))?;
+            if !tx_bytes_slice.is_empty() {
+                return Err(eyre!(
+                    "trailing bytes after tx #{i} in block {}",
+                    value.block_number
+                ));
+            }
             let base_fee = tx_envelope.effective_gas_price(Some(value.base_fee_per_gas.to()));
-            let recovered = tx_envelope.try_into_recovered()?;
+            let recovered = tx_envelope
+                .try_into_recovered()
+                .map_err(|e| eyre!(
+                    "failed to recover signer for tx #{i} in block {}: {e}",
+                    value.block_number
+                ))?;
 
             let inner_tx = EthTransaction {
                 inner: recovered,
