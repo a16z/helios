@@ -1,4 +1,5 @@
 use std::cmp;
+use std::time::Duration;
 
 use alloy::primitives::B256;
 use async_trait::async_trait;
@@ -69,7 +70,12 @@ impl HttpRpc {
 impl<S: ConsensusSpec> ConsensusRpc<S> for HttpRpc {
     fn new(rpc: &str) -> Self {
         HttpRpc {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(30)) // Add request timeout
+                .connect_timeout(Duration::from_secs(10)) // Add connection timeout
+                .pool_idle_timeout(Duration::from_secs(60)) // Clean up idle connections
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
             rpc: rpc.trim_end_matches('/').to_string(),
         }
     }
