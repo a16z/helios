@@ -17,7 +17,7 @@ criterion_group! {
 /// Benchmark mainnet get code call.
 /// Address: 0x00000000219ab540356cbb839cbe05303d7705fa (beacon chain deposit address)
 pub fn bench_mainnet_get_code(c: &mut Criterion) {
-    c.bench_function("get_code", |b| {
+    c.bench_function("get_code_mainnet", |b| {
         // Create a new multi-threaded tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -42,7 +42,7 @@ pub fn bench_mainnet_get_code(c: &mut Criterion) {
 /// Benchmark sepolia get code call.
 /// Address: 0x7b79995e5f793a07bc00c21412e50ecae098e7f9 (sepolia weth)
 pub fn bench_sepolia_get_code(c: &mut Criterion) {
-    c.bench_function("get_code", |b| {
+    c.bench_function("get_code_sepolia", |b| {
         // Create a new multi-threaded tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
