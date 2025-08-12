@@ -3,7 +3,7 @@ use std::str::FromStr;
 use alloy::primitives::Address;
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use helios_common::types::BlockTag;
+use alloy::eips::{BlockId, BlockNumberOrTag};
 
 mod harness;
 
@@ -29,7 +29,7 @@ pub fn bench_mainnet_get_balance(c: &mut Criterion) {
 
         // Get the beacon chain deposit contract address.
         let addr = Address::from_str("0x00000000219ab540356cbb839cbe05303d7705fa").unwrap();
-        let block = BlockTag::Latest;
+        let block = BlockId::Number(BlockNumberOrTag::Latest);
 
         // Execute the benchmark asynchronously.
         b.to_async(rt).iter(|| async {
@@ -61,7 +61,7 @@ pub fn bench_sepolia_get_balance(c: &mut Criterion) {
 
         // Get the beacon chain deposit contract address.
         let addr = Address::from_str("0x7b79995e5f793a07bc00c21412e50ecae098e7f9").unwrap();
-        let block = BlockTag::Latest;
+        let block = BlockId::Number(BlockNumberOrTag::Latest);
 
         // Execute the benchmark asynchronously.
         b.to_async(rt).iter(|| async {
