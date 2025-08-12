@@ -17,7 +17,7 @@ criterion_group! {
 /// Benchmark mainnet get balance.
 /// Address: 0x00000000219ab540356cbb839cbe05303d7705fa (beacon chain deposit address)
 pub fn bench_mainnet_get_balance(c: &mut Criterion) {
-    c.bench_function("get_balance", |b| {
+    c.bench_function("get_balance_mainnet", |b| {
         // Create a new multi-threaded tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -42,7 +42,7 @@ pub fn bench_mainnet_get_balance(c: &mut Criterion) {
 /// Benchmark sepolia get balance.
 /// Address: 0x7b79995e5f793a07bc00c21412e50ecae098e7f9 (sepolia weth)
 pub fn bench_sepolia_get_balance(c: &mut Criterion) {
-    c.bench_function("get_balance", |b| {
+    c.bench_function("get_balance_sepolia", |b| {
         // Create a new multi-threaded tokio runtime.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -50,14 +50,10 @@ pub fn bench_sepolia_get_balance(c: &mut Criterion) {
             .unwrap();
 
         // Construct a sepolia client using our harness and tokio runtime.
-        let sc = match harness::construct_sepolia_client(&rt) {
-            Ok(sc) => sc,
-            Err(e) => {
-                println!("failed to construct sepolia client: {}", e);
-                std::process::exit(1);
-            }
-        };
-        let client = std::sync::Arc::new(sc);
+        let client = std::sync::Arc::new(
+            harness::construct_sepolia_client(&rt)
+                .expect("failed to construct sepolia client for benchmark"),
+        );
 
         // Get the beacon chain deposit contract address.
         let addr = Address::from_str("0x7b79995e5f793a07bc00c21412e50ecae098e7f9").unwrap();
