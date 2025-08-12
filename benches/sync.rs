@@ -40,7 +40,7 @@ pub fn bench_full_sync_with_call(c: &mut Criterion) {
     let checkpoint = harness::await_future(harness::fetch_mainnet_checkpoint()).unwrap();
 
     // On client construction, it will sync to the latest checkpoint using our fetched checkpoint.
-    c.bench_function("full_sync_call", |b| {
+    c.bench_function("full_sync_with_call", |b| {
         b.to_async(harness::construct_runtime()).iter(|| async {
             let client = std::sync::Arc::new(
                 harness::construct_mainnet_client_with_checkpoint(checkpoint)
@@ -69,7 +69,7 @@ pub fn bench_full_sync_checkpoint_fallback(c: &mut Criterion) {
 /// Benchmark full client sync with a call and checkpoint fallback.
 /// Address: 0x00000000219ab540356cbb839cbe05303d7705fa (beacon chain deposit address)
 pub fn bench_full_sync_with_call_checkpoint_fallback(c: &mut Criterion) {
-    c.bench_function("full_sync_call", |b| {
+    c.bench_function("full_sync_call_fallback", |b| {
         let addr = "0x00000000219ab540356cbb839cbe05303d7705fa";
         let rt = harness::construct_runtime();
         b.iter(|| {
