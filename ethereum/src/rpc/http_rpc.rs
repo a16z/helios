@@ -1,4 +1,6 @@
 use std::cmp;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
 
 use alloy::primitives::B256;
 use async_trait::async_trait;
@@ -68,8 +70,19 @@ impl HttpRpc {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<S: ConsensusSpec> ConsensusRpc<S> for HttpRpc {
     fn new(rpc: &str) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30)) // Add request timeout
+            .connect_timeout(Duration::from_secs(10)) // Add connection timeout
+            .pool_idle_timeout(Duration::from_secs(60)) // Clean up idle connections
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
+        #[cfg(target_arch = "wasm32")]
+        let client = reqwest::Client::new();
+
         HttpRpc {
-            client: reqwest::Client::new(),
+            client,
             rpc: rpc.trim_end_matches('/').to_string(),
         }
     }
