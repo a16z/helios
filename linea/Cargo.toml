@@ -14,7 +14,7 @@ tokio.workspace = true
 serde.workspace = true
 
 #misc
-alloy.workspace = true
+alloy = { workspace = true, features = ["trie"] }
 async-trait.workspace = true
 eyre.workspace = true
 tracing.workspace = true

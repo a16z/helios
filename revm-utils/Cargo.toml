@@ -5,7 +5,7 @@ edition = "2021"
 description = "Utilities for integrating REVM with Helios"
 
 [dependencies]
-alloy.workspace = true 
+alloy = { workspace = true, features = ["trie"] } 
 eyre.workspace = true 
 hex.workspace = true 
 revm.workspace = true 

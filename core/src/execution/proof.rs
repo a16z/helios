@@ -3,8 +3,8 @@ use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::EIP1186AccountProofResponse;
-use alloy_trie::root::ordered_trie_root_with_encoder;
-use alloy_trie::{
+use alloy::trie::root::ordered_trie_root_with_encoder;
+use alloy::trie::{
     proof::{verify_proof, ProofRetainer},
     root::adjust_index_for_rlp,
     HashBuilder, Nibbles, KECCAK_EMPTY,
@@ -61,7 +61,7 @@ pub fn verify_code_hash_proof(proof: &EIP1186AccountProofResponse, code: &Bytes)
 }
 
 /// Verifies a MPT proof for a given key-value pair against the provided root hash.
-/// This function wraps `alloy_trie::proof::verify_proof` and checks
+/// This function wraps `alloy::trie::proof::verify_proof` and checks
 /// if the value represents an empty account or slot to support exclusion proofs.
 ///
 /// # Parameters
