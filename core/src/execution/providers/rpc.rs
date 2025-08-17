@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use alloy::{
-    consensus::BlockHeader,
+    consensus::{Account as TrieAccount, BlockHeader},
     eips::{BlockId, BlockNumberOrTag},
     network::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
@@ -16,7 +16,6 @@ use alloy::{
     },
     transports::layers::RetryBackoffLayer,
 };
-use alloy_trie::TrieAccount;
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 use futures::future::{join_all, try_join_all};
