@@ -8,7 +8,7 @@ name = "verifiable-api-server"
 path = "./bin/server.rs"
 
 [dependencies]
-alloy.workspace = true
+alloy = { workspace = true, features = ["trie"] }
 tokio.workspace = true
 eyre.workspace = true
 serde.workspace = true
