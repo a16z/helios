@@ -31,8 +31,11 @@ async fn main() -> Result<()> {
         .with_file_db();
 
     // Build the client
-    let _client: EthereumClient = builder.build().unwrap();
+    let client: EthereumClient = builder.build().unwrap();
     println!("Constructed client!");
+
+    client.wait_synced().await;
+    println!("Synced!");
 
     Ok(())
 }
