@@ -169,12 +169,14 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         }
     }
 
-    async fn wait_synced(&self) {
+    async fn wait_synced(&self) -> Result<()> {
         let mut interval = interval(Duration::from_millis(100));
         loop {
             interval.tick().await;
-            if let Ok(SyncStatus::None) = self.syncing().await {
-                break;
+            match self.syncing().await {
+                Ok(SyncStatus::None) => return Ok(()),
+                Err(err) => return Err(err),
+                _ => continue,
             }
         }
     }
@@ -464,6 +466,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             Ok(SyncStatus::None)
         } else {
             let latest_synced_block = self.get_block_number().await.unwrap_or(U256::ZERO);
+            self.consensus.status()?;
             let highest_block = self.consensus.expected_highest_block();
 
             Ok(SyncStatus::Info(Box::new(SyncInfo {

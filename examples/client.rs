@@ -34,8 +34,10 @@ async fn main() -> Result<()> {
     let client: EthereumClient = builder.build().unwrap();
     println!("Constructed client!");
 
-    client.wait_synced().await;
-    println!("Synced!");
+    match client.wait_synced().await {
+        Ok(()) => println!("Synced!"),
+        Err(err) => println!("Failure syncing - {err:?}"),
+    }
 
     Ok(())
 }
