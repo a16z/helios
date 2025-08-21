@@ -221,7 +221,11 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
             }
 
             // with storage proof
-            let storage_proof = proof.storage_proof[0].clone();
+            let storage_proof = proof
+                .storage_proof
+                .first()
+                .ok_or_else(|| eyre!("missing storage_proof"))?
+                .clone();
             let key = storage_proof.key.as_b256();
             if key != B256::from_str(UNSAFE_SIGNER_SLOT)? {
                 warn!(target: "helios::opstack", "account proof invalid");
