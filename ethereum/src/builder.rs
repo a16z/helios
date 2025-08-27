@@ -153,11 +153,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         };
 
         let consensus_rpc = self.consensus_rpc.unwrap_or_else(|| {
-            self.config
-                .as_ref()
-                .expect("missing consensus rpc")
-                .consensus_rpc
-                .clone()
+            self.config.as_ref().expect("missing consensus rpc").consensus_rpc.clone()
         });
 
         let execution_rpc = self
@@ -168,60 +164,25 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             .verifiable_api
             .or_else(|| self.config.as_ref().and_then(|c| c.verifiable_api.clone()));
 
-        let checkpoint = if let Some(checkpoint) = self.checkpoint {
-            Some(checkpoint)
-        } else if let Some(config) = &self.config {
-            config.checkpoint
-        } else {
-            None
-        };
+        let checkpoint = self.checkpoint.or_else(|| self.config.as_ref().and_then(|c| c.checkpoint));
 
-        let default_checkpoint = if let Some(config) = &self.config {
-            config.default_checkpoint
-        } else {
-            base_config.default_checkpoint
-        };
+        let default_checkpoint = self.config.as_ref().map_or(base_config.default_checkpoint, |c| c.default_checkpoint);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let data_dir = if self.data_dir.is_some() {
-            self.data_dir
-        } else if let Some(config) = &self.config {
-            config.data_dir.clone()
-        } else {
-            None
-        };
+        let data_dir = self.data_dir.or_else(|| self.config.as_ref().and_then(|c| c.data_dir.clone()));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let rpc_address = if let Some(addr) = self.rpc_address {
-            Some(addr)
-        } else if let Some(config) = &self.config {
-            config
-                .rpc_bind_ip
-                .zip(config.rpc_port)
+        let rpc_address = self.rpc_address.or_else(|| {
+            self.config.as_ref().and_then(|c| c.rpc_bind_ip)
+                .zip(self.config.as_ref().and_then(|c| c.rpc_port))
                 .map(|(addr, port)| SocketAddr::new(addr, port))
-        } else {
-            None
-        };
+        });
 
-        let fallback = if self.fallback.is_some() {
-            self.fallback
-        } else if let Some(config) = &self.config {
-            config.fallback.clone()
-        } else {
-            None
-        };
+        let fallback = self.fallback.or_else(|| self.config.as_ref().and_then(|c| c.fallback.clone()));
 
-        let load_external_fallback = if let Some(config) = &self.config {
-            self.load_external_fallback || config.load_external_fallback
-        } else {
-            self.load_external_fallback
-        };
+        let load_external_fallback = self.config.as_ref().map_or(self.load_external_fallback, |c| self.load_external_fallback || c.load_external_fallback);
 
-        let strict_checkpoint_age = if let Some(config) = &self.config {
-            self.strict_checkpoint_age || config.strict_checkpoint_age
-        } else {
-            self.strict_checkpoint_age
-        };
+        let strict_checkpoint_age = self.config.as_ref().map_or(self.strict_checkpoint_age, |c| self.strict_checkpoint_age || c.strict_checkpoint_age);
 
         let config = Config {
             consensus_rpc,
