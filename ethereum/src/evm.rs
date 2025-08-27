@@ -102,10 +102,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
 
         let mut tx_env = Self::tx_env(tx);
 
-        if <TxType as Into<u8>>::into(
-            <TransactionRequest as TransactionBuilder<Ethereum>>::output_tx_type(tx),
-        ) == 0u8
-        {
+        if <TransactionRequest as TransactionBuilder<Ethereum>>::output_tx_type(tx) == TxType::Legacy {
             tx_env.chain_id = None;
         } else {
             tx_env.chain_id = Some(self.chain_id);
@@ -147,11 +144,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             gas_priority_fee:
                 <TransactionRequest as TransactionBuilder<Ethereum>>::max_priority_fee_per_gas(tx),
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap_or_default(),
-            blob_hashes: tx
-                .blob_versioned_hashes
-                .as_ref()
-                .map(|v| v.to_vec())
-                .unwrap_or_default(),
+            blob_hashes: tx.blob_versioned_hashes.as_ref().map_or_else(Vec::new, |v| v.to_vec()),
             authorization_list: vec![],
         }
     }
@@ -161,8 +154,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         let blob_excess_gas_and_price = block
             .header
             .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
-            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
+            .map_or_else(|| BlobExcessGasAndPrice::new(0, is_prague), |v| BlobExcessGasAndPrice::new(v, is_prague));
 
         BlockEnv {
             number: block.header.number(),
