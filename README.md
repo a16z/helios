@@ -118,7 +118,7 @@ A checkpoint is a Beacon Chain Consensus Layer block hash rather than an Executi
 
 Checkpoints may be obtained from the following links:
 * Ethereum Mainnet https://beaconcha.in
-* Holesky Testnet https://holesky.beaconcha.in
+* Holesky Testnet [https://light-holesky.beaconcha.in](https://light-holesky.beaconcha.in/)
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
