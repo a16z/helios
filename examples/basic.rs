@@ -2,6 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{utils::format_ether, Address};
+use dotenv::dotenv;
 use eyre::Result;
 use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -22,7 +23,10 @@ async fn main() -> Result<()> {
 
     tracing::subscriber::set_global_default(subscriber).expect("subscriber set failed");
 
-    let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>";
+    // Load the RPC URL using environment variable for security
+    dotenv().ok();
+    let untrusted_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")
+        .expect("MAINNET_EXECUTION_RPC environment variable not set");
     info!("Using untrusted RPC URL [REDACTED]");
 
     let consensus_rpc = "https://www.lightclientdata.org";
