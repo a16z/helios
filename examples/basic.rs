@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
         Network::Mainnet
     );
 
-    client.wait_synced().await;
+    client.wait_synced().await?;
 
     let client_version = client.get_client_version().await;
     let head_block_num = client.get_block_number().await?;

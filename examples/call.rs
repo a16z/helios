@@ -48,7 +48,7 @@ async fn main() -> eyre::Result<()> {
     );
 
     // Wait for Helios to sync
-    client.wait_synced().await;
+    client.wait_synced().await?;
 
     // Call on helios client
     let tx = TransactionRequest {
