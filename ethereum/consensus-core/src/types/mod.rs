@@ -277,7 +277,7 @@ pub struct AttesterSlashing<S: ConsensusSpec> {
 }
 
 #[superstruct(
-    variants(Base, Electra),
+    variants(Electra, Base),
     variant_attributes(
         derive(Deserialize, Debug, Default, Encode, TreeHash, Clone,),
         serde(deny_unknown_fields),
@@ -288,13 +288,13 @@ pub struct AttesterSlashing<S: ConsensusSpec> {
 #[serde(untagged)]
 #[ssz(enum_behaviour = "transparent")]
 #[tree_hash(enum_behaviour = "transparent")]
-struct IndexedAttestation<S: ConsensusSpec> {
-    #[serde(with = "quoted_u64_var_list")]
-    #[superstruct(only(Base), partial_getter(rename = "attesting_indices_base"))]
-    attesting_indices: VariableList<u64, S::MaxValidatorsPerCommittee>,
+pub struct IndexedAttestation<S: ConsensusSpec> {
     #[serde(with = "quoted_u64_var_list")]
     #[superstruct(only(Electra), partial_getter(rename = "attesting_indices_electra"))]
     attesting_indices: VariableList<u64, S::MaxValidatorsPerSlot>,
+    #[serde(with = "quoted_u64_var_list")]
+    #[superstruct(only(Base), partial_getter(rename = "attesting_indices_base"))]
+    attesting_indices: VariableList<u64, S::MaxValidatorsPerCommittee>,
     data: AttestationData,
     signature: Signature,
 }
@@ -306,7 +306,7 @@ impl<S: ConsensusSpec> Default for IndexedAttestation<S> {
 }
 
 #[superstruct(
-    variants(Base, Electra),
+    variants(Electra, Base),
     variant_attributes(
         derive(Deserialize, Debug, Encode, TreeHash, Clone,),
         serde(deny_unknown_fields),
@@ -318,10 +318,10 @@ impl<S: ConsensusSpec> Default for IndexedAttestation<S> {
 #[ssz(enum_behaviour = "transparent")]
 #[tree_hash(enum_behaviour = "transparent")]
 pub struct Attestation<S: ConsensusSpec> {
-    #[superstruct(only(Base), partial_getter(rename = "aggregation_bits_base"))]
-    aggregation_bits: BitList<S::MaxValidatorsPerCommittee>,
     #[superstruct(only(Electra), partial_getter(rename = "aggregation_bits_electra"))]
     aggregation_bits: BitList<S::MaxValidatorsPerSlot>,
+    #[superstruct(only(Base), partial_getter(rename = "aggregation_bits_base"))]
+    aggregation_bits: BitList<S::MaxValidatorsPerCommittee>,
     data: AttestationData,
     signature: Signature,
     #[superstruct(only(Electra))]
