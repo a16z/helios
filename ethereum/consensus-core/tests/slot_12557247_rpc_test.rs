@@ -15,7 +15,7 @@ async fn test_slot_12557247_consensus_rpc() {
 
     // Try using a consensus RPC endpoint
     let consensus_rpc = "http://unstable.mainnet.beacon-api.nimbus.team";
-    let endpoint = format!("{}/eth/v2/beacon/blocks/12557247", consensus_rpc);
+    let endpoint = format!("{consensus_rpc}/eth/v2/beacon/blocks/12557247");
 
     let client = Client::new();
     let response = client
@@ -25,28 +25,27 @@ async fn test_slot_12557247_consensus_rpc() {
         .await
         .expect("rpc fetch failed");
 
-     let json: Value = response.json().await.expect("Failed to parse JSON");
+    let json: Value = response.json().await.expect("Failed to parse JSON");
 
-     // The block is under data.message
-     let block_data = &json["data"]["message"];
+    // The block is under data.message
+    let block_data = &json["data"]["message"];
 
-     // Deserialize the block
-     let beacon_block: BeaconBlock<MainnetConsensusSpec> =
-         serde_json::from_value(block_data.clone())
-             .expect("Failed to deserialize beacon block");
+    // Deserialize the block
+    let beacon_block: BeaconBlock<MainnetConsensusSpec> =
+        serde_json::from_value(block_data.clone()).expect("Failed to deserialize beacon block");
 
-     // Calculate hash
-     let calculated_hash = beacon_block.tree_hash_root();
+    // Calculate hash
+    let calculated_hash = beacon_block.tree_hash_root();
 
-     println!("Consensus RPC test:");
-     println!("Slot: {}", beacon_block.slot);
-     println!("Expected hash:   {}", expected_hash);
-     println!("Calculated hash: {}", calculated_hash);
+    println!("Consensus RPC test:");
+    println!("Slot: {}", beacon_block.slot);
+    println!("Expected hash:   {expected_hash}");
+    println!("Calculated hash: {calculated_hash}");
 
-     assert_eq!(
-         calculated_hash, expected_hash,
-         "Tree hash root mismatch for slot 12557247"
-     );
+    assert_eq!(
+        calculated_hash, expected_hash,
+        "Tree hash root mismatch for slot 12557247"
+    );
 
-     println!("✓ Consensus RPC block hash verification successful!");
+    println!("✓ Consensus RPC block hash verification successful!");
 }
