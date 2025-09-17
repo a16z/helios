@@ -5,7 +5,6 @@ use std::time::Duration;
 use alloy::primitives::B256;
 use async_trait::async_trait;
 use eyre::Result;
-use retri::{retry, BackoffSettings};
 use serde::{de::DeserializeOwned, Deserialize};
 
 use helios_consensus_core::{
@@ -38,11 +37,7 @@ struct HttpRpcError {
 
 impl HttpRpc {
     async fn get<R: DeserializeOwned>(&self, req: &str) -> Result<R> {
-        let response = retry(
-            || async { Ok::<_, eyre::Report>(self.client.get(req).send().await?) },
-            BackoffSettings::default(),
-        )
-        .await?;
+        let response = self.client.get(req).send().await?;
 
         let status = response.status();
         let bytes = response.bytes().await?;
