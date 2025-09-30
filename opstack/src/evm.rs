@@ -168,11 +168,13 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         }
     }
 
-    fn block_env(block: &Block<Transaction, Header>, _fork_schedule: &ForkSchedule) -> BlockEnv {
-        // EIP-4844 blob base fee update fraction
-        const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = 3338477;
+    fn block_env(block: &Block<Transaction, Header>, fork_schedule: &ForkSchedule) -> BlockEnv {
+        // Get blob base fee update fraction based on fork
+        let blob_base_fee_update_fraction =
+            fork_schedule.get_blob_base_fee_update_fraction(block.header.timestamp());
+
         let blob_excess_gas_and_price =
-            Some(BlobExcessGasAndPrice::new(0, BLOB_BASE_FEE_UPDATE_FRACTION));
+            Some(BlobExcessGasAndPrice::new(0, blob_base_fee_update_fraction));
 
         BlockEnv {
             number: U256::from(block.header.number()),

@@ -69,3 +69,15 @@ impl Default for ForkSchedule {
         }
     }
 }
+
+impl ForkSchedule {
+    /// Get the blob base fee update fraction for a given timestamp.
+    /// The fraction changes from Cancun to Prague according to EIP-7892.
+    pub fn get_blob_base_fee_update_fraction(&self, timestamp: u64) -> u64 {
+        if timestamp >= self.prague_timestamp {
+            5007716 // Prague and later (EIP-7892)
+        } else {
+            3338477 // Cancun
+        }
+    }
+}
