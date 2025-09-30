@@ -112,6 +112,10 @@ pub fn mainnet() -> BaseConfig {
                 epoch: 364032,
                 fork_version: fixed_bytes!("05000000"),
             },
+            fusaka: Fork {
+                epoch: 411392,
+                fork_version: fixed_bytes!("06000000"),
+            },
         },
         execution_forks: EthereumForkSchedule::mainnet(),
         max_checkpoint_age: 1_209_600, // 14 days
@@ -157,6 +161,10 @@ pub fn sepolia() -> BaseConfig {
             electra: Fork {
                 epoch: 222464,
                 fork_version: fixed_bytes!("90000074"),
+            },
+            fusaka: Fork {
+                epoch: 272640,
+                fork_version: fixed_bytes!("90000075"),
             },
         },
         execution_forks: EthereumForkSchedule::sepolia(),
@@ -204,6 +212,10 @@ pub fn holesky() -> BaseConfig {
                 epoch: 115968,
                 fork_version: fixed_bytes!("06017000"),
             },
+            fusaka: Fork {
+                epoch: 165120,
+                fork_version: fixed_bytes!("07017000"),
+            },
         },
         execution_forks: EthereumForkSchedule::holesky(),
         max_checkpoint_age: 1_209_600, // 14 days
@@ -250,6 +262,10 @@ pub fn hoodi() -> BaseConfig {
                 epoch: 2048,
                 fork_version: fixed_bytes!("60000910"),
             },
+            fusaka: Fork {
+                epoch: 50688,
+                fork_version: fixed_bytes!("70000910"),
+            },
         },
         execution_forks: EthereumForkSchedule::hoodi(),
         max_checkpoint_age: 1_209_600, // 14 days
@@ -290,6 +306,7 @@ impl EthereumForkSchedule {
             shanghai_timestamp: 1681338455,
             cancun_timestamp: 1710338135,
             prague_timestamp: 1746612311,
+            osaka_timestamp: 1764798551,
 
             ..Default::default()
         }
@@ -315,6 +332,7 @@ impl EthereumForkSchedule {
             shanghai_timestamp: 1677557088,
             cancun_timestamp: 1706655072,
             prague_timestamp: 1741159776,
+            osaka_timestamp: 1760427360,
 
             ..Default::default()
         }
@@ -340,6 +358,7 @@ impl EthereumForkSchedule {
             shanghai_timestamp: 1696000704,
             cancun_timestamp: 1707305664,
             prague_timestamp: 1740434112,
+            osaka_timestamp: 1759308480,
 
             ..Default::default()
         }
@@ -365,6 +384,7 @@ impl EthereumForkSchedule {
             shanghai_timestamp: 0,
             cancun_timestamp: 0,
             prague_timestamp: 1742999832,
+            osaka_timestamp: 1761677592,
 
             ..Default::default()
         }

@@ -420,8 +420,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             .ok_or(eyre!(ClientError::BlockNotFound(block_id)))?;
 
         if let Some(excess_blob_gas) = block.header().excess_blob_gas() {
-            let is_prague = block.header().timestamp() >= self.fork_schedule.prague_timestamp;
-            let price = BlobExcessGasAndPrice::new(excess_blob_gas, is_prague).blob_gasprice;
+            // EIP-4844 blob base fee update fraction
+            const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = 3338477;
+            let price = BlobExcessGasAndPrice::new(excess_blob_gas, BLOB_BASE_FEE_UPDATE_FRACTION)
+                .blob_gasprice;
             Ok(U256::from(price))
         } else {
             Ok(U256::ZERO)

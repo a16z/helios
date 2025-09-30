@@ -21,7 +21,7 @@ pub struct ForkSchedule {
     pub shanghai_timestamp: u64,
     pub cancun_timestamp: u64,
     pub prague_timestamp: u64,
-    // Osaka and beyond TBD
+    pub osaka_timestamp: u64,
 
     // Optimism Forks
     pub bedrock_timestamp: u64,
@@ -56,6 +56,7 @@ impl Default for ForkSchedule {
             shanghai_timestamp: u64::MAX,
             cancun_timestamp: u64::MAX,
             prague_timestamp: u64::MAX,
+            osaka_timestamp: u64::MAX,
 
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,

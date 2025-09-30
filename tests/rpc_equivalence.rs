@@ -140,7 +140,7 @@ async fn setup() -> (
     Vec<RootProvider>,
 ) {
     let execution_rpc = env::var("MAINNET_EXECUTION_RPC").unwrap();
-    let consensus_rpc = "https://www.lightclientdata.org";
+    let consensus_rpc = "https://ethereum.operationsolarstorm.org";
 
     // Direct provider
     let provider = RootProvider::new_http(execution_rpc.parse().unwrap());
