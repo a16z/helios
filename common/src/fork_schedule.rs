@@ -21,7 +21,7 @@ pub struct ForkSchedule {
     pub shanghai_timestamp: u64,
     pub cancun_timestamp: u64,
     pub prague_timestamp: u64,
-    // Osaka and beyond TBD
+    pub osaka_timestamp: u64,
 
     // Optimism Forks
     pub bedrock_timestamp: u64,
@@ -56,6 +56,7 @@ impl Default for ForkSchedule {
             shanghai_timestamp: u64::MAX,
             cancun_timestamp: u64::MAX,
             prague_timestamp: u64::MAX,
+            osaka_timestamp: u64::MAX,
 
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,
@@ -65,6 +66,18 @@ impl Default for ForkSchedule {
             granite_timestamp: u64::MAX,
             holocene_timestamp: u64::MAX,
             isthmus_timestamp: u64::MAX,
+        }
+    }
+}
+
+impl ForkSchedule {
+    /// Get the blob base fee update fraction for a given timestamp.
+    /// The fraction changes from Cancun to Prague according to EIP-7892.
+    pub fn get_blob_base_fee_update_fraction(&self, timestamp: u64) -> u64 {
+        if timestamp >= self.prague_timestamp {
+            5007716 // Prague and later (EIP-7892)
+        } else {
+            3338477 // Cancun
         }
     }
 }

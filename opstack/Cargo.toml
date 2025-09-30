@@ -24,7 +24,7 @@ async-trait.workspace = true
 alloy.workspace = true
 alloy-trie.workspace = true
 revm.workspace = true
-op-revm = { version = "3.0.0", default-features = false, features = [
+op-revm = { version = "10.1.0", default-features = false, features = [
     "std",
     "serde",
     "optional_block_gas_limit",
@@ -36,8 +36,8 @@ ethereum_ssz_derive.workspace = true
 ethereum_ssz.workspace = true
 ssz_types.workspace = true
 alloy-rlp = "0.3.12"
-op-alloy-network = "0.18.0"
-op-alloy-consensus = { version = "0.18.0", features = ["k256"] }
+op-alloy-network = "0.20.0"
+op-alloy-consensus = { version = "0.20.0", features = ["k256"] }
 op-alloy-rpc-types.workspace = true
 snap = "1"
 

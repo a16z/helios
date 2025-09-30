@@ -227,7 +227,12 @@ fn apply_update_no_quorum_check<S: ConsensusSpec>(
             store.optimistic_header = store.finalized_header.clone();
         }
 
-        if store.finalized_header.beacon().slot % S::slots_per_epoch() == 0 {
+        if store
+            .finalized_header
+            .beacon()
+            .slot
+            .is_multiple_of(S::slots_per_epoch())
+        {
             let checkpoint = store.finalized_header.beacon().tree_hash_root();
             return Some(checkpoint);
         }

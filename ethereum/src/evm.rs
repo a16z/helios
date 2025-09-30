@@ -10,7 +10,7 @@ use eyre::Result;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    primitives::{hardfork::SpecId, Address},
+    primitives::{hardfork::SpecId, Address, U256},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
 use tracing::debug;
@@ -57,33 +57,33 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         let mut db = ProofDB::new(self.block_id, self.execution.clone());
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
-        let mut evm = self
-            .get_context(tx, self.block_id, validate_tx)
-            .await?
-            .with_db(db)
-            .build_mainnet();
-
-        let tx_res = loop {
-            let db = evm.db();
-            if db.state.needs_update() {
-                debug!("evm cache miss: {:?}", db.state.access.as_ref().unwrap());
-                db.state
-                    .update_state()
-                    .await
-                    .map_err(|e| EvmError::Generic(e.to_string()))?;
+        // Pre-fetch all required state
+        loop {
+            if !db.state.needs_update() {
+                break;
             }
+            debug!("evm cache miss: {:?}", db.state.access.as_ref().unwrap());
+            db.state
+                .update_state()
+                .await
+                .map_err(|e| EvmError::Generic(e.to_string()))?;
+        }
 
+        // Now execute synchronously with all state loaded
+        let context = self.get_context(tx, self.block_id, validate_tx).await?;
+
+        // Execute in a scope to ensure EVM is dropped before any async operations
+        let (result, accounts) = {
+            let mut evm = context.with_db(db).build_mainnet();
             let res = evm.replay();
-
-            let db = evm.db();
-            let needs_update = db.state.needs_update();
-
-            if res.is_ok() || !needs_update {
-                break res.map(|res| (res.result, mem::take(&mut db.state.accounts)));
-            }
+            let db = evm.db_mut();
+            let accounts = mem::take(&mut db.state.accounts);
+            (res, accounts)
         };
 
-        tx_res.map_err(|err| EvmError::Generic(format!("generic: {err}")))
+        result
+            .map(|r| (r.result, accounts))
+            .map_err(|err| EvmError::Generic(format!("generic: {err}")))
     }
 
     async fn get_context(
@@ -157,17 +157,20 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
     }
 
     fn block_env(block: &Block<Transaction, Header>, fork_schedule: &ForkSchedule) -> BlockEnv {
-        let is_prague = block.header.timestamp >= fork_schedule.prague_timestamp;
+        // Get blob base fee update fraction based on fork
+        let blob_base_fee_update_fraction =
+            fork_schedule.get_blob_base_fee_update_fraction(block.header.timestamp());
+
         let blob_excess_gas_and_price = block
             .header
             .excess_blob_gas()
-            .map(|v| BlobExcessGasAndPrice::new(v, is_prague))
-            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, is_prague));
+            .map(|v| BlobExcessGasAndPrice::new(v, blob_base_fee_update_fraction))
+            .unwrap_or_else(|| BlobExcessGasAndPrice::new(0, blob_base_fee_update_fraction));
 
         BlockEnv {
-            number: block.header.number(),
+            number: U256::from(block.header.number()),
             beneficiary: block.header.beneficiary(),
-            timestamp: block.header.timestamp(),
+            timestamp: U256::from(block.header.timestamp()),
             gas_limit: block.header.gas_limit(),
             basefee: block.header.base_fee_per_gas().unwrap_or_default(),
             difficulty: block.header.difficulty(),
@@ -178,7 +181,9 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
 }
 
 pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> SpecId {
-    if timestamp >= fork_schedule.prague_timestamp {
+    if timestamp >= fork_schedule.osaka_timestamp {
+        SpecId::OSAKA
+    } else if timestamp >= fork_schedule.prague_timestamp {
         SpecId::PRAGUE
     } else if timestamp >= fork_schedule.cancun_timestamp {
         SpecId::CANCUN

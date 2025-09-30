@@ -586,6 +586,7 @@ pub struct Forks {
     pub capella: Fork,
     pub deneb: Fork,
     pub electra: Fork,
+    pub fusaka: Fork,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
