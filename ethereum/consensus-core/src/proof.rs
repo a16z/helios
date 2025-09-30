@@ -96,7 +96,7 @@ fn is_proof_valid<T: TreeHash>(
     let mut hasher = Sha256::new();
 
     for (i, node) in branch.iter().enumerate() {
-        if (index / 2usize.pow(i as u32)) % 2 != 0 {
+        if !(index / 2usize.pow(i as u32)).is_multiple_of(2) {
             hasher.update(node);
             hasher.update(derived_root);
         } else {
