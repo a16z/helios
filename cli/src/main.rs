@@ -49,6 +49,9 @@ async fn main() -> Result<()> {
                     exit(1);
                 }
             } else {
+                if client.wait_synced().await.is_err() {
+                    std::process::exit(1);
+                }
                 register_shutdown_handler(client);
                 std::future::pending().await
             }
@@ -61,6 +64,9 @@ async fn main() -> Result<()> {
                     exit(1);
                 }
             } else {
+                if client.wait_synced().await.is_err() {
+                    std::process::exit(1);
+                }
                 register_shutdown_handler(client);
                 std::future::pending().await
             }
@@ -73,6 +79,9 @@ async fn main() -> Result<()> {
                     exit(1);
                 }
             } else {
+                if client.wait_synced().await.is_err() {
+                    std::process::exit(1);
+                }
                 register_shutdown_handler(client);
                 std::future::pending().await
             }
