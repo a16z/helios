@@ -112,7 +112,7 @@ pub fn mainnet() -> BaseConfig {
                 epoch: 364032,
                 fork_version: fixed_bytes!("05000000"),
             },
-            fusaka: Fork {
+            fulu: Fork {
                 epoch: 411392,
                 fork_version: fixed_bytes!("06000000"),
             },
@@ -162,7 +162,7 @@ pub fn sepolia() -> BaseConfig {
                 epoch: 222464,
                 fork_version: fixed_bytes!("90000074"),
             },
-            fusaka: Fork {
+            fulu: Fork {
                 epoch: 272640,
                 fork_version: fixed_bytes!("90000075"),
             },
@@ -212,7 +212,7 @@ pub fn holesky() -> BaseConfig {
                 epoch: 115968,
                 fork_version: fixed_bytes!("06017000"),
             },
-            fusaka: Fork {
+            fulu: Fork {
                 epoch: 165120,
                 fork_version: fixed_bytes!("07017000"),
             },
@@ -262,7 +262,7 @@ pub fn hoodi() -> BaseConfig {
                 epoch: 2048,
                 fork_version: fixed_bytes!("60000910"),
             },
-            fusaka: Fork {
+            fulu: Fork {
                 epoch: 50688,
                 fork_version: fixed_bytes!("70000910"),
             },
