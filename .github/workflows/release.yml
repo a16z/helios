@@ -4,8 +4,18 @@ on:
   workflow_dispatch:
 
 jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Check version consistency
+        run: bash ./scripts/check-version-consistency.sh
+
   build-mac-arm:
     runs-on: macos-latest
+    needs: version-check
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -45,6 +55,7 @@ jobs:
 
   build-mac-amd:
     runs-on: macos-latest
+    needs: version-check
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -84,6 +95,7 @@ jobs:
 
   build-linux-arm:
     runs-on: ubuntu-latest
+    needs: version-check
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -129,6 +141,7 @@ jobs:
 
   build-linux-amd:
     runs-on: ubuntu-latest
+    needs: version-check
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -168,6 +181,7 @@ jobs:
 
   build-linux-armv7:
     runs-on: ubuntu-latest
+    needs: version-check
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -216,6 +230,7 @@ jobs:
 
   build-linux-riscv:
     runs-on: ubuntu-latest
+    needs: version-check
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -261,6 +276,7 @@ jobs:
 
   build-npm-package:
     runs-on: ubuntu-latest
+    needs: version-check
     defaults:
       run:
         working-directory: ./helios-ts
