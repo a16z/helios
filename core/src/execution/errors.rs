@@ -22,7 +22,7 @@ pub enum ExecutionError {
     #[error("too many logs to prove: {0} spanning {1} blocks current limit is: {2} blocks")]
     TooManyLogsToProve(usize, usize, usize),
     #[error("execution rpc is for the incorrect network")]
-    IncorrectRpcNetwork(),
+    IncorrectRpcNetwork,
     #[error("block not found: {0}")]
     BlockNotFound(BlockId),
     #[error("receipts root mismatch for block: {0}")]
