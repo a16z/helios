@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::process;
 use std::sync::Arc;
 
 use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
@@ -44,6 +43,7 @@ pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub block_recv: Option<Receiver<Block<Transaction>>>,
     pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
+    pub error_recv: watch::Receiver<Option<eyre::Report>>,
     shutdown_send: watch::Sender<bool>,
     genesis_time: u64,
     config: Arc<Config>,
@@ -65,6 +65,14 @@ pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
 impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
     for ConsensusClient<S, R, DB>
 {
+    fn status(&self) -> Result<()> {
+        self.error_recv
+            .borrow()
+            .as_ref()
+            .map(|err| eyre!("{err}"))
+            .map_or(Ok(()), Err)
+    }
+
     fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
         self.block_recv.take()
     }
@@ -93,6 +101,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
         let (shutdown_send, shutdown_recv) = watch::channel(false);
+        let (error_send, error_recv) = watch::channel(None);
 
         let config_clone = config.clone();
         let rpc = rpc.to_string();
@@ -125,17 +134,20 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                     let res = sync_all_fallbacks(&mut inner, config.chain.chain_id).await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
-                        process::exit(1);
+                        let _ = error_send.send(Some(err));
+                        return;
                     }
                 } else if let Some(fallback) = &config.fallback {
                     let res = sync_fallback(&mut inner, fallback).await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
-                        process::exit(1);
+                        let _ = error_send.send(Some(err));
+                        return;
                     }
                 } else {
                     error!(target: "helios::consensus", err = %err, "sync failed");
-                    process::exit(1);
+                    let _ = error_send.send(Some(err));
+                    return;
                 }
             }
 
@@ -180,6 +192,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalized_block_recv),
             checkpoint_recv,
+            error_recv,
             shutdown_send,
             genesis_time,
             config: config_clone,
