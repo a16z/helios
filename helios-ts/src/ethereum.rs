@@ -76,7 +76,7 @@ impl EthereumClient {
         let base = match network.as_str() {
             "mainnet" => networks::mainnet(),
             "sepolia" => networks::sepolia(),
-            "holesky" => networks::holesky(),
+            "hoodi" => networks::hoodi(),
             other => Err(JsError::new(&format!("invalid network: {other}")))?,
         };
 
