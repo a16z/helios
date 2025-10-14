@@ -6,7 +6,7 @@ use alloy::{
 };
 use eyre::Result;
 use revm::{
-    primitives::{address, Address, B256, U256},
+    primitives::{address, Address, B256, KECCAK_EMPTY, U256},
     state::{AccountInfo, Bytecode},
     Database,
 };
@@ -112,10 +112,19 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
 
     pub fn get_basic(&mut self, address: Address) -> Result<AccountInfo, DatabaseError> {
         if let Some(account) = self.accounts.get(&address) {
+            // Normalize code_hash for REVM compatibility:
+            // RPC response for getProof method for non-existing (unused) EOAs
+            // may contain B256::ZERO for code_hash, but REVM expects KECCAK_EMPTY
+            let code_hash = if account.account.code_hash == B256::ZERO {
+                KECCAK_EMPTY
+            } else {
+                account.account.code_hash
+            };
+
             Ok(AccountInfo::new(
                 account.account.balance,
                 account.account.nonce,
-                account.account.code_hash,
+                code_hash,
                 Bytecode::new_raw(account.code.as_ref().unwrap().clone()),
             ))
         } else {
