@@ -61,33 +61,48 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         let mut db = ProofDB::new(self.block_id, self.execution.clone());
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
-        // Pre-fetch all required state
-        loop {
-            if !db.state.needs_update() {
-                break;
+        // Iterative execution with state fetching
+        let mut iteration = 0;
+        const MAX_ITERATIONS: u32 = 50; // Prevent infinite loops
+
+        let tx_res = loop {
+            iteration += 1;
+            if iteration > MAX_ITERATIONS {
+                return Err(EvmError::Generic(
+                    "Maximum iterations reached while fetching state".to_string(),
+                ));
             }
-            debug!("evm cache miss: {:?}", db.state.access.as_ref().unwrap());
-            db.state
-                .update_state()
-                .await
-                .map_err(|e| EvmError::Generic(e.to_string()))?;
-        }
 
-        // Now execute synchronously with all state loaded
-        let context = self.get_context(tx, self.block_id, validate_tx).await?;
+            // Update state first if needed
+            if db.state.needs_update() {
+                debug!(
+                    "evm cache miss (iteration {}): {:?}",
+                    iteration,
+                    db.state.access.as_ref().unwrap()
+                );
+                db.state
+                    .update_state()
+                    .await
+                    .map_err(|e| EvmError::Generic(e.to_string()))?;
+            }
 
-        // Execute in a scope to ensure EVM is dropped before any async operations
-        let (result, accounts) = {
-            let mut evm = context.with_db(db).build_op();
-            let res = evm.replay();
-            let db = evm.0.db_mut();
-            let accounts = mem::take(&mut db.state.accounts);
-            (res, accounts)
+            // Create EVM after any async operations
+            let context = self.get_context(tx, self.block_id, validate_tx).await?;
+
+            // Execute in a scope to ensure EVM is dropped before any potential async operations
+            let (result, needs_update) = {
+                let mut evm = context.with_db(&mut db).build_op();
+                let res = evm.replay();
+                let needs_update = evm.0.db_mut().state.needs_update();
+                (res, needs_update)
+            };
+
+            if result.is_ok() || !needs_update {
+                break result.map(|res| (res.result, mem::take(&mut db.state.accounts)));
+            }
         };
 
-        result
-            .map(|r| (r.result, accounts))
-            .map_err(|err| EvmError::Generic(format!("generic: {err}")))
+        tx_res.map_err(|err| EvmError::Generic(format!("generic: {err}")))
     }
 
     async fn get_context(
