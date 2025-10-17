@@ -21,12 +21,12 @@ async fn main() -> Result<()> {
         .unwrap();
     println!("Fetched latest sepolia checkpoint: {sepolia_checkpoint}");
 
-    // Fetch the latest holesky checkpoint
-    let holesky_checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::Holesky)
+    // Fetch the latest hoodi checkpoint
+    let hoodi_checkpoint = cf
+        .fetch_latest_checkpoint(&networks::Network::Hoodi)
         .await
         .unwrap();
-    println!("Fetched latest holesky checkpoint: {holesky_checkpoint}");
+    println!("Fetched latest hoodi checkpoint: {hoodi_checkpoint}");
 
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf

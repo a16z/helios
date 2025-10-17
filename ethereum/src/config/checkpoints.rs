@@ -111,7 +111,7 @@ impl CheckpointFallback {
             networks: vec![
                 networks::Network::Mainnet,
                 networks::Network::Sepolia,
-                networks::Network::Holesky,
+                networks::Network::Hoodi,
             ],
         }
     }
