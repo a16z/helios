@@ -15,7 +15,7 @@ use helios_common::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     // node management
-    async fn wait_synced(&self);
+    async fn wait_synced(&self) -> Result<()>;
     async fn shutdown(&self);
     // state fetch
     async fn get_balance(&self, address: Address, block_id: BlockId) -> Result<U256>;

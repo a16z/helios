@@ -87,6 +87,7 @@ impl ConsensusClient {
     }
 }
 
+#[async_trait::async_trait]
 impl Consensus<Block<Transaction>> for ConsensusClient {
     fn chain_id(&self) -> u64 {
         self.chain_id
@@ -106,6 +107,11 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
 
     fn expected_highest_block(&self) -> u64 {
         u64::MAX
+    }
+
+    async fn wait_synced(&self) -> eyre::Result<()> {
+        // OpStack consensus doesn't have a sync process, so immediately return Ok
+        Ok(())
     }
 }
 
