@@ -211,9 +211,7 @@ export class HeliosProvider {
         return this.#client.get_proof(req.params[0], req.params[1], req.params[2]);
       }
       case "eth_call": {
-        let res = this.#client.call(req.params[0], req.params[1]);
-        console.log(res);
-        return res;
+        return this.#client.call(req.params[0], req.params[1]);
       }
       case "eth_estimateGas": {
         return this.#client.estimate_gas(req.params[0], req.params[1]);
