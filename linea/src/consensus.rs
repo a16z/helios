@@ -72,6 +72,10 @@ impl ConsensusClient {
 }
 
 impl Consensus<Block<Transaction>> for ConsensusClient {
+    fn status(&self) -> Result<()> {
+        Ok(())
+    }
+
     fn chain_id(&self) -> u64 {
         self.chain_id
     }
