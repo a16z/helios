@@ -133,7 +133,7 @@ impl Inner {
             {
                 let now = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap_or_else(|_| panic!("unreachable"));
+                    .unwrap_or_default();
 
                 let timestamp = Duration::from_secs(block.header.timestamp);
                 let age = now.saturating_sub(timestamp);

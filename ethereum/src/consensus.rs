@@ -489,7 +489,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap_or_else(|_| panic!("unreachable"))
+            .unwrap_or_default()
             .as_secs();
 
         let time_to_next_slot = next_slot_timestamp - now;
@@ -607,9 +607,9 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let expected_time = self.slot_timestamp(slot);
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap_or_else(|_| panic!("unreachable"));
+            .unwrap_or_default();
 
-        let delay = now - std::time::Duration::from_secs(expected_time);
+        let delay = now.saturating_sub(std::time::Duration::from_secs(expected_time));
         chrono::Duration::from_std(delay).unwrap()
     }
 

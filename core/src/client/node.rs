@@ -134,7 +134,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
     async fn check_head_age(&self) -> Result<(), ClientError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap_or_else(|_| panic!("unreachable"))
+            .unwrap_or_default()
             .as_secs();
 
         let tag = BlockNumberOrTag::Latest.into();
