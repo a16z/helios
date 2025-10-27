@@ -57,17 +57,11 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         let mut db = ProofDB::new(self.block_id, self.execution.clone());
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
-        // Iterative execution with state fetching
-        let mut iteration = 0;
-        const MAX_ITERATIONS: u32 = 50; // Prevent infinite loops
+        // Track iterations for debugging
+        let mut iteration: u32 = 0;
 
         let tx_res = loop {
             iteration += 1;
-            if iteration > MAX_ITERATIONS {
-                return Err(EvmError::Generic(
-                    "Maximum iterations reached while fetching state".to_string(),
-                ));
-            }
 
             // Update state first if needed
             if db.state.needs_update() {
