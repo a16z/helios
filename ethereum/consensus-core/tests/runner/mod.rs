@@ -183,7 +183,7 @@ fn get_forks(with_electra: bool) -> Forks {
             epoch: if with_electra { 0 } else { u64::MAX },
             fork_version: fixed_bytes!("05000001"),
         },
-        fusaka: Fork {
+        fulu: Fork {
             epoch: u64::MAX,
             fork_version: fixed_bytes!("06000001"),
         },

@@ -931,7 +931,7 @@ async fn test_get_balance_zero_address(
 
 async fn test_get_code_eoa_address(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
     let block_num = helios.get_block_number().await?;
-    let eoa_address = address!("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045"); // vitalik.eth
+    let eoa_address = address!("4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97");
 
     let code = helios
         .get_code_at(eoa_address)
@@ -949,7 +949,7 @@ async fn test_get_code_eoa_address(helios: &RootProvider, expected: &RootProvide
         code.len()
     );
     if !code.is_empty() {
-        return Err(eyre::eyre!("EOA should have empty code"));
+        return Err(eyre::eyre!("EOA should have empty code. Found: {}", code));
     }
     Ok(())
 }
