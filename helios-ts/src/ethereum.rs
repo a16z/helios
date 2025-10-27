@@ -158,8 +158,8 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
-    pub async fn wait_synced(&self) {
-        self.inner.wait_synced().await;
+    pub async fn wait_synced(&self) -> Result<(), JsError> {
+        map_err(self.inner.wait_synced().await)
     }
 
     #[wasm_bindgen]

@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::time::Duration;
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
@@ -27,7 +26,7 @@ use helios_common::{
 use crate::consensus::Consensus;
 use crate::errors::ClientError;
 use crate::execution::filter_state::{FilterState, FilterType};
-use crate::time::{interval, SystemTime, UNIX_EPOCH};
+use crate::time::{SystemTime, UNIX_EPOCH};
 
 use super::api::HeliosApi;
 
@@ -169,14 +168,8 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         }
     }
 
-    async fn wait_synced(&self) {
-        let mut interval = interval(Duration::from_millis(100));
-        loop {
-            interval.tick().await;
-            if let Ok(SyncStatus::None) = self.syncing().await {
-                break;
-            }
-        }
+    async fn wait_synced(&self) -> Result<()> {
+        self.consensus.wait_synced().await
     }
 
     async fn call(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<Bytes> {
