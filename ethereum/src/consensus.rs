@@ -167,8 +167,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 }
             }
 
-            _ = sync_status_send.send(ConsensusSyncStatus::Synced);
             _ = inner.send_blocks().await;
+            _ = sync_status_send.send(ConsensusSyncStatus::Synced);
 
             let start = Instant::now() + inner.duration_until_next_update().to_std().unwrap();
             let mut interval = interval_at(start, std::time::Duration::from_secs(12));
