@@ -9,7 +9,7 @@ use alloy::rpc::json_rpc::RpcObject;
 use alloy::rpc::types::{
     AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
 };
-use eyre::{eyre, Result};
+use eyre::Result;
 use jsonrpsee::{
     core::{async_trait, server::Methods, SubscriptionResult},
     proc_macros::rpc,
@@ -357,11 +357,8 @@ impl<N: NetworkSpec>
         convert_err(self.client.get_logs(&filter).await)
     }
 
-    async fn get_filter_changes(
-        &self,
-        _filter_id: U256,
-    ) -> Result<FilterChanges, ErrorObjectOwned> {
-        convert_err(Err(eyre!("not implemented")))
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges, ErrorObjectOwned> {
+        convert_err(self.client.get_filter_changes(filter_id).await)
     }
 
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>, ErrorObjectOwned> {
