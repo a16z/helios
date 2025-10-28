@@ -58,6 +58,10 @@ use helios_verifiable_api_server::server::{
 //
 // Log/Event Methods:
 //  - eth_getLogs (get_logs, get_logs_by_address, get_logs_by_topic, get_logs_block_range)
+//  - eth_getFilterChanges (get_filter_changes, get_filter_changes_empty)
+//  - eth_newFilter (used in filter tests)
+//  - eth_newBlockFilter (used in filter tests)
+//  - eth_uninstallFilter (used in filter tests)
 //
 // Historical Data:
 //  - Historical block access (get_historical_block)
@@ -1134,9 +1138,95 @@ async fn test_get_logs_block_range(helios: &RootProvider, expected: &RootProvide
                     target_block,
                     block_num
                 ));
-            }
         }
     }
+    Ok(())
+}
+
+async fn test_get_filter_changes(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
+    // Create a log filter
+    let latest_block = helios.get_block_number().await?;
+    let target_block = latest_block.saturating_sub(2); // A few blocks back for more activity
+    
+    let filter = Filter::new()
+        .from_block(target_block)
+        .to_block(target_block); // from == to (single block)
+    
+    // Create filter on both providers
+    let helios_filter_id = helios.new_filter(&filter).await?;
+    let expected_filter_id = expected.new_filter(&filter).await?;
+    
+    // Get filter changes (should return logs from the target block)
+    let helios_changes = helios.get_filter_changes(helios_filter_id).await?;
+    let expected_changes = expected.get_filter_changes(expected_filter_id).await?;
+    
+    // Both should return the same type of changes
+    match (&helios_changes, &expected_changes) {
+        (alloy::rpc::types::FilterChanges::Logs(helios_logs), alloy::rpc::types::FilterChanges::Logs(expected_logs)) => {
+            ensure_eq!(
+                helios_logs.len(),
+                expected_logs.len(),
+                "Filter changes logs count mismatch: expected {}, got {}",
+                expected_logs.len(),
+                helios_logs.len()
+            );
+        }
+        (alloy::rpc::types::FilterChanges::Empty, alloy::rpc::types::FilterChanges::Empty) => {
+            // Both empty - this is fine
+        }
+        _ => {
+            return Err(eyre::eyre!(
+                "Filter changes type mismatch: helios={:?}, expected={:?}",
+                helios_changes,
+                expected_changes
+            ));
+        }
+    }
+    
+    // Clean up filters
+    helios.uninstall_filter(helios_filter_id).await?;
+    expected.uninstall_filter(expected_filter_id).await?;
+    
+    Ok(())
+}
+
+async fn test_get_filter_changes_empty(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
+    // Create a block filter
+    let helios_filter_id = helios.new_block_filter().await?;
+    let expected_filter_id = expected.new_block_filter().await?;
+    
+    // Get filter changes immediately (should be empty since no new blocks)
+    let helios_changes = helios.get_filter_changes(helios_filter_id).await?;
+    let expected_changes = expected.get_filter_changes(expected_filter_id).await?;
+    
+    // Both should return empty or the same type
+    match (&helios_changes, &expected_changes) {
+        (alloy::rpc::types::FilterChanges::Empty, alloy::rpc::types::FilterChanges::Empty) => {
+            // Both empty - this is expected
+        }
+        (alloy::rpc::types::FilterChanges::Hashes(helios_hashes), alloy::rpc::types::FilterChanges::Hashes(expected_hashes)) => {
+            // Both have hashes - they should match
+            ensure_eq!(
+                helios_hashes.len(),
+                expected_hashes.len(),
+                "Filter changes block hashes count mismatch: expected {}, got {}",
+                expected_hashes.len(),
+                helios_hashes.len()
+            );
+        }
+        _ => {
+            return Err(eyre::eyre!(
+                "Filter changes type mismatch: helios={:?}, expected={:?}",
+                helios_changes,
+                expected_changes
+            ));
+        }
+    }
+    
+    // Clean up filters
+    helios.uninstall_filter(helios_filter_id).await?;
+    expected.uninstall_filter(expected_filter_id).await?;
+    
     Ok(())
 }
 
@@ -1451,6 +1541,9 @@ async fn rpc_equivalence_tests() {
         spawn_test!(test_get_logs_by_address, "get_logs_by_address"),
         spawn_test!(test_get_logs_by_topic, "get_logs_by_topic"),
         spawn_test!(test_get_logs_block_range, "get_logs_block_range"),
+        // Filter Methods
+        spawn_test!(test_get_filter_changes, "get_filter_changes"),
+        spawn_test!(test_get_filter_changes_empty, "get_filter_changes_empty"),
         // Historical Data
         spawn_test!(test_get_historical_block, "get_historical_block"),
         spawn_test!(test_get_too_old_block, "get_too_old_block"),
