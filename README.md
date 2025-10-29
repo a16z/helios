@@ -62,7 +62,7 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal to the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
-`--network` or `-n` sets the network to sync to. Current valid options are `mainnet`, `sepolia`, and `holesky` however users can add custom networks in their configuration files.
+`--network` or `-n` sets the network to sync to. Current valid options are `mainnet`, `sepolia`, and `hoodi` however users can add custom networks in their configuration files.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 
@@ -114,23 +114,23 @@ Examples of running Helios as a rust library can be seen in the [examples](./exa
 
 ### Supported Ethereum Checkpoints <a id="supported-checkpoints"></a>
 
-A checkpoint is a Beacon Chain Consensus Layer block hash rather than an Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks
+A checkpoint is a Beacon Chain Consensus Layer block hash rather than an Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://hoodi.etherscan.io/blocks
 
 Checkpoints may be obtained from the following links:
 * Ethereum Mainnet https://beaconcha.in
-* Holesky Testnet https://holesky.beaconcha.in
+* Hoodi Testnet https://hoodi.beaconcha.in/
 
 It is recommended to use a block hash as a checkpoint that is less than two weeks old, however you can actually use older checkpoints and it will still work but will give you a warning. Using a checkpoint that is less than two weeks old prevents a few attacks that are pretty hard to pull off.
 
-For example, to obtain a recent checkpoint for Holesky Testnet go to https://holesky.beaconcha.in/ and get the block hash of the first block in any finalized epoch. At the time of writing, the [first block hash in epoch 78425](https://holesky.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://holesky.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
+For example, to obtain a recent checkpoint for Hoodi Testnet go to https://hoodi.beaconcha.in/ and get the block hash of the first block in any finalized epoch. At the time of writing, the [first block hash in epoch 78425](https://hoodi.beaconcha.in/epoch/78425) is the [oldest slot 2509600](https://hoodi.beaconcha.in/slot/2509600) that has a Block Root of 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6 and is the latest checkpoint value to use.
 
 This latest checkpoint may be provided as an [Additional CLI Option](#additional-cli-options) at the command line to run a Helios Light Client node on Ethereum Holesky Testnet:
 ```bash
 helios ethereum \
-    --network holesky \
-    --consensus-rpc http://testing.holesky.beacon-api.nimbus.team \
-    --execution-rpc https://ethereum-holesky.g.allthatnode.com \
-    --checkpoint 0x60409a013161b33c8c68c6183c7753e779ec6c24be2f3c50c6036c30e13b34a6
+    --network hoodi \
+    --consensus-rpc http://testing.hoodi.beacon-api.nimbus.team \
+    --execution-rpc https://ethereum-hoodi-rpc.publicnode.com \
+    --checkpoint 0x3335028555f5fff431f82f978d2503ed59bc8da00a86217eea9befa9d486a049
 ```
 
 For example, to obtain a recent checkpoint for Ethereum Mainnet go to https://beaconcha.in and get the block hash of the first block in any finalized epoch. At the time of writing the [first block hash in epoch 222705](https://beaconcha.in/epoch/222705) is the [oldest slot 7126560](https://beaconcha.in/slot/7126560) that has a Block Root of 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2 and is the latest checkpoint value to use.
@@ -140,7 +140,7 @@ This latest checkpoint may be provided as an [Additional CLI Option](#additional
 helios ethereum \
     --network mainnet \
     --consensus-rpc https://www.lightclientdata.org \
-    --execution-rpc https://ethereum-mainnet.g.allthatnode.com \
+    --execution-rpc https://ethereum-rpc.publicnode.com \
     --checkpoint 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2
 ```
 
