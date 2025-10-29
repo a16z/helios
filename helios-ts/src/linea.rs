@@ -9,7 +9,7 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use url::Url;
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys::Function;
+use js_sys::Function;
 
 use helios_common::types::SubscriptionType;
 
