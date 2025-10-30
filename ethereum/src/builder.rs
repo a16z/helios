@@ -223,6 +223,12 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             self.strict_checkpoint_age
         };
 
+        let database_type = if let Some(config) = &self.config {
+            config.database_type.clone()
+        } else {
+            None
+        };
+
         let config = Config {
             consensus_rpc,
             execution_rpc,
@@ -242,7 +248,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             fallback,
             load_external_fallback,
             strict_checkpoint_age,
-            database_type: None,
+            database_type,
         };
 
         let config = Arc::new(config);
