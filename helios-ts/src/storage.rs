@@ -13,7 +13,7 @@ pub struct LocalStorageDB;
 impl Database for LocalStorageDB {
     fn new(_config: &Config) -> Result<Self> {
         console_error_panic_hook::set_once();
-        let window = web_sys::window().unwrap();
+        let window = web_sys::window().ok_or_else(|| eyre::eyre!("window not available"))?;
         if let Ok(Some(_local_storage)) = window.local_storage() {
             return Ok(Self {});
         }
@@ -22,7 +22,7 @@ impl Database for LocalStorageDB {
     }
 
     fn load_checkpoint(&self) -> Result<B256> {
-        let window = web_sys::window().unwrap();
+        let window = web_sys::window().ok_or_else(|| eyre::eyre!("window not available"))?;
         if let Ok(Some(local_storage)) = window.local_storage() {
             let checkpoint = local_storage.get_item("checkpoint");
             if let Ok(Some(checkpoint)) = checkpoint {
@@ -37,7 +37,7 @@ impl Database for LocalStorageDB {
     }
 
     fn save_checkpoint(&self, checkpoint: B256) -> Result<()> {
-        let window = web_sys::window().unwrap();
+        let window = web_sys::window().ok_or_else(|| eyre::eyre!("window not available"))?;
         if let Ok(Some(local_storage)) = window.local_storage() {
             local_storage
                 .set_item("checkpoint", &hex::encode(checkpoint))

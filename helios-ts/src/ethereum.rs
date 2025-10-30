@@ -33,7 +33,15 @@ impl Database for DatabaseType {
     fn new(config: &Config) -> Result<Self> {
         match config.database_type.as_deref() {
             Some("config") => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
-            Some("localstorage") => Ok(DatabaseType::LocalStorage(LocalStorageDB::new(config)?)),
+            Some("localstorage") => match LocalStorageDB::new(config) {
+                Ok(db) => Ok(DatabaseType::LocalStorage(db)),
+                Err(_) => {
+                    web_sys::console::warn_1(
+                        &"Helios: localStorage unavailable, falling back to in-memory checkpoint storage".into(),
+                    );
+                    Ok(DatabaseType::Memory(ConfigDB::new(config)?))
+                }
+            },
             _ => Ok(DatabaseType::Memory(ConfigDB::new(config)?)),
         }
     }
