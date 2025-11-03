@@ -478,14 +478,45 @@ type Request = {
   params: any[];
 };
 
-function mapToObj(map: Map<any, any> | undefined): Object | undefined {
+/**
+ * Converts a Map to an object, including nested Maps and arrays of Maps.
+ * IMPORTANT: This function will mutate input!
+ * 
+ * @param map - The Map to convert
+ * @returns The converted object
+ */
+function mapToObj(map: Map<any, any> | undefined): Record<string, any> | undefined {
   if (!map) return undefined;
 
-  return Array.from(map).reduce((obj: any, [key, value]) => {
-    if (value !== undefined) {
-      obj[key] = value;
+  const result: Record<string, any> = {};
+  
+  for (const [key, value] of map) {
+    if (value === undefined) continue;
+
+    if (value instanceof Map) {
+      result[key] = mapToObj(value);
+    } else if (Array.isArray(value)) {
+      let hasMap = false;
+      for (let i = 0; i < value.length; i++) {
+        if (value[i] instanceof Map) {
+          hasMap = true;
+          break;
+        }
+      }
+      
+      if (hasMap) {
+        // Mutate in-place instead of creating new array
+        for (let i = 0; i < value.length; i++) {
+          if (value[i] instanceof Map) {
+            value[i] = mapToObj(value[i]);
+          }
+        }
+      }
+      result[key] = value;
+    } else {
+      result[key] = value;
+    }
     }
 
-    return obj;
-  }, {});
+  return result;
 }
