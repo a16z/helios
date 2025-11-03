@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use alloy::eips::{BlockId, BlockNumberOrTag};
+use alloy::hex;
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::Filter;
 use url::Url;
