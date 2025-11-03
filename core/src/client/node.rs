@@ -200,7 +200,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
 
         let (result, ..) = N::transact(
             tx,
-            true,
+            false,
             self.execution.clone(),
             self.get_chain_id().await,
             self.fork_schedule,
@@ -220,7 +220,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
 
         let (result, accounts) = N::transact(
             tx,
-            true,
+            false,
             self.execution.clone(),
             self.get_chain_id().await,
             self.fork_schedule,
