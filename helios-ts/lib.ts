@@ -496,27 +496,16 @@ function mapToObj(map: Map<any, any> | undefined): Record<string, any> | undefin
     if (value instanceof Map) {
       result[key] = mapToObj(value);
     } else if (Array.isArray(value)) {
-      let hasMap = false;
       for (let i = 0; i < value.length; i++) {
         if (value[i] instanceof Map) {
-          hasMap = true;
-          break;
-        }
-      }
-      
-      if (hasMap) {
-        // Mutate in-place instead of creating new array
-        for (let i = 0; i < value.length; i++) {
-          if (value[i] instanceof Map) {
-            value[i] = mapToObj(value[i]);
-          }
+          // Mutate in-place
+          value[i] = mapToObj(value[i]);
         }
       }
       result[key] = value;
     } else {
       result[key] = value;
     }
-    }
-
+  }
   return result;
 }
