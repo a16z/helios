@@ -1,7 +1,7 @@
 extern crate console_error_panic_hook;
 extern crate web_sys;
 
-use alloy::{hex::FromHex, primitives::B256};
+use alloy::{hex, hex::FromHex, primitives::B256};
 use eyre::Result;
 use wasm_bindgen::prelude::*;
 
