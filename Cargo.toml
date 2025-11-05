@@ -6,7 +6,7 @@ autobenches = false
 exclude = ["benches"]
 
 [workspace.package]
-version = "0.10.1"
+version = "0.10.2"
 
 [workspace]
 members = [
