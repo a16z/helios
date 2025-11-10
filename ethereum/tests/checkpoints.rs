@@ -7,15 +7,11 @@ async fn test_checkpoint_fallback() {
 
     assert_eq!(cf.services.get(&networks::Network::Mainnet), None);
     assert_eq!(cf.services.get(&networks::Network::Sepolia), None);
-    assert_eq!(cf.services.get(&networks::Network::Holesky), None);
+    assert_eq!(cf.services.get(&networks::Network::Hoodi), None);
 
     assert_eq!(
         cf.networks,
-        [
-            networks::Network::Mainnet,
-            networks::Network::Sepolia,
-            networks::Network::Holesky,
-        ]
+        [networks::Network::Mainnet, networks::Network::Sepolia, networks::Network::Hoodi]
         .to_vec()
     );
 }
@@ -29,7 +25,7 @@ async fn test_construct_checkpoints() {
 
     assert!(cf.services[&networks::Network::Mainnet].len() > 1);
     assert!(cf.services[&networks::Network::Sepolia].len() > 1);
-    assert!(cf.services[&networks::Network::Holesky].len() > 1);
+    assert!(cf.services[&networks::Network::Hoodi].len() > 1);
 }
 
 #[tokio::test]
@@ -44,7 +40,7 @@ async fn test_fetch_latest_checkpoints() {
         .unwrap();
     assert!(checkpoint != B256::ZERO);
     let checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::Holesky)
+        .fetch_latest_checkpoint(&networks::Network::Hoodi)
         .await
         .unwrap();
     assert!(checkpoint != B256::ZERO);
@@ -65,7 +61,7 @@ async fn test_get_all_fallback_endpoints() {
     assert!(!urls.is_empty());
     let urls = cf.get_all_fallback_endpoints(&networks::Network::Sepolia);
     assert!(!urls.is_empty());
-    let urls = cf.get_all_fallback_endpoints(&networks::Network::Holesky);
+    let urls = cf.get_all_fallback_endpoints(&networks::Network::Hoodi);
     assert!(!urls.is_empty());
 }
 
@@ -79,6 +75,6 @@ async fn test_get_healthy_fallback_endpoints() {
     assert!(!urls.is_empty());
     let urls = cf.get_healthy_fallback_endpoints(&networks::Network::Sepolia);
     assert!(!urls.is_empty());
-    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::Holesky);
+    let urls = cf.get_healthy_fallback_endpoints(&networks::Network::Hoodi);
     assert!(!urls.is_empty());
 }
