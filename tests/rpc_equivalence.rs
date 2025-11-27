@@ -1,10 +1,12 @@
+use std::collections::HashMap;
 use std::env;
 use std::net::{SocketAddr, TcpListener};
 
 use alloy::eips::BlockNumberOrTag;
 use alloy::network::ReceiptResponse;
-use alloy::primitives::{address, B256, U256};
+use alloy::primitives::{address, Bytes, B256, U256};
 use alloy::providers::{Provider, RootProvider};
+use alloy::rpc::types::state::{AccountOverride, StateOverride};
 use alloy::rpc::types::Filter;
 use alloy::sol;
 use alloy::sol_types::SolCall;
@@ -55,6 +57,10 @@ use helios_verifiable_api_server::server::{
 //
 // EVM Execution Methods:
 //  - eth_call (call, call_complex_contract)
+//  - eth_createAccessList (create_access_list)
+//
+// State Override Tests:
+//  - Combined overrides (call_with_combined_overrides)
 //
 // Log/Event Methods:
 //  - eth_getLogs (get_logs, get_logs_by_address, get_logs_by_topic, get_logs_block_range)
@@ -1336,6 +1342,102 @@ async fn test_get_proof_multiple_keys(
     Ok(())
 }
 
+// ========== STATE OVERRIDE TESTS ==========
+
+async fn test_call_with_combined_overrides(
+    helios: &RootProvider,
+    expected: &RootProvider,
+) -> Result<()> {
+    let block_num = helios.get_block_number().await?;
+    let target_address = address!("0000000000000000000000000000000000000456");
+
+    // Combine multiple overrides: balance, nonce, code, and storage
+    let override_balance = U256::from(5_000_000_000_000_000_000u128);
+    let override_nonce = 42u64;
+    let override_code = Bytes::from_static(&[
+        0x30, // ADDRESS
+        0x31, // BALANCE
+        0x60, 0x00, // PUSH1 0x00
+        0x52, // MSTORE
+        0x60, 0x00, // PUSH1 0x00
+        0x54, // SLOAD
+        0x60, 0x20, // PUSH1 0x20
+        0x52, // MSTORE
+        0x60, 0x40, // PUSH1 0x40
+        0x60, 0x00, // PUSH1 0x00
+        0xf3, // RETURN
+    ]);
+
+    let slot_0 = B256::ZERO;
+    let storage_value = B256::from(U256::from(0x12345678u64));
+
+    let mut storage_diff = HashMap::default();
+    storage_diff.insert(slot_0, storage_value);
+
+    let mut state_override = StateOverride::default();
+    state_override.insert(
+        target_address,
+        AccountOverride {
+            balance: Some(override_balance),
+            nonce: Some(override_nonce),
+            code: Some(override_code),
+            state: None,
+            state_diff: Some(storage_diff),
+            move_precompile_to: None,
+        },
+    );
+
+    // Test that eth_call works with combined overrides
+    let call_request = json!({
+        "to": format!("{:#x}", target_address),
+        "data": "0x"
+    });
+
+    let helios_result: String = helios
+        .raw_request(
+            "eth_call".into(),
+            vec![
+                call_request.clone(),
+                json!(format!("{:#x}", block_num)),
+                serde_json::to_value(&state_override)?,
+            ],
+        )
+        .await?;
+
+    let expected_result: String = expected
+        .raw_request(
+            "eth_call".into(),
+            vec![
+                call_request,
+                json!(format!("{:#x}", block_num)),
+                serde_json::to_value(&state_override)?,
+            ],
+        )
+        .await?;
+
+    ensure_eq!(
+        helios_result,
+        expected_result,
+        "Combined override result mismatch: expected {:?}, got {:?}",
+        expected_result,
+        helios_result
+    );
+
+    // Both should return the overridden storage value
+    ensure!(
+        helios_result.contains("12345678"),
+        "Combined overrides should return storage value 0x12345678"
+    );
+
+    // Both should return the overridden balance value (5 ETH = 0x4563918244F40000)
+    ensure!(
+        helios_result.to_lowercase().contains("4563918244f40000"),
+        "Combined overrides should return balance value 5 ETH"
+    );
+
+    Ok(())
+}
+
 // ========== MAIN TEST RUNNER ==========
 
 #[tokio::test(flavor = "multi_thread")]
@@ -1377,7 +1479,7 @@ async fn rpc_equivalence_tests() {
         }};
     }
 
-    let test_count = 33; // Update count as we add tests
+    let test_count = 36; // Update count as we add tests
     println!(
         "Setup complete! Running {} mini-tests in parallel...",
         test_count
@@ -1454,6 +1556,11 @@ async fn rpc_equivalence_tests() {
         // Historical Data
         spawn_test!(test_get_historical_block, "get_historical_block"),
         spawn_test!(test_get_too_old_block, "get_too_old_block"),
+        // State Override Tests
+        spawn_test!(
+            test_call_with_combined_overrides,
+            "call_with_combined_overrides"
+        ),
     ];
 
     // Collect results

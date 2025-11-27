@@ -7,7 +7,8 @@ use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{Address, Bytes, B256, U256, U64};
 use alloy::rpc::json_rpc::RpcObject;
 use alloy::rpc::types::{
-    AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+    state::StateOverride, AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges,
+    Log, SyncStatus,
 };
 use eyre::{eyre, Result};
 use jsonrpsee::{
@@ -84,14 +85,25 @@ trait EthRpc<
     #[method(name = "getCode")]
     async fn get_code(&self, address: Address, block: BlockId) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "call")]
-    async fn call(&self, tx: TXR, block: BlockId) -> Result<Bytes, ErrorObjectOwned>;
+    async fn call(
+        &self,
+        tx: TXR,
+        block: BlockId,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<Bytes, ErrorObjectOwned>;
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, tx: TXR, block: BlockId) -> Result<U64, ErrorObjectOwned>;
+    async fn estimate_gas(
+        &self,
+        tx: TXR,
+        block: BlockId,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "createAccessList")]
     async fn create_access_list(
         &self,
         tx: TXR,
         block: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<AccessListResult, ErrorObjectOwned>;
     #[method(name = "chainId")]
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned>;
@@ -238,16 +250,22 @@ impl<N: NetworkSpec>
         &self,
         tx: N::TransactionRequest,
         block: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<Bytes, ErrorObjectOwned> {
-        convert_err(self.client.call(&tx, block).await)
+        convert_err(self.client.call(&tx, block, state_overrides).await)
     }
 
     async fn estimate_gas(
         &self,
         tx: N::TransactionRequest,
         block: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<U64, ErrorObjectOwned> {
-        let res = self.client.estimate_gas(&tx, block).await.map(U64::from);
+        let res = self
+            .client
+            .estimate_gas(&tx, block, state_overrides)
+            .await
+            .map(U64::from);
 
         convert_err(res)
     }
@@ -256,8 +274,13 @@ impl<N: NetworkSpec>
         &self,
         tx: N::TransactionRequest,
         block: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<AccessListResult, ErrorObjectOwned> {
-        convert_err(self.client.create_access_list(&tx, block).await)
+        convert_err(
+            self.client
+                .create_access_list(&tx, block, state_overrides)
+                .await,
+        )
     }
 
     async fn chain_id(&self) -> Result<U64, ErrorObjectOwned> {

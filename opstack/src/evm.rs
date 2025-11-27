@@ -4,7 +4,7 @@ use alloy::{
     consensus::BlockHeader,
     eips::BlockId,
     network::TransactionBuilder,
-    rpc::types::{Block, Header},
+    rpc::types::{state::StateOverride, Block, Header},
 };
 use eyre::Result;
 use op_alloy_consensus::OpTxType;
@@ -57,8 +57,9 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         &mut self,
         tx: &OpTransactionRequest,
         validate_tx: bool,
+        state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult<OpHaltReason>, HashMap<Address, Account>), EvmError> {
-        let mut db = ProofDB::new(self.block_id, self.execution.clone());
+        let mut db = ProofDB::new(self.block_id, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
         // Track iterations for debugging

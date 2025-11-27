@@ -1,6 +1,11 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
-use alloy::{eips::BlockId, network::Network, primitives::Address, rpc::types::Log};
+use alloy::{
+    eips::BlockId,
+    network::Network,
+    primitives::Address,
+    rpc::types::{state::StateOverride, Log},
+};
 use async_trait::async_trait;
 use revm::context::result::ExecutionResult;
 
@@ -27,5 +32,6 @@ pub trait NetworkSpec: Network {
         chain_id: u64,
         fork_schedule: ForkSchedule,
         block_id: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult<Self::HaltReason>, HashMap<Address, Account>), EvmError>;
 }

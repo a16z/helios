@@ -242,6 +242,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             self.rpc.get_chain_id().await?,
             ForkSchedule::default(),
             block_id,
+            None, // state overrides not supported for execution hints
         )
         .await?;
 

@@ -1,7 +1,10 @@
 use alloy::{
     eips::BlockId,
     primitives::{Address, Bytes, B256, U256},
-    rpc::types::{AccessListResult, EIP1186AccountProofResponse, Filter, Log, SyncStatus},
+    rpc::types::{
+        state::StateOverride, AccessListResult, EIP1186AccountProofResponse, Filter, Log,
+        SyncStatus,
+    },
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -53,12 +56,23 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>>;
     // evm
-    async fn call(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<Bytes>;
-    async fn estimate_gas(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<u64>;
+    async fn call(
+        &self,
+        tx: &N::TransactionRequest,
+        block_id: BlockId,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<Bytes>;
+    async fn estimate_gas(
+        &self,
+        tx: &N::TransactionRequest,
+        block_id: BlockId,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<u64>;
     async fn create_access_list(
         &self,
         tx: &N::TransactionRequest,
         block_id: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<AccessListResult>;
     // logs
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;

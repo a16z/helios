@@ -4,7 +4,7 @@ use alloy::{
     consensus::{BlockHeader, TxType},
     eips::BlockId,
     network::TransactionBuilder,
-    rpc::types::{Block, Header, Transaction, TransactionRequest},
+    rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
 use eyre::Result;
 use revm::{
@@ -53,8 +53,9 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         &mut self,
         tx: &TransactionRequest,
         validate_tx: bool,
+        state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
-        let mut db = ProofDB::new(self.block_id, self.execution.clone());
+        let mut db = ProofDB::new(self.block_id, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
         // Track iterations for debugging
