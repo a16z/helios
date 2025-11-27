@@ -170,8 +170,8 @@ export class HeliosProvider {
   async request(req: Request): Promise<any> {
     try {
       return await this.#req(req);
-    } catch (err) {
-      throw new Error(err.toString());
+    } catch (err: any) {
+      throw new Error(String(err));
     }
   }
 
@@ -308,8 +308,8 @@ export class HeliosProvider {
         this.#eventEmitter.emit("message", payload);
       });
       return id;
-    } catch (err) {
-      throw new Error(err.toString());
+    } catch (err: any) {
+      throw new Error(String(err));
     }
   }
 
