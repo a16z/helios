@@ -31,7 +31,9 @@ jobs:
           override: true
         
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
         
       - name: Install Node.js dependencies
         run: npm ci
