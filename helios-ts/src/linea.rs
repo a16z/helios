@@ -342,4 +342,17 @@ impl LineaClient {
     pub async fn client_version(&self) -> String {
         self.inner.get_client_version().await
     }
+
+    #[wasm_bindgen]
+    pub fn set_helios_events(&mut self, _handler: Function) -> Result<(), JsError> {
+        // No events have been implemented for Linea yet
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_current_checkpoint(&self) -> Result<JsValue, JsError> {
+        // Linea does not support checkpoints
+        Err(JsError::new("Linea does not support checkpoints"))
+    }
 }

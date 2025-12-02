@@ -89,6 +89,10 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
         self.finalized_block_recv.take()
     }
 
+    fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
+        None
+    }
+
     fn expected_highest_block(&self) -> u64 {
         u64::MAX
     }

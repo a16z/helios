@@ -66,6 +66,7 @@ pub struct EthereumClient {
     inner: helios_ethereum::EthereumClient,
     chain_id: u64,
     active_subscriptions: HashMap<String, Subscription<Ethereum>>,
+    event_handler: Option<Function>,
 }
 
 #[wasm_bindgen]
@@ -139,6 +140,7 @@ impl EthereumClient {
             inner,
             chain_id,
             active_subscriptions: HashMap::new(),
+            event_handler: None,
         })
     }
 
@@ -417,5 +419,44 @@ impl EthereumClient {
     #[wasm_bindgen]
     pub async fn client_version(&self) -> String {
         self.inner.get_client_version().await
+    }
+
+    #[wasm_bindgen]
+    pub fn set_helios_events(&mut self, handler: Function) -> Result<(), JsError> {
+        if self.event_handler.is_some() {
+            return Err(JsError::new("Attempted to set emitter more than once"));
+        }
+        self.event_handler = Some(handler.clone());
+
+        let mut rx = map_err(self.inner.helios_new_checkpoints_recv())?;
+
+        wasm_bindgen_futures::spawn_local(async move {
+            loop {
+                if rx.changed().await.is_err() {
+                    break;
+                }
+                let checkpoint = *rx.borrow_and_update();
+                if let Some(checkpoint) = checkpoint {
+                    let formatted = format!("0x{}", hex::encode(checkpoint));
+                    if let Ok(data) = serde_wasm_bindgen::to_value(&formatted) {
+                        let _ = handler.call2(
+                            &JsValue::NULL,
+                            &JsValue::from_str("helios_checkpointUpdated"),
+                            &data,
+                        );
+                    }
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_current_checkpoint(&self) -> Result<JsValue, JsError> {
+        let checkpoint = map_err(self.inner.helios_current_checkpoint().await)?;
+        Ok(serde_wasm_bindgen::to_value(
+            &checkpoint.map(|c| format!("0x{}", hex::encode(c))),
+        )?)
     }
 }

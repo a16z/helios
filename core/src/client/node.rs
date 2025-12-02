@@ -483,4 +483,17 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             _ => Err(eyre::eyre!("Unsupported subscription type: {:?}", sub_type)),
         }
     }
+
+    async fn helios_current_checkpoint(&self) -> Result<Option<B256>> {
+        self.consensus
+            .checkpoint_recv()
+            .map(|recv| *recv.borrow())
+            .ok_or_else(|| eyre!("Checkpoints not supported"))
+    }
+
+    fn helios_new_checkpoints_recv(&self) -> Result<tokio::sync::watch::Receiver<Option<B256>>> {
+        self.consensus
+            .checkpoint_recv()
+            .ok_or_else(|| eyre!("Checkpoints not supported"))
+    }
 }
