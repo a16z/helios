@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::{utils::format_ether, Address};
@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     let untrusted_rpc_url = "https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>";
     info!("Using untrusted RPC URL [REDACTED]");
 
-    let consensus_rpc = "https://www.lightclientdata.org";
+    let consensus_rpc = "http://testing.mainnet.beacon-api.nimbus.team";
     info!("Using consensus RPC URL: {}", consensus_rpc);
 
     let client: EthereumClient = EthereumClientBuilder::new()
@@ -43,6 +43,9 @@ async fn main() -> Result<()> {
     );
 
     client.wait_synced().await?;
+
+    // Wait for a fresh block (Ethereum produces blocks every ~12 seconds)
+    tokio::time::sleep(Duration::from_secs(15)).await;
 
     let client_version = client.get_client_version().await;
     let head_block_num = client.get_block_number().await?;
