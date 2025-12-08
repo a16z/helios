@@ -8,6 +8,7 @@ use alloy::primitives::B256;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_core::client::HeliosClient;
+use helios_core::execution::constants::MAX_STATE_HISTORY_LENGTH;
 
 #[derive(Clone)]
 pub struct BlockInfo {
@@ -136,6 +137,7 @@ impl<N: NetworkSpec> App<N> {
         // Sort by block number descending (newest first)
         let mut sorted: Vec<BlockInfo> = self.block_history.drain(..).collect();
         sorted.sort_by(|a, b| b.number.cmp(&a.number));
+        sorted.truncate(MAX_STATE_HISTORY_LENGTH);
 
         self.block_history = sorted.into_iter().collect();
     }
