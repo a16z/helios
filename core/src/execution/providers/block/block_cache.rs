@@ -160,7 +160,18 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
         }
 
         // Insert the new block
-        self.hashes.write().await.insert(block_hash, block_number);
+        let old_hash = {
+            let blocks = self.blocks.read().await;
+            blocks.get(&block_number).map(|b| b.header().hash())
+        };
+
+        {
+            let mut hashes = self.hashes.write().await;
+            if let Some(old_hash) = old_hash {
+                hashes.remove(&old_hash);
+            }
+            hashes.insert(block_hash, block_number);
+        }
 
         self.blocks.write().await.insert(block_number, block);
 
