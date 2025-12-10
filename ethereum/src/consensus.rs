@@ -11,7 +11,7 @@ use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
-use futures::future::join_all;
+
 use tracing::{debug, error, info, warn};
 use tree_hash::TreeHash;
 use url::Url;
@@ -143,6 +143,15 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 checkpoint_send,
                 config.clone(),
             );
+            if let Ok(parsed) = Url::parse(&rpc) {
+                if parsed.scheme() == "http" || parsed.scheme() == "https" {
+                    if let Err(err) = inner.check_rpc().await {
+                        error!(target: "helios::consensus", err = %err, "incorrect rpc network");
+                        _ = sync_status_send.send(ConsensusSyncStatus::Error(err.to_string()));
+                        return;
+                    }
+                }
+            }
 
             let res = inner.sync(initial_checkpoint).await;
             if let Err(err) = res {
@@ -341,46 +350,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         } else {
             Ok(block.body.execution_payload().clone())
         }
-    }
-
-    pub async fn get_payloads(
-        &self,
-        start_slot: u64,
-        end_slot: u64,
-    ) -> Result<Vec<ExecutionPayload<S>>> {
-        let payloads_fut = (start_slot..end_slot)
-            .rev()
-            .map(|slot| self.rpc.get_block(slot));
-
-        let mut prev_parent_hash: B256 = *self
-            .rpc
-            .get_block(end_slot)
-            .await?
-            .body
-            .execution_payload()
-            .parent_hash();
-
-        let mut payloads: Vec<ExecutionPayload<S>> = Vec::new();
-        for result in join_all(payloads_fut).await {
-            if result.is_err() {
-                continue;
-            }
-            let payload = result.unwrap().body.execution_payload().clone();
-            if payload.block_hash() != &prev_parent_hash {
-                warn!(
-                    target: "helios::consensus",
-                    error = %ConsensusError::InvalidHeaderHash(
-                        prev_parent_hash,
-                        *payload.parent_hash(),
-                    ),
-                    "error while backfilling blocks"
-                );
-                break;
-            }
-            prev_parent_hash = *payload.parent_hash();
-            payloads.push(payload);
-        }
-        Ok(payloads)
     }
 
     pub async fn sync(&mut self, checkpoint: B256) -> Result<()> {
