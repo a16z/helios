@@ -428,7 +428,7 @@ impl EthereumClient {
         }
         self.event_handler = Some(handler.clone());
 
-        let mut rx = map_err(self.inner.helios_new_checkpoints_recv())?;
+        let mut rx = map_err(self.inner.new_checkpoints_recv())?;
 
         wasm_bindgen_futures::spawn_local(async move {
             loop {
@@ -454,7 +454,7 @@ impl EthereumClient {
 
     #[wasm_bindgen]
     pub async fn get_current_checkpoint(&self) -> Result<JsValue, JsError> {
-        let checkpoint = map_err(self.inner.helios_current_checkpoint().await)?;
+        let checkpoint = map_err(self.inner.current_checkpoint().await)?;
         Ok(serde_wasm_bindgen::to_value(
             &checkpoint.map(|c| format!("0x{}", hex::encode(c))),
         )?)

@@ -441,14 +441,14 @@ impl<N: NetworkSpec> Web3RpcServer for JsonRpc<N> {
 #[async_trait]
 impl<N: NetworkSpec> HeliosRpcServer for JsonRpc<N> {
     async fn get_current_checkpoint(&self) -> Result<Option<B256>, ErrorObjectOwned> {
-        convert_err(self.client.helios_current_checkpoint().await)
+        convert_err(self.client.current_checkpoint().await)
     }
 
     async fn subscribe_new_checkpoints(
         &self,
         pending: PendingSubscriptionSink,
     ) -> SubscriptionResult {
-        let maybe_rx = self.client.helios_new_checkpoints_recv();
+        let maybe_rx = self.client.new_checkpoints_recv();
         handle_checkpoint_subscription(pending, maybe_rx).await
     }
 }
