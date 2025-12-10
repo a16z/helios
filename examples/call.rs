@@ -65,7 +65,9 @@ async fn main() -> eyre::Result<()> {
         ..Default::default()
     };
 
-    let result = client.call(&tx, BlockNumberOrTag::Latest.into()).await?;
+    let result = client
+        .call(&tx, BlockNumberOrTag::Latest.into(), None)
+        .await?;
     info!("[HELIOS] DAI total supply: {:?}", result);
 
     Ok(())

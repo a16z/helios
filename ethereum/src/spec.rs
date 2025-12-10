@@ -8,7 +8,7 @@ use alloy::{
     eips::{BlockId, Encodable2718},
     network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
     primitives::{Address, Bytes, ChainId, TxKind, U256},
-    rpc::types::{AccessList, Log, TransactionRequest},
+    rpc::types::{state::StateOverride, AccessList, Log, TransactionRequest},
 };
 use async_trait::async_trait;
 use revm::context::result::{ExecutionResult, HaltReason};
@@ -104,10 +104,11 @@ impl NetworkSpec for Ethereum {
         chain_id: u64,
         fork_schedule: ForkSchedule,
         block_id: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
         let mut evm = EthereumEvm::new(execution, chain_id, fork_schedule, block_id);
 
-        evm.transact_inner(tx, validate_tx).await
+        evm.transact_inner(tx, validate_tx, state_overrides).await
     }
 }
 

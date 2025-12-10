@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
     network::{primitives::HeaderResponse, BlockResponse},
+    rpc::types::state::{AccountOverride, StateOverride},
 };
 use eyre::Result;
 use revm::{
@@ -26,8 +27,12 @@ pub struct ProofDB<N: NetworkSpec, E: ExecutionProvider<N>> {
 }
 
 impl<N: NetworkSpec, E: ExecutionProvider<N>> ProofDB<N, E> {
-    pub fn new(block_id: BlockId, execution: Arc<E>) -> Self {
-        let state = EvmState::new(execution, block_id);
+    pub fn new(
+        block_id: BlockId,
+        execution: Arc<E>,
+        state_overrides: Option<StateOverride>,
+    ) -> Self {
+        let state = EvmState::new(execution, block_id, state_overrides);
         ProofDB { state }
     }
 }
@@ -45,17 +50,19 @@ pub struct EvmState<N: NetworkSpec, E: ExecutionProvider<N>> {
     pub block: BlockId,
     pub access: Option<StateAccess>,
     pub execution: Arc<E>,
+    pub state_overrides: Option<StateOverride>,
     pub phantom: PhantomData<N>,
 }
 
 impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
-    pub fn new(execution: Arc<E>, block: BlockId) -> Self {
+    pub fn new(execution: Arc<E>, block: BlockId, state_overrides: Option<StateOverride>) -> Self {
         Self {
             execution,
             block,
             accounts: HashMap::new(),
             block_hash: HashMap::new(),
             access: None,
+            state_overrides,
             phantom: PhantomData,
         }
     }
@@ -111,7 +118,16 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
     }
 
     pub fn get_basic(&mut self, address: Address) -> Result<AccountInfo, DatabaseError> {
-        if let Some(account) = self.accounts.get(&address) {
+        let override_opt = self
+            .state_overrides
+            .as_ref()
+            .and_then(|overrides| overrides.get(&address));
+
+        if let Some(account) = self.accounts.get_mut(&address) {
+            if let Some(override_opt) = override_opt {
+                apply_account_overrides(account, override_opt)?;
+            }
+
             // Normalize code_hash for REVM compatibility:
             // RPC response for getProof method for non-existing (unused) EOAs
             // may contain B256::ZERO for code_hash, but REVM expects KECCAK_EMPTY
@@ -127,6 +143,11 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
                 code_hash,
                 Bytecode::new_raw(account.code.as_ref().unwrap().clone()),
             ))
+        } else if override_opt.is_some() {
+            // It means we have an override but no actual account data to fall through to.
+            // We return error so that the account is fetched first, overrides will be applied on the next iteration.
+            self.access = Some(StateAccess::Basic(address));
+            Err(DatabaseError::StateMissing)
         } else {
             self.access = Some(StateAccess::Basic(address));
             Err(DatabaseError::StateMissing)
@@ -134,11 +155,25 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
     }
 
     pub fn get_storage(&mut self, address: Address, slot: U256) -> Result<U256, DatabaseError> {
+        let override_opt = self
+            .state_overrides
+            .as_ref()
+            .and_then(|overrides| overrides.get(&address));
+
+        let slot_b256 = B256::from(slot);
+
+        if let Some(account_override) = override_opt {
+            if let Some(result) = apply_storage_overrides(&slot_b256, account_override)? {
+                return Ok(result);
+            }
+        }
+
         if let Some(account) = self.accounts.get(&address) {
-            if let Some(value) = account.get_storage_value(B256::from(slot)) {
+            if let Some(value) = account.get_storage_value(slot_b256) {
                 return Ok(value);
             }
         }
+
         self.access = Some(StateAccess::Storage(address, slot));
         Err(DatabaseError::StateMissing)
     }
@@ -205,4 +240,58 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> Database for ProofDB<N, E> {
 
 fn is_precompile(address: &Address) -> bool {
     address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
+}
+
+fn apply_account_overrides(
+    account: &mut Account,
+    overrides: &AccountOverride,
+) -> Result<(), DatabaseError> {
+    let balance = overrides.balance.unwrap_or(account.account.balance);
+
+    let nonce = overrides.nonce.unwrap_or(account.account.nonce);
+
+    let (code_hash, code) = if let Some(override_code) = overrides.code.as_ref() {
+        let code = Bytecode::new_raw_checked(override_code.clone())
+            .map_err(|e| DatabaseError::InvalidStateOverride(e.to_string()))?;
+        (code.hash_slow(), code.bytes())
+    } else {
+        (
+            account.account.code_hash,
+            account.code.as_ref().unwrap().clone(),
+        )
+    };
+    account.account.balance = balance;
+    account.account.nonce = nonce;
+    account.account.code_hash = code_hash;
+    account.code = Some(code);
+    Ok(())
+}
+
+fn apply_storage_overrides(
+    slot: &B256,
+    overrides: &AccountOverride,
+) -> Result<Option<U256>, DatabaseError> {
+    if overrides.state.is_some() && overrides.state_diff.is_some() {
+        return Err(DatabaseError::InvalidStateOverride(
+            "Both 'state' and 'stateDiff' defined for account".to_string(),
+        ));
+    }
+
+    if let Some(ref state) = overrides.state {
+        // Full state replacement - only use override values
+        let value = state
+            .get(slot)
+            .map(|b| U256::from_be_bytes(b.0))
+            .unwrap_or(U256::ZERO);
+        return Ok(Some(value));
+    }
+
+    if let Some(ref state_diff) = overrides.state_diff {
+        if let Some(value_b256) = state_diff.get(slot) {
+            return Ok(Some(U256::from_be_bytes(value_b256.0)));
+        }
+    }
+
+    // No override applies, fall through to regular storage
+    Ok(None)
 }

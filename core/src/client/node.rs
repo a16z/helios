@@ -6,8 +6,8 @@ use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::BlockResponse;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
-    AccessListItem, AccessListResult, EIP1186AccountProofResponse, EIP1186StorageProof, Filter,
-    Log, SyncInfo, SyncStatus,
+    state::StateOverride, AccessListItem, AccessListResult, EIP1186AccountProofResponse,
+    EIP1186StorageProof, Filter, Log, SyncInfo, SyncStatus,
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
@@ -172,7 +172,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         self.consensus.wait_synced().await
     }
 
-    async fn call(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<Bytes> {
+    async fn call(
+        &self,
+        tx: &N::TransactionRequest,
+        block_id: BlockId,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<Bytes> {
         self.check_blocktag_age(&block_id).await?;
         let (result, ..) = N::transact(
             tx,
@@ -181,6 +186,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             self.get_chain_id().await,
             self.fork_schedule,
             block_id,
+            state_overrides,
         )
         .await?;
 
@@ -195,7 +201,12 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         Ok(res)
     }
 
-    async fn estimate_gas(&self, tx: &N::TransactionRequest, block_id: BlockId) -> Result<u64> {
+    async fn estimate_gas(
+        &self,
+        tx: &N::TransactionRequest,
+        block_id: BlockId,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<u64> {
         self.check_blocktag_age(&block_id).await?;
 
         let (result, ..) = N::transact(
@@ -205,6 +216,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             self.get_chain_id().await,
             self.fork_schedule,
             block_id,
+            state_overrides,
         )
         .await?;
 
@@ -215,6 +227,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         &self,
         tx: &N::TransactionRequest,
         block: BlockId,
+        state_overrides: Option<StateOverride>,
     ) -> Result<AccessListResult> {
         self.check_blocktag_age(&block).await?;
 
@@ -225,6 +238,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             self.get_chain_id().await,
             self.fork_schedule,
             block,
+            state_overrides,
         )
         .await?;
 
