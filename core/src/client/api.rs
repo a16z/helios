@@ -1,7 +1,9 @@
 use alloy::{
     eips::BlockId,
     primitives::{Address, Bytes, B256, U256},
-    rpc::types::{AccessListResult, EIP1186AccountProofResponse, Filter, Log, SyncStatus},
+    rpc::types::{
+        AccessListResult, EIP1186AccountProofResponse, Filter, FilterChanges, Log, SyncStatus,
+    },
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -65,6 +67,7 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     // filters and subscriptions
     async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>>;
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges>;
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool>;
     async fn new_filter(&self, filter: &Filter) -> Result<U256>;
     async fn new_block_filter(&self) -> Result<U256>;

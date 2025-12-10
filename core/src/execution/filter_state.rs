@@ -46,4 +46,19 @@ impl FilterState {
     pub async fn get_filter(&self, id: U256) -> Option<FilterType> {
         self.filters.read().await.get(&id).cloned()
     }
+
+    pub async fn update_last_poll(&self, id: U256, last_poll: u64) {
+        if let Some(filter_type) = self.filters.write().await.get_mut(&id) {
+            match filter_type {
+                FilterType::Logs {
+                    last_poll: ref mut lp,
+                    ..
+                } => *lp = last_poll,
+                FilterType::Blocks {
+                    last_poll: ref mut lp,
+                    ..
+                } => *lp = last_poll,
+            }
+        }
+    }
 }

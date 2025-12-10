@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::network::BlockResponse;
+use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     AccessListItem, AccessListResult, EIP1186AccountProofResponse, EIP1186StorageProof, Filter,
-    Log, SyncInfo, SyncStatus,
+    FilterChanges, Log, SyncInfo, SyncStatus,
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
@@ -371,6 +371,52 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         match self.filter_state.get_filter(filter_id).await {
             Some(FilterType::Logs { filter, .. }) => self.get_logs(&filter).await,
             Some(FilterType::Blocks { .. }) => Err(eyre!("expected log filter")),
+            None => Err(eyre!("filter not found")),
+        }
+    }
+
+    async fn get_filter_changes(&self, filter_id: U256) -> Result<FilterChanges> {
+        match self.filter_state.get_filter(filter_id).await {
+            Some(FilterType::Logs { filter, last_poll }) => {
+                let current_block = self.get_block_number().await?.try_into()?;
+                if current_block <= last_poll {
+                    return Ok(FilterChanges::Empty);
+                }
+
+                let mut updated_filter = filter.clone();
+                updated_filter.block_option = updated_filter
+                    .block_option
+                    .with_from_block((last_poll + 1).into());
+                let logs = self.get_logs(&updated_filter).await?;
+
+                // Update last_poll in filter_state
+                self.filter_state
+                    .update_last_poll(filter_id, current_block)
+                    .await;
+                Ok(FilterChanges::Logs(logs))
+            }
+            Some(FilterType::Blocks {
+                start_block: _,
+                last_poll,
+            }) => {
+                let current_block = self.get_block_number().await?.try_into()?;
+                if current_block <= last_poll {
+                    return Ok(FilterChanges::Empty);
+                }
+
+                let mut block_hashes = Vec::new();
+                for block_num in (last_poll + 1)..=current_block {
+                    if let Some(block) = self.get_block(block_num.into(), false).await? {
+                        block_hashes.push(block.header().hash());
+                    }
+                }
+
+                // Update last_poll in filter_state
+                self.filter_state
+                    .update_last_poll(filter_id, current_block)
+                    .await;
+                Ok(FilterChanges::Hashes(block_hashes))
+            }
             None => Err(eyre!("filter not found")),
         }
     }
