@@ -520,7 +520,7 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
                 epoch >= forks.capella.epoch && epoch < forks.deneb.epoch
             }
             ExecutionPayloadHeader::Bellatrix(_) => {
-                epoch >= forks.bellatrix.epoch && epoch < forks.altair.epoch
+                epoch >= forks.bellatrix.epoch && epoch < forks.capella.epoch
             }
         };
 
