@@ -87,4 +87,7 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     async fn get_chain_id(&self) -> u64;
     async fn get_coinbase(&self) -> Result<Address>;
     async fn syncing(&self) -> Result<SyncStatus>;
+    // checkpoint
+    async fn current_checkpoint(&self) -> Result<Option<B256>>;
+    fn new_checkpoints_recv(&self) -> Result<tokio::sync::watch::Receiver<Option<B256>>>;
 }

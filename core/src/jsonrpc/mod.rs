@@ -40,11 +40,13 @@ pub async fn start<N: NetworkSpec>(
     let mut methods = Methods::new();
     let eth_methods: Methods = EthRpcServer::into_rpc(rpc.clone()).into();
     let net_methods: Methods = NetRpcServer::into_rpc(rpc.clone()).into();
-    let web3_methods: Methods = Web3RpcServer::into_rpc(rpc).into();
+    let web3_methods: Methods = Web3RpcServer::into_rpc(rpc.clone()).into();
+    let helios_methods: Methods = HeliosRpcServer::into_rpc(rpc).into();
 
     methods.merge(eth_methods)?;
     methods.merge(net_methods)?;
     methods.merge(web3_methods)?;
+    methods.merge(helios_methods)?;
 
     Ok(server.start(methods))
 }
@@ -191,6 +193,14 @@ trait NetRpc {
 trait Web3Rpc {
     #[method(name = "clientVersion")]
     async fn client_version(&self) -> Result<String, ErrorObjectOwned>;
+}
+
+#[rpc(client, server, namespace = "helios")]
+trait HeliosRpc {
+    #[method(name = "getCurrentCheckpoint")]
+    async fn get_current_checkpoint(&self) -> Result<Option<B256>, ErrorObjectOwned>;
+    #[subscription(name = "subscribeNewCheckpoints", unsubscribe = "unsubscribeNewCheckpoints", item = Option<B256>)]
+    async fn subscribe_new_checkpoints(&self) -> SubscriptionResult;
 }
 
 #[async_trait]
@@ -433,7 +443,7 @@ impl<N: NetworkSpec>
     ) -> SubscriptionResult {
         let maybe_rx = self.client.subscribe(event_type).await;
 
-        handle_subscription(pending, maybe_rx).await
+        handle_eth_subscription(pending, maybe_rx).await
     }
 }
 
@@ -451,12 +461,27 @@ impl<N: NetworkSpec> Web3RpcServer for JsonRpc<N> {
     }
 }
 
+#[async_trait]
+impl<N: NetworkSpec> HeliosRpcServer for JsonRpc<N> {
+    async fn get_current_checkpoint(&self) -> Result<Option<B256>, ErrorObjectOwned> {
+        convert_err(self.client.current_checkpoint().await)
+    }
+
+    async fn subscribe_new_checkpoints(
+        &self,
+        pending: PendingSubscriptionSink,
+    ) -> SubscriptionResult {
+        let maybe_rx = self.client.new_checkpoints_recv();
+        handle_checkpoint_subscription(pending, maybe_rx).await
+    }
+}
+
 fn convert_err<T, E: Display>(res: Result<T, E>) -> Result<T, ErrorObjectOwned> {
     res.map_err(|err| ErrorObject::owned(1, err.to_string(), None::<()>))
 }
 
 /// Helper function to handle subscription acceptance/rejection and message forwarding
-async fn handle_subscription<N: NetworkSpec>(
+async fn handle_eth_subscription<N: NetworkSpec>(
     pending: PendingSubscriptionSink,
     maybe_rx: Result<SubEventRx<N>>,
 ) -> SubscriptionResult {
@@ -479,6 +504,38 @@ async fn handle_subscription<N: NetworkSpec>(
                 .reject(ErrorObject::owned(
                     2000,
                     "Subscription failed",
+                    Some(e.to_string()),
+                ))
+                .await;
+            Ok(())
+        }
+    }
+}
+
+/// Helper function to handle checkpoint subscription acceptance/rejection and message forwarding
+async fn handle_checkpoint_subscription(
+    pending: PendingSubscriptionSink,
+    maybe_rx: Result<tokio::sync::watch::Receiver<Option<B256>>>,
+) -> SubscriptionResult {
+    match maybe_rx {
+        Ok(mut rx) => {
+            let sink = pending.accept().await?;
+            tokio::spawn(async move {
+                while rx.changed().await.is_ok() {
+                    let checkpoint = *rx.borrow_and_update();
+                    let msg = SubscriptionMessage::from_json(&checkpoint).unwrap();
+                    if sink.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+            });
+            Ok(())
+        }
+        Err(e) => {
+            pending
+                .reject(ErrorObject::owned(
+                    2001,
+                    "Checkpoint subscription not supported",
                     Some(e.to_string()),
                 ))
                 .await;

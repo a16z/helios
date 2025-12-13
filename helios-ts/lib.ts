@@ -112,6 +112,13 @@ export class HeliosProvider {
 
     this.#chainId = this.#client.chain_id();
     this.#eventEmitter = new EventEmitter();
+    this.#setHeliosEvents();
+  }
+
+  #setHeliosEvents() {
+    this.#client.set_helios_events((event: string, data: any) => {
+      this.#eventEmitter.emit(event, data);
+    });
   }
 
   /** @internal */
@@ -286,6 +293,9 @@ export class HeliosProvider {
       }
       case "eth_unsubscribe": {
         return this.#client.unsubscribe(req.params[0]);
+      }
+      case "helios_getCurrentCheckpoint": {
+        return this.#client.get_current_checkpoint();
       }
       default: {
         throw new Error(`method not supported: ${req.method}`);

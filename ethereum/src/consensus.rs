@@ -81,6 +81,10 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
         self.finalized_block_recv.take()
     }
 
+    fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
+        Some(self.checkpoint_recv.clone())
+    }
+
     fn expected_highest_block(&self) -> u64 {
         u64::MAX
     }
@@ -399,6 +403,11 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
+        if self.last_checkpoint.is_none() {
+            self.last_checkpoint = Some(checkpoint);
+            let _ = self.checkpoint_send.send(self.last_checkpoint);
+        }
+
         debug!(
             target: "helios::consensus",
             "consensus client in sync with checkpoint: 0x{}",
@@ -475,7 +484,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
         self.block_send.send(block).await?;
         self.finalized_block_send.send(Some(finalized_block))?;
-        self.checkpoint_send.send(self.last_checkpoint)?;
 
         Ok(())
     }
@@ -545,6 +553,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let new_checkpoint = apply_update::<S>(&mut self.store, update);
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
+            let _ = self.checkpoint_send.send(self.last_checkpoint);
         }
     }
 
@@ -556,6 +565,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let new_optimistic_slot = self.store.optimistic_header.beacon().slot;
         if new_checkpoint.is_some() {
             self.last_checkpoint = new_checkpoint;
+            let _ = self.checkpoint_send.send(self.last_checkpoint);
         }
         if new_finalized_slot != prev_finalized_slot {
             self.log_finality_update(update);
