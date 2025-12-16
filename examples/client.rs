@@ -12,15 +12,15 @@ async fn main() -> Result<()> {
         // Set the network to mainnet
         .network(Network::Mainnet)
         // Set the consensus rpc url
-        .consensus_rpc("https://www.lightclientdata.org")?
+        .consensus_rpc("http://testing.mainnet.beacon-api.nimbus.team")?
         // Set the execution rpc url
-        .execution_rpc("https://eth-mainnet.g.alchemy.com/v2/XXXXX")?
+        .execution_rpc("https://eth-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>")?
         // Set the checkpoint to the last known checkpoint
         .checkpoint(b256!(
             "85e6151a246e8fdba36db27a0c7678a575346272fe978c9281e13a8b26cdfa68"
         ))
         // Set the rpc address
-        .rpc_address("127.0.0.1:8545".parse().unwrap())
+        .rpc_address("127.0.0.1:8545".parse()?)
         // Set the data dir
         .data_dir(PathBuf::from("/tmp/helios"))
         // Set the fallback service
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         .with_file_db();
 
     // Build the client
-    let _client: EthereumClient = builder.build().unwrap();
+    let _client: EthereumClient = builder.build()?;
     println!("Constructed client!");
 
     Ok(())

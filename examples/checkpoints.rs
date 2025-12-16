@@ -9,30 +9,24 @@ async fn main() -> Result<()> {
     // The `build` method will fetch a list of [CheckpointFallbackService]s from a community-maintained list by ethPandaOps.
     // This list is NOT guaranteed to be secure, but is provided in good faith.
     // The raw list can be found here: https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml
-    let cf = checkpoints::CheckpointFallback::new()
-        .build()
-        .await
-        .unwrap();
+    let cf = checkpoints::CheckpointFallback::new().build().await?;
 
     // Fetch the latest sepolia checkpoint
     let sepolia_checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::Sepolia)
-        .await
-        .unwrap();
+        .await?;
     println!("Fetched latest sepolia checkpoint: {sepolia_checkpoint}");
 
     // Fetch the latest holesky checkpoint
     let holesky_checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::Holesky)
-        .await
-        .unwrap();
+        .await?;
     println!("Fetched latest holesky checkpoint: {holesky_checkpoint}");
 
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::Mainnet)
-        .await
-        .unwrap();
+        .await?;
     println!("Fetched latest mainnet checkpoint: {mainnet_checkpoint}");
 
     // Let's get a list of all the fallback service endpoints for mainnet
