@@ -491,10 +491,19 @@ async fn handle_eth_subscription<N: NetworkSpec>(
 
             tokio::spawn(async move {
                 while let Ok(message) = stream.recv().await {
-                    let msg = SubscriptionMessage::from_json(&message).unwrap();
+                    let msg = match SubscriptionMessage::from_json(&message) {
+                        Ok(msg) => msg,
+                        Err(_err) => {
+                            // Invalid JSON-RPC subscription message on active subscription:
+                            // terminate the stream to avoid panic.
+                            break;
+                        }
+                    };
+                    
                     if sink.send(msg).await.is_err() {
                         break;
                     }
+                    
                 }
             });
             Ok(())
@@ -523,7 +532,17 @@ async fn handle_checkpoint_subscription(
             tokio::spawn(async move {
                 while rx.changed().await.is_ok() {
                     let checkpoint = *rx.borrow_and_update();
-                    let msg = SubscriptionMessage::from_json(&checkpoint).unwrap();
+
+                    let msg = match SubscriptionMessage::from_json(&checkpoint) {
+                        Ok(msg) => msg,
+                        Err(_err) => {
+                            // Invalid subscription message on an active subscription:
+                            // terminate the stream to avoid panic.
+                            break;
+                        }
+                        
+                    };
+                    
                     if sink.send(msg).await.is_err() {
                         break;
                     }
