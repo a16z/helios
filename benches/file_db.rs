@@ -22,7 +22,7 @@ pub fn save_checkpoint(c: &mut Criterion) {
         let checkpoint: alloy::primitives::FixedBytes<32> =
             b256!("c7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce");
         b.iter(|| {
-            let data_dir = Some(tempdir().unwrap().into_path());
+            let data_dir = Some(tempdir().unwrap().keep());
             let config = Config {
                 data_dir,
                 ..Default::default()
@@ -37,7 +37,7 @@ pub fn save_checkpoint(c: &mut Criterion) {
 pub fn load_checkpoint(c: &mut Criterion) {
     c.bench_function("load_checkpoint", |b| {
         // First write to the db
-        let data_dir = Some(tempdir().unwrap().into_path());
+        let data_dir = Some(tempdir().unwrap().keep());
         let config = Config {
             data_dir,
             ..Default::default()
