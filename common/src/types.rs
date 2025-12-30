@@ -1,5 +1,5 @@
 use alloy::{
-    consensus::Account as TrieAccount,
+    consensus::TrieAccount,
     primitives::{Bytes, B256, U256},
     rpc::types::EIP1186StorageProof,
     sol_types::decode_revert_reason,

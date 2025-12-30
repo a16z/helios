@@ -1,4 +1,4 @@
-use alloy::consensus::{Account as TrieAccount, BlockHeader};
+use alloy::consensus::{TrieAccount, BlockHeader};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
 use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
