@@ -5,7 +5,7 @@ use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::ClientBuilder;
 use alloy::transports::layers::RetryBackoffLayer;
 use alloy::{
-    consensus::{Account as TrieAccount, BlockHeader},
+    consensus::{BlockHeader, TrieAccount},
     eips::BlockNumberOrTag,
     network::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionResponse as TxTr,
