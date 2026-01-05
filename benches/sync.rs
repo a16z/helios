@@ -1,7 +1,6 @@
+use alloy::eips::BlockId;
 use alloy::primitives::Address;
 use criterion::{criterion_group, criterion_main, Criterion};
-
-use helios_common::types::BlockTag;
 
 mod harness;
 
@@ -50,7 +49,7 @@ pub fn bench_full_sync_with_call(c: &mut Criterion) {
             let addr = "0x00000000219ab540356cbb839cbe05303d7705fa"
                 .parse::<Address>()
                 .unwrap();
-            let block = BlockTag::Latest;
+            let block = BlockId::latest();
             client.get_balance(addr, block).await.unwrap()
         })
     });
