@@ -47,7 +47,7 @@ pub fn verify_bootstrap<S: ConsensusSpec>(
     let header_valid = header_hash == checkpoint;
 
     if !header_valid {
-        return Err(ConsensusError::InvalidHeaderHash(checkpoint, header_hash).into());
+        return Err(ConsensusError::InvalidHeaderHash(header_hash, checkpoint).into());
     }
 
     if !committee_valid {
