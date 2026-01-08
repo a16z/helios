@@ -11,7 +11,7 @@ use alloy::rpc::types::{state::StateOverride, Filter, TransactionRequest};
 use eyre::Result;
 use url::Url;
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys::Function;
+use js_sys::Function;
 
 use helios_common::types::SubscriptionType;
 use helios_ethereum::config::{networks, Config};
