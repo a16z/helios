@@ -10,7 +10,7 @@ use eyre::Result;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    primitives::{hardfork::SpecId, Address, U256},
+    primitives::{eip7825, hardfork::SpecId, Address, U256},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
 use tracing::debug;
@@ -110,7 +110,8 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             .ok_or(ExecutionError::BlockNotFound(block_id))
             .map_err(|err| EvmError::Generic(err.to_string()))?;
 
-        let mut tx_env = Self::tx_env(tx);
+        let spec = get_spec_id_for_block_timestamp(block.header.timestamp(), &self.fork_schedule);
+        let mut tx_env = Self::tx_env(tx, spec);
 
         if <TxType as Into<u8>>::into(
             <TransactionRequest as TransactionBuilder<Ethereum>>::output_tx_type(tx),
@@ -135,12 +136,17 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             .with_cfg(cfg))
     }
 
-    fn tx_env(tx: &TransactionRequest) -> TxEnv {
+    fn tx_env(tx: &TransactionRequest, spec: SpecId) -> TxEnv {
+        let default_gas_limit = if spec >= SpecId::OSAKA {
+            eip7825::TX_GAS_LIMIT_CAP
+        } else {
+            u64::MAX
+        };
         TxEnv {
             tx_type: tx.transaction_type.unwrap_or_default(),
             caller: tx.from.unwrap_or_default(),
             gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
-                .unwrap_or(u64::MAX),
+                .unwrap_or(default_gas_limit),
             gas_price: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_price(tx)
                 .unwrap_or_default(),
             kind: tx.to.unwrap_or_default(),
