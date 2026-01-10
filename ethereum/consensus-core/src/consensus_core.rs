@@ -16,14 +16,14 @@ use crate::proof::{
     is_current_committee_proof_valid, is_execution_payload_proof_valid, is_finality_proof_valid,
     is_next_committee_proof_valid,
 };
-use crate::types::bls::{PublicKey, Signature};
+use crate::types::bls::Signature;
 use crate::types::{
     BeaconBlockHeader, Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate,
     LightClientHeader, LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
     calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
-    get_participating_keys,
+    get_participating_aggregate_pubkey,
 };
 
 pub fn verify_bootstrap<S: ConsensusSpec>(
@@ -343,12 +343,15 @@ pub fn verify_generic_update<S: ConsensusSpec>(
         store.next_sync_committee.as_ref().unwrap()
     };
 
-    let pks = get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
+    let agg_pk = get_participating_aggregate_pubkey(
+        sync_committee,
+        &update.sync_aggregate.sync_committee_bits,
+    )?;
 
     let fork_version = calculate_fork_version::<S>(forks, update.signature_slot.saturating_sub(1));
     let fork_data_root = compute_fork_data_root(fork_version, genesis_root);
     let is_valid_sig = verify_sync_committee_signature(
-        &pks,
+        &agg_pk,
         update.attested_header.beacon(),
         &update.sync_aggregate.sync_committee_signature,
         fork_data_root,
@@ -484,14 +487,14 @@ fn has_finality_update<S: ConsensusSpec>(update: &GenericUpdate<S>) -> bool {
 }
 
 fn verify_sync_committee_signature(
-    pks: &[PublicKey],
+    aggregate_public_key: &bls12_381::G1Affine,
     attested_header: &BeaconBlockHeader,
     signature: &Signature,
     fork_data_root: B256,
 ) -> bool {
     let header_root = attested_header.tree_hash_root();
     let signing_root = compute_committee_sign_root(header_root, fork_data_root);
-    signature.verify(signing_root.as_slice(), pks)
+    signature.verify_with_aggregate_pubkey(signing_root.as_slice(), aggregate_public_key)
 }
 
 fn safety_threshold<S: ConsensusSpec>(store: &LightClientStore<S>) -> u64 {

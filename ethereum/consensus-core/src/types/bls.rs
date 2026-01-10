@@ -24,7 +24,7 @@ pub struct Signature {
 }
 
 impl PublicKey {
-    fn point(&self) -> Result<G1Affine> {
+    pub(crate) fn point(&self) -> Result<G1Affine> {
         let bytes = self.inner.inner.to_vec();
         let bytes = bytes.as_slice().try_into()?;
         let point_opt = G1Affine::from_compressed(bytes);
@@ -60,20 +60,26 @@ impl Signature {
         } else {
             return false;
         };
+        verify_with_aggregate_pk(&sig_point, msg, &aggregate_public_key)
+    }
 
-        // Ensure AggregatePublicKey is not infinity
-        if aggregate_public_key.is_identity().into() {
+    pub fn verify_with_aggregate_pubkey(
+        &self,
+        msg: &[u8],
+        aggregate_public_key: &G1Affine,
+    ) -> bool {
+        let sig_point = if let Ok(point) = self.point() {
+            point
+        } else {
+            return false;
+        };
+
+        // Subgroup check for signature
+        if !subgroup_check_g2(&sig_point) {
             return false;
         }
 
-        // Points must be affine for pairing
-        let key_point = aggregate_public_key;
-        let msg_hash = G2Affine::from(hash_to_curve(msg));
-
-        let generator_g1_negative = G1Affine::from(-G1Projective::generator());
-
-        // Faster ate2 evaluation checks e(S, -G1) * e(H, PK) == 1
-        ate2_evaluation(&sig_point, &generator_g1_negative, &msg_hash, &key_point)
+        verify_with_aggregate_pk(&sig_point, msg, aggregate_public_key)
     }
 
     fn point(&self) -> Result<G2Affine> {
@@ -100,6 +106,26 @@ fn aggregate(pks: &[PublicKey]) -> Result<G1Affine> {
     }
 
     Ok(G1Affine::from(agg_key))
+}
+
+fn verify_with_aggregate_pk(
+    sig_point: &G2Affine,
+    msg: &[u8],
+    aggregate_public_key: &G1Affine,
+) -> bool {
+    // Ensure AggregatePublicKey is not infinity
+    if aggregate_public_key.is_identity().into() {
+        return false;
+    }
+
+    // Points must be affine for pairing
+    let key_point = *aggregate_public_key;
+    let msg_hash = G2Affine::from(hash_to_curve(msg));
+
+    let generator_g1_negative = G1Affine::from(-G1Projective::generator());
+
+    // Faster ate2 evaluation checks e(S, -G1) * e(H, PK) == 1
+    ate2_evaluation(sig_point, &generator_g1_negative, &msg_hash, &key_point)
 }
 
 /// Verifies a G2 point is in subgroup `r`.
