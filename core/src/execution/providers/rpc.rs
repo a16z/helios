@@ -448,15 +448,19 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
             storage_keys: Vec::default(),
         };
 
-        let list_addresses = list.iter().map(|elem| elem.address).collect::<Vec<_>>();
-
-        if !list_addresses.contains(&from_access_entry.address) {
+        if !list
+            .iter()
+            .any(|elem| elem.address == from_access_entry.address)
+        {
             list.push(from_access_entry)
         }
-        if !list_addresses.contains(&to_access_entry.address) {
+        if !list.iter().any(|elem| elem.address == to_access_entry.address) {
             list.push(to_access_entry)
         }
-        if !list_addresses.contains(&producer_access_entry.address) {
+        if !list
+            .iter()
+            .any(|elem| elem.address == producer_access_entry.address)
+        {
             list.push(producer_access_entry)
         }
 
