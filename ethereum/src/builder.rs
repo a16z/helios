@@ -152,13 +152,15 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             config.to_base_config()
         };
 
-        let consensus_rpc = self.consensus_rpc.unwrap_or_else(|| {
-            self.config
-                .as_ref()
-                .expect("missing consensus rpc")
-                .consensus_rpc
-                .clone()
-        });
+        let consensus_rpc = if let Some(url) = self.consensus_rpc {
+            url
+        } else if let Some(cfg) = &self.config {
+            cfg.consensus_rpc.clone()
+        } else if let Some(url) = base_config.consensus_rpc.clone() {
+            url
+        } else {
+            return Err(eyre!("missing consensus rpc"));
+        };
 
         let execution_rpc = self
             .execution_rpc
@@ -275,9 +277,16 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 rpc_address,
             ))
         } else {
+            // Ensure execution rpc is present when verifiable API is not configured
+            let rpc_url = config
+                .execution_rpc
+                .as_ref()
+                .ok_or_else(|| {
+                    eyre!("missing execution rpc; provide execution_rpc or verifiable_api")
+                })?
+                .clone();
             let block_provider = BlockCache::<Ethereum>::new();
             // Create EIP-2935 historical block provider
-            let rpc_url = config.execution_rpc.as_ref().unwrap().clone();
             let historical_provider = Eip2935Provider::new();
             let execution = RpcExecutionProvider::with_historical_provider(
                 rpc_url,
