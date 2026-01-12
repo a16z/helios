@@ -7,7 +7,7 @@ use alloy::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
         TransactionResponse,
     },
-    primitives::{Address, B256, U256},
+    primitives::{Address, Bytes, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
     rlp,
     rpc::{
@@ -16,7 +16,7 @@ use alloy::{
     },
     transports::layers::RetryBackoffLayer,
 };
-use alloy_trie::TrieAccount;
+use alloy_trie::{TrieAccount, KECCAK_EMPTY};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 use futures::future::{join_all, try_join_all};
@@ -224,9 +224,13 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
         verify_storage_proof(&proof)?;
 
         let code = if with_code {
-            let code = self.provider.get_code_at(address).await?;
-            verify_code_hash_proof(&proof, &code)?;
-            Some(code)
+            if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
+                Some(Bytes::new())
+            } else {
+                let code = self.provider.get_code_at(address).await?;
+                verify_code_hash_proof(&proof, &code)?;
+                Some(code)
+            }
         } else {
             None
         };
