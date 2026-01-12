@@ -56,36 +56,6 @@ pub fn rpc_block_receipts() -> Vec<TransactionReceipt> {
     serde_json::from_str(&json_str).unwrap()
 }
 
-pub fn rpc_logs() -> Vec<Log> {
-    let json_str = read_to_string(testdata_dir().join("rpc/logs.json")).unwrap();
-    serde_json::from_str(&json_str).unwrap()
-}
-
-pub fn rpc_filter_block_hashes() -> Vec<B256> {
-    let json_str = read_to_string(testdata_dir().join("rpc/block_hashes.json")).unwrap();
-    serde_json::from_str(&json_str).unwrap()
-}
-
-pub fn rpc_filter_tx_hashes() -> Vec<B256> {
-    let json_str = read_to_string(testdata_dir().join("rpc/tx_hashes.json")).unwrap();
-    serde_json::from_str(&json_str).unwrap()
-}
-
-pub fn rpc_filter_id_logs() -> U256 {
-    let id = read_to_string(testdata_dir().join("rpc/filter_id_logs.txt")).unwrap();
-    U256::from_str(&id).unwrap()
-}
-
-pub fn rpc_filter_id_blocks() -> U256 {
-    let id = read_to_string(testdata_dir().join("rpc/filter_id_blocks.txt")).unwrap();
-    U256::from_str(&id).unwrap()
-}
-
-pub fn rpc_filter_id_txs() -> U256 {
-    let id = read_to_string(testdata_dir().join("rpc/filter_id_txs.txt")).unwrap();
-    U256::from_str(&id).unwrap()
-}
-
 pub fn verifiable_api_access_list_response() -> ExtendedAccessListResponse {
     let resp = read_to_string(testdata_dir().join("verifiable_api/access_list.json")).unwrap();
     serde_json::from_str(&resp).unwrap()
