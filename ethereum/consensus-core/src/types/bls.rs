@@ -37,37 +37,7 @@ impl PublicKey {
 }
 
 impl Signature {
-    /// FastAggregateVerify
-    ///
-    /// Verifies an AggregateSignature against a list of PublicKeys.
-    /// PublicKeys must all be verified via Proof of Possession before running this function.
-    /// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.3.4
-    pub fn verify(&self, msg: &[u8], pks: &[PublicKey]) -> bool {
-        let sig_point = if let Ok(point) = self.point() {
-            point
-        } else {
-            return false;
-        };
-
-        // Subgroup check for signature
-        if !subgroup_check_g2(&sig_point) {
-            return false;
-        }
-
-        // Aggregate PublicKeys
-        let aggregate_public_key = if let Ok(agg) = aggregate(pks) {
-            agg
-        } else {
-            return false;
-        };
-        verify_with_aggregate_pk(&sig_point, msg, &aggregate_public_key)
-    }
-
-    pub fn verify_with_aggregate_pubkey(
-        &self,
-        msg: &[u8],
-        aggregate_public_key: &G1Affine,
-    ) -> bool {
+    pub fn verify(&self, msg: &[u8], aggregate_public_key: &G1Affine) -> bool {
         let sig_point = if let Ok(point) = self.point() {
             point
         } else {
@@ -92,20 +62,6 @@ impl Signature {
             Err(eyre!("invalid point"))
         }
     }
-}
-
-/// Aggregates multiple keys into one aggregate key
-fn aggregate(pks: &[PublicKey]) -> Result<G1Affine> {
-    if pks.is_empty() {
-        return Err(eyre!("no keys to aggregate"));
-    }
-
-    let mut agg_key = G1Projective::identity();
-    for key in pks {
-        agg_key += G1Projective::from(key.point()?)
-    }
-
-    Ok(G1Affine::from(agg_key))
 }
 
 fn verify_with_aggregate_pk(
