@@ -476,6 +476,7 @@ export type Network =
   // OP Stack networks
   | "op-mainnet"   // OP Mainnet (chain ID: 10)
   | "base"         // Base mainnet (chain ID: 8453)
+  | "base-sepolia" // Base Sepolia testnet (chain ID: 85432)
   | "worldchain"   // Worldchain mainnet (chain ID: 480)
   | "zora"         // Zora mainnet (chain ID: 7777777)
   | "unichain"     // Unichain mainnet (chain ID: 130)

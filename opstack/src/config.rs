@@ -47,6 +47,7 @@ pub struct NetworkConfig {
 pub enum Network {
     OpMainnet,
     Base,
+    BaseSepolia,
     Worldchain,
     Zora,
     Unichain,
@@ -57,6 +58,7 @@ impl Display for Network {
         match self {
             Self::OpMainnet => f.write_str("op-mainnet"),
             Self::Base => f.write_str("base"),
+            Self::BaseSepolia => f.write_str("base-sepolia"),
             Self::Worldchain => f.write_str("worldchain"),
             Self::Zora => f.write_str("zora"),
             Self::Unichain => f.write_str("unichain"),
@@ -71,6 +73,7 @@ impl FromStr for Network {
         match s {
             "op-mainnet" => Ok(Self::OpMainnet),
             "base" => Ok(Self::Base),
+            "base-sepolia" => Ok(Self::BaseSepolia),
             "worldchain" => Ok(Self::Worldchain),
             "zora" => Ok(Self::Zora),
             "unichain" => Ok(Self::Unichain),
@@ -104,6 +107,17 @@ impl From<Network> for NetworkConfig {
                     unsafe_signer: address!("Af6E19BE0F9cE7f8afd49a1824851023A8249e8a"),
                     system_config_contract: address!("73a79Fab69143498Ed3712e519A88a918e1f4072"),
                     eth_network: EthNetwork::Mainnet,
+                    forks: SuperchainForkSchedule::mainnet(),
+                },
+                verify_unsafe_signer: false,
+            },
+            Network::BaseSepolia => NetworkConfig {
+                consensus_rpc: Some("TODO".parse().unwrap()),
+                chain: ChainConfig {
+                    chain_id: 85432,
+                    unsafe_signer: address!("TODO"),
+                    system_config_contract: address!("TODO"),
+                    eth_network: EthNetwork::Sepolia,
                     forks: SuperchainForkSchedule::mainnet(),
                 },
                 verify_unsafe_signer: false,
