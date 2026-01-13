@@ -82,7 +82,7 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
                     let slot_bytes = B256::from(slot);
                     let account = self
                         .execution
-                        .get_account(address, &[slot_bytes], true, self.block)
+                        .get_account(address, &[slot_bytes], false, self.block)
                         .await?;
 
                     if let Some(stored_account) = self.accounts.get_mut(&address) {
@@ -124,6 +124,12 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
             .and_then(|overrides| overrides.get(&address));
 
         if let Some(account) = self.accounts.get_mut(&address) {
+            let code_is_overriden = override_opt.and_then(|o| o.code.as_ref()).is_some();
+            if account.code.is_none() && !code_is_overriden {
+                self.access = Some(StateAccess::Basic(address));
+                return Err(DatabaseError::StateMissing);
+            }
+
             if let Some(override_opt) = override_opt {
                 apply_account_overrides(account, override_opt)?;
             }
