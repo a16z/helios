@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::{BlockHeader, TxType},
     eips::BlockId,
-    network::TransactionBuilder,
+    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
     rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
 use eyre::Result;
@@ -55,7 +55,18 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         validate_tx: bool,
         state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
-        let mut db = ProofDB::new(self.block_id, self.execution.clone(), state_overrides);
+        let block = self
+            .execution
+            .get_block(self.block_id, false)
+            .await
+            .map_err(|err| EvmError::Generic(err.to_string()))?
+            .ok_or(ExecutionError::BlockNotFound(self.block_id))
+            .map_err(|err| EvmError::Generic(err.to_string()))?;
+
+        // Pin block id to a specific hash for the entire EVM run
+        let pinned_block_id: BlockId = block.header().hash().into();
+
+        let mut db = ProofDB::new(pinned_block_id, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
         // Track iterations for debugging
@@ -78,7 +89,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             }
 
             // Create EVM after any async operations
-            let context = self.get_context(tx, self.block_id, validate_tx).await?;
+            let context = self.get_context(tx, &block, validate_tx);
 
             // Execute in a scope to ensure EVM is dropped before any potential async operations
             let (result, needs_update) = {
@@ -96,21 +107,13 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         tx_res.map_err(|err| EvmError::Generic(format!("generic: {err}")))
     }
 
-    async fn get_context(
+    fn get_context(
         &self,
         tx: &TransactionRequest,
-        block_id: BlockId,
+        block: &Block<Transaction, Header>,
         validate_tx: bool,
-    ) -> Result<Context, EvmError> {
-        let block = self
-            .execution
-            .get_block(block_id, false)
-            .await
-            .map_err(|err| EvmError::Generic(err.to_string()))?
-            .ok_or(ExecutionError::BlockNotFound(block_id))
-            .map_err(|err| EvmError::Generic(err.to_string()))?;
-
-        let spec = get_spec_id_for_block_timestamp(block.header.timestamp(), &self.fork_schedule);
+    ) -> Context {
+        let spec = get_spec_id_for_block_timestamp(block.header().timestamp(), &self.fork_schedule);
         let mut tx_env = Self::tx_env(tx, spec);
 
         if <TxType as Into<u8>>::into(
@@ -123,17 +126,17 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         }
 
         let mut cfg = CfgEnv::default();
-        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
+        cfg.spec = get_spec_id_for_block_timestamp(block.header().timestamp(), &self.fork_schedule);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
         cfg.disable_base_fee = !validate_tx;
         cfg.disable_nonce_check = !validate_tx;
 
-        Ok(Context::mainnet()
+        Context::mainnet()
             .with_tx(tx_env)
-            .with_block(Self::block_env(&block, &self.fork_schedule))
-            .with_cfg(cfg))
+            .with_block(Self::block_env(block, &self.fork_schedule))
+            .with_cfg(cfg)
     }
 
     fn tx_env(tx: &TransactionRequest, spec: SpecId) -> TxEnv {
