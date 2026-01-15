@@ -515,7 +515,9 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
 
         let valid_execution_type = match execution {
             ExecutionPayloadHeader::Electra(_) => epoch >= forks.electra.epoch,
-            ExecutionPayloadHeader::Deneb(_) => epoch >= forks.deneb.epoch,
+            ExecutionPayloadHeader::Deneb(_) => {
+                epoch >= forks.deneb.epoch && epoch < forks.electra.epoch
+            }
             ExecutionPayloadHeader::Capella(_) => {
                 epoch >= forks.capella.epoch && epoch < forks.deneb.epoch
             }
