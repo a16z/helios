@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::{BlockHeader, TxType},
     eips::BlockId,
-    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
+    network::TransactionBuilder,
     rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
 use eyre::Result;
@@ -64,7 +64,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             .map_err(|err| EvmError::Generic(err.to_string()))?;
 
         // Pin block id to a specific hash for the entire EVM run
-        let pinned_block_id: BlockId = block.header().hash().into();
+        let pinned_block_id: BlockId = block.header.hash.into();
 
         let mut db = ProofDB::new(pinned_block_id, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
@@ -110,10 +110,10 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
     fn get_context(
         &self,
         tx: &TransactionRequest,
-        block: &Block<Transaction, Header>,
+        block: &Block<Transaction>,
         validate_tx: bool,
     ) -> Context {
-        let spec = get_spec_id_for_block_timestamp(block.header().timestamp(), &self.fork_schedule);
+        let spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         let mut tx_env = Self::tx_env(tx, spec);
 
         if <TxType as Into<u8>>::into(
@@ -126,7 +126,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         }
 
         let mut cfg = CfgEnv::default();
-        cfg.spec = get_spec_id_for_block_timestamp(block.header().timestamp(), &self.fork_schedule);
+        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;

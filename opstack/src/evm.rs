@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::BlockHeader,
     eips::BlockId,
-    network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder},
+    network::TransactionBuilder,
     rpc::types::{state::StateOverride, Block, Header},
 };
 use eyre::Result;
@@ -68,7 +68,7 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
             .map_err(|err| EvmError::Generic(err.to_string()))?;
 
         // Pin block id to a specific hash for the entire EVM run
-        let pinned_block_id: BlockId = block.header().hash().into();
+        let pinned_block_id: BlockId = block.header.hash.into();
 
         let mut db = ProofDB::new(pinned_block_id, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
@@ -114,7 +114,7 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
     fn get_context(
         &self,
         tx: &OpTransactionRequest,
-        block: &Block<Transaction, Header>,
+        block: &Block<Transaction>,
         validate_tx: bool,
     ) -> OpContext<EmptyDB> {
         let mut tx_env = Self::tx_env(tx);
@@ -129,7 +129,7 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         }
 
         let mut cfg = CfgEnv::default();
-        cfg.spec = get_spec_id_for_block_timestamp(block.header().timestamp(), &self.fork_schedule);
+        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
