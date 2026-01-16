@@ -215,6 +215,8 @@ impl Config {
 pub struct SuperchainForkSchedule;
 
 impl SuperchainForkSchedule {
+    /// Mainnet network upgrade schedule
+    /// https://docs.optimism.io/op-stack/protocol/network-upgrades
     pub fn mainnet() -> ForkSchedule {
         ForkSchedule {
             bedrock_timestamp: 0,
