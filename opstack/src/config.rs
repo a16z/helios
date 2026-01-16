@@ -220,11 +220,13 @@ impl SuperchainForkSchedule {
             bedrock_timestamp: 0,
             regolith_timestamp: 0,
             canyon_timestamp: 1704992401,
+            delta_timestamp: 1708560000,
             ecotone_timestamp: 1710374401,
             fjord_timestamp: 1720627201,
             granite_timestamp: 1726070401,
             holocene_timestamp: 1736445601,
             isthmus_timestamp: 1744905600,
+            jovian_timestamp: 1764691201,
 
             ..Default::default()
         }
