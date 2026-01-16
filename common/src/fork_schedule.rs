@@ -27,11 +27,13 @@ pub struct ForkSchedule {
     pub bedrock_timestamp: u64,
     pub regolith_timestamp: u64,
     pub canyon_timestamp: u64,
+    pub delta_timestamp: u64,
     pub ecotone_timestamp: u64,
     pub fjord_timestamp: u64,
     pub granite_timestamp: u64,
     pub holocene_timestamp: u64,
     pub isthmus_timestamp: u64,
+    pub jovian_timestamp: u64,
 }
 
 impl Default for ForkSchedule {
@@ -61,11 +63,13 @@ impl Default for ForkSchedule {
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,
             canyon_timestamp: u64::MAX,
+            delta_timestamp: u64::MAX,
             ecotone_timestamp: u64::MAX,
             fjord_timestamp: u64::MAX,
             granite_timestamp: u64::MAX,
             holocene_timestamp: u64::MAX,
             isthmus_timestamp: u64::MAX,
+            jovian_timestamp: u64::MAX,
         }
     }
 }

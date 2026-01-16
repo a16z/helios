@@ -42,6 +42,7 @@ impl OpStackClient {
         let network_config = match network.as_str() {
             "op-mainnet" => NetworkConfig::from(Network::OpMainnet),
             "base" => NetworkConfig::from(Network::Base),
+            "base-sepolia" => NetworkConfig::from(Network::BaseSepolia),
             "worldchain" => NetworkConfig::from(Network::Worldchain),
             "zora" => NetworkConfig::from(Network::Zora),
             "unichain" => NetworkConfig::from(Network::Unichain),
