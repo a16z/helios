@@ -112,13 +112,17 @@ impl From<Network> for NetworkConfig {
                 verify_unsafe_signer: false,
             },
             Network::BaseSepolia => NetworkConfig {
-                consensus_rpc: Some("TODO".parse().unwrap()),
+                consensus_rpc: Some(
+                    "https://base-sepolia.operationsolarstorm.org"
+                        .parse()
+                        .unwrap(),
+                ),
                 chain: ChainConfig {
                     chain_id: 85432,
-                    unsafe_signer: address!("TODO"),
-                    system_config_contract: address!("TODO"),
+                    unsafe_signer: address!("0xb830b99c95Ea32300039624Cb567d324D4b1D83C"),
+                    system_config_contract: address!("0xf272670eb55e895584501d564AfEB048bEd26194"),
                     eth_network: EthNetwork::Sepolia,
-                    forks: SuperchainForkSchedule::mainnet(),
+                    forks: SuperchainForkSchedule::sepolia(),
                 },
                 verify_unsafe_signer: false,
             },
@@ -221,6 +225,25 @@ impl SuperchainForkSchedule {
             granite_timestamp: 1726070401,
             holocene_timestamp: 1736445601,
             isthmus_timestamp: 1744905600,
+
+            ..Default::default()
+        }
+    }
+
+    /// Sepolia network upgrade schedule
+    /// https://docs.optimism.io/op-stack/protocol/network-upgrades
+    pub fn sepolia() -> ForkSchedule {
+        ForkSchedule {
+            bedrock_timestamp: 0,
+            regolith_timestamp: 0,
+            canyon_timestamp: 1699981200,   // 2023-11-14 17:00:00 UTC
+            delta_timestamp: 1703203200,    // 2023-12-22 00:00:00 UTC
+            ecotone_timestamp: 1708534800,  // 2024-02-21 17:00:00 UTC
+            fjord_timestamp: 1716998400,    // 2024-05-29 16:00:00 UTC
+            granite_timestamp: 1723478400,  // 2024-08-12 16:00:00 UTC
+            holocene_timestamp: 1732633200, // 2024-11-26 15:00:00 UTC
+            isthmus_timestamp: 1744905600,  // 2025-04-17 16:00:00 UTC
+            jovian_timestamp: 1763568001,   // 2025-11-19 16:00:01 UTC
 
             ..Default::default()
         }
