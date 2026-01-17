@@ -280,7 +280,7 @@ async fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
         Ok(serde_json::from_slice(&bytes)?)
     } else {
         let error_response = response.json::<ErrorResponse>().await?;
-        Err(eyre!(error_response.error.to_string()))
+        Err(eyre!(error_response.error))
     }
 }
 
