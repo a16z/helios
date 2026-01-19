@@ -475,15 +475,43 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
     pub async fn send_blocks(&self) -> Result<()> {
         let slot = self.store.optimistic_header.beacon().slot;
-        let payload = self.get_execution_payload(&Some(slot)).await?;
-        let finalized_slot = self.store.finalized_header.beacon().slot;
-        let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
+        let slot = Some(slot);
 
-        let block = payload_to_block(payload);
-        let finalized_block = payload_to_block(finalized_payload);
+        let latest_fin_hash = self
+            .store
+            .finalized_header
+            .execution()
+            .ok()
+            .map(|h| *h.block_hash());
+        let last_sent_fin_hash = self
+            .finalized_block_send
+            .borrow()
+            .as_ref()
+            .map(|b| b.header.hash);
 
-        self.block_send.send(block).await?;
-        self.finalized_block_send.send(Some(finalized_block))?;
+        let should_fetch_finalized = latest_fin_hash
+            .zip(last_sent_fin_hash)
+            .is_none_or(|(latest, sent)| latest != sent);
+
+        if should_fetch_finalized {
+            let finalized_slot = self.store.finalized_header.beacon().slot;
+            let finalized_slot = Some(finalized_slot);
+
+            let (payload, finalized_payload) = tokio::try_join!(
+                self.get_execution_payload(&slot),
+                self.get_execution_payload(&finalized_slot),
+            )?;
+
+            let block = payload_to_block(payload);
+            let finalized_block = payload_to_block(finalized_payload);
+
+            self.block_send.send(block).await?;
+            self.finalized_block_send.send(Some(finalized_block))?;
+        } else {
+            let payload = self.get_execution_payload(&slot).await?;
+            let block = payload_to_block(payload);
+            self.block_send.send(block).await?;
+        }
 
         Ok(())
     }

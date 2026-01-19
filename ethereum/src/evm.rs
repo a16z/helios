@@ -10,7 +10,7 @@ use eyre::Result;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    primitives::{hardfork::SpecId, Address, U256},
+    primitives::{eip7825, hardfork::SpecId, Address, U256},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
 use tracing::debug;
@@ -55,7 +55,18 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         validate_tx: bool,
         state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
-        let mut db = ProofDB::new(self.block_id, self.execution.clone(), state_overrides);
+        let block = self
+            .execution
+            .get_block(self.block_id, false)
+            .await
+            .map_err(|err| EvmError::Generic(err.to_string()))?
+            .ok_or(ExecutionError::BlockNotFound(self.block_id))
+            .map_err(|err| EvmError::Generic(err.to_string()))?;
+
+        // Pin block id to a specific hash for the entire EVM run
+        let pinned_block_id: BlockId = block.header.hash.into();
+
+        let mut db = ProofDB::new(pinned_block_id, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
         // Track iterations for debugging
@@ -78,7 +89,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             }
 
             // Create EVM after any async operations
-            let context = self.get_context(tx, self.block_id, validate_tx).await?;
+            let context = self.get_context(tx, &block, validate_tx);
 
             // Execute in a scope to ensure EVM is dropped before any potential async operations
             let (result, needs_update) = {
@@ -96,21 +107,14 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         tx_res.map_err(|err| EvmError::Generic(format!("generic: {err}")))
     }
 
-    async fn get_context(
+    fn get_context(
         &self,
         tx: &TransactionRequest,
-        block_id: BlockId,
+        block: &Block<Transaction>,
         validate_tx: bool,
-    ) -> Result<Context, EvmError> {
-        let block = self
-            .execution
-            .get_block(block_id, false)
-            .await
-            .map_err(|err| EvmError::Generic(err.to_string()))?
-            .ok_or(ExecutionError::BlockNotFound(block_id))
-            .map_err(|err| EvmError::Generic(err.to_string()))?;
-
-        let mut tx_env = Self::tx_env(tx);
+    ) -> Context {
+        let spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
+        let mut tx_env = Self::tx_env(tx, spec);
 
         if <TxType as Into<u8>>::into(
             <TransactionRequest as TransactionBuilder<Ethereum>>::output_tx_type(tx),
@@ -129,18 +133,23 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         cfg.disable_base_fee = !validate_tx;
         cfg.disable_nonce_check = !validate_tx;
 
-        Ok(Context::mainnet()
+        Context::mainnet()
             .with_tx(tx_env)
-            .with_block(Self::block_env(&block, &self.fork_schedule))
-            .with_cfg(cfg))
+            .with_block(Self::block_env(block, &self.fork_schedule))
+            .with_cfg(cfg)
     }
 
-    fn tx_env(tx: &TransactionRequest) -> TxEnv {
+    fn tx_env(tx: &TransactionRequest, spec: SpecId) -> TxEnv {
+        let default_gas_limit = if spec >= SpecId::OSAKA {
+            eip7825::TX_GAS_LIMIT_CAP
+        } else {
+            u64::MAX
+        };
         TxEnv {
             tx_type: tx.transaction_type.unwrap_or_default(),
             caller: tx.from.unwrap_or_default(),
             gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
-                .unwrap_or(u64::MAX),
+                .unwrap_or(default_gas_limit),
             gas_price: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_price(tx)
                 .unwrap_or_default(),
             kind: tx.to.unwrap_or_default(),

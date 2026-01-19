@@ -6,8 +6,9 @@ use tree_hash_derive::TreeHash;
 
 use crate::{
     consensus_spec::ConsensusSpec,
-    types::{bls::PublicKey, Forks, SyncCommittee},
+    types::{Forks, SyncCommittee},
 };
+use bls12_381::{G1Affine, G1Projective};
 
 pub fn compute_committee_sign_root(header: B256, fork_data_root: B256) -> B256 {
     let domain_type = [7, 00, 00, 00];
@@ -52,20 +53,35 @@ pub fn compute_fork_data_root(
     fork_data.tree_hash_root()
 }
 
-pub fn get_participating_keys<S: ConsensusSpec>(
+/// Computes the aggregate public key for the participating members of the sync committee.
+/// with given participation bitfield and committee aggregate public key.
+pub fn get_participating_aggregate_pubkey<S: ConsensusSpec>(
     committee: &SyncCommittee<S>,
     bitfield: &BitVector<S::SyncCommitteeSize>,
-) -> Result<Vec<PublicKey>> {
-    let mut pks: Vec<PublicKey> = Vec::new();
+) -> Result<G1Affine> {
+    let total = bitfield.len();
+    let participating = bitfield.iter().filter(|b| *b).count();
+    if participating == 0 {
+        return Err(eyre::eyre!("no participating keys"));
+    }
 
-    bitfield.iter().enumerate().for_each(|(i, bit)| {
-        if bit {
-            let pk = committee.pubkeys[i].clone();
-            pks.push(pk);
+    if participating > total / 2 {
+        let mut agg = G1Projective::from(committee.aggregate_pubkey.point()?);
+        for (i, bit) in bitfield.iter().enumerate() {
+            if !bit {
+                agg -= G1Projective::from(committee.pubkeys[i].point()?);
+            }
         }
-    });
-
-    Ok(pks)
+        Ok(G1Affine::from(agg))
+    } else {
+        let mut agg = G1Projective::identity();
+        for (i, bit) in bitfield.iter().enumerate() {
+            if bit {
+                agg += G1Projective::from(committee.pubkeys[i].point()?);
+            }
+        }
+        Ok(G1Affine::from(agg))
+    }
 }
 
 fn compute_signing_root(object_root: B256, domain: B256) -> B256 {

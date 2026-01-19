@@ -7,7 +7,7 @@ use alloy::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
         TransactionResponse,
     },
-    primitives::{Address, B256, U256},
+    primitives::{Address, Bytes, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
     rlp,
     rpc::{
@@ -16,7 +16,7 @@ use alloy::{
     },
     transports::layers::RetryBackoffLayer,
 };
-use alloy_trie::TrieAccount;
+use alloy_trie::{TrieAccount, KECCAK_EMPTY};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 use futures::future::{join_all, try_join_all};
@@ -224,9 +224,13 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
         verify_storage_proof(&proof)?;
 
         let code = if with_code {
-            let code = self.provider.get_code_at(address).await?;
-            verify_code_hash_proof(&proof, &code)?;
-            Some(code)
+            if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
+                Some(Bytes::new())
+            } else {
+                let code = self.provider.get_code_at(address).await?;
+                verify_code_hash_proof(&proof, &code)?;
+                Some(code)
+            }
         } else {
             None
         };
@@ -461,6 +465,15 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
             .iter()
             .any(|elem| elem.address == producer_access_entry.address)
         {
+        let mut list_addresses = list.iter().map(|elem| elem.address).collect::<HashSet<_>>();
+
+        if list_addresses.insert(from_access_entry.address) {
+            list.push(from_access_entry)
+        }
+        if list_addresses.insert(to_access_entry.address) {
+            list.push(to_access_entry)
+        }
+        if list_addresses.insert(producer_access_entry.address) {
             list.push(producer_access_entry)
         }
 

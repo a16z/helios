@@ -24,7 +24,7 @@ pub struct Signature {
 }
 
 impl PublicKey {
-    fn point(&self) -> Result<G1Affine> {
+    pub(crate) fn point(&self) -> Result<G1Affine> {
         let bytes = self.inner.inner.to_vec();
         let bytes = bytes.as_slice().try_into()?;
         let point_opt = G1Affine::from_compressed(bytes);
@@ -37,12 +37,7 @@ impl PublicKey {
 }
 
 impl Signature {
-    /// FastAggregateVerify
-    ///
-    /// Verifies an AggregateSignature against a list of PublicKeys.
-    /// PublicKeys must all be verified via Proof of Possession before running this function.
-    /// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.3.4
-    pub fn verify(&self, msg: &[u8], pks: &[PublicKey]) -> bool {
+    pub fn verify(&self, msg: &[u8], aggregate_public_key: &G1Affine) -> bool {
         let sig_point = if let Ok(point) = self.point() {
             point
         } else {
@@ -54,26 +49,7 @@ impl Signature {
             return false;
         }
 
-        // Aggregate PublicKeys
-        let aggregate_public_key = if let Ok(agg) = aggregate(pks) {
-            agg
-        } else {
-            return false;
-        };
-
-        // Ensure AggregatePublicKey is not infinity
-        if aggregate_public_key.is_identity().into() {
-            return false;
-        }
-
-        // Points must be affine for pairing
-        let key_point = aggregate_public_key;
-        let msg_hash = G2Affine::from(hash_to_curve(msg));
-
-        let generator_g1_negative = G1Affine::from(-G1Projective::generator());
-
-        // Faster ate2 evaluation checks e(S, -G1) * e(H, PK) == 1
-        ate2_evaluation(&sig_point, &generator_g1_negative, &msg_hash, &key_point)
+        verify_with_aggregate_pk(&sig_point, msg, aggregate_public_key)
     }
 
     fn point(&self) -> Result<G2Affine> {
@@ -88,18 +64,24 @@ impl Signature {
     }
 }
 
-/// Aggregates multiple keys into one aggregate key
-fn aggregate(pks: &[PublicKey]) -> Result<G1Affine> {
-    if pks.is_empty() {
-        return Err(eyre!("no keys to aggregate"));
+fn verify_with_aggregate_pk(
+    sig_point: &G2Affine,
+    msg: &[u8],
+    aggregate_public_key: &G1Affine,
+) -> bool {
+    // Ensure AggregatePublicKey is not infinity
+    if aggregate_public_key.is_identity().into() {
+        return false;
     }
 
-    let mut agg_key = G1Projective::identity();
-    for key in pks {
-        agg_key += G1Projective::from(key.point()?)
-    }
+    // Points must be affine for pairing
+    let key_point = *aggregate_public_key;
+    let msg_hash = G2Affine::from(hash_to_curve(msg));
 
-    Ok(G1Affine::from(agg_key))
+    let generator_g1_negative = G1Affine::from(-G1Projective::generator());
+
+    // Faster ate2 evaluation checks e(S, -G1) * e(H, PK) == 1
+    ate2_evaluation(sig_point, &generator_g1_negative, &msg_hash, &key_point)
 }
 
 /// Verifies a G2 point is in subgroup `r`.
