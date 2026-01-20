@@ -18,8 +18,8 @@ use crate::proof::{
 };
 use crate::types::bls::Signature;
 use crate::types::{
-    BeaconBlockHeader, Bootstrap, ExecutionPayloadHeader, FinalityUpdate, Forks, GenericUpdate,
-    LightClientHeader, LightClientStore, OptimisticUpdate, Update,
+    BeaconBlockHeader, Bootstrap, FinalityUpdate, Forks, GenericUpdate, LightClientHeader,
+    LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
     calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
@@ -512,27 +512,10 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
     // includes blocks that have the blob fields set pre-deneb.
     if epoch < forks.capella.epoch {
         header.execution().is_err() && header.execution_branch().is_err()
-    } else if header.execution().is_ok() && header.execution_branch().is_ok() {
-        let execution = header.execution().unwrap();
-        let execution_branch = header.execution_branch().unwrap();
-
-        let valid_execution_type = match execution {
-            ExecutionPayloadHeader::Electra(_) => epoch >= forks.electra.epoch,
-            ExecutionPayloadHeader::Deneb(_) => {
-                epoch >= forks.deneb.epoch && epoch < forks.electra.epoch
-            }
-            ExecutionPayloadHeader::Capella(_) => {
-                epoch >= forks.capella.epoch && epoch < forks.deneb.epoch
-            }
-            ExecutionPayloadHeader::Bellatrix(_) => {
-                epoch >= forks.bellatrix.epoch && epoch < forks.capella.epoch
-            }
-        };
-
-        let proof_valid =
-            is_execution_payload_proof_valid(header.beacon(), execution, execution_branch);
-
-        proof_valid && valid_execution_type
+    } else if let (Ok(execution), Ok(execution_branch)) =
+        (header.execution(), header.execution_branch())
+    {
+        is_execution_payload_proof_valid(header.beacon(), execution, execution_branch)
     } else {
         false
     }
