@@ -31,7 +31,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -46,7 +48,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
       - name: Install libfont
         run: sudo apt install libfontconfig libfontconfig1-dev
       - uses: actions-rs/cargo@v1
@@ -65,7 +69,9 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -82,7 +88,9 @@ jobs:
           toolchain: stable
           override: true
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -97,7 +105,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown
       - name: Check wasm compatibility
