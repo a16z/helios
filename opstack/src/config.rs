@@ -118,7 +118,7 @@ impl From<Network> for NetworkConfig {
                         .unwrap(),
                 ),
                 chain: ChainConfig {
-                    chain_id: 85432,
+                    chain_id: 84532,
                     unsafe_signer: address!("0xb830b99c95Ea32300039624Cb567d324D4b1D83C"),
                     system_config_contract: address!("0xf272670eb55e895584501d564AfEB048bEd26194"),
                     eth_network: EthNetwork::Sepolia,
