@@ -87,7 +87,7 @@ pub struct BeaconBlockBody<S: ConsensusSpec> {
     sync_aggregate: SyncAggregate<S>,
     pub execution_payload: ExecutionPayload<S>,
     #[superstruct(only(Capella, Deneb, Electra))]
-    bls_to_execution_changes: VariableList<SignedBlsToExecutionChange, S::MaxBlsToExecutionChanged>,
+    bls_to_execution_changes: VariableList<SignedBlsToExecutionChange, S::MaxBlsToExecutionChanges>,
     #[superstruct(only(Deneb, Electra))]
     blob_kzg_commitments: VariableList<KZGCommitment, S::MaxBlobKzgCommitments>,
     #[superstruct(only(Electra))]
