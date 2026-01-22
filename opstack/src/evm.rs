@@ -2,7 +2,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 
 use alloy::{
     consensus::BlockHeader,
-    eips::BlockId,
+    eips::{eip1898::RpcBlockHash, BlockId},
     network::TransactionBuilder,
     rpc::types::{state::StateOverride, Block, Header},
 };
@@ -67,10 +67,10 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
             .ok_or(ExecutionError::BlockNotFound(self.block_id))
             .map_err(|err| EvmError::Generic(err.to_string()))?;
 
-        // Pin block id to a specific hash for the entire EVM run
-        let pinned_block_id: BlockId = block.header.hash.into();
+        // Pin block to a specific hash for the entire EVM run.
+        let pinned_block: RpcBlockHash = block.header.hash.into();
 
-        let mut db = ProofDB::new(pinned_block_id, self.execution.clone(), state_overrides);
+        let mut db = ProofDB::new(pinned_block, self.execution.clone(), state_overrides);
         _ = db.state.prefetch_state(tx, validate_tx).await;
 
         // Track iterations for debugging
