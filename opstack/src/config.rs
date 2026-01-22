@@ -47,6 +47,7 @@ pub struct NetworkConfig {
 pub enum Network {
     OpMainnet,
     Base,
+    BaseSepolia,
     Worldchain,
     Zora,
     Unichain,
@@ -57,6 +58,7 @@ impl Display for Network {
         match self {
             Self::OpMainnet => f.write_str("op-mainnet"),
             Self::Base => f.write_str("base"),
+            Self::BaseSepolia => f.write_str("base-sepolia"),
             Self::Worldchain => f.write_str("worldchain"),
             Self::Zora => f.write_str("zora"),
             Self::Unichain => f.write_str("unichain"),
@@ -71,6 +73,7 @@ impl FromStr for Network {
         match s {
             "op-mainnet" => Ok(Self::OpMainnet),
             "base" => Ok(Self::Base),
+            "base-sepolia" => Ok(Self::BaseSepolia),
             "worldchain" => Ok(Self::Worldchain),
             "zora" => Ok(Self::Zora),
             "unichain" => Ok(Self::Unichain),
@@ -105,6 +108,21 @@ impl From<Network> for NetworkConfig {
                     system_config_contract: address!("73a79Fab69143498Ed3712e519A88a918e1f4072"),
                     eth_network: EthNetwork::Mainnet,
                     forks: SuperchainForkSchedule::mainnet(),
+                },
+                verify_unsafe_signer: false,
+            },
+            Network::BaseSepolia => NetworkConfig {
+                consensus_rpc: Some(
+                    "https://base-sepolia.operationsolarstorm.org"
+                        .parse()
+                        .unwrap(),
+                ),
+                chain: ChainConfig {
+                    chain_id: 84532,
+                    unsafe_signer: address!("0xb830b99c95Ea32300039624Cb567d324D4b1D83C"),
+                    system_config_contract: address!("0xf272670eb55e895584501d564AfEB048bEd26194"),
+                    eth_network: EthNetwork::Sepolia,
+                    forks: SuperchainForkSchedule::sepolia(),
                 },
                 verify_unsafe_signer: false,
             },
@@ -197,16 +215,39 @@ impl Config {
 pub struct SuperchainForkSchedule;
 
 impl SuperchainForkSchedule {
+    /// Mainnet network upgrade schedule
+    /// https://docs.optimism.io/op-stack/protocol/network-upgrades
     pub fn mainnet() -> ForkSchedule {
         ForkSchedule {
             bedrock_timestamp: 0,
             regolith_timestamp: 0,
             canyon_timestamp: 1704992401,
+            delta_timestamp: 1708560000,
             ecotone_timestamp: 1710374401,
             fjord_timestamp: 1720627201,
             granite_timestamp: 1726070401,
             holocene_timestamp: 1736445601,
             isthmus_timestamp: 1744905600,
+            jovian_timestamp: 1764691201,
+
+            ..Default::default()
+        }
+    }
+
+    /// Sepolia network upgrade schedule
+    /// https://docs.optimism.io/op-stack/protocol/network-upgrades
+    pub fn sepolia() -> ForkSchedule {
+        ForkSchedule {
+            bedrock_timestamp: 0,
+            regolith_timestamp: 0,
+            canyon_timestamp: 1699981200,   // 2023-11-14 17:00:00 UTC
+            delta_timestamp: 1703203200,    // 2023-12-22 00:00:00 UTC
+            ecotone_timestamp: 1708534800,  // 2024-02-21 17:00:00 UTC
+            fjord_timestamp: 1716998400,    // 2024-05-29 16:00:00 UTC
+            granite_timestamp: 1723478400,  // 2024-08-12 16:00:00 UTC
+            holocene_timestamp: 1732633200, // 2024-11-26 15:00:00 UTC
+            isthmus_timestamp: 1744905600,  // 2025-04-17 16:00:00 UTC
+            jovian_timestamp: 1763568001,   // 2025-11-19 16:00:01 UTC
 
             ..Default::default()
         }
