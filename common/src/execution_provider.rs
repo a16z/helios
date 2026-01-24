@@ -1,13 +1,17 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+};
 
 use alloy::{
     eips::BlockId,
-    primitives::{Address, B256},
+    primitives::{Address, Bytes, B256},
     rpc::types::{Filter, Log},
 };
 use async_trait::async_trait;
 use eyre::Result;
 
+use crate::state_cache::{NoopStateCache, StateCache};
 use crate::{network_spec::NetworkSpec, types::Account};
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -23,6 +27,10 @@ pub trait ExecutionProvider<N: NetworkSpec>:
     + Sync
     + 'static
 {
+    fn state_cache(&self) -> Arc<dyn StateCache> {
+        static NOOP: OnceLock<Arc<NoopStateCache>> = OnceLock::new();
+        NOOP.get_or_init(|| Arc::new(NoopStateCache)).clone()
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -35,6 +43,10 @@ pub trait AccountProvider<N: NetworkSpec> {
         with_code: bool,
         block_id: BlockId,
     ) -> Result<Account>;
+
+    /// Get code for an address, verified against a known code_hash.
+    /// The code_hash MUST come from a verified account proof.
+    async fn get_verified_code(&self, address: Address, code_hash: B256) -> Result<Bytes>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
