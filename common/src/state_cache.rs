@@ -34,4 +34,3 @@ impl StateCache for NoopStateCache {
         None
     }
 }
-

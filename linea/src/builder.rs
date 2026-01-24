@@ -1,6 +1,6 @@
 use eyre::{eyre, Result};
-use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::cache::CachingProvider;
+use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
 use reqwest::{IntoUrl, Url};
 #[cfg(not(target_arch = "wasm32"))]

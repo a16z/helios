@@ -1,5 +1,5 @@
-mod state;
 mod provider;
+mod state;
 
-pub(crate) use state::Cache;
 pub use provider::CachingProvider;
+pub(crate) use state::Cache;
