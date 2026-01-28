@@ -12,14 +12,13 @@ use helios_common::types::Account;
 
 // Cache capacities
 // High turnover due to block updates.
-const ACCOUNTS_CACHE_SIZE: u32 = 1000;
+const ACCOUNTS_CACHE_SIZE: u32 = 128;
 
-// Storage: 1000 entries. Each entry is a HashMap of slots for a storage root.
-// Can be large, but shared across blocks.
-const STORAGE_CACHE_SIZE: u32 = 1000;
+// Each entry is a HashMap of slots per storage root.
+const STORAGE_CACHE_SIZE: u32 = 128;
 
-// Code: 1000 entries. Code is static and shared.
-const CODE_CACHE_SIZE: u32 = 1000;
+// Code: Static and can be shared. Most valuable cache.
+const CODE_CACHE_SIZE: u32 = 300;
 
 pub struct Cache {
     /// Storage proofs: content-addressed by storage_hash
