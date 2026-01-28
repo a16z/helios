@@ -2,7 +2,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 
 use alloy::{
     consensus::{BlockHeader, TxType},
-    eips::BlockId,
+    eips::{eip1898::RpcBlockHash, BlockId},
     network::TransactionBuilder,
     rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
@@ -63,11 +63,16 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             .ok_or(ExecutionError::BlockNotFound(self.block_id))
             .map_err(|err| EvmError::Generic(err.to_string()))?;
 
-        // Pin block id to a specific hash for the entire EVM run
-        let pinned_block_id: BlockId = block.header.hash.into();
+        // Pin block to a specific hash for the entire EVM run.
+        let pinned_block: RpcBlockHash = block.header.hash.into();
 
-        let mut db = ProofDB::new(pinned_block_id, self.execution.clone(), state_overrides);
-        _ = db.state.prefetch_state(tx, validate_tx).await;
+        let mut db = ProofDB::new(
+            pinned_block,
+            self.execution.clone(),
+            state_overrides,
+            tx.clone(),
+            validate_tx,
+        );
 
         // Track iterations for debugging
         let mut iteration: u32 = 0;
