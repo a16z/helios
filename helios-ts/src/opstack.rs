@@ -118,8 +118,9 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
-    pub async fn get_block_number(&self) -> Result<u32, JsError> {
-        map_err(self.inner.get_block_number().await).map(|v| v.to())
+    pub async fn get_block_number(&self) -> Result<String, JsError> {
+        let v = map_err(self.inner.get_block_number().await)?;
+        Ok(format!("0x{:x}", v))
     }
 
     #[wasm_bindgen]

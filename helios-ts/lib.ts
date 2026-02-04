@@ -188,7 +188,7 @@ export class HeliosProvider {
         return this.#client.get_balance(req.params[0], req.params[1]);
       }
       case "eth_chainId": {
-        return this.#chainId;
+        return `0x${this.#chainId.toString(16)}`;
       }
       case "eth_blockNumber": {
         return this.#client.get_block_number();
