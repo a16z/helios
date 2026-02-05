@@ -189,20 +189,22 @@ impl Config {
         match config_res {
             Ok(config) => config,
             Err(err) => {
+                let print_field_help = |field: &str| {
+                    println!("\n\ttry supplying the proper command line argument: --{field}");
+                    println!("\talternatively, you can add the field to your helios.toml file");
+                    println!("\nfor more information, check the github README");
+                };
+
                 match err.kind {
                     figment::error::Kind::MissingField(field) => {
                         let field = field.replace('_', "-");
                         println!("\x1b[91merror\x1b[0m: missing configuration field: {field}");
-                        println!("\n\ttry supplying the proper command line argument: --{field}");
-                        println!("\talternatively, you can add the field to your helios.toml file");
-                        println!("\nfor more information, check the github README");
+                        print_field_help(&field);
                     }
                     figment::error::Kind::InvalidType(_, _) => {
                         let field = err.path.join(".").replace("_", "-");
                         println!("\x1b[91merror\x1b[0m: invalid configuration field: {field}");
-                        println!("\n\ttry supplying the proper command line argument: --{field}");
-                        println!("\talternatively, you can add the field to your helios.toml file");
-                        println!("\nfor more information, check the github README");
+                        print_field_help(&field);
                     }
                     _ => println!("cannot parse configuration: {err}"),
                 }
