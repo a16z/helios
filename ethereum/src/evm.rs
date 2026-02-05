@@ -152,7 +152,8 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
                 .unwrap_or(default_gas_limit),
             gas_price: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_price(tx)
                 .unwrap_or_default(),
-            kind: tx.to.unwrap_or_default(),
+            kind: <TransactionRequest as TransactionBuilder<Ethereum>>::kind(tx)
+                .unwrap_or_default(),
             value: tx.value.unwrap_or_default(),
             data: <TransactionRequest as TransactionBuilder<Ethereum>>::input(tx)
                 .unwrap_or_default()
