@@ -84,9 +84,9 @@ chrono = "0.4.23"
 thiserror = "1.0.37"
 superstruct = "0.7.0"
 openssl = { version = "0.10", features = ["vendored"] }
-zduny-wasm-timer = "0.2.8"
 retri = "0.1.1"
 typenum = "1.17.0"
+wasmtimer = "0.4.3"
 
 ######################################
 # Top Level Dependencies
