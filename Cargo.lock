@@ -3887,6 +3887,7 @@ dependencies = [
  "alloy",
  "console_error_panic_hook",
  "eyre",
+ "futures-util",
  "helios-common",
  "helios-ethereum",
  "helios-linea",
