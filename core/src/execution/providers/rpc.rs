@@ -227,7 +227,11 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
             if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
                 Some(Bytes::new())
             } else {
-                let code = self.provider.get_code_at(address).await?;
+                let code = self
+                    .provider
+                    .get_code_at(address)
+                    .block_id(block.header().hash().into())
+                    .await?;
                 verify_code_hash_proof(&proof, &code)?;
                 Some(code)
             }
