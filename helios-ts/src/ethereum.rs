@@ -343,12 +343,13 @@ impl EthereumClient {
         opts: JsValue,
         block: JsValue,
         state_overrides: JsValue,
-    ) -> Result<u32, JsError> {
+    ) -> Result<String, JsError> {
         let opts: TransactionRequest = serde_wasm_bindgen::from_value(opts)?;
-        let block: BlockId = serde_wasm_bindgen::from_value(block)?;
+        let block: Option<BlockId> = serde_wasm_bindgen::from_value(block)?;
         let state_overrides: Option<StateOverride> =
             serde_wasm_bindgen::from_value(state_overrides)?;
-        Ok(map_err(self.inner.estimate_gas(&opts, block, state_overrides).await)? as u32)
+        let gas = map_err(self.inner.estimate_gas(&opts, block, state_overrides).await)?;
+        Ok(format!("0x{gas:x}"))
     }
 
     #[wasm_bindgen]

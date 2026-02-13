@@ -65,7 +65,7 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     async fn estimate_gas(
         &self,
         tx: &N::TransactionRequest,
-        block_id: BlockId,
+        block_id: Option<BlockId>,
         state_overrides: Option<StateOverride>,
     ) -> Result<u64>;
     async fn create_access_list(
