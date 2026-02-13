@@ -215,9 +215,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
     async fn estimate_gas(
         &self,
         tx: &N::TransactionRequest,
-        block_id: BlockId,
+        block_id: Option<BlockId>,
         state_overrides: Option<StateOverride>,
     ) -> Result<u64> {
+        let block_id = block_id.unwrap_or(BlockId::latest());
         self.check_blocktag_age(&block_id).await?;
 
         let (result, ..) = N::transact(
