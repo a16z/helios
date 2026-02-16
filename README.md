@@ -148,7 +148,7 @@ helios ethereum \
 
 To expose the RPC to a web dApp, add `--rpc-bind-ip 0.0.0.0` and specify allowed CORS origins:
 ```bash
-helios ethereum --execution-rpc $ETH_RPC_URL --rpc-bind-ip 0.0.0.0 --allowed-origins https://my-dapp.com,https://localhost:3000
+helios ethereum --execution-rpc $ETH_RPC_URL --rpc-bind-ip 0.0.0.0 --allowed-origins "*"
 ```
 
 If you wish to use a [Configuration File](#configuration-files) instead of CLI arguments then you should replace the example checkpoints in the configuration file with the latest checkpoints obtained above.
