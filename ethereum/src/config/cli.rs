@@ -15,6 +15,7 @@ pub struct CliConfig {
     pub checkpoint: Option<B256>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
+    pub allowed_origins: Option<Vec<String>>,
     pub data_dir: Option<PathBuf>,
     pub fallback: Option<Url>,
     pub load_external_fallback: Option<bool>,
@@ -47,6 +48,10 @@ impl CliConfig {
 
         if let Some(port) = self.rpc_port {
             user_dict.insert("rpc_port", Value::from(port));
+        }
+
+        if let Some(allowed_origins) = &self.allowed_origins {
+            user_dict.insert("allowed_origins", Value::from(allowed_origins.clone()));
         }
 
         if let Some(data_dir) = self.data_dir.as_ref() {

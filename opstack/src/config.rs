@@ -21,6 +21,7 @@ pub struct Config {
     pub execution_rpc: Option<Url>,
     pub verifiable_api: Option<Url>,
     pub rpc_socket: Option<SocketAddr>,
+    pub allowed_origins: Option<Vec<String>>,
     pub chain: ChainConfig,
     pub load_external_fallback: Option<bool>,
     pub checkpoint: Option<B256>,

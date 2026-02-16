@@ -68,6 +68,8 @@ Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 `--rpc-bind-ip` or `-b` sets the ip that binds to the JSON-RPC server. By default, Helios will use `127.0.0.1`. Use `0.0.0.0` to allow remote access.
 
+`--allowed-origins` specifies a comma-separated list of origins allowed to make CORS requests to the RPC server. Useful when exposing the RPC to web dApps, e.g. `--allowed-origins https://my-dapp.com,https://localhost:3000`.
+
 `--data-dir` or `-d` sets the directory that Helios should use to store cached weak subjectivity checkpoints in. Each network only stores the latest checkpoint, which is just 32 bytes.
 
 `--fallback` or `-f` sets the checkpoint fallback url (a string). This is only used if the checkpoint provided by the `--checkpoint` flag is too outdated for Helios to use to sync.
@@ -142,6 +144,11 @@ helios ethereum \
     --consensus-rpc https://www.lightclientdata.org \
     --execution-rpc https://ethereum-mainnet.g.allthatnode.com \
     --checkpoint 0xe1912ca8ca3b45dac497cae7825bab055b0f60285533721b046e8fefb5b076f2
+```
+
+To expose the RPC to a web dApp, add `--rpc-bind-ip 0.0.0.0` and specify allowed CORS origins:
+```bash
+helios ethereum --execution-rpc $ETH_RPC_URL --rpc-bind-ip 0.0.0.0 --allowed-origins https://my-dapp.com,https://localhost:3000
 ```
 
 If you wish to use a [Configuration File](#configuration-files) instead of CLI arguments then you should replace the example checkpoints in the configuration file with the latest checkpoints obtained above.
