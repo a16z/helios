@@ -97,7 +97,7 @@ trait EthRpc<
     async fn estimate_gas(
         &self,
         tx: TXR,
-        block: BlockId,
+        block: Option<BlockId>,
         state_overrides: Option<StateOverride>,
     ) -> Result<U64, ErrorObjectOwned>;
     #[method(name = "createAccessList")]
@@ -268,7 +268,7 @@ impl<N: NetworkSpec>
     async fn estimate_gas(
         &self,
         tx: N::TransactionRequest,
-        block: BlockId,
+        block: Option<BlockId>,
         state_overrides: Option<StateOverride>,
     ) -> Result<U64, ErrorObjectOwned> {
         let res = self
