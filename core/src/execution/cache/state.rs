@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::RwLock};
+use std::sync::RwLock;
 
 use alloy::{
     consensus::TrieAccount,
@@ -13,16 +13,17 @@ use helios_common::types::Account;
 // High turnover due to block updates.
 const ACCOUNTS_CACHE_SIZE: u32 = 128;
 
-// Each entry is a HashMap of slots per storage root.
-const STORAGE_CACHE_SIZE: u32 = 128;
+// Each entry is an LRU of slots per storage root.
+const STORAGE_CACHE_SIZE: u32 = 64;
+const STORAGE_SLOTS_PER_ROOT_CACHE_SIZE: u32 = 256;
 
 // Code: Static and can be shared. Most valuable cache.
-const CODE_CACHE_SIZE: u32 = 300;
+const CODE_CACHE_SIZE: u32 = 256;
 
 pub struct Cache {
     /// Storage proofs: content-addressed by storage_hash
     /// storage_hash -> slot -> full storage proof
-    storage: RwLock<LruMap<B256, HashMap<B256, EIP1186StorageProof>>>,
+    storage: RwLock<LruMap<B256, LruMap<B256, EIP1186StorageProof>>>,
 
     /// Code: content-addressed by code_hash
     /// code_hash -> bytecode
@@ -71,7 +72,10 @@ impl Cache {
             let mut storage = self.storage.write().unwrap_or_else(|e| e.into_inner());
 
             if storage.peek(&storage_hash).is_none() {
-                storage.insert(storage_hash, HashMap::new());
+                storage.insert(
+                    storage_hash,
+                    LruMap::new(ByLength::new(STORAGE_SLOTS_PER_ROOT_CACHE_SIZE)),
+                );
             }
 
             if let Some(storage_map) = storage.get(&storage_hash) {
