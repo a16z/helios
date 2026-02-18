@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, OnceLock},
-};
+use std::collections::HashMap;
 
 use alloy::{
     eips::BlockId,
@@ -11,7 +8,6 @@ use alloy::{
 use async_trait::async_trait;
 use eyre::Result;
 
-use crate::state_cache::{NoopStateCache, StateCache};
 use crate::{network_spec::NetworkSpec, types::Account};
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -27,10 +23,6 @@ pub trait ExecutionProvider<N: NetworkSpec>:
     + Sync
     + 'static
 {
-    fn state_cache(&self) -> Arc<dyn StateCache> {
-        static NOOP: OnceLock<Arc<NoopStateCache>> = OnceLock::new();
-        NOOP.get_or_init(|| Arc::new(NoopStateCache)).clone()
-    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]

@@ -13,7 +13,6 @@ use revm::{
 };
 use tracing::trace;
 
-use helios_common::state_cache::StateCache;
 use helios_common::{
     execution_provider::ExecutionProvider,
     network_spec::NetworkSpec,
@@ -32,11 +31,8 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> ProofDB<N, E> {
         block: RpcBlockHash,
         execution: Arc<E>,
         state_overrides: Option<StateOverride>,
-        tx: N::TransactionRequest,
-        validate_tx: bool,
     ) -> Self {
-        let cache = execution.state_cache();
-        let state = EvmState::new(execution, cache, block, state_overrides, tx, validate_tx);
+        let state = EvmState::new(execution, block, state_overrides);
         ProofDB { state }
     }
 }
@@ -49,7 +45,6 @@ pub enum StateAccess {
 }
 
 pub struct EvmState<N: NetworkSpec, E: ExecutionProvider<N>> {
-    pub cache: Arc<dyn StateCache>,
     pub accounts: HashMap<Address, Account>,
     pub block_hash: HashMap<u64, B256>,
     pub block: RpcBlockHash,
@@ -57,46 +52,26 @@ pub struct EvmState<N: NetworkSpec, E: ExecutionProvider<N>> {
     pub execution: Arc<E>,
     pub state_overrides: Option<StateOverride>,
     pub phantom: PhantomData<N>,
-    tx: N::TransactionRequest,
-    validate_tx: bool,
-    prefetch_done: bool,
 }
 
 impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
     pub fn new(
         execution: Arc<E>,
-        cache: Arc<dyn StateCache>,
         block: RpcBlockHash,
         state_overrides: Option<StateOverride>,
-        tx: N::TransactionRequest,
-        validate_tx: bool,
     ) -> Self {
         Self {
             execution,
-            cache,
             block,
             accounts: HashMap::new(),
             block_hash: HashMap::new(),
             access: None,
             state_overrides,
             phantom: PhantomData,
-            tx,
-            validate_tx,
-            prefetch_done: false,
         }
     }
 
     pub async fn update_state(&mut self) -> Result<()> {
-        // Cache was missed, so we try to prefetch state once
-        if !self.prefetch_done {
-            self.prefetch_done = true;
-            let _ = self.prefetch_state().await;
-            self.try_clear_access();
-            if self.access.is_none() {
-                return Ok(());
-            }
-        }
-
         if let Some(access) = self.access.take() {
             match access {
                 StateAccess::Basic(address) => {
@@ -115,7 +90,13 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
                         .await?;
 
                     if let Some(stored_account) = self.accounts.get_mut(&address) {
-                        merge_account_data(stored_account, account);
+                        if stored_account.code.is_none() {
+                            stored_account.code = account.code;
+                        }
+
+                        for storage_proof in account.storage_proof {
+                            stored_account.storage_proof.push(storage_proof);
+                        }
                     } else {
                         self.accounts.insert(address, account);
                     }
@@ -136,33 +117,6 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
         Ok(())
     }
 
-    /// Check if the missed `access` is satisfied by available data,
-    /// and clear it if so.
-    fn try_clear_access(&mut self) {
-        let is_satisfied = self.access.as_ref().is_some_and(|access| match access {
-            StateAccess::Basic(address) => self.accounts.get(address).is_some_and(|account| {
-                let code_is_overridden = self
-                    .state_overrides
-                    .as_ref()
-                    .and_then(|o| o.get(address))
-                    .and_then(|o| o.code.as_ref())
-                    .is_some();
-
-                account.code.is_some() || code_is_overridden
-            }),
-            StateAccess::Storage(address, slot) => self
-                .accounts
-                .get(address)
-                .and_then(|a| a.get_storage_value(B256::from(*slot)))
-                .is_some(),
-            StateAccess::BlockHash(number) => self.block_hash.contains_key(number),
-        });
-
-        if is_satisfied {
-            self.access = None;
-        }
-    }
-
     pub fn needs_update(&self) -> bool {
         self.access.is_some()
     }
@@ -173,25 +127,9 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
             .as_ref()
             .and_then(|overrides| overrides.get(&address));
 
-        let code_is_overridden = override_opt.and_then(|o| o.code.as_ref()).is_some();
-
-        let is_stored_complete = match self.accounts.get(&address) {
-            Some(account) => account.code.is_some() || code_is_overridden,
-            None => false,
-        };
-
-        if !is_stored_complete {
-            if let Some((cached, _)) = self.cache.get_account(address, &[], self.block.block_hash) {
-                if let Some(existing) = self.accounts.get_mut(&address) {
-                    merge_account_data(existing, cached);
-                } else {
-                    self.accounts.insert(address, cached);
-                }
-            }
-        };
-
         if let Some(account) = self.accounts.get_mut(&address) {
-            if account.code.is_none() && !code_is_overridden {
+            let code_is_overriden = override_opt.and_then(|o| o.code.as_ref()).is_some();
+            if account.code.is_none() && !code_is_overriden {
                 self.access = Some(StateAccess::Basic(address));
                 return Err(DatabaseError::StateMissing);
             }
@@ -240,27 +178,8 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
             }
         }
 
-        // Check local accounts first
         if let Some(account) = self.accounts.get(&address) {
             if let Some(value) = account.get_storage_value(slot_b256) {
-                return Ok(value);
-            }
-        }
-
-        // Try to get from cache
-        if let Some((cached, _)) =
-            self.cache
-                .get_account(address, &[slot_b256], self.block.block_hash)
-        {
-            let value = cached.get_storage_value(slot_b256);
-
-            if let Some(existing) = self.accounts.get_mut(&address) {
-                merge_account_data(existing, cached);
-            } else {
-                self.accounts.insert(address, cached);
-            }
-
-            if let Some(value) = value {
                 return Ok(value);
             }
         }
@@ -278,10 +197,14 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
         }
     }
 
-    async fn prefetch_state(&mut self) -> Result<()> {
+    pub async fn prefetch_state(
+        &mut self,
+        tx: &N::TransactionRequest,
+        validate_tx: bool,
+    ) -> Result<()> {
         let account_map = self
             .execution
-            .get_execution_hint(&self.tx, self.validate_tx, self.block.into())
+            .get_execution_hint(tx, validate_tx, self.block.into())
             .await
             .map_err(EvmError::RpcError)?;
 
@@ -327,21 +250,6 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> Database for ProofDB<N, E> {
 
 fn is_precompile(address: &Address) -> bool {
     address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
-}
-
-/// Merge new account data into an existing stored account.
-///
-/// This merges code (if None) and appends storage proofs (deduplicated).
-fn merge_account_data(stored: &mut Account, new: Account) {
-    if stored.code.is_none() {
-        stored.code = new.code;
-    }
-
-    for new_proof in new.storage_proof {
-        if !stored.storage_proof.iter().any(|p| p.key == new_proof.key) {
-            stored.storage_proof.push(new_proof);
-        }
-    }
 }
 
 fn apply_account_overrides(

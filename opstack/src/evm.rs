@@ -70,13 +70,8 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         // Pin block to a specific hash for the entire EVM run.
         let pinned_block: RpcBlockHash = block.header.hash.into();
 
-        let mut db = ProofDB::new(
-            pinned_block,
-            self.execution.clone(),
-            state_overrides,
-            tx.clone(),
-            validate_tx,
-        );
+        let mut db = ProofDB::new(pinned_block, self.execution.clone(), state_overrides);
+        _ = db.state.prefetch_state(tx, validate_tx).await;
 
         // Track iterations for debugging
         let mut iteration: u32 = 0;

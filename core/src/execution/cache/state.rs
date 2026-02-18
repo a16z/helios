@@ -2,12 +2,11 @@ use std::{collections::HashMap, sync::RwLock};
 
 use alloy::{
     consensus::TrieAccount,
-    primitives::{Address, Bytes, B256, U256},
+    primitives::{Address, Bytes, B256},
     rpc::types::{EIP1186AccountProofResponse, EIP1186StorageProof},
 };
 use schnellru::{ByLength, LruMap};
 
-use helios_common::state_cache::StateCache;
 use helios_common::types::Account;
 
 // Cache capacities
@@ -96,26 +95,6 @@ impl Cache {
         accounts.insert((account_response.address, block_hash), account_response);
     }
 
-    /// Get a storage value by address, slot, and block hash.
-    ///
-    /// This method:
-    /// 1. Looks up the account proof to get the storage_hash
-    /// 2. Uses storage_hash to find the storage proof in content-addressed cache
-    /// 3. Returns the value if found
-    pub fn get_storage(&self, address: Address, slot: B256, block_hash: B256) -> Option<U256> {
-        let storage_hash = {
-            let mut accounts = self.accounts.write().unwrap_or_else(|e| e.into_inner());
-            let account = accounts.get(&(address, block_hash))?;
-            account.storage_hash
-        };
-
-        let mut storage = self.storage.write().unwrap_or_else(|e| e.into_inner());
-        let storage_map = storage.get(&storage_hash)?;
-        let proof = storage_map.get(&slot)?;
-
-        Some(proof.value)
-    }
-
     /// Get code by code hash. Hash MUST come from a verified account proof.
     pub fn get_code(&self, code_hash: B256) -> Option<Bytes> {
         let mut code = self.code.write().unwrap_or_else(|e| e.into_inner());
@@ -129,6 +108,14 @@ impl Cache {
     }
 
     /// Get an account proof response with requested storage slots.
+    ///
+    /// # Arguments
+    /// * `address` - The address of the account
+    /// * `slots` - The storage slots to get
+    /// * `block_hash` - The block hash this proof is valid for
+    ///
+    /// # Returns
+    /// * `(EIP1186AccountProofResponse, Vec<B256>)` - The account proof response and the missing slots
     pub fn get_account_proof(
         &self,
         address: Address,
@@ -195,25 +182,26 @@ impl Cache {
     }
 }
 
-impl StateCache for Cache {
-    fn get_storage(&self, address: Address, slot: B256, block_hash: B256) -> Option<U256> {
-        Cache::get_storage(self, address, slot, block_hash)
-    }
-
-    fn get_account(
-        &self,
-        address: Address,
-        slots: &[B256],
-        block_hash: B256,
-    ) -> Option<(Account, Vec<B256>)> {
-        Cache::get_account(self, address, slots, block_hash)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy::primitives::{address, b256};
+    use alloy::primitives::{address, b256, U256};
+
+    impl Cache {
+        fn get_storage(&self, address: Address, slot: B256, block_hash: B256) -> Option<U256> {
+            let storage_hash = {
+                let mut accounts = self.accounts.write().unwrap_or_else(|e| e.into_inner());
+                let account = accounts.get(&(address, block_hash))?;
+                account.storage_hash
+            };
+
+            let mut storage = self.storage.write().unwrap_or_else(|e| e.into_inner());
+            let storage_map = storage.get(&storage_hash)?;
+            let proof = storage_map.get(&slot)?;
+
+            Some(proof.value)
+        }
+    }
 
     fn mock_account_proof_response(
         address: Address,

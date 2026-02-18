@@ -15,7 +15,6 @@ use helios_common::{
         ReceiptProvider, TransactionProvider,
     },
     network_spec::NetworkSpec,
-    state_cache::StateCache,
     types::Account,
 };
 
@@ -40,9 +39,6 @@ where
     N: NetworkSpec,
     P: ExecutionProvider<N>,
 {
-    fn state_cache(&self) -> Arc<dyn StateCache> {
-        self.cache.clone()
-    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
