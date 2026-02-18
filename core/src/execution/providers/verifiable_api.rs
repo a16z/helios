@@ -4,11 +4,10 @@ use alloy::{
     consensus::BlockHeader,
     eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionResponse},
-    primitives::{Address, Bytes, B256, U256},
+    primitives::{Address, B256, U256},
     rlp,
     rpc::types::{EIP1186AccountProofResponse, Filter, Log},
 };
-use alloy_trie::KECCAK_EMPTY;
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 use url::Url;
@@ -34,7 +33,7 @@ use helios_verifiable_api_client::{
 use crate::execution::{
     errors::ExecutionError,
     proof::{
-        verify_account_proof, verify_block_receipts, verify_code_hash, verify_receipt_proof,
+        verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_receipt_proof,
         verify_storage_proof, verify_transaction_proof,
     },
 };
@@ -96,7 +95,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
         verify_storage_proof(&proof)?;
         // Verify the code hash (if code is included in the response)
         if let Some(code) = &account.code {
-            verify_code_hash(address, proof.code_hash, code)?;
+            verify_code_hash_proof(&proof, code)?;
         }
 
         Ok(())
@@ -129,22 +128,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
 
         self.verify_account(address, &account, &block)?;
         Ok(account)
-    }
-
-    async fn get_verified_code(&self, address: Address, code_hash: B256) -> Result<Bytes> {
-        if code_hash == KECCAK_EMPTY || code_hash == B256::ZERO {
-            return Ok(Bytes::new());
-        }
-
-        let account = self.api.get_account(address, &[], None, true).await?;
-
-        let code = account
-            .code
-            .ok_or(eyre!("code not returned by verifiable API"))?;
-
-        verify_code_hash(address, code_hash, &code)?;
-
-        Ok(code)
     }
 }
 

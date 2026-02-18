@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use alloy::{
     eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse},
-    primitives::{Address, Bytes, B256},
+    primitives::{Address, B256},
     rpc::types::{EIP1186AccountProofResponse, Filter, Log},
 };
 use async_trait::async_trait;
@@ -74,10 +74,19 @@ where
             Some((cached, missing_slots)) => {
                 if missing_slots.is_empty() {
                     if with_code && cached.code.is_none() {
-                        // All account data is cached, but code is missing - fetch it separately
-                        let code = self
-                            .get_verified_code(address, cached.account.code_hash)
+                        // All account data is cached, but code is missing - fetch code directly
+                        let expected = cached.account.code_hash;
+                        let acc_with_code = self
+                            .inner
+                            .get_account(address, &[], true, block_hash.into())
                             .await?;
+                        let code = acc_with_code
+                            .code
+                            .ok_or_else(|| eyre!("provider did not return code"))?;
+                        if acc_with_code.account.code_hash != expected {
+                            return Err(eyre!("code_hash changed while fetching code"));
+                        }
+                        self.cache.insert_code(expected, code.clone());
                         return Ok(Account {
                             code: Some(code),
                             ..cached
@@ -118,27 +127,24 @@ where
             return Err(eyre!("Failed to fetch all slots"));
         }
 
-        // If code is still missing, fetch just the code from an RPC provider
+        // If code is still missing, fetch via get_account with with_code=true
         if with_code && full_account.code.is_none() {
-            let code = self
-                .get_verified_code(address, full_account.account.code_hash)
+            let expected = full_account.account.code_hash;
+            let acc_with_code = self
+                .inner
+                .get_account(address, &[], true, block_hash.into())
                 .await?;
+            let code = acc_with_code
+                .code
+                .ok_or_else(|| eyre!("provider did not return code"))?;
+            if acc_with_code.account.code_hash != expected {
+                return Err(eyre!("code_hash changed while fetching code"));
+            }
+            self.cache.insert_code(expected, code.clone());
             full_account.code = Some(code);
         }
 
         Ok(full_account)
-    }
-
-    async fn get_verified_code(&self, address: Address, code_hash: B256) -> Result<Bytes> {
-        if let Some(code) = self.cache.get_code(code_hash) {
-            return Ok(code);
-        }
-
-        let code = self.inner.get_verified_code(address, code_hash).await?;
-
-        self.cache.insert_code(code_hash, code.clone());
-
-        Ok(code)
     }
 }
 

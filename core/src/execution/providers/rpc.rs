@@ -34,7 +34,9 @@ use helios_common::{
 use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
     errors::ExecutionError,
-    proof::{verify_account_proof, verify_block_receipts, verify_code_hash, verify_storage_proof},
+    proof::{
+        verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
+    },
     providers::historical::HistoricalBlockProvider,
 };
 
@@ -222,7 +224,13 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
         verify_storage_proof(&proof)?;
 
         let code = if with_code {
-            Some(self.get_verified_code(address, proof.code_hash).await?)
+            if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
+                Some(Bytes::new())
+            } else {
+                let code = self.provider.get_code_at(address).await?;
+                verify_code_hash_proof(&proof, &code)?;
+                Some(code)
+            }
         } else {
             None
         };
@@ -238,15 +246,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
             account_proof: proof.account_proof,
             storage_proof: proof.storage_proof,
         })
-    }
-
-    async fn get_verified_code(&self, address: Address, code_hash: B256) -> Result<Bytes> {
-        if code_hash == KECCAK_EMPTY || code_hash == B256::ZERO {
-            return Ok(Bytes::new());
-        }
-        let code = self.provider.get_code_at(address).await?;
-        verify_code_hash(address, code_hash, &code)?;
-        Ok(code)
     }
 }
 

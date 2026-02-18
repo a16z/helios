@@ -1,6 +1,6 @@
 use alloy::consensus::{BlockHeader, TrieAccount};
 use alloy::network::{BlockResponse, ReceiptResponse, TransactionResponse};
-use alloy::primitives::{keccak256, Address, Bytes, B256, U256};
+use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::EIP1186AccountProofResponse;
 use alloy_trie::root::ordered_trie_root_with_encoder;
@@ -42,16 +42,19 @@ pub fn verify_storage_proof(proof: &EIP1186AccountProofResponse) -> Result<()> {
     Ok(())
 }
 
-/// Verify a given code hash against the given code.
-pub fn verify_code_hash(address: Address, code_hash: B256, code: &Bytes) -> Result<()> {
-    if (code_hash == KECCAK_EMPTY || code_hash == B256::ZERO) && code.is_empty() {
+/// Verify a given `EIP1186AccountProofResponse`'s code hash against the given code.
+pub fn verify_code_hash_proof(proof: &EIP1186AccountProofResponse, code: &Bytes) -> Result<()> {
+    if (proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO) && code.is_empty() {
         Ok(())
     } else {
-        let actual_code_hash = keccak256(code);
-        if actual_code_hash != code_hash {
-            return Err(
-                ExecutionError::CodeHashMismatch(address, actual_code_hash, code_hash).into(),
-            );
+        let code_hash = keccak256(code);
+        if proof.code_hash != code_hash {
+            return Err(ExecutionError::CodeHashMismatch(
+                proof.address,
+                code_hash,
+                proof.code_hash,
+            )
+            .into());
         }
         Ok(())
     }
@@ -254,34 +257,34 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_code_hash() {
+    fn test_verify_code_hash_proof() {
         let proof = rpc_proof();
         let code = rpc_account().code.unwrap();
 
-        let result = verify_code_hash(proof.address, proof.code_hash, &code);
+        let result = verify_code_hash_proof(&proof, &code);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_verify_code_hash_empty_hash() {
+    fn test_verify_code_hash_proof_empty_hash() {
         let proof = EIP1186AccountProofResponse::default();
         let code = Bytes::new();
 
-        let result = verify_code_hash(proof.address, proof.code_hash, &code);
+        let result = verify_code_hash_proof(&proof, &code);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_verify_code_hash_empty_keccak() {
+    fn test_verify_code_hash_proof_empty_keccak() {
         let proof = EIP1186AccountProofResponse {
             code_hash: KECCAK_EMPTY,
             ..Default::default()
         };
         let code = Bytes::new();
 
-        let result = verify_code_hash(proof.address, proof.code_hash, &code);
+        let result = verify_code_hash_proof(&proof, &code);
 
         assert!(result.is_ok());
     }
