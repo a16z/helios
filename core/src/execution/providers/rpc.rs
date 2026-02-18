@@ -12,7 +12,7 @@ use alloy::{
     rlp,
     rpc::{
         client::ClientBuilder,
-        types::{AccessListItem, Filter, FilterBlockOption, Log},
+        types::{AccessListItem, EIP1186AccountProofResponse, Filter, FilterBlockOption, Log},
     },
     transports::layers::RetryBackoffLayer,
 };
@@ -32,6 +32,7 @@ use helios_common::{
 };
 
 use crate::execution::{
+    cache::Cache,
     constants::PARALLEL_QUERY_BATCH_SIZE,
     errors::ExecutionError,
     proof::{
@@ -64,6 +65,7 @@ pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>, H: Historic
     provider: RootProvider<N>,
     block_provider: B,
     historical_provider: Option<H>,
+    cache: Cache,
 }
 
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProvider<N>
@@ -85,6 +87,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             provider,
             block_provider,
             historical_provider: None,
+            cache: Cache::new(),
         }
     }
 
@@ -103,7 +106,26 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             provider,
             block_provider,
             historical_provider: Some(historical_provider),
+            cache: Cache::new(),
         }
+    }
+
+    async fn get_verified_code(
+        &self,
+        proof_response: &EIP1186AccountProofResponse,
+        address: Address,
+    ) -> Result<Option<Bytes>> {
+        if proof_response.code_hash == KECCAK_EMPTY || proof_response.code_hash == B256::ZERO {
+            return Ok(Some(Bytes::new()));
+        }
+        if let Some(code) = self.cache.get_code(proof_response.code_hash) {
+            return Ok(Some(code));
+        }
+        let code = self.provider.get_code_at(address).await?;
+        verify_code_hash_proof(proof_response, &code)?;
+        self.cache
+            .insert_code(proof_response.code_hash, code.clone());
+        Ok(Some(code))
     }
 
     async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
@@ -213,38 +235,68 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
+        let block_hash = block.header().hash();
+        let state_root = block.header().state_root();
+
+        let missing_slots = match self.cache.get_account_proof(address, slots, block_hash) {
+            Some((cached, missing)) if missing.is_empty() => {
+                let code = if with_code {
+                    self.get_verified_code(&cached, address).await?
+                } else {
+                    None
+                };
+                return Ok(Account {
+                    account: TrieAccount {
+                        nonce: cached.nonce,
+                        balance: cached.balance,
+                        storage_root: cached.storage_hash,
+                        code_hash: cached.code_hash,
+                    },
+                    code,
+                    account_proof: cached.account_proof,
+                    storage_proof: cached.storage_proof,
+                });
+            }
+            Some((_, missing)) => missing,
+            None => slots.to_vec(),
+        };
 
         let proof = self
             .provider
-            .get_proof(address, slots.to_vec())
-            .block_id(block.header().hash().into())
+            .get_proof(address, missing_slots)
+            .block_id(block_hash.into())
             .await?;
 
-        verify_account_proof(&proof, block.header().state_root())?;
+        verify_account_proof(&proof, state_root)?;
         verify_storage_proof(&proof)?;
 
+        self.cache.insert(proof, None, block_hash);
+
+        let (full_response, remaining) = self
+            .cache
+            .get_account_proof(address, slots, block_hash)
+            .ok_or(eyre!("cache inconsistency after write"))?;
+
+        if !remaining.is_empty() {
+            return Err(eyre!("failed to fetch all requested slots"));
+        }
+
         let code = if with_code {
-            if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
-                Some(Bytes::new())
-            } else {
-                let code = self.provider.get_code_at(address).await?;
-                verify_code_hash_proof(&proof, &code)?;
-                Some(code)
-            }
+            self.get_verified_code(&full_response, address).await?
         } else {
             None
         };
 
         Ok(Account {
             account: TrieAccount {
-                nonce: proof.nonce,
-                balance: proof.balance,
-                storage_root: proof.storage_hash,
-                code_hash: proof.code_hash,
+                nonce: full_response.nonce,
+                balance: full_response.balance,
+                storage_root: full_response.storage_hash,
+                code_hash: full_response.code_hash,
             },
             code,
-            account_proof: proof.account_proof,
-            storage_proof: proof.storage_proof,
+            account_proof: full_response.account_proof,
+            storage_proof: full_response.storage_proof,
         })
     }
 }

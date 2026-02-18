@@ -1,10 +1,7 @@
 use eyre::Result;
-use helios_core::execution::{
-    cache::CachingProvider,
-    providers::{
-        block::block_cache::BlockCache, historical::eip2935::Eip2935Provider,
-        rpc::RpcExecutionProvider, verifiable_api::VerifiableApiExecutionProvider,
-    },
+use helios_core::execution::providers::{
+    block::block_cache::BlockCache, historical::eip2935::Eip2935Provider,
+    rpc::RpcExecutionProvider, verifiable_api::VerifiableApiExecutionProvider,
 };
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
@@ -102,8 +99,6 @@ impl OpStackClientBuilder {
                 block_provider,
                 historical_provider,
             );
-            let execution = CachingProvider::new(execution);
-
             Ok(OpStackClient::new(
                 consensus,
                 execution,
@@ -121,7 +116,6 @@ impl OpStackClientBuilder {
                 block_provider,
                 historical_provider,
             );
-            let execution = CachingProvider::new(execution);
 
             Ok(OpStackClient::new(
                 consensus,

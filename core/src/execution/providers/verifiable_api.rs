@@ -31,6 +31,7 @@ use helios_verifiable_api_client::{
 };
 
 use crate::execution::{
+    cache::Cache,
     errors::ExecutionError,
     proof::{
         verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_receipt_proof,
@@ -48,6 +49,7 @@ pub struct VerifiableApiExecutionProvider<
     api: HttpVerifiableApi<N>,
     block_provider: B,
     historical_provider: Option<H>,
+    cache: Cache,
 }
 
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProvider<N>
@@ -63,6 +65,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             api: HttpVerifiableApi::new(url),
             block_provider,
             historical_provider: None,
+            cache: Cache::new(),
         }
     }
 
@@ -71,6 +74,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             api: HttpVerifiableApi::new(url),
             block_provider,
             historical_provider: Some(historical_provider),
+            cache: Cache::new(),
         }
     }
 
@@ -118,16 +122,64 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
             .get_block(block_id, false)
             .await?
             .ok_or(eyre!("block not found"))?;
+        let block_hash = block.header().hash();
+
+        let (missing_slots, need_code_fetch) =
+            match self.cache.get_account(address, slots, block_hash) {
+                Some((cached, missing))
+                    if missing.is_empty() && (!with_code || cached.code.is_some()) =>
+                {
+                    return Ok(cached);
+                }
+                Some((cached, missing)) => (missing, with_code && cached.code.is_none()),
+                None => (slots.to_vec(), with_code),
+            };
+
+        // On partial cache hit, fetch only missing slots. If only code is missing, request no slots.
+        let request_slots = if missing_slots.is_empty() && need_code_fetch {
+            Vec::new()
+        } else {
+            missing_slots
+        };
 
         let block_id = BlockId::number(block.header().number());
-        let slots = slots.iter().map(|s| (*s).into()).collect::<Vec<U256>>();
+        let slots_u256 = request_slots
+            .iter()
+            .map(|s| (*s).into())
+            .collect::<Vec<U256>>();
         let account = self
             .api
-            .get_account(address, &slots, Some(block_id), with_code)
+            .get_account(address, &slots_u256, Some(block_id), with_code)
             .await?;
 
         self.verify_account(address, &account, &block)?;
-        Ok(account)
+
+        let response = EIP1186AccountProofResponse {
+            address,
+            balance: account.account.balance,
+            code_hash: account.account.code_hash,
+            nonce: account.account.nonce,
+            storage_hash: account.account.storage_root,
+            account_proof: account.account_proof.clone(),
+            storage_proof: account.storage_proof.clone(),
+        };
+        self.cache
+            .insert(response, account.code.clone(), block_hash);
+
+        let (full_account, remaining) = self
+            .cache
+            .get_account(address, slots, block_hash)
+            .ok_or(eyre!("cache inconsistency after write"))?;
+
+        if !remaining.is_empty() {
+            return Err(eyre!("failed to fetch all requested slots"));
+        }
+
+        if with_code && full_account.code.is_none() {
+            return Err(eyre!("failed to fetch account code"));
+        }
+
+        Ok(full_account)
     }
 }
 
