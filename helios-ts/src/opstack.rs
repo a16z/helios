@@ -94,9 +94,7 @@ impl OpStackClient {
         let sub_type: SubscriptionType = serde_wasm_bindgen::from_value(sub_type)?;
         let rx = map_err(self.inner.subscribe(sub_type).await)?;
 
-        let subscription = Subscription::<OpStack>::new(id.clone());
-
-        subscription.listen(rx, callback).await;
+        let subscription = Subscription::<OpStack>::spawn_listener(id.clone(), rx, callback);
         self.active_subscriptions.insert(id, subscription);
 
         Ok(true)
@@ -395,5 +393,14 @@ impl OpStackClient {
     pub async fn get_current_checkpoint(&self) -> Result<JsValue, JsError> {
         // OP Stack does not support checkpoints
         Err(JsError::new("OP Stack does not support checkpoints"))
+    }
+
+    #[wasm_bindgen]
+    pub async fn shutdown(&mut self) {
+        for (_, subscription) in self.active_subscriptions.drain() {
+            subscription.abort();
+        }
+
+        self.inner.shutdown().await;
     }
 }

@@ -81,6 +81,8 @@ export class HeliosProvider {
   #client;
   #chainId;
   #eventEmitter;
+  #closed = false;
+  #subscriptionIds: Set<string> = new Set();
 
   private constructor(config: Config, kind: NetworkKind) {
     const executionRpc = config.executionRpc;
@@ -116,8 +118,10 @@ export class HeliosProvider {
   }
 
   #setHeliosEvents() {
+    // Capture only the emitter reference, not `this`
+    const emitter = this.#eventEmitter;
     this.#client.set_helios_events((event: string, data: any) => {
-      this.#eventEmitter.emit(event, data);
+      emitter.emit(event, data);
     });
   }
 
@@ -175,6 +179,9 @@ export class HeliosProvider {
    * ```
    */
   async request(req: Request): Promise<any> {
+    if (this.#closed) {
+      throw new Error("Provider has been shut down");
+    }
     try {
       return await this.#req(req);
     } catch (err) {
@@ -292,7 +299,9 @@ export class HeliosProvider {
         return this.#handleSubscribe(req);
       }
       case "eth_unsubscribe": {
-        return this.#client.unsubscribe(req.params[0]);
+        const id = req.params[0];
+        this.#subscriptionIds.delete(id);
+        return this.#client.unsubscribe(id);
       }
       case "helios_getCurrentCheckpoint": {
         return this.#client.get_current_checkpoint();
@@ -305,18 +314,21 @@ export class HeliosProvider {
 
   async #handleSubscribe(req: Request) {
     try {
-      let id = uuidv4();
-      await this.#client.subscribe(req.params[0], id, (data: any, id: string) => {
-        let result = data instanceof Map ? mapToObj(data) : data;
-        let payload = {
+      const id = uuidv4();
+      // Capture only the emitter reference, not `this`
+      const emitter = this.#eventEmitter;
+      await this.#client.subscribe(req.params[0], id, (data: any, subId: string) => {
+        const result = data instanceof Map ? mapToObj(data) : data;
+        const payload = {
           type: 'eth_subscription',
           data: {
-            subscription: id,
+            subscription: subId,
             result,
           },
         };
-        this.#eventEmitter.emit("message", payload);
+        emitter.emit("message", payload);
       });
+      this.#subscriptionIds.add(id);
       return id;
     } catch (err) {
       throw new Error(err.toString());
@@ -353,8 +365,9 @@ export class HeliosProvider {
   on(
     eventName: string,
     handler: (data: any) => void
-  ): void {
+  ): this {
     this.#eventEmitter.on(eventName, handler);
+    return this;
   }
 
   /**
@@ -381,8 +394,59 @@ export class HeliosProvider {
   removeListener(
     eventName: string,
     handler: (data: any) => void
-  ): void {
+  ): this {
     this.#eventEmitter.off(eventName, handler);
+    return this;
+  }
+
+  /**
+   * Shuts down the provider and releases all resources.
+   * 
+   * @returns A promise that resolves when the provider has been shut down
+   * 
+   * @remarks
+   * After shutdown:
+   * - All future `request()` calls will reject with an error
+   * - All active subscriptions are unsubscribed
+   * - All event listeners are removed
+   * - Background tasks are stopped
+   * 
+   * The provider instance will be garbage collected after the user drops all references.
+   * 
+   * @example
+   * ```typescript
+   * const provider = await createHeliosProvider(config, "ethereum");
+   * 
+   * // ... use the provider ...
+   * 
+   * // Clean up when done
+   * await provider.shutdown();
+   * ```
+   */
+  async shutdown(): Promise<void> {
+    if (this.#closed) {
+      return;
+    }
+    this.#closed = true;
+
+    for (const id of this.#subscriptionIds) {
+      try {
+        this.#client.unsubscribe(id);
+      } catch {
+        // Ignore errors during cleanup
+      }
+    }
+    this.#subscriptionIds.clear();
+    await this.#client.shutdown();
+    this.#eventEmitter.removeAllListeners();
+    this.#client.free();
+  }
+  
+  /**
+   * This method is equivalent to `shutdown()`
+   */
+  async destroy(): Promise<void> {
+    await this.shutdown();
   }
 }
 

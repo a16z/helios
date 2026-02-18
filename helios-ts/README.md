@@ -127,6 +127,19 @@ const blockNumber = await client.getBlockNumber();
 console.log('Latest block number:', blockNumber);
 ```
 
+## Cleanup
+
+If Helios is used as a transport for `ethers` or `viem`, calling `EthersProvider.destroy()` will NOT destroy underlying Helios instance nor will stop the background tasks.
+
+For proper cleanup, call `shutdown()` (or its alias `destroy()`) on your Helios provider instance to properly release resources:
+
+```typescript
+// Clean up when done
+await heliosProvider.shutdown();
+```
+
+This unsubscribes all active subscriptions, aborts background tasks, removes event listeners, and frees WASM memory. The method is idempotent—calling it multiple times is safe. After dereferencing Helios provider instance will be garbage collected.
+
 ## Documentation
 
 See [helios github repo](https://github.com/a16z/helios/) for more details.

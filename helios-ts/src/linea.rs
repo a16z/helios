@@ -76,9 +76,7 @@ impl LineaClient {
         let sub_type: SubscriptionType = serde_wasm_bindgen::from_value(sub_type)?;
         let rx = map_err(self.inner.subscribe(sub_type).await)?;
 
-        let subscription = Subscription::<Linea>::new(id.clone());
-
-        subscription.listen(rx, callback).await;
+        let subscription = Subscription::<Linea>::spawn_listener(id.clone(), rx, callback);
         self.active_subscriptions.insert(id, subscription);
 
         Ok(true)
@@ -377,5 +375,14 @@ impl LineaClient {
     pub async fn get_current_checkpoint(&self) -> Result<JsValue, JsError> {
         // Linea does not support checkpoints
         Err(JsError::new("Linea does not support checkpoints"))
+    }
+
+    #[wasm_bindgen]
+    pub async fn shutdown(&mut self) {
+        for (_, subscription) in self.active_subscriptions.drain() {
+            subscription.abort();
+        }
+
+        self.inner.shutdown().await;
     }
 }
