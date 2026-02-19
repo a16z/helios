@@ -484,7 +484,7 @@ export type Network =
   | "linea"        // Linea mainnet (chain ID: 59144)
   | "linea-sepolia"; // Linea Sepolia testnet (chain ID: 59141)
 
-type Request = {
+export type Request = {
   method: string;
   params: any[];
 };
@@ -519,4 +519,128 @@ function mapToObj(map: Map<any, any> | undefined): Record<string, any> | undefin
     }
   }
   return result;
+}
+
+type NetworksCRUD = "create" | "read" | "update" | "delete"
+
+/**
+ * Creates a new WorkerProvider instance.
+ * 
+ * @param worker - The work instance that is capable of resolving an EIP-1193 request.
+ * @param netowrk - The network settings used to configure the worker's resolver.
+ * @returns A worker provider instance that can be used with libraries like ethers.js and viem
+ * 
+ * @remarks Of the fields inside of network, network.name is optional if the worker will only have one network configured.
+ * However, if multiple networks are intended to live inside the Worker then a name must be given to identify which network the WorkerProvider is pointing to inside the worker it is assigned to. 
+ * 
+ * @example
+ * ```typescript
+ * ```
+ */
+export async function createWorkerProvider(worker: Worker, network: {name?: string, kind:  NetworkKind, cfg: Config}): Promise<WorkerProvider> {
+  try {      
+    // If network.name is included in arguments pass it to new WorkerProvider()
+    // Else only pass the worker to new WorkerProvider()
+    const provider = network.name
+      ? new WorkerProvider(worker, network.name)
+      : new WorkerProvider(worker);
+    await provider.networks({method: 'create', params: network})
+    return provider
+  } catch(err) {
+    throw err
+  }
+}
+
+/**
+ * An EIP-1193 compliant Ethereum provider wrapping an instance of a Worker interface.
+ * 
+ * @remarks
+ * This provider is very simple and only facilitates passing of the EIP-1193 requests and response
+ * between the main thread and the worker via `postMessage()` and a `MessageEvent` EventListener.
+ * 
+ * It should act as a drop in replacement for window.ethereum and other similar providers.
+ * 
+ * On it's own `new WorkerProvider()` only creates the worker but doesn't pass all necessary info to function.
+ * Subsequently provider.networks({method: 'create', params: {...}}) must be called to start the worker's light client.
+ * Use createWorkerProvider() to do both in single function call.
+ * 
+ * @example
+ * ```typescript
+ * ```
+ */
+export class WorkerProvider {
+
+  #worker;
+  name = '';
+  constructor(worker: Worker, name?: string) {
+    this.#worker = worker
+    if(name) this.name = name
+  }
+
+  networks(params: {method: NetworksCRUD, params: {name?: string, kind?: NetworkKind, cfg?: Config}}): Promise<any> {
+    return new Promise((resolve, reject) => {
+      try {
+
+        const id = uuidv4()               
+        const handler = (event: MessageEvent) => {
+          if (event.data.id === id) {                        
+            this.#worker.removeEventListener('message', handler);
+            if (event.data.error) {
+              reject(new Error(event.data.error));
+            } else {
+              resolve(event.data.result);
+            }
+          }
+        }
+
+        this.#worker.addEventListener('message', handler);
+        this.#worker.postMessage({
+          jsonrpc: "2.0",
+          method: "networks",
+          id,
+          params
+        });
+
+      } catch (err) {
+        reject(new Error(err.toString()))
+      }  
+    })
+  }
+
+  request(eip1193: Request): Promise<any> {
+    return new Promise((resolve, reject) => {
+      try {
+        const id = uuidv4()              
+        const handler = (event: MessageEvent) => {          
+          if (event.data.id === id) {                        
+            this.#worker.removeEventListener('message', handler);
+            if (event.data.error) {
+              reject(new Error(event.data.error));
+            } else {
+              resolve(event.data.result);
+            }
+          }
+        }
+
+        this.#worker.addEventListener('message', handler);
+        let message = {
+          jsonrpc: "2.0",
+          method: "eth_rpc_req",
+          id,
+          params: {
+            req: eip1193,
+            name: ''
+          }
+        }
+        if(this.name) {
+          message.params.name = this.name
+        }
+        this.#worker.postMessage(message);
+
+      } catch (err) {
+        reject(new Error(err.toString()))
+      }  
+
+    })
+  }
 }
