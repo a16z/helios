@@ -2,7 +2,7 @@ use std::cell::Cell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys::Function;
+use js_sys::Function;
 
 use helios_common::network_spec::NetworkSpec;
 use helios_common::types::SubEventRx;

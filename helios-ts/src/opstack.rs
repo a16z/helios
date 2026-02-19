@@ -10,7 +10,7 @@ use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::{state::StateOverride, Filter};
 use url::Url;
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys::Function;
+use js_sys::Function;
 
 use op_alloy_rpc_types::OpTransactionRequest;
 
