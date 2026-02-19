@@ -23,6 +23,9 @@ reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+# cache
+schnellru = "0.2"
+
 # misc
 eyre.workspace = true
 hex.workspace = true

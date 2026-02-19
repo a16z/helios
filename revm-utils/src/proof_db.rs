@@ -1,7 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use alloy::{
-    eips::{BlockId, BlockNumberOrTag},
+    eips::{eip1898::RpcBlockHash, BlockNumberOrTag},
     network::{primitives::HeaderResponse, BlockResponse},
     rpc::types::state::{AccountOverride, StateOverride},
 };
@@ -28,11 +28,11 @@ pub struct ProofDB<N: NetworkSpec, E: ExecutionProvider<N>> {
 
 impl<N: NetworkSpec, E: ExecutionProvider<N>> ProofDB<N, E> {
     pub fn new(
-        block_id: BlockId,
+        block: RpcBlockHash,
         execution: Arc<E>,
         state_overrides: Option<StateOverride>,
     ) -> Self {
-        let state = EvmState::new(execution, block_id, state_overrides);
+        let state = EvmState::new(execution, block, state_overrides);
         ProofDB { state }
     }
 }
@@ -47,7 +47,7 @@ pub enum StateAccess {
 pub struct EvmState<N: NetworkSpec, E: ExecutionProvider<N>> {
     pub accounts: HashMap<Address, Account>,
     pub block_hash: HashMap<u64, B256>,
-    pub block: BlockId,
+    pub block: RpcBlockHash,
     pub access: Option<StateAccess>,
     pub execution: Arc<E>,
     pub state_overrides: Option<StateOverride>,
@@ -55,7 +55,11 @@ pub struct EvmState<N: NetworkSpec, E: ExecutionProvider<N>> {
 }
 
 impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
-    pub fn new(execution: Arc<E>, block: BlockId, state_overrides: Option<StateOverride>) -> Self {
+    pub fn new(
+        execution: Arc<E>,
+        block: RpcBlockHash,
+        state_overrides: Option<StateOverride>,
+    ) -> Self {
         Self {
             execution,
             block,
@@ -73,7 +77,7 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
                 StateAccess::Basic(address) => {
                     let account = self
                         .execution
-                        .get_account(address, &[], true, self.block)
+                        .get_account(address, &[], true, self.block.into())
                         .await?;
 
                     self.accounts.insert(address, account);
@@ -82,7 +86,7 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
                     let slot_bytes = B256::from(slot);
                     let account = self
                         .execution
-                        .get_account(address, &[slot_bytes], false, self.block)
+                        .get_account(address, &[slot_bytes], false, self.block.into())
                         .await?;
 
                     if let Some(stored_account) = self.accounts.get_mut(&address) {
@@ -200,7 +204,7 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
     ) -> Result<()> {
         let account_map = self
             .execution
-            .get_execution_hint(tx, validate_tx, self.block)
+            .get_execution_hint(tx, validate_tx, self.block.into())
             .await
             .map_err(EvmError::RpcError)?;
 
