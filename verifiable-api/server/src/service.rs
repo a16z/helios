@@ -49,10 +49,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
 
         let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 
-        Self {
-            rpc_url: rpc_url.to_string(),
-            rpc: provider,
-        }
+        Self { rpc_url: rpc_url.to_string(), rpc: provider }
     }
 
     async fn get_account(
@@ -80,16 +77,9 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             BlockId::Hash(_) => Ok(block_id),
         }?;
 
-        let storage_keys = storage_slots
-            .iter()
-            .map(|key| (*key).into())
-            .collect::<Vec<_>>();
+        let storage_keys = storage_slots.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
-        let proof = self
-            .rpc
-            .get_proof(address, storage_keys)
-            .block_id(block_id)
-            .await?;
+        let proof = self.rpc.get_proof(address, storage_keys).block_id(block_id).await?;
 
         let code = if include_code {
             Some(self.rpc.get_code_at(address).block_id(block_id).await?)
@@ -125,13 +115,13 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             .await?
             .ok_or(ExecutionError::NoReceiptsForBlock(block_num.into()))?;
 
-        let receipt_proof =
-            create_receipt_proof::<N>(receipts, receipt.transaction_index().unwrap() as usize);
+        let transaction_index = receipt
+            .transaction_index()
+            .ok_or_else(|| eyre!("Transaction receipt missing transaction_index"))?
+            as usize;
+        let receipt_proof = create_receipt_proof::<N>(receipts, transaction_index);
 
-        Ok(Some(TransactionReceiptResponse {
-            receipt,
-            receipt_proof,
-        }))
+        Ok(Some(TransactionReceiptResponse { receipt, receipt_proof }))
     }
 
     async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
@@ -140,22 +130,18 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
         };
 
         let block_hash = tx.block_hash().ok_or(eyre!("block not found"))?;
-        let block = self
-            .rpc
-            .get_block(block_hash.into())
-            .full()
-            .await?
-            .ok_or(eyre!("block not found"))?;
+        let block =
+            self.rpc.get_block(block_hash.into()).full().await?.ok_or(eyre!("block not found"))?;
 
+        let transaction_index =
+            tx.transaction_index().ok_or_else(|| eyre!("Transaction missing transaction_index"))?
+                as usize;
         let proof = create_transaction_proof::<N>(
             block.transactions().txns().cloned().collect(),
-            tx.transaction_index().unwrap() as usize,
+            transaction_index,
         );
 
-        Ok(Some(TransactionResponse {
-            transaction: tx,
-            transaction_proof: proof,
-        }))
+        Ok(Some(TransactionResponse { transaction: tx, transaction_proof: proof }))
     }
 
     async fn get_transaction_by_location(
@@ -166,14 +152,10 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
         let index = index as usize;
         let tx = match block_id {
             BlockId::Hash(hash) => {
-                self.rpc
-                    .get_transaction_by_block_hash_and_index(hash.into(), index)
-                    .await?
+                self.rpc.get_transaction_by_block_hash_and_index(hash.into(), index).await?
             }
             BlockId::Number(number) => {
-                self.rpc
-                    .get_transaction_by_block_number_and_index(number, index)
-                    .await?
+                self.rpc.get_transaction_by_block_number_and_index(number, index).await?
             }
         };
 
@@ -182,32 +164,25 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
         };
 
         let block_hash = tx.block_hash().ok_or(eyre!("block not found"))?;
-        let block = self
-            .rpc
-            .get_block(block_hash.into())
-            .full()
-            .await?
-            .ok_or(eyre!("block not found"))?;
+        let block =
+            self.rpc.get_block(block_hash.into()).full().await?.ok_or(eyre!("block not found"))?;
 
+        let transaction_index =
+            tx.transaction_index().ok_or_else(|| eyre!("Transaction missing transaction_index"))?
+                as usize;
         let proof = create_transaction_proof::<N>(
             block.transactions().txns().cloned().collect(),
-            tx.transaction_index().unwrap() as usize,
+            transaction_index,
         );
 
-        Ok(Some(TransactionResponse {
-            transaction: tx,
-            transaction_proof: proof,
-        }))
+        Ok(Some(TransactionResponse { transaction: tx, transaction_proof: proof }))
     }
 
     async fn get_logs(&self, filter: &Filter) -> Result<LogsResponse<N>> {
         let logs = self.rpc.get_logs(filter).await?;
         let receipt_proofs = self.create_receipt_proofs_for_logs(logs.clone()).await?;
 
-        Ok(LogsResponse {
-            logs,
-            receipt_proofs,
-        })
+        Ok(LogsResponse { logs, receipt_proofs })
     }
 
     async fn get_execution_hint(
@@ -228,10 +203,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
 
         // initialize execution provider for the given block
         let block_provider = BlockCache::<N>::new();
-        let provider = RpcExecutionProvider::<N, BlockCache<N>, ()>::new(
-            self.rpc_url.parse().unwrap(),
-            block_provider,
-        );
+        let rpc_url = self
+            .rpc_url
+            .parse()
+            .map_err(|e| eyre!("Failed to parse RPC URL '{}': {}", self.rpc_url, e))?;
+        let provider = RpcExecutionProvider::<N, BlockCache<N>, ()>::new(rpc_url, block_provider);
         provider.push_block(block, block_id).await;
 
         // call EVM with the transaction, collect accounts and storage keys
@@ -250,9 +226,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
     }
 
     async fn chain_id(&self) -> Result<ChainIdResponse> {
-        Ok(ChainIdResponse {
-            chain_id: self.rpc.get_chain_id().await?,
-        })
+        Ok(ChainIdResponse { chain_id: self.rpc.get_chain_id().await? })
     }
 
     async fn get_block(
@@ -275,9 +249,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<SendRawTxResponse> {
-        Ok(SendRawTxResponse {
-            hash: *self.rpc.send_raw_transaction(bytes).await?.tx_hash(),
-        })
+        Ok(SendRawTxResponse { hash: *self.rpc.send_raw_transaction(bytes).await?.tx_hash() })
     }
 }
 
@@ -313,34 +285,33 @@ impl<N: NetworkSpec> ApiService<N> {
             let blocks_receipts = blocks_receipts.into_iter().collect::<HashMap<_, _>>();
             let mut receipts_to_prove = HashSet::new();
             for log in logs {
-                let entry = (
-                    log.block_number.unwrap(),
-                    log.transaction_hash.unwrap(),
-                    log.transaction_index.unwrap(),
-                );
-                if !receipts_to_prove.contains(&entry) {
-                    receipts_to_prove.insert(entry);
+                // Skip logs that are missing required fields (e.g., pending logs)
+                if let (Some(block_number), Some(tx_hash), Some(tx_index)) =
+                    (log.block_number, log.transaction_hash, log.transaction_index)
+                {
+                    let entry = (block_number, tx_hash, tx_index);
+                    if !receipts_to_prove.contains(&entry) {
+                        receipts_to_prove.insert(entry);
+                    }
                 }
             }
 
             receipts_to_prove
                 .par_iter()
-                .map(|(block_number, tx_hash, tx_index)| {
-                    let receipts = blocks_receipts.get(block_number).unwrap();
-                    let receipt = receipts.get(*tx_index as usize).unwrap();
+                .filter_map(|(block_number, tx_hash, tx_index)| {
+                    let receipts = blocks_receipts.get(block_number)?;
+                    let receipt = receipts.get(*tx_index as usize)?;
+                    let transaction_index = receipt.transaction_index()? as usize;
 
-                    let proof = create_receipt_proof::<N>(
-                        receipts.to_vec(),
-                        receipt.transaction_index().unwrap() as usize,
-                    );
+                    let proof = create_receipt_proof::<N>(receipts.to_vec(), transaction_index);
 
-                    (
+                    Some((
                         *tx_hash,
                         TransactionReceiptResponse {
                             receipt: receipt.clone(),
                             receipt_proof: proof,
                         },
-                    )
+                    ))
                 })
                 .collect::<Vec<_>>()
         })
