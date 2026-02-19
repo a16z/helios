@@ -318,9 +318,7 @@ impl<N: NetworkSpec> ApiService<N> {
                     log.transaction_hash.unwrap(),
                     log.transaction_index.unwrap(),
                 );
-                if !receipts_to_prove.contains(&entry) {
-                    receipts_to_prove.insert(entry);
-                }
+                receipts_to_prove.insert(entry);
             }
 
             receipts_to_prove
