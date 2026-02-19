@@ -11,12 +11,15 @@ use alloy::rpc::types::{
     Log, SyncStatus,
 };
 use eyre::{eyre, Result};
+use http::Method;
 use jsonrpsee::{
     core::{async_trait, server::Methods, SubscriptionResult},
     proc_macros::rpc,
-    server::{PendingSubscriptionSink, ServerBuilder, ServerHandle, SubscriptionMessage},
+    server::{PendingSubscriptionSink, ServerBuilder, ServerHandle},
     types::error::{ErrorObject, ErrorObjectOwned},
 };
+use tower_http::cors::{AllowOrigin, CorsLayer};
+use url::Url;
 
 use helios_common::{
     network_spec::NetworkSpec,
@@ -27,11 +30,24 @@ use crate::client::api::HeliosApi;
 
 pub type Handle = ServerHandle;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub struct RpcServerConfig {
+    pub addr: SocketAddr,
+    pub allowed_origins: Option<Vec<String>>,
+}
+
 pub async fn start<N: NetworkSpec>(
     client: Arc<dyn HeliosApi<N>>,
-    addr: SocketAddr,
+    config: RpcServerConfig,
 ) -> Result<ServerHandle> {
-    let server = ServerBuilder::default().build(addr).await?;
+    let cors = build_cors_layer(config.allowed_origins)?;
+    let middleware = tower::ServiceBuilder::new().option_layer(cors);
+
+    let server = ServerBuilder::default()
+        .set_http_middleware(middleware)
+        .build(config.addr)
+        .await?;
+
     let rpc = JsonRpc {
         client,
         phantom: PhantomData,
@@ -49,6 +65,50 @@ pub async fn start<N: NetworkSpec>(
     methods.merge(helios_methods)?;
 
     Ok(server.start(methods))
+}
+
+fn build_cors_layer(allowed_origins: Option<Vec<String>>) -> Result<Option<CorsLayer>> {
+    let origins = match allowed_origins {
+        Some(origins) if !origins.is_empty() => origins,
+        _ => return Ok(None),
+    };
+
+    let mut list = Vec::with_capacity(origins.len());
+    let mut has_wildcard = false;
+
+    for origin in origins {
+        if origin == "*" {
+            has_wildcard = true;
+            break;
+        }
+        list.push(parse_allowed_origin(&origin)?);
+    }
+
+    let allow_origin = if has_wildcard {
+        AllowOrigin::any()
+    } else {
+        AllowOrigin::list(list)
+    };
+
+    Ok(Some(
+        CorsLayer::new()
+            .allow_methods([Method::POST, Method::OPTIONS])
+            .allow_origin(allow_origin)
+            .allow_headers([http::header::CONTENT_TYPE]),
+    ))
+}
+
+fn parse_allowed_origin(origin: &str) -> Result<http::HeaderValue> {
+    let url = Url::parse(origin).map_err(|e| eyre!("invalid allowed origin '{origin}': {e}"))?;
+    if !url.origin().is_tuple() {
+        return Err(eyre!(
+            "invalid allowed origin '{origin}': must be a tuple origin (scheme + host)"
+        ));
+    }
+
+    origin
+        .parse()
+        .map_err(|e| eyre!("invalid allowed origin header value '{origin}': {e}"))
 }
 
 #[derive(Clone)]
@@ -491,8 +551,8 @@ async fn handle_eth_subscription<N: NetworkSpec>(
 
             tokio::spawn(async move {
                 while let Ok(message) = stream.recv().await {
-                    let msg = SubscriptionMessage::from_json(&message).unwrap();
-                    if sink.send(msg).await.is_err() {
+                    let raw = serde_json::value::to_raw_value(&message).unwrap();
+                    if sink.send(raw).await.is_err() {
                         break;
                     }
                 }
@@ -523,8 +583,8 @@ async fn handle_checkpoint_subscription(
             tokio::spawn(async move {
                 while rx.changed().await.is_ok() {
                     let checkpoint = *rx.borrow_and_update();
-                    let msg = SubscriptionMessage::from_json(&checkpoint).unwrap();
-                    if sink.send(msg).await.is_err() {
+                    let raw = serde_json::value::to_raw_value(&checkpoint).unwrap();
+                    if sink.send(raw).await.is_err() {
                         break;
                     }
                 }

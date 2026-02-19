@@ -73,6 +73,7 @@ impl OpStackClient {
             load_external_fallback: None,
             checkpoint: None,
             verify_unsafe_signer: false,
+            allowed_origins: None,
         };
 
         let inner = map_err(OpStackClientBuilder::new().config(config).build())?;

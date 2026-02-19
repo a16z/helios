@@ -55,6 +55,7 @@ impl LineaClient {
             chain: network_config.chain,
             rpc_bind_ip: None,
             rpc_port: None,
+            allowed_origins: None,
         };
 
         let inner = map_err(LineaClientBuilder::new().config(config).build())?;

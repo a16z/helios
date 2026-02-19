@@ -30,13 +30,6 @@ impl From<ExecutionError> for ClientError {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl From<ClientError> for jsonrpsee::core::Error {
-    fn from(value: ClientError) -> Self {
-        jsonrpsee::core::Error::Custom(value.to_string())
-    }
-}
-
 #[derive(Debug, Error)]
 #[error("rpc error on method: {method}, message: {error}")]
 pub struct RpcError<E: ToString> {

@@ -14,6 +14,8 @@ use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::historical::eip2935::Eip2935Provider;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
 use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
+#[cfg(not(target_arch = "wasm32"))]
+use helios_core::jsonrpc::RpcServerConfig;
 
 use crate::config::networks::Network;
 use crate::config::Config;
@@ -34,6 +36,8 @@ pub struct EthereumClientBuilder<DB: Database> {
     #[cfg(not(target_arch = "wasm32"))]
     rpc_address: Option<SocketAddr>,
     #[cfg(not(target_arch = "wasm32"))]
+    allowed_origins: Option<Vec<String>>,
+    #[cfg(not(target_arch = "wasm32"))]
     data_dir: Option<PathBuf>,
     config: Option<Config>,
     fallback: Option<Url>,
@@ -52,6 +56,8 @@ impl<DB: Database> Default for EthereumClientBuilder<DB> {
             checkpoint: None,
             #[cfg(not(target_arch = "wasm32"))]
             rpc_address: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            allowed_origins: None,
             #[cfg(not(target_arch = "wasm32"))]
             data_dir: None,
             config: None,
@@ -108,6 +114,12 @@ impl<DB: Database> EthereumClientBuilder<DB> {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn rpc_address(mut self, rpc_address: SocketAddr) -> Self {
         self.rpc_address = Some(rpc_address);
+        self
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn allowed_origins(mut self, allowed_origins: Vec<String>) -> Self {
+        self.allowed_origins = Some(allowed_origins);
         self
     }
 
@@ -203,6 +215,15 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             None
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
+        let allowed_origins = if self.allowed_origins.is_some() {
+            self.allowed_origins
+        } else if let Some(config) = &self.config {
+            config.allowed_origins.clone()
+        } else {
+            None
+        };
+
         let fallback = if self.fallback.is_some() {
             self.fallback
         } else if let Some(config) = &self.config {
@@ -245,11 +266,21 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             forks: base_config.forks,
             execution_forks: base_config.execution_forks,
             max_checkpoint_age: base_config.max_checkpoint_age,
+            #[cfg(not(target_arch = "wasm32"))]
+            allowed_origins: allowed_origins.clone(),
+            #[cfg(target_arch = "wasm32")]
+            allowed_origins: None,
             fallback,
             load_external_fallback,
             strict_checkpoint_age,
             database_type,
         };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let rpc_config = rpc_address.map(|addr| RpcServerConfig {
+            addr,
+            allowed_origins,
+        });
 
         let config = Arc::new(config);
         let consensus = ConsensusClient::<MainnetConsensusSpec, HttpRpc, DB>::new(
@@ -272,7 +303,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 execution,
                 config.execution_forks,
                 #[cfg(not(target_arch = "wasm32"))]
-                rpc_address,
+                rpc_config,
             ))
         } else {
             let block_provider = BlockCache::<Ethereum>::new();
@@ -290,7 +321,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 execution,
                 config.execution_forks,
                 #[cfg(not(target_arch = "wasm32"))]
-                rpc_address,
+                rpc_config,
             ))
         }
     }
