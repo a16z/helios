@@ -4,7 +4,7 @@ use alloy::{
     eips::BlockId,
     network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256},
-    rpc::types::{EIP1186AccountProofResponse, Filter, Log},
+    rpc::types::{Filter, Log},
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
@@ -56,95 +56,64 @@ where
         block_id: BlockId,
     ) -> Result<Account> {
         let block_hash = match block_id {
-            BlockId::Hash(hash) => {
-                let hash: B256 = hash.into();
-                hash
-            }
-            block_id => {
-                let block = self
-                    .inner
-                    .get_block(block_id, false)
-                    .await?
-                    .ok_or(eyre!("block not found"))?;
-                block.header().hash()
-            }
-        };
-
-        let slots_left_to_fetch = match self.cache.get_account(address, slots, block_hash) {
-            Some((cached, missing_slots)) => {
-                if missing_slots.is_empty() {
-                    if with_code && cached.code.is_none() {
-                        // All account data is cached, but code is missing - fetch code directly
-                        let expected = cached.account.code_hash;
-                        let acc_with_code = self
-                            .inner
-                            .get_account(address, &[], true, block_hash.into())
-                            .await?;
-                        let code = acc_with_code
-                            .code
-                            .ok_or_else(|| eyre!("provider did not return code"))?;
-                        if acc_with_code.account.code_hash != expected {
-                            return Err(eyre!("code_hash changed while fetching code"));
-                        }
-                        self.cache.insert_code(expected, code.clone());
-                        return Ok(Account {
-                            code: Some(code),
-                            ..cached
-                        });
-                    }
-                    return Ok(cached);
-                }
-                missing_slots
-            }
-            None => slots.to_vec(),
-        };
-
-        // Always fetch account proof without full code because it might be already in cache
-        let account = self
-            .inner
-            .get_account(address, &slots_left_to_fetch, false, block_hash.into())
-            .await?;
-
-        let response = EIP1186AccountProofResponse {
-            address,
-            balance: account.account.balance,
-            code_hash: account.account.code_hash,
-            nonce: account.account.nonce,
-            storage_hash: account.account.storage_root,
-            account_proof: account.account_proof.clone(),
-            storage_proof: account.storage_proof.clone(),
-        };
-
-        self.cache.insert(response, None, block_hash);
-
-        // Retrieve from cache again to get the full merged result
-        let (mut full_account, missing_after) = self
-            .cache
-            .get_account(address, slots, block_hash)
-            .ok_or(eyre!("Cache inconsistency after write"))?;
-
-        if !missing_after.is_empty() {
-            return Err(eyre!("Failed to fetch all slots"));
-        }
-
-        // If code is still missing, fetch via get_account with with_code=true
-        if with_code && full_account.code.is_none() {
-            let expected = full_account.account.code_hash;
-            let acc_with_code = self
+            BlockId::Hash(hash) => hash.into(),
+            _ => self
                 .inner
-                .get_account(address, &[], true, block_hash.into())
-                .await?;
-            let code = acc_with_code
-                .code
-                .ok_or_else(|| eyre!("provider did not return code"))?;
-            if acc_with_code.account.code_hash != expected {
-                return Err(eyre!("code_hash changed while fetching code"));
-            }
-            self.cache.insert_code(expected, code.clone());
-            full_account.code = Some(code);
-        }
+                .get_block(block_id, false)
+                .await?
+                .ok_or_else(|| eyre!("block not found"))?
+                .header()
+                .hash(),
+        };
 
-        Ok(full_account)
+        let cached = self.cache.get_account(address, slots, block_hash);
+
+        match cached {
+            None => {
+                if with_code {
+                    if let Some((cached_code_hash, cached_code)) =
+                        self.cache.get_code_optimistically(address)
+                    {
+                        let fetched = self
+                            .inner
+                            .get_account(address, slots, false, block_hash.into())
+                            .await?;
+                        if fetched.account.code_hash == cached_code_hash {
+                            let mut account = fetched;
+                            account.code = Some(cached_code);
+                            self.cache.insert_account(address, &account, block_hash);
+                            return Ok(account);
+                        }
+                    }
+                }
+                let fetched = self
+                    .inner
+                    .get_account(address, slots, with_code, block_hash.into())
+                    .await?;
+                self.cache.insert_account(address, &fetched, block_hash);
+                Ok(fetched)
+            }
+            Some((mut account, missing_slots)) => {
+                let need_code = with_code && account.code.is_none();
+
+                if !missing_slots.is_empty() || need_code {
+                    let fetched = self
+                        .inner
+                        .get_account(address, &missing_slots, need_code, block_hash.into())
+                        .await?;
+                    self.cache.insert_account(address, &fetched, block_hash);
+
+                    account.account = fetched.account;
+                    account.account_proof = fetched.account_proof;
+                    account.storage_proof.extend(fetched.storage_proof);
+                    if let Some(code) = fetched.code {
+                        account.code = Some(code);
+                    }
+                }
+
+                Ok(account)
+            }
+        }
     }
 }
 

@@ -105,10 +105,38 @@ impl Cache {
         code.get(&code_hash).cloned()
     }
 
-    /// Insert code into the cache by code hash. Hash MUST come from a verified account proof.
-    pub fn insert_code(&self, code_hash: B256, code: Bytes) {
-        let mut code_cache = self.code.write().unwrap_or_else(|e| e.into_inner());
-        code_cache.insert(code_hash, code);
+    /// Try to recover code for an address from any cached account entry.
+    ///
+    /// This is intentionally "optimistic": we only use the code if a freshly
+    /// fetched proof confirms the same code hash.
+    pub fn get_code_optimistically(&self, address: Address) -> Option<(B256, Bytes)> {
+        let code_hash = {
+            let accounts = self.accounts.read().unwrap_or_else(|e| e.into_inner());
+            accounts.iter().find_map(|((cached_address, _), account)| {
+                (*cached_address == address).then_some(account.code_hash)
+            })?
+        };
+
+        let code = self.get_code(code_hash)?;
+        Some((code_hash, code))
+    }
+
+    /// Insert a verified [`Account`] into the cache, distributing its data to
+    /// the account-proof, storage-proof, and code sub-caches.
+    pub(crate) fn insert_account(&self, address: Address, account: &Account, block_hash: B256) {
+        self.insert(
+            EIP1186AccountProofResponse {
+                address,
+                balance: account.account.balance,
+                code_hash: account.account.code_hash,
+                nonce: account.account.nonce,
+                storage_hash: account.account.storage_root,
+                account_proof: account.account_proof.clone(),
+                storage_proof: account.storage_proof.clone(),
+            },
+            account.code.clone(),
+            block_hash,
+        );
     }
 
     /// Get an account proof response with requested storage slots.
@@ -349,5 +377,32 @@ mod tests {
         // get_account should include the code
         let (account, _) = cache.get_account(address, &[], block_hash).unwrap();
         assert_eq!(account.code, Some(code));
+    }
+
+    #[test]
+    fn test_get_code_optimistically() {
+        let cache = Cache::new();
+
+        let address = address!("0000000000000000000000000000000000000001");
+        let other_address = address!("0000000000000000000000000000000000000002");
+        let block_hash1 = b256!("0000000000000000000000000000000000000000000000000000000000000001");
+        let block_hash2 = b256!("0000000000000000000000000000000000000000000000000000000000000002");
+        let storage_hash =
+            b256!("0000000000000000000000000000000000000000000000000000000000000003");
+        let code_hash = b256!("0000000000000000000000000000000000000000000000000000000000000004");
+        let code = Bytes::from_static(&[0x60, 0x80, 0x60, 0x40]);
+
+        let response = mock_account_proof_response(address, storage_hash, code_hash, vec![]);
+        cache.insert(response, Some(code.clone()), block_hash1);
+
+        // Same address at another block keeps the optimistic lookup valid.
+        let response2 = mock_account_proof_response(address, storage_hash, code_hash, vec![]);
+        cache.insert(response2, None, block_hash2);
+
+        assert_eq!(
+            cache.get_code_optimistically(address),
+            Some((code_hash, code))
+        );
+        assert_eq!(cache.get_code_optimistically(other_address), None);
     }
 }
