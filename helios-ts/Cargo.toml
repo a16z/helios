@@ -28,6 +28,7 @@ helios-common = { path = "../common" }
 helios-ethereum = { path = "../ethereum" }
 helios-opstack = { path = "../opstack" }
 helios-linea = { path = "../linea" }
+helios-mantle = { path = "../mantle" }
 
 [dependencies.web-sys]
 version = "0.3"

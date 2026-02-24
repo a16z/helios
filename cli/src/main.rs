@@ -28,6 +28,9 @@ use helios_linea::{
     builder::LineaClientBuilder, config::CliConfig as LineaCliConfig,
     config::Config as LineaConfig, LineaClient,
 };
+use helios_mantle::{
+    config::Config as MantleConfig, MantleClient, MantleClientBuilder,
+};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 
 mod tui;
@@ -67,6 +70,18 @@ async fn main() -> Result<()> {
         }
         Command::Linea(linea) => {
             let client = linea.make_client();
+            if cli.tui {
+                if let Err(e) = tui::run(client).await {
+                    error!(target: "helios::tui", "TUI error: {}", e);
+                    exit(1);
+                }
+            } else {
+                register_shutdown_handler(client);
+                std::future::pending().await
+            }
+        }
+        Command::Mantle(mantle) => {
+            let client = mantle.make_client();
             if cli.tui {
                 if let Err(e) = tui::run(client).await {
                     error!(target: "helios::tui", "TUI error: {}", e);
@@ -145,6 +160,8 @@ enum Command {
     OpStack(OpStackArgs),
     #[command(name = "linea")]
     Linea(LineaArgs),
+    #[command(name = "mantle")]
+    Mantle(MantleArgs),
 }
 
 #[derive(Args)]
@@ -329,6 +346,91 @@ impl LineaArgs {
             rpc_bind_ip: self.rpc_bind_ip,
             rpc_port: self.rpc_port,
         }
+    }
+}
+
+#[derive(Args, Debug)]
+struct MantleArgs {
+    #[arg(short, long, default_value = "mantle")]
+    network: String,
+    #[arg(short = 'b', long, env, default_value = "127.0.0.1")]
+    rpc_bind_ip: Option<IpAddr>,
+    #[arg(short = 'p', long, env, default_value = "8545")]
+    rpc_port: Option<u16>,
+    #[arg(short, long, env, value_parser = parse_url)]
+    execution_rpc: Option<Url>,
+    #[arg(long, env, value_parser = parse_url)]
+    execution_verifiable_api: Option<Url>,
+    #[arg(short, long, env, value_parser = parse_url)]
+    consensus_rpc: Option<Url>,
+    #[arg(
+        short = 'w',
+        long = "ethereum-checkpoint",
+        env = "ETHEREUM_CHECKPOINT",
+        help = "Set custom weak subjectivity checkpoint for chosen Ethereum network. Helios uses this to sync and trustlessly fetch the correct unsafe signer address used by <NETWORK>"
+    )]
+    checkpoint: Option<B256>,
+    #[arg(
+        short = 'l',
+        long = "ethereum-load-external-fallback",
+        env = "ETHEREUM_LOAD_EXTERNAL_FALLBACK",
+        help = "Enable fallback for weak subjectivity checkpoint. Use if --ethereum-checkpoint fails."
+    )]
+    load_external_fallback: bool,
+}
+
+impl MantleArgs {
+    fn make_client(&self) -> MantleClient {
+        let config_path = home_dir().unwrap().join(".helios/helios.toml");
+        let cli_provider = self.as_provider();
+        let config = MantleConfig::from_file(&config_path, &self.network, cli_provider);
+
+        match MantleClientBuilder::new().config(config).build() {
+            Ok(client) => client,
+            Err(err) => {
+                error!(target: "helios::runner", error = %err);
+                exit(1);
+            }
+        }
+    }
+
+    fn as_provider(&self) -> Serialized<HashMap<&str, Value>> {
+        let mut user_dict = HashMap::new();
+
+        if let Some(rpc) = &self.execution_rpc {
+            user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
+        }
+
+        if let Some(api) = &self.execution_verifiable_api {
+            user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
+        }
+
+        if let Some(rpc) = &self.consensus_rpc {
+            user_dict.insert("consensus_rpc", Value::from(rpc.to_string()));
+        }
+
+        if self.rpc_bind_ip.is_some() && self.rpc_port.is_some() {
+            let rpc_socket = SocketAddr::new(self.rpc_bind_ip.unwrap(), self.rpc_port.unwrap());
+            user_dict.insert("rpc_socket", Value::from(rpc_socket.to_string()));
+        }
+
+        if let Some(ip) = self.rpc_bind_ip {
+            user_dict.insert("rpc_bind_ip", Value::from(ip.to_string()));
+        }
+
+        if let Some(port) = self.rpc_port {
+            user_dict.insert("rpc_port", Value::from(port));
+        }
+
+        if self.load_external_fallback {
+            user_dict.insert("load_external_fallback", Value::from(true));
+        }
+
+        if let Some(checkpoint) = self.checkpoint {
+            user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
+        }
+
+        Serialized::from(user_dict, &self.network)
     }
 }
 

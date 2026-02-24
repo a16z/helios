@@ -32,3 +32,4 @@ helios-core = { path = "../core" }
 helios-ethereum = { path = "../ethereum" }
 helios-opstack = { path = "../opstack" }
 helios-linea = { path = "../linea" }
+helios-mantle = { path = "../mantle" }
