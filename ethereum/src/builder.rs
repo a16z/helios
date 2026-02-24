@@ -10,6 +10,7 @@ use eyre::{eyre, Result};
 use reqwest::{IntoUrl, Url};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
+use helios_core::execution::cache::CachingProvider;
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::historical::eip2935::Eip2935Provider;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
@@ -266,6 +267,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 block_provider,
                 historical_provider,
             );
+            let execution = CachingProvider::new(execution);
 
             Ok(EthereumClient::new(
                 consensus,
@@ -284,6 +286,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 block_provider,
                 historical_provider,
             );
+            let execution = CachingProvider::new(execution);
 
             Ok(EthereumClient::new(
                 consensus,

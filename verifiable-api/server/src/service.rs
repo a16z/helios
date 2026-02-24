@@ -22,6 +22,7 @@ use url::Url;
 use helios_common::{
     execution_provider::BlockProvider, fork_schedule::ForkSchedule, network_spec::NetworkSpec,
 };
+use helios_core::execution::cache::CachingProvider;
 use helios_core::execution::proof::create_transaction_proof;
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
@@ -232,6 +233,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
             self.rpc_url.parse().unwrap(),
             block_provider,
         );
+        let provider = CachingProvider::new(provider);
         provider.push_block(block, block_id).await;
 
         // call EVM with the transaction, collect accounts and storage keys

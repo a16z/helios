@@ -271,8 +271,8 @@ impl OpStackArgs {
             user_dict.insert("consensus_rpc", Value::from(rpc.to_string()));
         }
 
-        if self.rpc_bind_ip.is_some() && self.rpc_port.is_some() {
-            let rpc_socket = SocketAddr::new(self.rpc_bind_ip.unwrap(), self.rpc_port.unwrap());
+        if let (Some(ip), Some(port)) = (self.rpc_bind_ip, self.rpc_port) {
+            let rpc_socket = SocketAddr::new(ip, port);
             user_dict.insert("rpc_socket", Value::from(rpc_socket.to_string()));
         }
 

@@ -1,4 +1,5 @@
 use eyre::{eyre, Result};
+use helios_core::execution::cache::CachingProvider;
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
 use reqwest::{IntoUrl, Url};
@@ -135,6 +136,7 @@ impl LineaClientBuilder {
             block_provider,
             historical_provider,
         );
+        let execution = CachingProvider::new(execution);
 
         Ok(LineaClient::new(
             consensus,
