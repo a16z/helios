@@ -104,6 +104,7 @@ pub struct CliConfig {
     pub execution_rpc: Option<Url>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
+    pub allowed_origins: Option<Vec<String>>,
 }
 
 impl CliConfig {
@@ -120,6 +121,10 @@ impl CliConfig {
 
         if let Some(port) = self.rpc_port {
             user_dict.insert("rpc_port", Value::from(port));
+        }
+
+        if let Some(allowed_origins) = &self.allowed_origins {
+            user_dict.insert("allowed_origins", Value::from(allowed_origins.clone()));
         }
 
         Serialized::from(user_dict, network)
@@ -149,6 +154,7 @@ pub struct Config {
     pub execution_rpc: Url,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
+    pub allowed_origins: Option<Vec<String>>,
     pub chain: ChainConfig,
 }
 
@@ -202,6 +208,7 @@ impl Default for Config {
             execution_rpc: Url::parse("http://localhost:8545").unwrap(),
             rpc_bind_ip: None,
             rpc_port: None,
+            allowed_origins: None,
             chain: ChainConfig::default(),
         }
     }
@@ -213,6 +220,7 @@ impl From<BaseConfig> for Config {
             rpc_bind_ip: Some(base.rpc_bind_ip),
             rpc_port: Some(base.rpc_port),
             execution_rpc: Url::parse("http://localhost:8545").unwrap(),
+            allowed_origins: None,
             chain: base.chain,
         }
     }

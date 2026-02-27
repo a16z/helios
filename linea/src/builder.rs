@@ -2,6 +2,8 @@ use eyre::{eyre, Result};
 use helios_core::execution::cache::CachingProvider;
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
+#[cfg(not(target_arch = "wasm32"))]
+use helios_core::jsonrpc::RpcServerConfig;
 use reqwest::{IntoUrl, Url};
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
@@ -23,6 +25,8 @@ pub struct LineaClientBuilder {
     rpc_bind_ip: Option<IpAddr>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_port: Option<u16>,
+    #[cfg(not(target_arch = "wasm32"))]
+    allowed_origins: Option<Vec<String>>,
     config: Option<Config>,
 }
 
@@ -54,6 +58,12 @@ impl LineaClientBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn rpc_port(mut self, port: u16) -> Self {
         self.rpc_port = Some(port);
+        self
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn allowed_origins(mut self, allowed_origins: Vec<String>) -> Self {
+        self.allowed_origins = Some(allowed_origins);
         self
     }
 
@@ -99,6 +109,15 @@ impl LineaClientBuilder {
             None
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
+        let allowed_origins = if self.allowed_origins.is_some() {
+            self.allowed_origins
+        } else if let Some(config) = &self.config {
+            config.allowed_origins.clone()
+        } else {
+            None
+        };
+
         let config = Config {
             execution_rpc,
             #[cfg(not(target_arch = "wasm32"))]
@@ -109,6 +128,10 @@ impl LineaClientBuilder {
             rpc_port,
             #[cfg(target_arch = "wasm32")]
             rpc_port: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            allowed_origins: allowed_origins.clone(),
+            #[cfg(target_arch = "wasm32")]
+            allowed_origins: None,
             chain: base_config.chain,
         };
 
@@ -118,6 +141,12 @@ impl LineaClientBuilder {
         } else {
             None
         };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let rpc_config = socket.map(|addr| RpcServerConfig {
+            addr,
+            allowed_origins,
+        });
 
         let config = Arc::new(config);
         let consensus = ConsensusClient::new(&config);
@@ -143,7 +172,7 @@ impl LineaClientBuilder {
             execution,
             fork_schedule,
             #[cfg(not(target_arch = "wasm32"))]
-            socket,
+            rpc_config,
         ))
     }
 }
