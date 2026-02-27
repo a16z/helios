@@ -1,0 +1,74 @@
+[package]
+name = "helios-mantle"
+version.workspace = true
+edition = "2021"
+
+[dependencies]
+tokio.workspace = true
+eyre.workspace = true
+tracing.workspace = true
+hex.workspace = true
+serde.workspace = true
+typenum.workspace = true
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+reqwest.workspace = true
+url.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+
+# consensus
+alloy.workspace = true
+alloy-trie.workspace = true
+revm.workspace = true
+op-revm = { version = "10.1.0", default-features = false, features = [
+    "std",
+    "serde",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+] }
+sha2.workspace = true
+ethereum_ssz_derive.workspace = true
+ethereum_ssz.workspace = true
+ssz_types.workspace = true
+alloy-rlp = "0.3.12"
+op-alloy-network = "0.20.0"
+op-alloy-consensus = { version = "0.20.0", features = ["k256"] }
+op-alloy-rpc-types.workspace = true
+snap = "1"
+
+# config
+figment = { version = "0.10.7", features = ["toml", "env"] }
+
+# self crates
+helios-common = { path = "../common" }
+helios-core = { path = "../core" }
+helios-ethereum = { path = "../ethereum" }
+helios-consensus-core = { path = "../ethereum/consensus-core" }
+helios-revm-utils = { path = "../revm-utils" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "sync", "macros", "rt-multi-thread", "test-util"] }
+wiremock = "0.6"
+alloy = { version = "1.0.37", features = [
+    "rpc-types",
+    "consensus",
+    "rlp",
+    "k256",
+    "signers",
+    "signer-local",
+    "ssz",
+    "network",
+] }
+serde_json = "1.0"
+snap = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+parking_lot = { version = "0.12.2" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen-futures]
+version = "0.4.37"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
+version = "0.2.1"
+features = ["js"]

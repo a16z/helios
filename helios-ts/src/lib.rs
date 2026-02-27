@@ -5,6 +5,7 @@ use wasm_bindgen::JsError;
 
 pub mod ethereum;
 pub mod linea;
+pub mod mantle;
 pub mod opstack;
 pub mod storage;
 pub mod subscription;

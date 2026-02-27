@@ -203,7 +203,9 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
 }
 
 pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> OpSpecId {
-    if timestamp >= fork_schedule.isthmus_timestamp {
+    if timestamp >= fork_schedule.jovian_timestamp {
+        OpSpecId::OSAKA
+    } else if timestamp >= fork_schedule.isthmus_timestamp {
         OpSpecId::ISTHMUS
     } else if timestamp >= fork_schedule.holocene_timestamp {
         OpSpecId::HOLOCENE

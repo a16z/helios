@@ -31,3 +31,7 @@ pub mod ethereum {
 pub mod opstack {
     pub use helios_opstack::*;
 }
+
+pub mod mantle {
+    pub use helios_mantle::*;
+}
