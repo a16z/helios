@@ -1,6 +1,6 @@
 import { EventEmitter } from "eventemitter3";
 import { v4 as uuidv4 } from "uuid";
-import initWasm, { EthereumClient, OpStackClient, LineaClient } from "./pkg";
+import initWasm, { EthereumClient, OpStackClient, LineaClient, MantleClient } from "./pkg";
 
 let initPromise: Promise<any> | null = null;
 
@@ -19,7 +19,7 @@ async function ensureInitialized() {
  * - `opstack` - Optimism Stack based L2 networks
  * - `linea` - Linea L2 network
  */
-export type NetworkKind = "ethereum" | "opstack" | "linea";
+export type NetworkKind = "ethereum" | "opstack" | "linea" | "mantle";
 
 /**
  * Creates a new HeliosProvider instance.
@@ -106,8 +106,15 @@ export class HeliosProvider {
     } else if (kind === "linea") {
       const network = config.network;
       this.#client = new LineaClient(executionRpc, network);
+    } else if (kind === "mantle") {
+      const consensusRpc = config.consensusRpc;
+      if (!consensusRpc) {
+        throw new Error("Mantle requires a consensusRpc to be provided");
+      }
+      const network = config.network ?? "mantle";
+      this.#client = new MantleClient(executionRpc, verifiableApi, consensusRpc, network);
     } else {
-      throw new Error("Invalid kind: must be 'ethereum', 'opstack', or `linea`");
+      throw new Error("Invalid kind: must be 'ethereum', 'opstack', 'linea', or 'mantle'");
     }
 
     this.#chainId = this.#client.chain_id();
@@ -482,7 +489,10 @@ export type Network =
   | "unichain"     // Unichain mainnet (chain ID: 130)
   // Linea networks
   | "linea"        // Linea mainnet (chain ID: 59144)
-  | "linea-sepolia"; // Linea Sepolia testnet (chain ID: 59141)
+  | "linea-sepolia" // Linea Sepolia testnet (chain ID: 59141)
+  // Mantle networks
+  | "mantle"        // Mantle mainnet (chain ID: 5000)
+  | "mantle-sepolia"; // Mantle Sepolia testnet (chain ID: 5003)
 
 type Request = {
   method: string;

@@ -252,14 +252,11 @@ mod tests {
 
         assert_eq!(forks.bedrock_timestamp, 0);
         assert_eq!(forks.regolith_timestamp, 0);
-        assert_eq!(forks.canyon_timestamp, SKADI);
-        assert_eq!(forks.delta_timestamp, SKADI);
-        assert_eq!(forks.ecotone_timestamp, SKADI);
-        assert_eq!(forks.fjord_timestamp, SKADI);
-        assert_eq!(forks.granite_timestamp, SKADI);
-        assert_eq!(forks.holocene_timestamp, SKADI);
-        assert_eq!(forks.isthmus_timestamp, SKADI);
-        assert_eq!(forks.jovian_timestamp, LIMB);
+        // EVM-level forks are set to Skadi/Limb
+        assert_eq!(forks.shanghai_timestamp, SKADI);
+        assert_eq!(forks.cancun_timestamp, SKADI);
+        assert_eq!(forks.prague_timestamp, SKADI);
+        assert_eq!(forks.osaka_timestamp, LIMB);
     }
 
     #[test]
@@ -270,33 +267,43 @@ mod tests {
 
         assert_eq!(forks.bedrock_timestamp, 0);
         assert_eq!(forks.regolith_timestamp, 0);
-        assert_eq!(forks.canyon_timestamp, SKADI);
-        assert_eq!(forks.delta_timestamp, SKADI);
-        assert_eq!(forks.ecotone_timestamp, SKADI);
-        assert_eq!(forks.fjord_timestamp, SKADI);
-        assert_eq!(forks.granite_timestamp, SKADI);
-        assert_eq!(forks.holocene_timestamp, SKADI);
-        assert_eq!(forks.isthmus_timestamp, SKADI);
-        assert_eq!(forks.jovian_timestamp, LIMB);
+        // EVM-level forks are set to Skadi/Limb
+        assert_eq!(forks.shanghai_timestamp, SKADI);
+        assert_eq!(forks.cancun_timestamp, SKADI);
+        assert_eq!(forks.prague_timestamp, SKADI);
+        assert_eq!(forks.osaka_timestamp, LIMB);
     }
 
     #[test]
-    fn test_fork_schedule_non_set_fields_are_max() {
+    fn test_op_forks_not_activated() {
         let forks = MantleForkSchedule::mainnet();
-        // Ethereum L1 forks should remain at u64::MAX (not activated on Mantle L2)
-        assert_eq!(forks.shanghai_timestamp, u64::MAX);
-        assert_eq!(forks.cancun_timestamp, u64::MAX);
-        assert_eq!(forks.prague_timestamp, u64::MAX);
-        assert_eq!(forks.osaka_timestamp, u64::MAX);
+        // OP-level forks should remain at u64::MAX (MantleArsiaTime is nil)
+        assert_eq!(forks.canyon_timestamp, u64::MAX);
+        assert_eq!(forks.delta_timestamp, u64::MAX);
+        assert_eq!(forks.ecotone_timestamp, u64::MAX);
+        assert_eq!(forks.fjord_timestamp, u64::MAX);
+        assert_eq!(forks.granite_timestamp, u64::MAX);
+        assert_eq!(forks.holocene_timestamp, u64::MAX);
+        assert_eq!(forks.isthmus_timestamp, u64::MAX);
+        assert_eq!(forks.jovian_timestamp, u64::MAX);
     }
 
     #[test]
     fn test_sepolia_activates_before_mainnet() {
         let mainnet = MantleForkSchedule::mainnet();
         let sepolia = MantleForkSchedule::sepolia();
-        // Sepolia forks activate earlier than mainnet (testnet first)
-        assert!(sepolia.canyon_timestamp < mainnet.canyon_timestamp);
-        assert!(sepolia.jovian_timestamp < mainnet.jovian_timestamp);
+        // Sepolia EVM forks activate earlier than mainnet (testnet first)
+        assert!(sepolia.prague_timestamp < mainnet.prague_timestamp);
+        assert!(sepolia.osaka_timestamp < mainnet.osaka_timestamp);
+    }
+
+    #[test]
+    fn test_blob_base_fee_fraction_at_skadi() {
+        let forks = MantleForkSchedule::mainnet();
+        // Before SkadiTime: Cancun fraction
+        assert_eq!(forks.get_blob_base_fee_update_fraction(1_000_000), 3338477);
+        // At SkadiTime: Prague fraction (EIP-7892)
+        assert_eq!(forks.get_blob_base_fee_update_fraction(1_756_278_000), 5007716);
     }
 
     #[test]
@@ -315,11 +322,15 @@ mod tests {
 ///   MantleSkadiTime → Shanghai / Cancun / Prague EVM level
 ///   MantleLimbTime  → Osaka EVM level
 ///
-/// Following the same pattern as `AlignOpWithMantle()` in
-/// mantle-v2/op-node/rollup/mantle_types.go, the OP Stack fork timestamps
-/// are mapped to Mantle upgrade timestamps to reflect when each EVM level
-/// becomes active. Canyon through Isthmus all activate at MantleSkadiTime
-/// (Prague), and Jovian at MantleLimbTime (Osaka).
+/// In Go (op-geth/core/genesis.go), the two fork dimensions are set separately:
+///
+///   OP-level forks (Canyon..Jovian) → MantleArsiaTime  (nil on mainnet/sepolia)
+///   EVM-level forks (Shanghai/Cancun/Prague) → MantleSkadiTime
+///   EVM-level fork  (Osaka) → MantleLimbTime
+///
+/// We mirror this by setting the EVM-level fork timestamps (prague, osaka) and
+/// leaving OP-level forks at u64::MAX (the nil equivalent). The Mantle EVM
+/// selector checks both dimensions so the correct OpSpecId is resolved.
 ///
 /// Mantle v2 Tectonic upgrade (Bedrock-based) launched on March 15, 2024.
 ///
@@ -340,17 +351,17 @@ impl MantleForkSchedule {
         ForkSchedule {
             bedrock_timestamp: 0,
             regolith_timestamp: 0,
-            // Canyon through Isthmus map to MantleSkadiTime (Prague EVM level).
-            canyon_timestamp: MANTLE_SKADI_TIME,
-            delta_timestamp: MANTLE_SKADI_TIME,
-            ecotone_timestamp: MANTLE_SKADI_TIME,
-            fjord_timestamp: MANTLE_SKADI_TIME,
-            granite_timestamp: MANTLE_SKADI_TIME,
-            holocene_timestamp: MANTLE_SKADI_TIME,
-            isthmus_timestamp: MANTLE_SKADI_TIME,
-            // Jovian maps to MantleLimbTime (Osaka EVM level).
-            jovian_timestamp: MANTLE_LIMB_TIME,
-
+            // EVM-level forks matching Go's genesis.go:
+            //   cfg.ShanghaiTime = cfg.MantleSkadiTime
+            //   cfg.CancunTime   = cfg.MantleSkadiTime
+            //   cfg.PragueTime   = cfg.MantleSkadiTime
+            //   cfg.OsakaTime    = cfg.MantleLimbTime
+            shanghai_timestamp: MANTLE_SKADI_TIME,
+            cancun_timestamp: MANTLE_SKADI_TIME,
+            prague_timestamp: MANTLE_SKADI_TIME,
+            osaka_timestamp: MANTLE_LIMB_TIME,
+            // OP-level forks: MantleArsiaTime is nil on mainnet (not yet scheduled).
+            // All OP forks stay at u64::MAX (default).
             ..Default::default()
         }
     }
@@ -368,17 +379,13 @@ impl MantleForkSchedule {
         ForkSchedule {
             bedrock_timestamp: 0,
             regolith_timestamp: 0,
-            // Canyon through Isthmus map to MantleSkadiTime (Prague EVM level).
-            canyon_timestamp: MANTLE_SKADI_TIME,
-            delta_timestamp: MANTLE_SKADI_TIME,
-            ecotone_timestamp: MANTLE_SKADI_TIME,
-            fjord_timestamp: MANTLE_SKADI_TIME,
-            granite_timestamp: MANTLE_SKADI_TIME,
-            holocene_timestamp: MANTLE_SKADI_TIME,
-            isthmus_timestamp: MANTLE_SKADI_TIME,
-            // Jovian maps to MantleLimbTime (Osaka EVM level).
-            jovian_timestamp: MANTLE_LIMB_TIME,
-
+            // EVM-level forks matching Go's genesis.go
+            shanghai_timestamp: MANTLE_SKADI_TIME,
+            cancun_timestamp: MANTLE_SKADI_TIME,
+            prague_timestamp: MANTLE_SKADI_TIME,
+            osaka_timestamp: MANTLE_LIMB_TIME,
+            // OP-level forks: MantleArsiaTime is nil on sepolia (not yet scheduled).
+            // All OP forks stay at u64::MAX (default).
             ..Default::default()
         }
     }

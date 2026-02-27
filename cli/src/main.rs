@@ -281,7 +281,7 @@ impl OpStackArgs {
         }
 
         if let Some(api) = &self.execution_verifiable_api {
-            user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
+            user_dict.insert("verifiable_api", Value::from(api.to_string()));
         }
 
         if let Some(rpc) = &self.consensus_rpc {
@@ -402,7 +402,7 @@ impl MantleArgs {
         }
 
         if let Some(api) = &self.execution_verifiable_api {
-            user_dict.insert("execution_verifiable_api", Value::from(api.to_string()));
+            user_dict.insert("verifiable_api", Value::from(api.to_string()));
         }
 
         if let Some(rpc) = &self.consensus_rpc {

@@ -202,8 +202,33 @@ impl<E: ExecutionProvider<Mantle>> MantleEvm<E> {
     }
 }
 
+/// Determines the [`OpSpecId`] for a given block timestamp based on the fork schedule.
+///
+/// For Mantle, `prague_timestamp` maps to [`OpSpecId::ISTHMUS`] and `osaka_timestamp`
+/// maps to [`OpSpecId::OSAKA`]. This is because `op-revm` couples EVM spec level with
+/// OP protocol features in a single enum — there is no "Prague EVM without Isthmus OP
+/// features" variant.
+///
+/// **Known limitation:** `OpSpecId::ISTHMUS` activates OP-level handler paths in
+/// `op-revm` (operator fee via `L1BlockInfo::operator_fee_charge`, Fjord-style L1 data
+/// gas). Go's `op-geth` explicitly gates these via `MantleArsiaTime` (currently `nil` on
+/// mainnet/sepolia), while Helios relies on them producing zero results:
+///
+/// - `enveloped_tx` is set to empty bytes, so `calculate_tx_l1_cost` returns zero.
+/// - Mantle's L1Block contract has zero-valued operator fee storage (Isthmus not
+///   activated), so `operator_fee_charge` computes `0 * gas_limit / 1e6 + 0 = 0`.
+///
+/// These invariants are guarded by regression tests below (`test_isthmus_*`). If
+/// `op-revm` changes the ISTHMUS handler behavior or Mantle's L1Block state changes,
+/// those tests will fail.
 pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> OpSpecId {
-    if timestamp >= fork_schedule.isthmus_timestamp {
+    if timestamp >= fork_schedule.jovian_timestamp
+        || timestamp >= fork_schedule.osaka_timestamp
+    {
+        OpSpecId::OSAKA
+    } else if timestamp >= fork_schedule.isthmus_timestamp
+        || timestamp >= fork_schedule.prague_timestamp
+    {
         OpSpecId::ISTHMUS
     } else if timestamp >= fork_schedule.holocene_timestamp {
         OpSpecId::HOLOCENE
@@ -238,6 +263,7 @@ mod tests {
         granite: u64,
         holocene: u64,
         isthmus: u64,
+        jovian: u64,
     ) -> ForkSchedule {
         ForkSchedule {
             bedrock_timestamp: bedrock,
@@ -249,17 +275,18 @@ mod tests {
             granite_timestamp: granite,
             holocene_timestamp: holocene,
             isthmus_timestamp: isthmus,
+            jovian_timestamp: jovian,
             ..Default::default()
         }
     }
 
     fn sequential_schedule() -> ForkSchedule {
-        make_fork_schedule(0, 100, 200, 300, 400, 500, 600, 700, 800)
+        make_fork_schedule(0, 100, 200, 300, 400, 500, 600, 700, 800, 900)
     }
 
     #[test]
     fn test_spec_id_before_bedrock() {
-        let sched = make_fork_schedule(100, 200, 300, 400, 500, 600, 700, 800, 900);
+        let sched = make_fork_schedule(100, 200, 300, 400, 500, 600, 700, 800, 900, 1000);
         assert_eq!(get_spec_id_for_block_timestamp(50, &sched), OpSpecId::default());
     }
 
@@ -319,9 +346,15 @@ mod tests {
     }
 
     #[test]
+    fn test_spec_id_at_jovian() {
+        let sched = sequential_schedule();
+        assert_eq!(get_spec_id_for_block_timestamp(900, &sched), OpSpecId::OSAKA);
+    }
+
+    #[test]
     fn test_spec_id_far_future() {
         let sched = sequential_schedule();
-        assert_eq!(get_spec_id_for_block_timestamp(u64::MAX, &sched), OpSpecId::ISTHMUS);
+        assert_eq!(get_spec_id_for_block_timestamp(u64::MAX, &sched), OpSpecId::OSAKA);
     }
 
     #[test]
@@ -342,7 +375,7 @@ mod tests {
         assert_eq!(get_spec_id_for_block_timestamp(0, &forks), OpSpecId::REGOLITH);
         // Well before Skadi
         assert_eq!(get_spec_id_for_block_timestamp(1_000_000, &forks), OpSpecId::REGOLITH);
-        // At SkadiTime (1_756_278_000): all Canyon–Isthmus activate → ISTHMUS wins
+        // At SkadiTime (1_756_278_000): prague_timestamp activates → ISTHMUS (Prague EVM)
         assert_eq!(
             get_spec_id_for_block_timestamp(1_756_278_000, &forks),
             OpSpecId::ISTHMUS
@@ -352,23 +385,56 @@ mod tests {
             get_spec_id_for_block_timestamp(1_760_000_000, &forks),
             OpSpecId::ISTHMUS
         );
+        // At LimbTime (1_768_374_000): osaka_timestamp activates → OSAKA
+        assert_eq!(
+            get_spec_id_for_block_timestamp(1_768_374_000, &forks),
+            OpSpecId::OSAKA
+        );
+        // After LimbTime
+        assert_eq!(
+            get_spec_id_for_block_timestamp(1_800_000_000, &forks),
+            OpSpecId::OSAKA
+        );
     }
 
     #[test]
     fn test_spec_id_mantle_sepolia_schedule() {
         let forks = crate::config::MantleForkSchedule::sepolia();
         assert_eq!(get_spec_id_for_block_timestamp(0, &forks), OpSpecId::REGOLITH);
+        // At SkadiTime: prague_timestamp activates → ISTHMUS
         assert_eq!(
             get_spec_id_for_block_timestamp(1_752_649_200, &forks),
             OpSpecId::ISTHMUS
         );
+        // At LimbTime (1_764_745_200): osaka_timestamp activates → OSAKA
+        assert_eq!(
+            get_spec_id_for_block_timestamp(1_764_745_200, &forks),
+            OpSpecId::OSAKA
+        );
+    }
+
+    #[test]
+    fn test_spec_id_evm_forks_only() {
+        // Simulate Mantle-style config: only EVM forks set, OP forks at u64::MAX
+        let sched = ForkSchedule {
+            bedrock_timestamp: 0,
+            regolith_timestamp: 0,
+            prague_timestamp: 500,
+            osaka_timestamp: 1000,
+            ..Default::default()
+        };
+        assert_eq!(get_spec_id_for_block_timestamp(0, &sched), OpSpecId::REGOLITH);
+        assert_eq!(get_spec_id_for_block_timestamp(499, &sched), OpSpecId::REGOLITH);
+        assert_eq!(get_spec_id_for_block_timestamp(500, &sched), OpSpecId::ISTHMUS);
+        assert_eq!(get_spec_id_for_block_timestamp(999, &sched), OpSpecId::ISTHMUS);
+        assert_eq!(get_spec_id_for_block_timestamp(1000, &sched), OpSpecId::OSAKA);
     }
 
     #[test]
     fn test_spec_id_all_at_zero() {
-        let sched = make_fork_schedule(0, 0, 0, 0, 0, 0, 0, 0, 0);
+        let sched = make_fork_schedule(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         // When all forks are at timestamp 0, the highest fork wins
-        assert_eq!(get_spec_id_for_block_timestamp(0, &sched), OpSpecId::ISTHMUS);
+        assert_eq!(get_spec_id_for_block_timestamp(0, &sched), OpSpecId::OSAKA);
     }
 
     #[test]
@@ -377,5 +443,91 @@ mod tests {
         // All forks at u64::MAX means only default is active for normal timestamps
         assert_eq!(get_spec_id_for_block_timestamp(0, &sched), OpSpecId::default());
         assert_eq!(get_spec_id_for_block_timestamp(1_000_000_000, &sched), OpSpecId::default());
+    }
+
+    // -----------------------------------------------------------------------
+    // Regression tests for the OpSpecId::ISTHMUS known limitation.
+    //
+    // Mantle uses ISTHMUS (the only Prague-level OpSpecId) which also activates
+    // OP-level handler paths (operator fee, Fjord data gas). Go gates these via
+    // MantleArsiaTime (nil) while Helios relies on them producing zero results.
+    // These tests guard that contract. If op-revm changes behavior, they break.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_isthmus_mantle_spec_at_skadi() {
+        let mainnet = crate::config::MantleForkSchedule::mainnet();
+        let sepolia = crate::config::MantleForkSchedule::sepolia();
+
+        // Mainnet SkadiTime → must be ISTHMUS (Prague EVM), not something else
+        assert_eq!(
+            get_spec_id_for_block_timestamp(1_756_278_000, &mainnet),
+            OpSpecId::ISTHMUS,
+            "Mantle mainnet at SkadiTime must resolve to ISTHMUS (Prague EVM)"
+        );
+        // Sepolia SkadiTime
+        assert_eq!(
+            get_spec_id_for_block_timestamp(1_752_649_200, &sepolia),
+            OpSpecId::ISTHMUS,
+            "Mantle sepolia at SkadiTime must resolve to ISTHMUS (Prague EVM)"
+        );
+        // Verify ISTHMUS maps to Prague at the EVM level
+        assert_eq!(
+            OpSpecId::ISTHMUS.into_eth_spec(),
+            revm::primitives::hardfork::SpecId::PRAGUE,
+            "OpSpecId::ISTHMUS must map to SpecId::PRAGUE"
+        );
+    }
+
+    #[test]
+    fn test_isthmus_operator_fee_zero_with_default_scalars() {
+        use op_revm::L1BlockInfo;
+        use revm::primitives::U256;
+
+        // Simulate Mantle's L1Block state: Isthmus not activated, so operator
+        // fee storage slots are zero. op-revm's try_fetch reads these as
+        // Some(U256::ZERO) under ISTHMUS spec.
+        let mut l1info = L1BlockInfo::default();
+        l1info.operator_fee_scalar = Some(U256::ZERO);
+        l1info.operator_fee_constant = Some(U256::ZERO);
+
+        let gas_limit = U256::from(30_000_000u64); // realistic block gas limit
+        let empty_input: &[u8] = &[];
+
+        let fee = l1info.operator_fee_charge(empty_input, gas_limit);
+        assert_eq!(
+            fee,
+            U256::ZERO,
+            "operator_fee_charge must be zero when scalars are zero (Mantle L1Block \
+             has no Isthmus operator fee values). If this fails, op-revm changed \
+             behavior and Mantle EVM needs re-evaluation."
+        );
+    }
+
+    #[test]
+    fn test_isthmus_l1_cost_zero_with_empty_input() {
+        use op_revm::L1BlockInfo;
+        use revm::primitives::U256;
+
+        // Helios sets enveloped_tx = Some(Bytes::new()). The empty slice must
+        // cause calculate_tx_l1_cost to return zero regardless of spec.
+        let mut l1info = L1BlockInfo::default();
+        l1info.l1_base_fee = U256::from(30_000_000_000u64); // 30 gwei
+        l1info.l1_base_fee_scalar = U256::from(1_000u64);
+        l1info.l1_blob_base_fee = Some(U256::from(1_000_000u64));
+        l1info.l1_blob_base_fee_scalar = Some(U256::from(1_000u64));
+        l1info.operator_fee_scalar = Some(U256::ZERO);
+        l1info.operator_fee_constant = Some(U256::ZERO);
+
+        let empty_input: &[u8] = &[];
+
+        let cost = l1info.calculate_tx_l1_cost(empty_input, OpSpecId::ISTHMUS);
+        assert_eq!(
+            cost,
+            U256::ZERO,
+            "calculate_tx_l1_cost must be zero for empty enveloped_tx under ISTHMUS. \
+             If this fails, op-revm no longer short-circuits on empty input and \
+             Mantle EVM needs re-evaluation."
+        );
     }
 }
