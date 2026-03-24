@@ -158,7 +158,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             .header()
             .timestamp();
 
-        let delay = timestamp.checked_sub(block_timestamp).unwrap_or_default();
+        let delay = timestamp.saturating_sub(block_timestamp);
         if delay > 60 {
             return Err(ClientError::OutOfSync(delay));
         }
