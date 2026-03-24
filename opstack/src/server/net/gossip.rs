@@ -132,7 +132,7 @@ fn create_swarm(keypair: Keypair, handler: &BlockHandler) -> Result<Swarm<Behavi
             yamux::Config::default,
         )
         .map_err(|e| eyre::eyre!("tcp transport setup failed: {e}"))?
-        .with_behaviour(|_key| Behaviour::new(&handler).expect("behaviour creation failed"))
+        .with_behaviour(|_key| Behaviour::new(handler).expect("behaviour creation failed"))
         .map_err(|e| eyre::eyre!("behaviour setup failed: {e}"))?
         .build())
 }
