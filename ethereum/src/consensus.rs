@@ -179,8 +179,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
 
             loop {
                 tokio::select! {
-                    _ = shutdown_rx.changed() => {
-                        if *shutdown_rx.borrow() {
+                    result = shutdown_rx.changed() => {
+                        if result.is_err() || *shutdown_rx.borrow_and_update() {
                             info!(target: "helios::consensus", "shutting down consensus client");
                             break;
                         }
@@ -244,8 +244,8 @@ fn save_new_checkpoints<DB: Database>(
         let mut last_saved_checkpoint = initial_checkpoint;
         loop {
             tokio::select! {
-                _ = shutdown_recv.changed() => {
-                    if *shutdown_recv.borrow() {
+                result = shutdown_recv.changed() => {
+                    if result.is_err() || *shutdown_recv.borrow_and_update() {
                         break;
                     }
                 }
