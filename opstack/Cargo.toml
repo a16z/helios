@@ -56,9 +56,9 @@ helios-revm-utils = { path = "../revm-utils" }
 axum = "0.7.6"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 # networking
-libp2p = { version = "0.51.3", features = ["macros", "tokio", "tcp", "mplex", "noise", "gossipsub", "ping"] }
+libp2p = { version = "0.56.0", features = ["macros", "tokio", "tcp", "yamux", "noise", "gossipsub", "ping"] }
 discv5 = "0.7.0"
-libp2p-identity = { version = "0.1.2", features = ["secp256k1"] }
+libp2p-identity = { version = "0.2", features = ["secp256k1"] }
 unsigned-varint = "0.7.1"
 
 [target.wasm32-unknown-unknown.dependencies]

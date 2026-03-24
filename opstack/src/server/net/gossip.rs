@@ -7,13 +7,12 @@ use eyre::Result;
 use libp2p::{
     futures::StreamExt,
     gossipsub::{self, IdentTopic, Message, MessageId},
-    mplex::MplexConfig,
+    identity::Keypair,
     multiaddr::Protocol,
     noise, ping,
-    swarm::{NetworkBehaviour, SwarmBuilder, SwarmEvent},
-    tcp, Multiaddr, PeerId, Swarm, Transport,
+    swarm::{NetworkBehaviour, SwarmEvent},
+    tcp, yamux, Multiaddr, Swarm, SwarmBuilder,
 };
-use libp2p_identity::Keypair;
 use sha2::{Digest, Sha256};
 use tokio::select;
 
@@ -125,18 +124,17 @@ fn compute_message_id(msg: &Message) -> MessageId {
 
 /// Creates the libp2p [Swarm]
 fn create_swarm(keypair: Keypair, handler: &BlockHandler) -> Result<Swarm<Behaviour>> {
-    let transport = tcp::tokio::Transport::new(tcp::Config::default())
-        .upgrade(libp2p::core::upgrade::Version::V1Lazy)
-        .authenticate(noise::Config::new(&keypair)?)
-        .multiplex(MplexConfig::default())
-        .boxed();
-
-    let behaviour = Behaviour::new(handler)?;
-
-    Ok(
-        SwarmBuilder::with_tokio_executor(transport, behaviour, PeerId::from(keypair.public()))
-            .build(),
-    )
+    Ok(SwarmBuilder::with_existing_identity(keypair)
+        .with_tokio()
+        .with_tcp(
+            tcp::Config::default(),
+            noise::Config::new,
+            yamux::Config::default,
+        )
+        .map_err(|e| eyre::eyre!("tcp transport setup failed: {e}"))?
+        .with_behaviour(|_key| Behaviour::new(&handler).expect("behaviour creation failed"))
+        .map_err(|e| eyre::eyre!("behaviour setup failed: {e}"))?
+        .build())
 }
 
 /// Specifies the [NetworkBehaviour] of the node
