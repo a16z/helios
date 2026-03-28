@@ -90,9 +90,15 @@ impl OpStackClient {
         sub_type: JsValue,
         id: String,
         callback: Function,
+        filter: JsValue,
     ) -> Result<bool, JsError> {
         let sub_type: SubscriptionType = serde_wasm_bindgen::from_value(sub_type)?;
-        let rx = map_err(self.inner.subscribe(sub_type).await)?;
+        let filter: Option<Filter> = if filter.is_undefined() || filter.is_null() {
+            None
+        } else {
+            Some(serde_wasm_bindgen::from_value(filter)?)
+        };
+        let rx = map_err(self.inner.subscribe(sub_type, filter).await)?;
 
         let subscription = Subscription::<OpStack>::spawn_listener(id.clone(), rx, callback);
         self.active_subscriptions.insert(id, subscription);

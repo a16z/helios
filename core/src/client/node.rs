@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use eyre::{eyre, Result};
 use revm::context::result::ExecutionResult;
 use revm::context_interface::block::BlobExcessGasAndPrice;
+use tokio::sync::Mutex;
 use tokio::{select, sync::broadcast::Sender};
 use tracing::{info, warn};
 
@@ -30,11 +31,14 @@ use crate::time::{SystemTime, UNIX_EPOCH};
 
 use super::api::HeliosApi;
 
+type LogSubscribers<N> = Arc<Mutex<Vec<(Filter, Sender<SubscriptionEvent<N>>)>>>;
+
 pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> {
     pub consensus: C,
     pub execution: Arc<E>,
     filter_state: FilterState,
     block_broadcast: Sender<SubscriptionEvent<N>>,
+    log_subscribers: LogSubscribers<N>,
     fork_schedule: ForkSchedule,
     phantom: PhantomData<N>,
 }
@@ -47,6 +51,8 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
         let execution_ref = execution.clone();
         let block_broadcast = Sender::new(100);
         let block_broadcast_ref = block_broadcast.clone();
+        let log_subscribers: LogSubscribers<N> = Arc::new(Mutex::new(Vec::new()));
+        let log_subscribers_ref = log_subscribers.clone();
 
         #[cfg(not(target_arch = "wasm32"))]
         let run = tokio::spawn;
@@ -64,7 +70,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                                 let block_number = block.header().number();
                                 let timestamp = block.header().timestamp();
 
-                                // Calculate age of the block
                                 let current_time = SystemTime::now()
                                     .duration_since(UNIX_EPOCH)
                                     .unwrap_or_default()
@@ -85,9 +90,39 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                                 ).await;
 
                                 _ = block_broadcast_ref.send(SubscriptionEvent::NewHeads(block));
+
+                                // send logs to subscribers that match their filter.
+                                // clone the list and drop the lock so new subscriptions
+                                // aren't blocked while we fetch logs.
+                                let active_subs = {
+                                    let mut subs = log_subscribers_ref.lock().await;
+                                    subs.retain(|(_, sender)| sender.receiver_count() > 0);
+                                    subs.clone()
+                                };
+
+                                for (filter, sender) in active_subs.iter() {
+                                    let block_filter = filter.clone()
+                                        .from_block(block_number)
+                                        .to_block(block_number);
+                                    match execution_ref.get_logs(&block_filter).await {
+                                        Ok(logs) => {
+                                            for log in logs {
+                                                let _ = sender.send(
+                                                    SubscriptionEvent::Logs(log),
+                                                );
+                                            }
+                                        }
+                                        Err(e) => {
+                                            warn!(
+                                                target: "helios::client",
+                                                "failed to get logs for subscription: {}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
                             }
                             None => {
-                                // Sender dropped, consensus task has exited - client is no longer usable
                                 warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
                                 break;
                             }
@@ -102,7 +137,6 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                         if let Some(block) = block {
                             let block_number = block.header().number();
 
-                            // Only log if this is a new finalized block
                             if last_finalized_block_number != Some(block_number) {
                                 info!(
                                     target: "helios::client",
@@ -127,6 +161,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             execution,
             filter_state: FilterState::default(),
             block_broadcast,
+            log_subscribers,
             fork_schedule,
             phantom: PhantomData,
         }
@@ -503,10 +538,21 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         Ok(Address::ZERO)
     }
 
-    async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>> {
+    async fn subscribe(
+        &self,
+        sub_type: SubscriptionType,
+        filter: Option<Filter>,
+    ) -> Result<SubEventRx<N>> {
         match sub_type {
             SubscriptionType::NewHeads => Ok(self.block_broadcast.subscribe()),
-            _ => Err(eyre::eyre!("Unsupported subscription type: {:?}", sub_type)),
+            SubscriptionType::Logs => {
+                let filter = filter.ok_or_else(|| eyre!("logs subscription requires a filter"))?;
+                let sender = Sender::new(100);
+                let rx = sender.subscribe();
+                self.log_subscribers.lock().await.push((filter, sender));
+                Ok(rx)
+            }
+            _ => Err(eyre!("Unsupported subscription type: {:?}", sub_type)),
         }
     }
 
