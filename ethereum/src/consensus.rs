@@ -667,9 +667,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let current_slot_timestamp = self.slot_timestamp(current_slot);
         let blockhash_slot_timestamp = self.slot_timestamp(blockhash_slot);
 
-        let slot_age = current_slot_timestamp
-            .checked_sub(blockhash_slot_timestamp)
-            .unwrap_or_default();
+        let slot_age = current_slot_timestamp.saturating_sub(blockhash_slot_timestamp);
 
         slot_age < self.config.max_checkpoint_age
     }

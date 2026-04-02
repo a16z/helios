@@ -41,7 +41,12 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProv
 }
 
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> Node<N, C, E> {
-    pub fn new(mut consensus: C, execution: E, fork_schedule: ForkSchedule, max_sync_delay: u64) -> Self {
+    pub fn new(
+        mut consensus: C,
+        execution: E,
+        fork_schedule: ForkSchedule,
+        max_sync_delay: u64,
+    ) -> Self {
         let mut block_recv = consensus.block_recv().unwrap();
         let mut finalized_block_recv = consensus.finalized_block_recv().unwrap();
         let execution = Arc::new(execution);
@@ -160,7 +165,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             .header()
             .timestamp();
 
-        let delay = timestamp.checked_sub(block_timestamp).unwrap_or_default();
+        let delay = timestamp.saturating_sub(block_timestamp);
         if delay > self.max_sync_delay {
             return Err(ClientError::OutOfSync(delay));
         }
