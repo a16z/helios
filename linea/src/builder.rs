@@ -99,6 +99,8 @@ impl LineaClientBuilder {
             None
         };
 
+        let max_sync_delay = self.config.as_ref().and_then(|c| c.max_sync_delay);
+
         let config = Config {
             execution_rpc,
             #[cfg(not(target_arch = "wasm32"))]
@@ -110,6 +112,7 @@ impl LineaClientBuilder {
             #[cfg(target_arch = "wasm32")]
             rpc_port: None,
             chain: base_config.chain,
+            max_sync_delay,
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -142,7 +145,7 @@ impl LineaClientBuilder {
             consensus,
             execution,
             fork_schedule,
-            60,
+            config.max_sync_delay.unwrap_or(60),
             #[cfg(not(target_arch = "wasm32"))]
             socket,
         ))

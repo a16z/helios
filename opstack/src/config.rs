@@ -25,6 +25,7 @@ pub struct Config {
     pub load_external_fallback: Option<bool>,
     pub checkpoint: Option<B256>,
     pub verify_unsafe_signer: bool,
+    pub max_sync_delay: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -88,6 +88,7 @@ impl OpStackClientBuilder {
                 load_external_fallback: None,
                 checkpoint: None,
                 verify_unsafe_signer: self.verify_unsafe_signer.unwrap_or_default(),
+                max_sync_delay: None,
             }
         };
 
@@ -108,7 +109,7 @@ impl OpStackClientBuilder {
                 consensus,
                 execution,
                 config.chain.forks,
-                60,
+                config.max_sync_delay.unwrap_or(60),
                 #[cfg(not(target_arch = "wasm32"))]
                 config.rpc_socket,
             ))
@@ -128,7 +129,7 @@ impl OpStackClientBuilder {
                 consensus,
                 execution,
                 config.chain.forks,
-                60,
+                config.max_sync_delay.unwrap_or(60),
                 #[cfg(not(target_arch = "wasm32"))]
                 config.rpc_socket,
             ))
