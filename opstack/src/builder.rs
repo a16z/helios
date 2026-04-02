@@ -108,6 +108,7 @@ impl OpStackClientBuilder {
                 consensus,
                 execution,
                 config.chain.forks,
+                60,
                 #[cfg(not(target_arch = "wasm32"))]
                 config.rpc_socket,
             ))
@@ -127,6 +128,7 @@ impl OpStackClientBuilder {
                 consensus,
                 execution,
                 config.chain.forks,
+                60,
                 #[cfg(not(target_arch = "wasm32"))]
                 config.rpc_socket,
             ))

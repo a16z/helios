@@ -36,11 +36,12 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProv
     filter_state: FilterState,
     block_broadcast: Sender<SubscriptionEvent<N>>,
     fork_schedule: ForkSchedule,
+    max_sync_delay: u64,
     phantom: PhantomData<N>,
 }
 
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> Node<N, C, E> {
-    pub fn new(mut consensus: C, execution: E, fork_schedule: ForkSchedule) -> Self {
+    pub fn new(mut consensus: C, execution: E, fork_schedule: ForkSchedule, max_sync_delay: u64) -> Self {
         let mut block_recv = consensus.block_recv().unwrap();
         let mut finalized_block_recv = consensus.finalized_block_recv().unwrap();
         let execution = Arc::new(execution);
@@ -128,6 +129,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             filter_state: FilterState::default(),
             block_broadcast,
             fork_schedule,
+            max_sync_delay,
             phantom: PhantomData,
         }
     }
@@ -159,7 +161,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             .timestamp();
 
         let delay = timestamp.checked_sub(block_timestamp).unwrap_or_default();
-        if delay > 60 {
+        if delay > self.max_sync_delay {
             return Err(ClientError::OutOfSync(delay));
         }
 

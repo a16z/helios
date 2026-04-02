@@ -171,6 +171,8 @@ struct EthereumArgs {
     load_external_fallback: bool,
     #[arg(short = 's', long, env)]
     strict_checkpoint_age: bool,
+    #[arg(long, env)]
+    max_sync_delay: Option<u64>,
 }
 
 impl EthereumArgs {
@@ -207,6 +209,7 @@ impl EthereumArgs {
             fallback: self.fallback.clone(),
             load_external_fallback: true_or_none(self.load_external_fallback),
             strict_checkpoint_age: true_or_none(self.strict_checkpoint_age),
+            max_sync_delay: self.max_sync_delay,
         }
     }
 }

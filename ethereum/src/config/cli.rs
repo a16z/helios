@@ -19,6 +19,7 @@ pub struct CliConfig {
     pub fallback: Option<Url>,
     pub load_external_fallback: Option<bool>,
     pub strict_checkpoint_age: Option<bool>,
+    pub max_sync_delay: Option<u64>,
 }
 
 impl CliConfig {
@@ -63,6 +64,10 @@ impl CliConfig {
 
         if let Some(s) = self.strict_checkpoint_age {
             user_dict.insert("strict_checkpoint_age", Value::from(s));
+        }
+
+        if let Some(d) = self.max_sync_delay {
+            user_dict.insert("max_sync_delay", Value::from(d));
         }
 
         Serialized::from(user_dict, network)

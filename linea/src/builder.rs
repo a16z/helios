@@ -142,6 +142,7 @@ impl LineaClientBuilder {
             consensus,
             execution,
             fork_schedule,
+            60,
             #[cfg(not(target_arch = "wasm32"))]
             socket,
         ))

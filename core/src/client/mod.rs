@@ -26,9 +26,10 @@ impl<N: NetworkSpec> HeliosClient<N> {
         consensus: C,
         execution: E,
         fork_schedule: ForkSchedule,
+        max_sync_delay: u64,
         #[cfg(not(target_arch = "wasm32"))] rpc_address: Option<SocketAddr>,
     ) -> Self {
-        let inner = Arc::new(Node::new(consensus, execution, fork_schedule));
+        let inner = Arc::new(Node::new(consensus, execution, fork_schedule, max_sync_delay));
 
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(rpc_address) = rpc_address {
