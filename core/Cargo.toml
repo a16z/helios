@@ -34,7 +34,12 @@ thiserror.workspace = true
 url.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-jsonrpsee = { version = "0.19.0", features = ["full"] }
+jsonrpsee = { version = "0.19.0", features = [
+    "server",
+    "client-core",
+    "async-client",
+    "macros",
+] }
 openssl.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
