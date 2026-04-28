@@ -87,15 +87,14 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                                 _ = block_broadcast_ref.send(SubscriptionEvent::NewHeads(block));
                             }
                             None => {
-                                // Sender dropped, consensus task has exited - client is no longer usable
-                                warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
+                                warn!(target: "helios::client", "consensus client stopped");
                                 break;
                             }
                         }
                     },
                     finalized_changed = finalized_block_recv.changed() => {
                         if finalized_changed.is_err() {
-                            warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
+                            warn!(target: "helios::client", "consensus client stopped");
                             break;
                         }
                         let block = finalized_block_recv.borrow_and_update().clone();

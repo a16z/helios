@@ -176,6 +176,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
 
             let start = Instant::now() + inner.duration_until_next_update().to_std().unwrap();
             let mut interval = interval_at(start, std::time::Duration::from_secs(12));
+            let max_consecutive_failures = 5;
+            let mut consecutive_failures: u64 = 0;
 
             loop {
                 tokio::select! {
@@ -188,15 +190,53 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                     _ = interval.tick() => {
                         let res = inner.advance().await;
                         if let Err(err) = res {
-                            warn!(target: "helios::consensus", "advance error: {}", err);
+                            consecutive_failures += 1;
+                            warn!(
+                                target: "helios::consensus",
+                                "advance error ({}/{}): {}",
+                                consecutive_failures,
+                                max_consecutive_failures,
+                                err,
+                            );
+
+                            if consecutive_failures >= max_consecutive_failures {
+                                error!(
+                                    target: "helios::consensus",
+                                    "too many consecutive failures, shutting down"
+                                );
+                                _ = sync_status_send.send(
+                                    ConsensusSyncStatus::Error(err.to_string()),
+                                );
+                                return;
+                            }
                             continue;
                         }
 
                         let res = inner.send_blocks().await;
                         if let Err(err) = res {
-                            warn!(target: "helios::consensus", "send error: {}", err);
+                            consecutive_failures += 1;
+                            warn!(
+                                target: "helios::consensus",
+                                "send error ({}/{}): {}",
+                                consecutive_failures,
+                                max_consecutive_failures,
+                                err,
+                            );
+
+                            if consecutive_failures >= max_consecutive_failures {
+                                error!(
+                                    target: "helios::consensus",
+                                    "too many consecutive failures, shutting down"
+                                );
+                                _ = sync_status_send.send(
+                                    ConsensusSyncStatus::Error(err.to_string()),
+                                );
+                                return;
+                            }
                             continue;
                         }
+
+                        consecutive_failures = 0;
                     }
                 }
             }
