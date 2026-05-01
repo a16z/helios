@@ -104,6 +104,7 @@ pub struct CliConfig {
     pub execution_rpc: Option<Url>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
+    pub max_sync_delay: Option<u64>,
 }
 
 impl CliConfig {
@@ -120,6 +121,10 @@ impl CliConfig {
 
         if let Some(port) = self.rpc_port {
             user_dict.insert("rpc_port", Value::from(port));
+        }
+
+        if let Some(d) = self.max_sync_delay {
+            user_dict.insert("max_sync_delay", Value::from(d));
         }
 
         Serialized::from(user_dict, network)
@@ -150,6 +155,7 @@ pub struct Config {
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub chain: ChainConfig,
+    pub max_sync_delay: Option<u64>,
 }
 
 impl Config {
@@ -203,6 +209,7 @@ impl Default for Config {
             rpc_bind_ip: None,
             rpc_port: None,
             chain: ChainConfig::default(),
+            max_sync_delay: None,
         }
     }
 }
@@ -214,6 +221,7 @@ impl From<BaseConfig> for Config {
             rpc_port: Some(base.rpc_port),
             execution_rpc: Url::parse("http://localhost:8545").unwrap(),
             chain: base.chain,
+            max_sync_delay: None,
         }
     }
 }
