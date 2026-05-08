@@ -75,6 +75,12 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
     RpcExecutionProvider<N, B, H>
 {
     pub fn new(rpc_url: Url, block_provider: B) -> RpcExecutionProvider<N, B, ()> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let client = ClientBuilder::default()
+            .layer(crate::auth_forwarding::AuthForwardLayer)
+            .layer(RetryBackoffLayer::new(100, 50, 300))
+            .http(rpc_url);
+        #[cfg(target_arch = "wasm32")]
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);
@@ -93,6 +99,12 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
         block_provider: B,
         historical_provider: H,
     ) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        let client = ClientBuilder::default()
+            .layer(crate::auth_forwarding::AuthForwardLayer)
+            .layer(RetryBackoffLayer::new(100, 50, 300))
+            .http(rpc_url);
+        #[cfg(target_arch = "wasm32")]
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);

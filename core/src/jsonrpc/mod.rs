@@ -31,7 +31,6 @@ pub async fn start<N: NetworkSpec>(
     client: Arc<dyn HeliosApi<N>>,
     addr: SocketAddr,
 ) -> Result<ServerHandle> {
-    let server = ServerBuilder::default().build(addr).await?;
     let rpc = JsonRpc {
         client,
         phantom: PhantomData,
@@ -48,7 +47,24 @@ pub async fn start<N: NetworkSpec>(
     methods.merge(web3_methods)?;
     methods.merge(helios_methods)?;
 
-    Ok(server.start(methods))
+    let handle = if crate::auth_forwarding::is_enabled() {
+        // WebSocket frames run on freshly spawned tasks that don't
+        // inherit our task-local, so auth would silently drop on
+        // every WS message. Force HTTP-only to fail loudly instead.
+        let middleware = tower::ServiceBuilder::new()
+            .layer(crate::auth_forwarding::AuthCaptureLayer);
+        let server = ServerBuilder::default()
+            .http_only()
+            .set_middleware(middleware)
+            .build(addr)
+            .await?;
+        server.start(methods)
+    } else {
+        let server = ServerBuilder::default().build(addr).await?;
+        server.start(methods)
+    };
+
+    Ok(handle)
 }
 
 #[derive(Clone)]

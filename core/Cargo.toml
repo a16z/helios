@@ -36,6 +36,9 @@ url.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jsonrpsee = { version = "0.19.0", features = ["full"] }
 openssl.workspace = true
+tower = "0.4"
+http02 = { package = "http", version = "0.2" }
+http = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.33"
@@ -48,3 +51,4 @@ parking_lot = { version = "0.12.2" }
 [dev-dependencies]
 helios-test-utils = { path = "../tests/test-utils" }
 helios-ethereum = { path = "../ethereum" }
+serial_test = "3"

@@ -5,4 +5,6 @@ pub mod execution;
 pub mod time;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub mod auth_forwarding;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod jsonrpc;
