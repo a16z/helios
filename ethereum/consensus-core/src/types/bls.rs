@@ -1,6 +1,6 @@
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
-    multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, Gt, Scalar,
+    multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, Gt,
 };
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
@@ -44,11 +44,6 @@ impl Signature {
             return false;
         };
 
-        // Subgroup check for signature
-        if !subgroup_check_g2(&sig_point) {
-            return false;
-        }
-
         verify_with_aggregate_pk(&sig_point, msg, aggregate_public_key)
     }
 
@@ -84,14 +79,6 @@ fn verify_with_aggregate_pk(
     ate2_evaluation(sig_point, &generator_g1_negative, &msg_hash, &key_point)
 }
 
-/// Verifies a G2 point is in subgroup `r`.
-fn subgroup_check_g2(point: &G2Affine) -> bool {
-    const CURVE_ORDER: &str = "73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001";
-    let r = hex_to_scalar(CURVE_ORDER).unwrap();
-    let check = point * r;
-    check.is_identity().into()
-}
-
 /// Evaluation of e(S, -G1) * e(H, PK) == 1
 fn ate2_evaluation(p1: &G2Affine, q1: &G1Affine, r1: &G2Affine, s1: &G1Affine) -> bool {
     // Prepare G2 points for efficient pairing
@@ -112,26 +99,4 @@ fn ate2_evaluation(p1: &G2Affine, q1: &G1Affine, r1: &G2Affine, s1: &G1Affine) -
 fn hash_to_curve(msg: &[u8]) -> G2Projective {
     const DST: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
     <G2Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::hash_to_curve(msg, DST)
-}
-
-/// Converts hex string to scalar
-fn hex_to_scalar(hex: &str) -> Option<Scalar> {
-    if hex.len() != 64 {
-        return None;
-    }
-
-    let mut raw = [0u64; 4];
-    for (i, chunk) in hex.as_bytes().chunks(16).enumerate().take(4) {
-        if let Ok(hex_chunk) = core::str::from_utf8(chunk) {
-            if let Ok(value) = u64::from_str_radix(hex_chunk, 16) {
-                raw[3 - i] = value.to_le();
-            } else {
-                return None;
-            }
-        } else {
-            return None;
-        }
-    }
-
-    Some(Scalar::from_raw(raw))
 }
