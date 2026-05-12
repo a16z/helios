@@ -1,7 +1,7 @@
 use alloy::{
     consensus::TrieAccount,
     primitives::{Bytes, B256, U256},
-    rpc::types::EIP1186StorageProof,
+    rpc::types::{EIP1186StorageProof, Log},
     sol_types::decode_revert_reason,
 };
 use eyre::Report;
@@ -48,6 +48,7 @@ pub enum SubscriptionType {
 #[serde(untagged)]
 pub enum SubscriptionEvent<N: NetworkSpec> {
     NewHeads(N::BlockResponse),
+    Logs(Log),
 }
 
 pub type SubEventRx<N> = Receiver<SubscriptionEvent<N>>;
