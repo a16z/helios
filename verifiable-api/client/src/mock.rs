@@ -77,16 +77,55 @@ impl<N: NetworkSpec> VerifiableApi<N> for MockVerifiableApi {
         Ok(receipt)
     }
 
-    async fn get_transaction(&self, _tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
-        todo!()
+    async fn get_transaction(&self, tx_hash: B256) -> Result<Option<TransactionResponse<N>>> {
+        let json_str = read_to_string(self.path.join("rpc/transaction.json"))?;
+        let transaction: N::TransactionResponse = serde_json::from_str(&json_str)?;
+        let transaction = if transaction.tx_hash() == tx_hash {
+            Some(TransactionResponse { 
+                transaction,
+                transaction_proof: vec![] // Empty proof for mock implementation
+            })
+        } else {
+            None
+        };
+        Ok(transaction)
     }
 
     async fn get_transaction_by_location(
         &self,
         _block_id: BlockId,
-        _index: u64,
+        index: u64,
     ) -> Result<Option<TransactionResponse<N>>> {
-        todo!()
+        // Read block data to get transaction hash at index
+        let block_json_str = read_to_string(self.path.join("rpc/block.json"))?;
+        let block: serde_json::Value = serde_json::from_str(&block_json_str)?;
+        
+        let transactions = block
+            .get("transactions")
+            .and_then(|t| t.as_array())
+            .ok_or_else(|| eyre!("Block has no transactions array"))?;
+
+        let tx_hash_str = transactions
+            .get(index as usize)
+            .and_then(|t| t.as_str())
+            .ok_or_else(|| eyre!("Transaction not found at index {}", index))?;
+
+        let tx_hash = B256::from_str(tx_hash_str)
+            .map_err(|_| eyre!("Invalid transaction hash format"))?;
+
+        // Read transaction data
+        let tx_json_str = read_to_string(self.path.join("rpc/transaction.json"))?;
+        let transaction: N::TransactionResponse = serde_json::from_str(&tx_json_str)?;
+        
+        let transaction = if transaction.tx_hash() == tx_hash {
+            Some(TransactionResponse { 
+                transaction,
+                transaction_proof: vec![] // Empty proof for mock implementation
+            })
+        } else {
+            None
+        };
+        Ok(transaction)
     }
 
     async fn get_logs(&self, _filter: &Filter) -> Result<LogsResponse<N>> {
