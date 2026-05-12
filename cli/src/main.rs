@@ -155,6 +155,13 @@ struct EthereumArgs {
     rpc_bind_ip: Option<IpAddr>,
     #[arg(short = 'p', long, env)]
     rpc_port: Option<u16>,
+    #[arg(
+        long,
+        env,
+        value_delimiter = ',',
+        help = "Comma-separated list of allowed CORS origins"
+    )]
+    allowed_origins: Option<Vec<String>>,
     #[arg(short = 'w', long, env)]
     checkpoint: Option<B256>,
     #[arg(short, long, env, value_parser = parse_url)]
@@ -204,6 +211,7 @@ impl EthereumArgs {
                 .map(|s| PathBuf::from_str(s).expect("cannot find data dir")),
             rpc_bind_ip: self.rpc_bind_ip,
             rpc_port: self.rpc_port,
+            allowed_origins: self.allowed_origins.clone(),
             fallback: self.fallback.clone(),
             load_external_fallback: true_or_none(self.load_external_fallback),
             strict_checkpoint_age: true_or_none(self.strict_checkpoint_age),
@@ -219,6 +227,13 @@ struct OpStackArgs {
     rpc_bind_ip: Option<IpAddr>,
     #[arg(short = 'p', long, env, default_value = "8545")]
     rpc_port: Option<u16>,
+    #[arg(
+        long,
+        env,
+        value_delimiter = ',',
+        help = "Comma-separated list of allowed CORS origins"
+    )]
+    allowed_origins: Option<Vec<String>>,
     #[arg(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
     #[arg(long, env, value_parser = parse_url)]
@@ -276,6 +291,10 @@ impl OpStackArgs {
             user_dict.insert("rpc_socket", Value::from(rpc_socket.to_string()));
         }
 
+        if let Some(allowed_origins) = &self.allowed_origins {
+            user_dict.insert("allowed_origins", Value::from(allowed_origins.clone()));
+        }
+
         if let Some(ip) = self.rpc_bind_ip {
             user_dict.insert("rpc_bind_ip", Value::from(ip.to_string()));
         }
@@ -304,6 +323,13 @@ struct LineaArgs {
     rpc_bind_ip: Option<IpAddr>,
     #[arg(short = 'p', long, env)]
     rpc_port: Option<u16>,
+    #[arg(
+        long,
+        env,
+        value_delimiter = ',',
+        help = "Comma-separated list of allowed CORS origins"
+    )]
+    allowed_origins: Option<Vec<String>>,
     #[arg(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
 }
@@ -328,6 +354,7 @@ impl LineaArgs {
             execution_rpc: self.execution_rpc.clone(),
             rpc_bind_ip: self.rpc_bind_ip,
             rpc_port: self.rpc_port,
+            allowed_origins: self.allowed_origins.clone(),
         }
     }
 }

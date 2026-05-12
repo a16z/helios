@@ -1,5 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
-use std::net::SocketAddr;
 use std::{ops::Deref, sync::Arc};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,7 +8,7 @@ use helios_common::{
 
 use crate::consensus::Consensus;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::jsonrpc;
+use crate::jsonrpc::{self, RpcServerConfig};
 
 use self::{api::HeliosApi, node::Node};
 
@@ -26,16 +24,24 @@ impl<N: NetworkSpec> HeliosClient<N> {
         consensus: C,
         execution: E,
         fork_schedule: ForkSchedule,
-        #[cfg(not(target_arch = "wasm32"))] rpc_address: Option<SocketAddr>,
+        #[cfg(not(target_arch = "wasm32"))] rpc_config: Option<RpcServerConfig>,
     ) -> Self {
         let inner = Arc::new(Node::new(consensus, execution, fork_schedule));
 
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(rpc_address) = rpc_address {
+        if let Some(rpc_config) = rpc_config {
             let inner_ref = inner.clone();
             tokio::spawn(async move {
-                let _handle = jsonrpc::start(inner_ref, rpc_address).await;
-                let () = pending().await;
+                let shutdown_ref = inner_ref.clone();
+                match jsonrpc::start(inner_ref, rpc_config).await {
+                    Ok(_handle) => {
+                        let () = pending().await;
+                    }
+                    Err(err) => {
+                        tracing::error!(?err, "failed to start JSON-RPC server");
+                        shutdown_ref.shutdown().await;
+                    }
+                }
             });
         }
 

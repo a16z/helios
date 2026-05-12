@@ -6,6 +6,8 @@ use helios_core::execution::{
         rpc::RpcExecutionProvider, verifiable_api::VerifiableApiExecutionProvider,
     },
 };
+#[cfg(not(target_arch = "wasm32"))]
+use helios_core::jsonrpc::RpcServerConfig;
 use reqwest::{IntoUrl, Url};
 use std::net::SocketAddr;
 
@@ -24,6 +26,7 @@ pub struct OpStackClientBuilder {
     execution_rpc: Option<Url>,
     verifiable_api: Option<Url>,
     rpc_socket: Option<SocketAddr>,
+    allowed_origins: Option<Vec<String>>,
     verify_unsafe_signer: Option<bool>,
 }
 
@@ -57,6 +60,11 @@ impl OpStackClientBuilder {
         self
     }
 
+    pub fn allowed_origins(mut self, allowed_origins: Vec<String>) -> Self {
+        self.allowed_origins = Some(allowed_origins);
+        self
+    }
+
     pub fn network(mut self, network: Network) -> Self {
         self.network = Some(network);
         self
@@ -84,12 +92,19 @@ impl OpStackClientBuilder {
                 execution_rpc: self.execution_rpc,
                 verifiable_api: self.verifiable_api,
                 rpc_socket: self.rpc_socket,
+                allowed_origins: self.allowed_origins,
                 chain: NetworkConfig::from(network).chain,
                 load_external_fallback: None,
                 checkpoint: None,
                 verify_unsafe_signer: self.verify_unsafe_signer.unwrap_or_default(),
             }
         };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let rpc_config = config.rpc_socket.map(|addr| RpcServerConfig {
+            addr,
+            allowed_origins: config.allowed_origins.clone(),
+        });
 
         let consensus = ConsensusClient::new(&config);
 
@@ -109,7 +124,7 @@ impl OpStackClientBuilder {
                 execution,
                 config.chain.forks,
                 #[cfg(not(target_arch = "wasm32"))]
-                config.rpc_socket,
+                rpc_config,
             ))
         } else {
             let block_provider = BlockCache::<OpStack>::new();
@@ -128,7 +143,7 @@ impl OpStackClientBuilder {
                 execution,
                 config.chain.forks,
                 #[cfg(not(target_arch = "wasm32"))]
-                config.rpc_socket,
+                rpc_config,
             ))
         }
     }
