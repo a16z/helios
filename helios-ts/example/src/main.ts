@@ -17,7 +17,7 @@ interface NetworkConfig {
 }
 
 // Build display string for a block
-function formatBlock(block: Block): string {
+function formatBlock(block: Block<true>): string {
   const ts = new Date(Number(block.timestamp) * 1000);
   const date = ts.toLocaleDateString();
   const time = ts.toLocaleTimeString([], {
@@ -31,7 +31,7 @@ function formatBlock(block: Block): string {
 }
 
 // Render a block and start animations
-function renderBlock(network: string, blockTime: number, block: Block): void {
+function renderBlock(network: string, blockTime: number, block: Block<true>): void {
   const el = document.getElementById(`${network}-latest`);
   if (!el) return;
   
