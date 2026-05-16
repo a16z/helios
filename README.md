@@ -4,7 +4,7 @@
 
 Helios is a trustless, efficient, and portable multichain light client written in Rust.
 
-Helios converts an untrusted centralized RPC endpoint into a safe unmanipulable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
+Helios converts an untrusted centralized RPC endpoint into a safe unmanipulatable local RPC for its users. It syncs in seconds, requires no storage, and is lightweight enough to run on mobile devices.
 
 Helios has a small binary size and compiles into WebAssembly. This makes it a perfect target to embed directly inside wallets and dapps.
 
