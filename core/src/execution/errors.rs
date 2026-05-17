@@ -19,6 +19,8 @@ pub enum ExecutionError {
     NoReceiptsForBlock(BlockId),
     #[error("missing log for transaction: {0}, index: {1}")]
     MissingLog(B256, U256),
+    #[error("log metadata does not match proved receipt for tx: {0}")]
+    LogReceiptMetadataMismatch(B256),
     #[error("too many logs to prove: {0} spanning {1} blocks current limit is: {2} blocks")]
     TooManyLogsToProve(usize, usize, usize),
     #[error("execution rpc is for the incorrect network")]

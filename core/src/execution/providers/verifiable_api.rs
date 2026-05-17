@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use alloy::{
     consensus::BlockHeader,
@@ -23,10 +23,7 @@ use helios_common::{
 };
 use helios_verifiable_api_client::{
     http::HttpVerifiableApi,
-    types::{
-        AccountResponse, ExtendedAccessListResponse, LogsResponse, SendRawTxResponse,
-        TransactionReceiptResponse,
-    },
+    types::{AccountResponse, ExtendedAccessListResponse, LogsResponse, SendRawTxResponse},
     VerifiableApi,
 };
 
@@ -297,6 +294,48 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
     }
 }
 
+struct VerifiedBlockMetadata {
+    number: u64,
+    receipts_root: B256,
+    transactions_root: B256,
+}
+
+struct VerifiedLogMetadata {
+    tx_hash: B256,
+    block_hash: B256,
+    block_number: u64,
+    transaction_index: u64,
+}
+
+struct VerifiedReceiptLogs {
+    metadata: VerifiedLogMetadata,
+    encoded_logs: Vec<Vec<u8>>,
+}
+
+fn verify_log_metadata(log: &Log, metadata: &VerifiedLogMetadata) -> Result<()> {
+    if log.transaction_hash != Some(metadata.tx_hash)
+        || log.block_hash != Some(metadata.block_hash)
+        || log.block_number != Some(metadata.block_number)
+        || log.transaction_index != Some(metadata.transaction_index)
+    {
+        return Err(ExecutionError::LogReceiptMetadataMismatch(metadata.tx_hash).into());
+    }
+
+    Ok(())
+}
+
+fn verify_transaction_metadata<N: NetworkSpec>(
+    tx: &N::TransactionResponse,
+    tx_hash: B256,
+    transaction_index: u64,
+) -> Result<()> {
+    if tx.tx_hash() != tx_hash || tx.transaction_index() != Some(transaction_index) {
+        return Err(ExecutionError::LogReceiptMetadataMismatch(tx_hash).into());
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProvider<N>
@@ -308,39 +347,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProv
             receipt_proofs,
         } = self.api.get_logs(filter).await?;
 
-        // Map of tx_hash -> encoded receipt logs to avoid encoding multiple times
-        let mut txhash_encodedlogs_map: HashMap<B256, Vec<Vec<u8>>> = HashMap::new();
-
-        // Verify each log entry exists in the corresponding receipt logs
-        for log in &logs {
-            let tx_hash = log.transaction_hash.unwrap();
-            let log_encoded = rlp::encode(&log.inner);
-
-            if let Entry::Vacant(e) = txhash_encodedlogs_map.entry(tx_hash) {
-                let TransactionReceiptResponse {
-                    receipt,
-                    receipt_proof: _,
-                } = receipt_proofs
-                    .get(&tx_hash)
-                    .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
-
-                let encoded_logs = N::receipt_logs(receipt)
-                    .iter()
-                    .map(|l| rlp::encode(&l.inner))
-                    .collect::<Vec<_>>();
-                e.insert(encoded_logs);
-            }
-            let receipt_logs_encoded = txhash_encodedlogs_map.get(&tx_hash).unwrap();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash,
-                    U256::from(log.log_index.unwrap()),
-                )
-                .into());
-            }
-        }
-
         // fetch required blocks
         let mut blocks_required = HashSet::new();
         for receipt_proof in &receipt_proofs {
@@ -348,33 +354,96 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProv
             blocks_required.insert(block_hash);
         }
 
-        let receipts_roots_fut = blocks_required.iter().map(async |block_hash| {
-            let root = self
+        let blocks_fut = blocks_required.iter().map(async |block_hash| {
+            let block = self
                 .get_block((*block_hash).into(), false)
                 .await?
-                .ok_or(eyre!("block not found"))?
-                .header()
-                .receipts_root();
+                .ok_or(eyre!("block not found"))?;
+            let header = block.header();
 
-            Ok::<_, eyre::Report>((*block_hash, root))
+            if header.hash() != *block_hash {
+                return Err(eyre!("block hash mismatch"));
+            }
+
+            Ok::<_, eyre::Report>((
+                *block_hash,
+                VerifiedBlockMetadata {
+                    number: header.number(),
+                    receipts_root: header.receipts_root(),
+                    transactions_root: header.transactions_root(),
+                },
+            ))
         });
 
-        let receipts_root_vec = try_join_all(receipts_roots_fut).await?;
-        let mut receipts_roots = HashMap::new();
-        for (block_hash, receipts_root) in receipts_root_vec {
-            receipts_roots.insert(block_hash, receipts_root);
+        let blocks_vec = try_join_all(blocks_fut).await?;
+        let mut blocks = HashMap::new();
+        for (block_hash, block) in blocks_vec {
+            blocks.insert(block_hash, block);
         }
 
-        // Verify all receipts
-        for receipt_proof in receipt_proofs {
-            let (_, receipt_response) = receipt_proof;
+        let mut verified_receipts = HashMap::new();
+        for (tx_hash, receipt_response) in receipt_proofs {
             let receipt = &receipt_response.receipt;
             let proof = &receipt_response.receipt_proof;
 
             let block_hash = receipt.block_hash().unwrap();
-            let receipts_root = receipts_roots.get(&block_hash).unwrap();
+            let block = blocks.get(&block_hash).unwrap();
+            let transaction_index = receipt.transaction_index().unwrap();
 
-            verify_receipt_proof::<N>(receipt, *receipts_root, proof)?;
+            verify_receipt_proof::<N>(receipt, block.receipts_root, proof)?;
+
+            let Some(tx_response) = self
+                .api
+                .get_transaction_by_location(block_hash.into(), transaction_index)
+                .await?
+            else {
+                return Err(ExecutionError::LogReceiptMetadataMismatch(tx_hash).into());
+            };
+
+            verify_transaction_proof::<N>(
+                &tx_response.transaction,
+                block.transactions_root,
+                &tx_response.transaction_proof,
+            )?;
+
+            verify_transaction_metadata::<N>(&tx_response.transaction, tx_hash, transaction_index)?;
+
+            let encoded_logs = N::receipt_logs(receipt)
+                .iter()
+                .map(|l| rlp::encode(&l.inner))
+                .collect::<Vec<_>>();
+
+            verified_receipts.insert(
+                tx_hash,
+                VerifiedReceiptLogs {
+                    metadata: VerifiedLogMetadata {
+                        tx_hash,
+                        block_hash,
+                        block_number: block.number,
+                        transaction_index,
+                    },
+                    encoded_logs,
+                },
+            );
+        }
+
+        // Verify each log entry exists in the corresponding proved receipt logs
+        for log in &logs {
+            let tx_hash = log.transaction_hash.unwrap();
+            let log_encoded = rlp::encode(&log.inner);
+            let receipt_logs = verified_receipts
+                .get(&tx_hash)
+                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
+
+            verify_log_metadata(log, &receipt_logs.metadata)?;
+
+            if !receipt_logs.encoded_logs.contains(&log_encoded) {
+                return Err(ExecutionError::MissingLog(
+                    tx_hash,
+                    U256::from(log.log_index.unwrap()),
+                )
+                .into());
+            }
         }
 
         ensure_logs_match_filter(&logs, filter)?;
@@ -409,5 +478,59 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
         }
 
         Ok(accounts)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use helios_ethereum::spec::Ethereum as EthereumSpec;
+    use helios_test_utils::{rpc_tx, verifiable_api_logs_response};
+
+    use super::*;
+
+    #[test]
+    fn rejects_log_with_unproved_transaction_provenance() {
+        let response = verifiable_api_logs_response();
+        let mut log = response.logs[0].clone();
+        let original_tx_hash = log.transaction_hash.unwrap();
+        let forged_tx_hash = B256::with_last_byte(0x42);
+        assert_ne!(forged_tx_hash, original_tx_hash);
+
+        log.transaction_hash = Some(forged_tx_hash);
+
+        let err = verify_log_metadata(
+            &log,
+            &VerifiedLogMetadata {
+                tx_hash: original_tx_hash,
+                block_hash: log.block_hash.unwrap(),
+                block_number: log.block_number.unwrap(),
+                transaction_index: log.transaction_index.unwrap(),
+            },
+        )
+        .unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("log metadata does not match proved receipt"));
+    }
+
+    #[test]
+    fn rejects_transaction_proof_at_different_receipt_index() {
+        let response = verifiable_api_logs_response();
+        let log = response.logs[0].clone();
+        let tx = rpc_tx();
+
+        assert_ne!(tx.transaction_index(), log.transaction_index);
+
+        let err = verify_transaction_metadata::<EthereumSpec>(
+            &tx,
+            tx.tx_hash(),
+            log.transaction_index.unwrap(),
+        )
+        .unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("log metadata does not match proved receipt"));
     }
 }
