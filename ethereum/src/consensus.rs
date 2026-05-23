@@ -49,6 +49,7 @@ pub enum ConsensusSyncStatus {
 pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub block_recv: Option<Receiver<Block<Transaction>>>,
     pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
+    pub optimistic_block_recv: watch::Receiver<Option<Block<Transaction>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     sync_status_recv: Mutex<watch::Receiver<ConsensusSyncStatus>>,
     shutdown_send: watch::Sender<bool>,
@@ -64,6 +65,7 @@ pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
     last_checkpoint: Option<B256>,
     block_send: Sender<Block<Transaction>>,
     finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+    optimistic_block_send: watch::Sender<Option<Block<Transaction>>>,
     checkpoint_send: watch::Sender<Option<B256>>,
     pub config: Arc<Config>,
     phantom: PhantomData<S>,
@@ -79,6 +81,10 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
 
     fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
         self.finalized_block_recv.take()
+    }
+
+    fn optimistic_block_recv(&self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+        Some(self.optimistic_block_recv.clone())
     }
 
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
@@ -119,6 +125,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
     pub fn new(rpc: &Url, config: Arc<Config>) -> Result<ConsensusClient<S, R, DB>> {
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
+        let (optimistic_block_send, optimistic_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
         let (sync_status_send, sync_status_recv) = watch::channel(ConsensusSyncStatus::Syncing);
         let (shutdown_send, shutdown_recv) = watch::channel(false);
@@ -144,6 +151,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 &rpc,
                 block_send,
                 finalized_block_send,
+                optimistic_block_send,
                 checkpoint_send,
                 config.clone(),
             );
@@ -212,6 +220,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         Ok(ConsensusClient {
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalized_block_recv),
+            optimistic_block_recv,
             checkpoint_recv,
             sync_status_recv: Mutex::new(sync_status_recv),
             shutdown_send,
@@ -297,6 +306,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         rpc: &str,
         block_send: Sender<Block<Transaction>>,
         finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+        optimistic_block_send: watch::Sender<Option<Block<Transaction>>>,
         checkpoint_send: watch::Sender<Option<B256>>,
         config: Arc<Config>,
     ) -> Inner<S, R> {
@@ -308,6 +318,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             last_checkpoint: None,
             block_send,
             finalized_block_send,
+            optimistic_block_send,
             checkpoint_send,
             config,
             phantom: PhantomData,
@@ -505,11 +516,13 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             let block = payload_to_block(payload);
             let finalized_block = payload_to_block(finalized_payload);
 
+            let _ = self.optimistic_block_send.send(Some(block.clone()));
             self.block_send.send(block).await?;
             self.finalized_block_send.send(Some(finalized_block))?;
         } else {
             let payload = self.get_execution_payload(&slot).await?;
             let block = payload_to_block(payload);
+            let _ = self.optimistic_block_send.send(Some(block.clone()));
             self.block_send.send(block).await?;
         }
 
@@ -800,12 +813,14 @@ mod tests {
 
         let (block_send, _) = channel(256);
         let (finalized_block_send, _) = watch::channel(None);
+        let (optimistic_block_send, _) = watch::channel(None);
         let (channel_send, _) = watch::channel(None);
 
         let mut client = Inner::new(
             "testdata/",
             block_send,
             finalized_block_send,
+            optimistic_block_send,
             channel_send,
             Arc::new(config),
         );
