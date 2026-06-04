@@ -7,6 +7,7 @@ use eyre::Result;
 use libp2p::{
     futures::StreamExt,
     gossipsub::{self, IdentTopic, Message, MessageId},
+    identify,
     identity::Keypair,
     multiaddr::Protocol,
     noise, ping,
@@ -132,7 +133,7 @@ fn create_swarm(keypair: Keypair, handler: &BlockHandler) -> Result<Swarm<Behavi
             yamux::Config::default,
         )
         .map_err(|e| eyre::eyre!("tcp transport setup failed: {e}"))?
-        .with_behaviour(|_key| Behaviour::new(handler).expect("behaviour creation failed"))
+        .with_behaviour(|key| Behaviour::new(key, handler).expect("behaviour creation failed"))
         .map_err(|e| eyre::eyre!("behaviour setup failed: {e}"))?
         .build())
 }
@@ -145,14 +146,30 @@ struct Behaviour {
     ping: ping::Behaviour,
     /// Adds [libp2p::gossipsub] to enable gossipsub as the routing layer
     gossipsub: gossipsub::Behaviour,
+    /// Adds [libp2p::identify] so op-node peers can identify us. go-libp2p
+    /// based op-nodes close connections within ~300ms when the identify
+    /// protocol is unsupported, which starves the node of gossip mesh
+    /// membership (blocks then only trickle in via rare opportunistic
+    /// grafts). Mirrors kona's behaviour composition.
+    identify: identify::Behaviour,
 }
 
 impl Behaviour {
     /// Configures the swarm behaviors, subscribes to the gossip topics, and returns a new [Behaviour]
-    fn new(handler: &BlockHandler) -> Result<Self> {
+    fn new(keypair: &Keypair, handler: &BlockHandler) -> Result<Self> {
         let ping = ping::Behaviour::default();
 
+        let identify = identify::Behaviour::new(
+            identify::Config::new(String::new(), keypair.public())
+                .with_agent_version("helios".to_string()),
+        );
+
         let gossipsub_config = gossipsub::ConfigBuilder::default()
+            // OP spec gossip max: 10 MiB. The libp2p default (64 KiB) kills
+            // the inbound gossipsub stream with a codec error on the first
+            // Base block larger than 64 KiB, silencing the peer until it
+            // reconnects — blocks then only arrive in short bursts.
+            .max_transmit_size(10 * (1 << 20))
             .mesh_n(8)
             .mesh_n_low(6)
             .mesh_n_high(12)
@@ -183,7 +200,11 @@ impl Behaviour {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        Ok(Self { ping, gossipsub })
+        Ok(Self {
+            ping,
+            gossipsub,
+            identify,
+        })
     }
 }
 
@@ -194,6 +215,9 @@ enum Event {
     Ping(ping::Event),
     /// Represents a [gossipsub::Event]
     Gossipsub(gossipsub::Event),
+    /// Represents an [identify::Event]
+    #[allow(dead_code)]
+    Identify(identify::Event),
 }
 
 impl Event {
@@ -227,5 +251,12 @@ impl From<gossipsub::Event> for Event {
     /// Converts [gossipsub::Event] to [Event]
     fn from(value: gossipsub::Event) -> Self {
         Event::Gossipsub(value)
+    }
+}
+
+impl From<identify::Event> for Event {
+    /// Converts [identify::Event] to [Event]
+    fn from(value: identify::Event) -> Self {
+        Event::Identify(value)
     }
 }
