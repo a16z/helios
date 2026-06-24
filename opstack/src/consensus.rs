@@ -25,7 +25,7 @@ use tokio::sync::{
 use tracing::{debug, error, warn};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
-use helios_core::consensus::Consensus;
+use helios_core::consensus::{Consensus, TrustedBlockRef};
 use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
@@ -40,8 +40,8 @@ const UNSAFE_SIGNER_SLOT: &str =
     "0x65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08";
 
 pub struct ConsensusClient {
-    block_recv: Option<Receiver<Block<Transaction>>>,
-    finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
+    block_recv: Option<Receiver<TrustedBlockRef<Block<Transaction>>>>,
+    finalized_block_recv: Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>>,
     chain_id: u64,
 }
 
@@ -97,11 +97,13 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
         Ok(())
     }
 
-    fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
+    fn block_recv(&mut self) -> Option<Receiver<TrustedBlockRef<Block<Transaction>>>> {
         self.block_recv.take()
     }
 
-    fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+    fn finalized_block_recv(
+        &mut self,
+    ) -> Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>> {
         self.finalized_block_recv.take()
     }
 
@@ -125,8 +127,8 @@ struct Inner {
     unsafe_signer: Arc<Mutex<Address>>,
     chain_id: u64,
     latest_block: Option<u64>,
-    block_send: Sender<Block<Transaction>>,
-    finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+    block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
+    finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
 }
 
 impl Inner {
@@ -161,7 +163,7 @@ impl Inner {
 
                 if let Ok(block) = payload_to_block(payload) {
                     self.latest_block = Some(block.header.number);
-                    _ = self.block_send.send(block).await;
+                    _ = self.block_send.send(TrustedBlockRef::Full(block)).await;
 
                     tracing::debug!(
                         "unsafe head updated: block={} age={}s",
@@ -206,12 +208,20 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                     Arc::new(eth_config.into()),
                 )?;
 
-            let block = eth_consensus
+            let trusted_block = eth_consensus
                 .block_recv()
                 .unwrap()
                 .recv()
                 .await
                 .ok_or_eyre("failed to receive block")?;
+            let block = match trusted_block {
+                TrustedBlockRef::Full(block) => block,
+                TrustedBlockRef::Hash(block_hash) => {
+                    return Err(eyre!(
+                        "unsafe signer verification requires full L1 block for trusted hash {block_hash}"
+                    ));
+                }
+            };
 
             // Query proof from op consensus server
             let url = config
