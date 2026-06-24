@@ -197,12 +197,15 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
+            slot_num: block.header.slot_number().unwrap_or_default(),
         }
     }
 }
 
 pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> SpecId {
-    if timestamp >= fork_schedule.osaka_timestamp {
+    if timestamp >= fork_schedule.amsterdam_timestamp {
+        SpecId::AMSTERDAM
+    } else if timestamp >= fork_schedule.osaka_timestamp {
         SpecId::OSAKA
     } else if timestamp >= fork_schedule.prague_timestamp {
         SpecId::PRAGUE
@@ -350,6 +353,24 @@ mod tests {
         assert_eq!(
             result.output().unwrap().as_ref(),
             U256::from(42).to_be_bytes::<32>()
+        );
+    }
+    #[test]
+    fn spec_id_selects_amsterdam_after_activation() {
+        let fork_schedule = ForkSchedule {
+            prague_timestamp: 10,
+            osaka_timestamp: 20,
+            amsterdam_timestamp: 30,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            get_spec_id_for_block_timestamp(29, &fork_schedule),
+            SpecId::OSAKA
+        );
+        assert_eq!(
+            get_spec_id_for_block_timestamp(30, &fork_schedule),
+            SpecId::AMSTERDAM
         );
     }
 }

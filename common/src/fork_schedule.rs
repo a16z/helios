@@ -24,6 +24,8 @@ pub struct ForkSchedule {
     pub osaka_timestamp: u64,
     pub bpo1_timestamp: u64,
     pub bpo2_timestamp: u64,
+    #[serde(default = "inactive_fork_timestamp")]
+    pub amsterdam_timestamp: u64,
 
     // Optimism Forks
     pub bedrock_timestamp: u64,
@@ -36,6 +38,10 @@ pub struct ForkSchedule {
     pub holocene_timestamp: u64,
     pub isthmus_timestamp: u64,
     pub jovian_timestamp: u64,
+}
+
+const fn inactive_fork_timestamp() -> u64 {
+    u64::MAX
 }
 
 impl Default for ForkSchedule {
@@ -63,6 +69,7 @@ impl Default for ForkSchedule {
             osaka_timestamp: u64::MAX,
             bpo1_timestamp: u64::MAX,
             bpo2_timestamp: u64::MAX,
+            amsterdam_timestamp: u64::MAX,
 
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,

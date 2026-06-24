@@ -385,6 +385,7 @@ impl EthereumForkSchedule {
             // Mainnet BPO schedule: EIP-8134 and EIP-8135.
             bpo1_timestamp: 1765290071,
             bpo2_timestamp: 1767747671,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -413,6 +414,7 @@ impl EthereumForkSchedule {
             osaka_timestamp: 1760427360,
             bpo1_timestamp: 1761017184,
             bpo2_timestamp: 1761607008,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -441,6 +443,7 @@ impl EthereumForkSchedule {
             osaka_timestamp: 1759308480,
             bpo1_timestamp: 1759800000,
             bpo2_timestamp: 1760389824,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -469,6 +472,7 @@ impl EthereumForkSchedule {
             osaka_timestamp: 1761677592,
             bpo1_timestamp: 1762365720,
             bpo2_timestamp: 1762955544,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -495,6 +499,7 @@ impl EthereumForkSchedule {
             cancun_timestamp: 0,
             prague_timestamp: 0,
             osaka_timestamp: 0,
+            amsterdam_timestamp: 1780589520,
 
             ..Default::default()
         }
