@@ -171,6 +171,8 @@ struct EthereumArgs {
     load_external_fallback: bool,
     #[arg(short = 's', long, env)]
     strict_checkpoint_age: bool,
+    #[arg(long, env)]
+    max_sync_delay: Option<u64>,
 }
 
 impl EthereumArgs {
@@ -207,6 +209,7 @@ impl EthereumArgs {
             fallback: self.fallback.clone(),
             load_external_fallback: true_or_none(self.load_external_fallback),
             strict_checkpoint_age: true_or_none(self.strict_checkpoint_age),
+            max_sync_delay: self.max_sync_delay,
         }
     }
 }
@@ -239,6 +242,8 @@ struct OpStackArgs {
         help = "Enable fallback for weak subjectivity checkpoint. Use if --ethereum-checkpoint fails."
     )]
     load_external_fallback: bool,
+    #[arg(long, env)]
+    max_sync_delay: Option<u64>,
 }
 
 impl OpStackArgs {
@@ -292,6 +297,10 @@ impl OpStackArgs {
             user_dict.insert("checkpoint", Value::from(hex::encode(checkpoint)));
         }
 
+        if let Some(d) = self.max_sync_delay {
+            user_dict.insert("max_sync_delay", Value::from(d));
+        }
+
         Serialized::from(user_dict, &self.network)
     }
 }
@@ -306,6 +315,8 @@ struct LineaArgs {
     rpc_port: Option<u16>,
     #[arg(short, long, env, value_parser = parse_url)]
     execution_rpc: Option<Url>,
+    #[arg(long, env)]
+    max_sync_delay: Option<u64>,
 }
 
 impl LineaArgs {
@@ -328,6 +339,7 @@ impl LineaArgs {
             execution_rpc: self.execution_rpc.clone(),
             rpc_bind_ip: self.rpc_bind_ip,
             rpc_port: self.rpc_port,
+            max_sync_delay: self.max_sync_delay,
         }
     }
 }

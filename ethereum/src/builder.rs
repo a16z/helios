@@ -230,6 +230,12 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             None
         };
 
+        let max_sync_delay = if let Some(config) = &self.config {
+            config.max_sync_delay
+        } else {
+            60
+        };
+
         let config = Config {
             consensus_rpc,
             execution_rpc,
@@ -250,6 +256,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             load_external_fallback,
             strict_checkpoint_age,
             database_type,
+            max_sync_delay,
         };
 
         let config = Arc::new(config);
@@ -273,6 +280,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 consensus,
                 execution,
                 config.execution_forks,
+                max_sync_delay,
                 #[cfg(not(target_arch = "wasm32"))]
                 rpc_address,
             ))
@@ -292,6 +300,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 consensus,
                 execution,
                 config.execution_forks,
+                max_sync_delay,
                 #[cfg(not(target_arch = "wasm32"))]
                 rpc_address,
             ))
