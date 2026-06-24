@@ -25,6 +25,7 @@ pub enum Network {
     Sepolia,
     Holesky,
     Hoodi,
+    GlamsterdamDevnet5,
 }
 
 impl FromStr for Network {
@@ -36,6 +37,7 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
+            "glamsterdam" | "glamsterdam-devnet-5" => Ok(Self::GlamsterdamDevnet5),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -48,6 +50,7 @@ impl Display for Network {
             Self::Sepolia => "sepolia",
             Self::Holesky => "holesky",
             Self::Hoodi => "hoodi",
+            Self::GlamsterdamDevnet5 => "glamsterdam-devnet-5",
         };
 
         f.write_str(str)
@@ -61,6 +64,7 @@ impl Network {
             Self::Sepolia => sepolia(),
             Self::Holesky => holesky(),
             Self::Hoodi => hoodi(),
+            Self::GlamsterdamDevnet5 => glamsterdam_devnet_5(),
         }
     }
 
@@ -70,6 +74,7 @@ impl Network {
             11155111 => Ok(Network::Sepolia),
             17000 => Ok(Network::Holesky),
             560048 => Ok(Network::Hoodi),
+            7095321190 => Ok(Network::GlamsterdamDevnet5),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -291,6 +296,60 @@ pub fn hoodi() -> BaseConfig {
     }
 }
 
+pub fn glamsterdam_devnet_5() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "3d1bffc8aefae9d6edda7035f598c8fe7c29b2e7091ea78aaa55b05de930cf2f"
+        ),
+        rpc_port: 8545,
+        consensus_rpc: Some(Url::parse("http://127.0.0.1:5052").unwrap()),
+        chain: ChainConfig {
+            chain_id: 7095321190,
+            genesis_time: 1780578000,
+            genesis_root: b256!("f90dd748ec351f30bd3c9c93e6496d426b49c1246f962fa9826f2185b41ccced"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("10766571"),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("20766571"),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("30766571"),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("40766571"),
+            },
+            deneb: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("50766571"),
+            },
+            electra: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("60766571"),
+            },
+            fulu: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("70766571"),
+            },
+            gloas: Fork {
+                epoch: 30,
+                fork_version: fixed_bytes!("80766571"),
+            },
+        },
+        execution_forks: EthereumForkSchedule::glamsterdam_devnet_5(),
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::GlamsterdamDevnet5)),
+        ..std::default::Default::default()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn data_dir(network: Network) -> PathBuf {
     match home_dir() {
@@ -401,6 +460,32 @@ impl EthereumForkSchedule {
             cancun_timestamp: 0,
             prague_timestamp: 1742999832,
             osaka_timestamp: 1761677592,
+
+            ..Default::default()
+        }
+    }
+
+    fn glamsterdam_devnet_5() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 0,
+            homestead_timestamp: 0,
+            dao_timestamp: 0,
+            tangerine_timestamp: 0,
+            spurious_dragon_timestamp: 0,
+            byzantium_timestamp: 0,
+            constantinople_timestamp: 0,
+            petersburg_timestamp: 0,
+            istanbul_timestamp: 0,
+            muir_glacier_timestamp: 0,
+            berlin_timestamp: 0,
+            london_timestamp: 0,
+            arrow_glacier_timestamp: 0,
+            gray_glacier_timestamp: 0,
+            paris_timestamp: 0,
+            shanghai_timestamp: 0,
+            cancun_timestamp: 0,
+            prague_timestamp: 0,
+            osaka_timestamp: 0,
 
             ..Default::default()
         }

@@ -1,11 +1,8 @@
-use std::marker::PhantomData;
-
 use alloy::primitives::{Address, FixedBytes, B256, U256};
-use alloy_rlp::RlpEncodable;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
-use ssz_types::{serde_utils::quoted_u64_var_list, BitList, BitVector, FixedVector, VariableList};
+use ssz_types::{BitVector, FixedVector};
 use superstruct::superstruct;
 use tree_hash_derive::TreeHash;
 
@@ -21,8 +18,6 @@ pub mod bytes;
 mod serde_utils;
 
 pub type LogsBloom = ByteVector<typenum::U256>;
-pub type KZGCommitment = ByteVector<typenum::U48>;
-pub type Transaction = ByteList<typenum::U1073741824>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LightClientStore<S: ConsensusSpec> {
@@ -33,138 +28,6 @@ pub struct LightClientStore<S: ConsensusSpec> {
     pub previous_max_active_participants: u64,
     pub current_max_active_participants: u64,
     pub best_valid_update: Option<GenericUpdate<S>>,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-#[serde(bound = "S: ConsensusSpec")]
-pub struct BeaconBlock<S: ConsensusSpec> {
-    #[serde(with = "serde_utils::u64")]
-    pub slot: u64,
-    #[serde(with = "serde_utils::u64")]
-    pub proposer_index: u64,
-    pub parent_root: B256,
-    pub state_root: B256,
-    pub body: BeaconBlockBody<S>,
-}
-
-#[superstruct(
-    variants(Bellatrix, Capella, Deneb, Electra),
-    variant_attributes(
-        derive(Deserialize, Clone, Debug, Encode, TreeHash, Default),
-        serde(deny_unknown_fields),
-        serde(bound = "S: ConsensusSpec"),
-    )
-)]
-#[derive(Encode, TreeHash, Deserialize, Debug, Clone)]
-#[serde(untagged)]
-#[serde(bound = "S: ConsensusSpec")]
-#[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
-pub struct BeaconBlockBody<S: ConsensusSpec> {
-    randao_reveal: Signature,
-    eth1_data: Eth1Data,
-    graffiti: B256,
-    proposer_slashings: VariableList<ProposerSlashing, S::MaxProposerSlashings>,
-
-    #[superstruct(
-        only(Bellatrix, Capella, Deneb),
-        partial_getter(rename = "attester_slashings_base")
-    )]
-    attester_slashings: VariableList<AttesterSlashing<S>, S::MaxAttesterSlashings>,
-    #[superstruct(only(Electra), partial_getter(rename = "attester_slashings_electra"))]
-    attester_slashings: VariableList<AttesterSlashing<S>, S::MaxAttesterSlashingsElectra>,
-
-    #[superstruct(
-        only(Bellatrix, Capella, Deneb),
-        partial_getter(rename = "attestations_base")
-    )]
-    attestations: VariableList<Attestation<S>, S::MaxAttestations>,
-    #[superstruct(only(Electra), partial_getter(rename = "attestations_electra"))]
-    attestations: VariableList<Attestation<S>, S::MaxAttestationsElectra>,
-
-    deposits: VariableList<Deposit, S::MaxDeposits>,
-    voluntary_exits: VariableList<SignedVoluntaryExit, S::MaxVoluntaryExits>,
-    sync_aggregate: SyncAggregate<S>,
-    pub execution_payload: ExecutionPayload<S>,
-    #[superstruct(only(Capella, Deneb, Electra))]
-    bls_to_execution_changes: VariableList<SignedBlsToExecutionChange, S::MaxBlsToExecutionChanged>,
-    #[superstruct(only(Deneb, Electra))]
-    blob_kzg_commitments: VariableList<KZGCommitment, S::MaxBlobKzgCommitments>,
-    #[superstruct(only(Electra))]
-    execution_requests: ExecutionRequests<S>,
-}
-
-impl<S: ConsensusSpec> Default for BeaconBlockBody<S> {
-    fn default() -> Self {
-        BeaconBlockBody::Electra(BeaconBlockBodyElectra::default())
-    }
-}
-
-#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
-pub struct SignedBlsToExecutionChange {
-    message: BlsToExecutionChange,
-    signature: Signature,
-}
-
-#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
-pub struct BlsToExecutionChange {
-    #[serde(with = "serde_utils::u64")]
-    validator_index: u64,
-    from_bls_pubkey: PublicKey,
-    to_execution_address: Address,
-}
-
-#[superstruct(
-    variants(Bellatrix, Capella, Deneb, Electra),
-    variant_attributes(
-        derive(Default, Debug, Deserialize, Encode, TreeHash, Clone),
-        serde(deny_unknown_fields),
-        serde(bound = "S: ConsensusSpec"),
-    )
-)]
-#[derive(Debug, Deserialize, Clone, Encode, TreeHash)]
-#[serde(untagged)]
-#[serde(bound = "S: ConsensusSpec")]
-#[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
-pub struct ExecutionPayload<S: ConsensusSpec> {
-    pub parent_hash: B256,
-    pub fee_recipient: Address,
-    pub state_root: B256,
-    pub receipts_root: B256,
-    pub logs_bloom: LogsBloom,
-    pub prev_randao: B256,
-    #[serde(with = "serde_utils::u64")]
-    pub block_number: u64,
-    #[serde(with = "serde_utils::u64")]
-    pub gas_limit: u64,
-    #[serde(with = "serde_utils::u64")]
-    pub gas_used: u64,
-    #[serde(with = "serde_utils::u64")]
-    pub timestamp: u64,
-    pub extra_data: ByteList<typenum::U32>,
-    #[serde(with = "serde_utils::u256")]
-    pub base_fee_per_gas: U256,
-    pub block_hash: B256,
-    pub transactions: VariableList<Transaction, typenum::U1048576>,
-    #[superstruct(only(Capella, Deneb, Electra))]
-    pub withdrawals: VariableList<Withdrawal, S::MaxWithdrawals>,
-    #[superstruct(only(Deneb, Electra))]
-    #[serde(with = "serde_utils::u64")]
-    pub blob_gas_used: u64,
-    #[superstruct(only(Deneb, Electra))]
-    #[serde(with = "serde_utils::u64")]
-    pub excess_blob_gas: u64,
-    #[ssz(skip_serializing, skip_deserializing)]
-    #[tree_hash(skip_hashing)]
-    #[serde(skip)]
-    phantom: PhantomData<S>,
-}
-
-impl<S: ConsensusSpec> Default for ExecutionPayload<S> {
-    fn default() -> Self {
-        ExecutionPayload::<S>::Bellatrix(ExecutionPayloadBellatrix::<S>::default())
-    }
 }
 
 #[superstruct(
@@ -224,40 +87,6 @@ impl Default for ExecutionPayloadHeader {
     }
 }
 
-#[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize, RlpEncodable)]
-pub struct Withdrawal {
-    #[serde(with = "serde_utils::u64")]
-    index: u64,
-    #[serde(with = "serde_utils::u64")]
-    validator_index: u64,
-    address: Address,
-    #[serde(with = "serde_utils::u64")]
-    amount: u64,
-}
-
-impl From<Withdrawal> for alloy::eips::eip4895::Withdrawal {
-    fn from(value: Withdrawal) -> Self {
-        alloy::eips::eip4895::Withdrawal {
-            index: value.index,
-            validator_index: value.validator_index,
-            address: value.address,
-            amount: value.amount,
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct ProposerSlashing {
-    signed_header_1: SignedBeaconBlockHeader,
-    signed_header_2: SignedBeaconBlockHeader,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-struct SignedBeaconBlockHeader {
-    message: BeaconBlockHeader,
-    signature: Signature,
-}
-
 #[derive(Serialize, Deserialize, Debug, Default, Encode, Decode, TreeHash, Clone, PartialEq)]
 pub struct BeaconBlockHeader {
     #[serde(with = "serde_utils::u64")]
@@ -267,153 +96,6 @@ pub struct BeaconBlockHeader {
     pub parent_root: B256,
     pub state_root: B256,
     pub body_root: B256,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-#[serde(bound = "S: ConsensusSpec")]
-pub struct AttesterSlashing<S: ConsensusSpec> {
-    attestation_1: IndexedAttestation<S>,
-    attestation_2: IndexedAttestation<S>,
-}
-
-#[superstruct(
-    variants(Electra, Base),
-    variant_attributes(
-        derive(Deserialize, Debug, Default, Encode, TreeHash, Clone,),
-        serde(deny_unknown_fields),
-    )
-)]
-#[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
-#[serde(bound = "S: ConsensusSpec")]
-#[serde(untagged)]
-#[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
-pub struct IndexedAttestation<S: ConsensusSpec> {
-    #[serde(with = "quoted_u64_var_list")]
-    #[superstruct(only(Electra), partial_getter(rename = "attesting_indices_electra"))]
-    attesting_indices: VariableList<u64, S::MaxValidatorsPerSlot>,
-    #[serde(with = "quoted_u64_var_list")]
-    #[superstruct(only(Base), partial_getter(rename = "attesting_indices_base"))]
-    attesting_indices: VariableList<u64, S::MaxValidatorsPerCommittee>,
-    data: AttestationData,
-    signature: Signature,
-}
-
-impl<S: ConsensusSpec> Default for IndexedAttestation<S> {
-    fn default() -> Self {
-        IndexedAttestation::Electra(IndexedAttestationElectra::default())
-    }
-}
-
-#[superstruct(
-    variants(Electra, Base),
-    variant_attributes(
-        derive(Deserialize, Debug, Encode, TreeHash, Clone,),
-        serde(deny_unknown_fields),
-    )
-)]
-#[derive(Deserialize, Debug, Encode, TreeHash, Clone)]
-#[serde(bound = "S: ConsensusSpec")]
-#[serde(untagged)]
-#[ssz(enum_behaviour = "transparent")]
-#[tree_hash(enum_behaviour = "transparent")]
-pub struct Attestation<S: ConsensusSpec> {
-    #[superstruct(only(Electra), partial_getter(rename = "aggregation_bits_electra"))]
-    aggregation_bits: BitList<S::MaxValidatorsPerSlot>,
-    #[superstruct(only(Base), partial_getter(rename = "aggregation_bits_base"))]
-    aggregation_bits: BitList<S::MaxValidatorsPerCommittee>,
-    data: AttestationData,
-    signature: Signature,
-    #[superstruct(only(Electra))]
-    committee_bits: BitVector<S::MaxCommitteesPerSlot>,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-struct AttestationData {
-    #[serde(with = "serde_utils::u64")]
-    slot: u64,
-    #[serde(with = "serde_utils::u64")]
-    index: u64,
-    beacon_block_root: B256,
-    source: Checkpoint,
-    target: Checkpoint,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-struct Checkpoint {
-    #[serde(with = "serde_utils::u64")]
-    epoch: u64,
-    root: B256,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct SignedVoluntaryExit {
-    message: VoluntaryExit,
-    signature: Signature,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-struct VoluntaryExit {
-    #[serde(with = "serde_utils::u64")]
-    epoch: u64,
-    #[serde(with = "serde_utils::u64")]
-    validator_index: u64,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct Deposit {
-    proof: FixedVector<B256, typenum::U33>,
-    data: DepositData,
-}
-
-#[derive(Deserialize, Default, Debug, Encode, TreeHash, Clone)]
-struct DepositData {
-    pubkey: PublicKey,
-    withdrawal_credentials: B256,
-    #[serde(with = "serde_utils::u64")]
-    amount: u64,
-    signature: Signature,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct Eth1Data {
-    deposit_root: B256,
-    #[serde(with = "serde_utils::u64")]
-    deposit_count: u64,
-    block_hash: B256,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct ExecutionRequests<S: ConsensusSpec> {
-    deposits: VariableList<DepositRequest, S::MaxDepositRequests>,
-    withdrawals: VariableList<WithdrawalRequest, S::MaxWithdrawalRequests>,
-    consolidations: VariableList<ConsolidationRequest, S::MaxConsolidationRequests>,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct DepositRequest {
-    pubkey: PublicKey,
-    withdrawal_credentials: B256,
-    #[serde(with = "serde_utils::u64")]
-    amount: u64,
-    signature: Signature,
-    #[serde(with = "serde_utils::u64")]
-    index: u64,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct WithdrawalRequest {
-    source_address: Address,
-    validator_pubkey: PublicKey,
-    #[serde(with = "serde_utils::u64")]
-    amount: u64,
-}
-
-#[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
-pub struct ConsolidationRequest {
-    source_address: Address,
-    source_pubkey: PublicKey,
-    target_pubkey: PublicKey,
 }
 
 #[superstruct(
