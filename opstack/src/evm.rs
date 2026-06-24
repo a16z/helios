@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::BlockHeader,
     eips::{eip1898::RpcBlockHash, BlockId},
-    network::TransactionBuilder,
+    network::{NetworkTransactionBuilder, TransactionBuilder},
     rpc::types::{state::StateOverride, Block, Header},
 };
 use eyre::Result;
@@ -119,10 +119,8 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
     ) -> OpContext<EmptyDB> {
         let mut tx_env = Self::tx_env(tx);
 
-        if <OpTxType as Into<u8>>::into(
-            <OpTransactionRequest as TransactionBuilder<OpStack>>::output_tx_type(tx),
-        ) == 0u8
-        {
+        let tx_type = NetworkTransactionBuilder::<OpStack>::output_tx_type(tx);
+        if tx_type == OpTxType::Legacy {
             tx_env.chain_id = None;
         } else {
             tx_env.chain_id = Some(self.chain_id);
@@ -147,29 +145,27 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
 
     fn tx_env(tx: &OpTransactionRequest) -> TxEnv {
         TxEnv {
-            tx_type: <OpTransactionRequest as TransactionBuilder<OpStack>>::output_tx_type(tx)
-                .into(),
-            caller: <OpTransactionRequest as TransactionBuilder<OpStack>>::from(tx)
-                .unwrap_or_default(),
-            gas_limit: <OpTransactionRequest as TransactionBuilder<OpStack>>::gas_limit(tx)
+            tx_type: <OpTransactionRequest as NetworkTransactionBuilder<OpStack>>::output_tx_type(
+                tx,
+            )
+            .into(),
+            caller: <OpTransactionRequest as TransactionBuilder>::from(tx).unwrap_or_default(),
+            gas_limit: <OpTransactionRequest as TransactionBuilder>::gas_limit(tx)
                 .unwrap_or(u64::MAX),
-            gas_price: <OpTransactionRequest as TransactionBuilder<OpStack>>::gas_price(tx)
+            gas_price: <OpTransactionRequest as TransactionBuilder>::gas_price(tx)
                 .unwrap_or_default(),
-            kind: <OpTransactionRequest as TransactionBuilder<OpStack>>::kind(tx)
-                .unwrap_or_default(),
-            value: <OpTransactionRequest as TransactionBuilder<OpStack>>::value(tx)
-                .unwrap_or_default(),
-            data: <OpTransactionRequest as TransactionBuilder<OpStack>>::input(tx)
+            kind: <OpTransactionRequest as TransactionBuilder>::kind(tx).unwrap_or_default(),
+            value: <OpTransactionRequest as TransactionBuilder>::value(tx).unwrap_or_default(),
+            data: <OpTransactionRequest as TransactionBuilder>::input(tx)
                 .unwrap_or_default()
                 .clone(),
-            nonce: <OpTransactionRequest as TransactionBuilder<OpStack>>::nonce(tx)
-                .unwrap_or_default(),
-            chain_id: <OpTransactionRequest as TransactionBuilder<OpStack>>::chain_id(tx),
-            access_list: <OpTransactionRequest as TransactionBuilder<OpStack>>::access_list(tx)
+            nonce: <OpTransactionRequest as TransactionBuilder>::nonce(tx).unwrap_or_default(),
+            chain_id: <OpTransactionRequest as TransactionBuilder>::chain_id(tx),
+            access_list: <OpTransactionRequest as TransactionBuilder>::access_list(tx)
                 .cloned()
                 .unwrap_or_default(),
             gas_priority_fee:
-                <OpTransactionRequest as TransactionBuilder<OpStack>>::max_priority_fee_per_gas(tx),
+                <OpTransactionRequest as TransactionBuilder>::max_priority_fee_per_gas(tx),
             max_fee_per_blob_gas: 0,
             blob_hashes: tx
                 .as_ref()

@@ -1,19 +1,12 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
-use alloy::consensus::transaction::SignerRecoverable;
-use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
-use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Bloom, B256, U256};
-use alloy::rlp::Decodable;
-use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
+use alloy::primitives::B256;
+use alloy::rpc::types::{Block, Transaction};
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
-use futures::future::join_all;
 use tracing::{debug, error, info, warn};
-use tree_hash::TreeHash;
 use url::Url;
 
 use tokio::sync::mpsc::channel;
@@ -26,7 +19,7 @@ use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
     errors::ConsensusError,
     expected_current_slot, get_bits,
-    types::{ExecutionPayload, FinalityUpdate, Forks, LightClientHeader, LightClientStore, Update},
+    types::{FinalityUpdate, Forks, LightClientHeader, LightClientStore, Update},
     verify_bootstrap, verify_finality_update, verify_update,
 };
 use helios_core::consensus::{Consensus, TrustedBlockRef};
@@ -69,21 +62,10 @@ pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
     phantom: PhantomData<S>,
 }
 
-// A light-client header proves different execution payload references before and after Gloas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TrustedExecutionPayloadReference {
-    EmbeddedBeaconPayload {
-        slot: u64,
-        beacon_block_root: B256,
-        execution_block_hash: B256,
-    },
-    ExecutionBlockHash {
-        beacon_slot: u64,
-        execution_block_hash: B256,
-    },
-}
+struct TrustedExecutionBlockHash(B256);
 
-impl TrustedExecutionPayloadReference {
+impl TrustedExecutionBlockHash {
     fn from_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> Result<Self> {
         let beacon = header.beacon();
         let beacon_slot = beacon.slot;
@@ -98,10 +80,7 @@ impl TrustedExecutionPayloadReference {
             };
 
             // Gloas proves the execution head as parent_block_hash in the signed payload bid.
-            return Ok(Self::ExecutionBlockHash {
-                beacon_slot,
-                execution_block_hash: header.execution_block_hash,
-            });
+            return Ok(Self(header.execution_block_hash));
         }
 
         let execution = header.execution().map_err(|_| {
@@ -111,24 +90,11 @@ impl TrustedExecutionPayloadReference {
             )
         })?;
 
-        Ok(Self::EmbeddedBeaconPayload {
-            slot: beacon_slot,
-            beacon_block_root: beacon.tree_hash_root(),
-            execution_block_hash: *execution.block_hash(),
-        })
+        Ok(Self(*execution.block_hash()))
     }
 
     fn block_hash(&self) -> B256 {
-        match self {
-            Self::EmbeddedBeaconPayload {
-                execution_block_hash,
-                ..
-            }
-            | Self::ExecutionBlockHash {
-                execution_block_hash,
-                ..
-            } => *execution_block_hash,
-        }
+        self.0
     }
 }
 
@@ -389,107 +355,18 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         }
     }
 
-    fn trusted_payload_reference(
+    fn trusted_execution_block_hash(
         &self,
         header: &LightClientHeader,
-    ) -> Result<TrustedExecutionPayloadReference> {
-        TrustedExecutionPayloadReference::from_header::<S>(header, &self.config.forks)
+    ) -> Result<TrustedExecutionBlockHash> {
+        TrustedExecutionBlockHash::from_header::<S>(header, &self.config.forks)
     }
 
     async fn get_execution_block(
         &self,
-        reference: TrustedExecutionPayloadReference,
+        reference: TrustedExecutionBlockHash,
     ) -> Result<TrustedBlockRef<Block<Transaction>>> {
-        match reference {
-            TrustedExecutionPayloadReference::EmbeddedBeaconPayload { .. } => {
-                let payload = self.get_embedded_execution_payload(reference).await?;
-                Ok(TrustedBlockRef::Full(payload_to_block(payload)))
-            }
-            TrustedExecutionPayloadReference::ExecutionBlockHash {
-                execution_block_hash,
-                ..
-            } => Ok(TrustedBlockRef::Hash(execution_block_hash)),
-        }
-    }
-
-    async fn get_embedded_execution_payload(
-        &self,
-        reference: TrustedExecutionPayloadReference,
-    ) -> Result<ExecutionPayload<S>> {
-        let TrustedExecutionPayloadReference::EmbeddedBeaconPayload {
-            slot,
-            beacon_block_root,
-            execution_block_hash,
-        } = reference
-        else {
-            return Err(eyre!(
-                "embedded beacon payload requested for non-embedded payload reference"
-            ));
-        };
-
-        let block = self.rpc.get_block(slot).await?;
-        let block_hash = block.tree_hash_root();
-
-        if beacon_block_root != block_hash {
-            return Err(ConsensusError::InvalidHeaderHash(block_hash, beacon_block_root).into());
-        }
-
-        let payload = block.body.execution_payload().clone();
-        if payload.block_hash() != &execution_block_hash {
-            return Err(ConsensusError::InvalidHeaderHash(
-                *payload.block_hash(),
-                execution_block_hash,
-            )
-            .into());
-        }
-
-        Ok(payload)
-    }
-
-    pub async fn get_payloads(
-        &self,
-        start_slot: u64,
-        end_slot: u64,
-    ) -> Result<Vec<ExecutionPayload<S>>> {
-        if self.is_gloas_slot(start_slot) || self.is_gloas_slot(end_slot) {
-            return Err(eyre!(
-                "embedded beacon payload backfill is unavailable for gloas slots"
-            ));
-        }
-
-        let payloads_fut = (start_slot..end_slot)
-            .rev()
-            .map(|slot| self.rpc.get_block(slot));
-
-        let mut prev_parent_hash: B256 = *self
-            .rpc
-            .get_block(end_slot)
-            .await?
-            .body
-            .execution_payload()
-            .parent_hash();
-
-        let mut payloads: Vec<ExecutionPayload<S>> = Vec::new();
-        for result in join_all(payloads_fut).await {
-            if result.is_err() {
-                continue;
-            }
-            let payload = result.unwrap().body.execution_payload().clone();
-            if payload.block_hash() != &prev_parent_hash {
-                warn!(
-                    target: "helios::consensus",
-                    error = %ConsensusError::InvalidHeaderHash(
-                        prev_parent_hash,
-                        *payload.parent_hash(),
-                    ),
-                    "error while backfilling blocks"
-                );
-                break;
-            }
-            prev_parent_hash = *payload.parent_hash();
-            payloads.push(payload);
-        }
-        Ok(payloads)
+        Ok(TrustedBlockRef::Hash(reference.block_hash()))
     }
 
     pub async fn sync(&mut self, checkpoint: B256) -> Result<()> {
@@ -579,28 +456,29 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let latest_ref = self.trusted_payload_reference(&self.store.optimistic_header)?;
-        let finalized_ref = self.trusted_payload_reference(&self.store.finalized_header)?;
+        let latest_hash = self.trusted_execution_block_hash(&self.store.optimistic_header)?;
+        let finalized_hash = self.trusted_execution_block_hash(&self.store.finalized_header)?;
 
-        let finalized_hash = finalized_ref.block_hash();
+        let finalized_block_hash = finalized_hash.block_hash();
         let last_sent_fin_hash = self
             .finalized_block_send
             .borrow()
             .as_ref()
             .map(|b| b.block_hash());
 
-        let should_fetch_finalized = last_sent_fin_hash.is_none_or(|sent| finalized_hash != sent);
+        let should_fetch_finalized =
+            last_sent_fin_hash.is_none_or(|sent| finalized_block_hash != sent);
 
         if should_fetch_finalized {
             let (block, finalized_block) = tokio::try_join!(
-                self.get_execution_block(latest_ref),
-                self.get_execution_block(finalized_ref),
+                self.get_execution_block(latest_hash),
+                self.get_execution_block(finalized_hash),
             )?;
 
             self.block_send.send(block).await?;
             self.finalized_block_send.send(Some(finalized_block))?;
         } else {
-            let block = self.get_execution_block(latest_ref).await?;
+            let block = self.get_execution_block(latest_hash).await?;
             self.block_send.send(block).await?;
         }
 
@@ -752,10 +630,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    fn is_gloas_slot(&self, slot: u64) -> bool {
-        slot / S::slots_per_epoch() >= self.config.forks.gloas.epoch
-    }
-
     // Determines blockhash_slot age and returns true if it is less than 14 days old
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
@@ -768,236 +642,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 }
 
-fn beacon_block_to_block<S: ConsensusSpec>(beacon: BeaconBlock<S>) -> Block<Transaction> {
-    let mut block = payload_to_block(beacon.body.execution_payload().clone());
-    if matches!(
-        beacon.body,
-        BeaconBlockBody::Deneb(_) | BeaconBlockBody::Electra(_)
-    ) {
-        block.header.parent_beacon_block_root = Some(beacon.parent_root);
-    }
-    block.header.requests_hash = beacon.body.execution_requests_hash();
-    block
-}
-
-fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Transaction> {
-    let empty_nonce = fixed_bytes!("0000000000000000");
-    let empty_uncle_hash =
-        b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
-
-    let block_hash = *value.block_hash();
-    let block_number = *value.block_number();
-    let base_fee = Some(value.base_fee_per_gas().to());
-
-    // Helper function to process a single transaction
-    let process_tx = |i: usize,
-                      tx_bytes: &helios_consensus_core::types::Transaction,
-                      block_hash: B256,
-                      block_number: u64,
-                      base_fee: Option<u128>|
-     -> Transaction {
-        let tx_bytes = tx_bytes.inner.to_vec();
-        let mut tx_bytes_slice = tx_bytes.as_slice();
-        let tx_envelope = TxEnvelope::decode(&mut tx_bytes_slice).unwrap();
-        let effective_gas_price = tx_envelope.effective_gas_price(base_fee.map(|v| v as u64));
-        let recovered = tx_envelope.try_into_recovered().unwrap();
-
-        Transaction {
-            block_hash: Some(block_hash),
-            block_number: Some(block_number),
-            transaction_index: Some(i as u64),
-            effective_gas_price: Some(effective_gas_price),
-            inner: recovered,
-        }
-    };
-
-    let txs = value
-        .transactions()
-        .iter()
-        .enumerate()
-        .map(|(i, tx_bytes)| process_tx(i, tx_bytes, block_hash, block_number, base_fee))
-        .collect::<Vec<_>>();
-
-    let tx_envelopes = txs.iter().map(|tx| tx.inner.clone()).collect::<Vec<_>>();
-    let txs_root = calculate_transaction_root(&tx_envelopes);
-
-    let withdrawals: Vec<Withdrawal> = value
-        .withdrawals()
-        .unwrap()
-        .into_iter()
-        .map(|w| w.clone().into())
-        .collect();
-    let withdrawals_root = calculate_withdrawals_root(&withdrawals);
-
-    let logs_bloom: Bloom = Bloom::from_slice(&value.logs_bloom().inner);
-
-    let consensus_header = ConsensusHeader {
-        parent_hash: *value.parent_hash(),
-        ommers_hash: empty_uncle_hash,
-        beneficiary: *value.fee_recipient(),
-        state_root: *value.state_root(),
-        transactions_root: txs_root,
-        receipts_root: *value.receipts_root(),
-        withdrawals_root: Some(withdrawals_root),
-        difficulty: U256::ZERO,
-        number: *value.block_number(),
-        gas_limit: *value.gas_limit(),
-        gas_used: *value.gas_used(),
-        timestamp: *value.timestamp(),
-        mix_hash: *value.prev_randao(),
-        nonce: empty_nonce,
-        base_fee_per_gas: Some(value.base_fee_per_gas().to::<u64>()),
-        blob_gas_used: value.blob_gas_used().cloned().ok(),
-        excess_blob_gas: value.excess_blob_gas().cloned().ok(),
-        parent_beacon_block_root: None,
-        extra_data: value.extra_data().inner.to_vec().into(),
-        requests_hash: None,
-        logs_bloom,
-    };
-
-    let header = Header {
-        hash: *value.block_hash(),
-        inner: consensus_header,
-        total_difficulty: Some(U256::ZERO),
-        size: Some(U256::ZERO),
-    };
-
-    Block::new(header, BlockTransactions::Full(txs))
-        .with_withdrawals(Some(Withdrawals::new(withdrawals)))
-}
-
 #[cfg(test)]
 mod tests {
-    fn beacon_fixture() -> helios_consensus_core::types::BeaconBlock<MainnetConsensusSpec> {
-        let data: serde_json::Value =
-            serde_json::from_str(include_str!("../testdata/blocks/15289440.json")).unwrap();
-        serde_json::from_value(data["data"]["message"].clone()).unwrap()
-    }
-
-    #[test]
-    fn reconstructs_authenticated_parent_and_nonempty_requests_hash() {
-        let beacon = beacon_fixture();
-        let parent = beacon.parent_root;
-        let block = super::beacon_block_to_block(beacon.clone());
-        assert_eq!(block.header.parent_beacon_block_root, Some(parent));
-        assert_eq!(
-            block.header.requests_hash,
-            Some(b256!(
-                "3cd57ab67bef8dfa1fb4e563f8ab072be1af7a3d184c69e58dad8718809627d2"
-            ))
-        );
-        assert_eq!(block.header.hash_slow(), block.header.hash);
-
-        let mut altered = beacon;
-        altered.parent_root = Default::default();
-        let altered = super::beacon_block_to_block(altered);
-        assert_ne!(altered.header.hash_slow(), altered.header.hash);
-    }
-
-    #[test]
-    fn preserves_pre_deneb_header_encoding() {
-        let data: serde_json::Value =
-            serde_json::from_str(include_str!("../testdata/blocks/7109430.json")).unwrap();
-        let beacon = serde_json::from_value::<
-            helios_consensus_core::types::BeaconBlock<MainnetConsensusSpec>,
-        >(data["data"]["message"].clone())
-        .unwrap();
-        let block = super::beacon_block_to_block(beacon);
-        assert!(block.header.parent_beacon_block_root.is_none());
-        assert!(block.header.requests_hash.is_none());
-        assert_eq!(block.header.hash_slow(), block.header.hash);
-    }
-
-    #[test]
-    fn deneb_includes_parent_root_without_requests_hash() {
-        use helios_consensus_core::types::{
-            BeaconBlock, BeaconBlockBody, BeaconBlockBodyDeneb, ExecutionPayload,
-            ExecutionPayloadDeneb,
-        };
-        let mut body = BeaconBlockBodyDeneb::default();
-        body.execution_payload = ExecutionPayload::Deneb(ExecutionPayloadDeneb::default());
-        let beacon = BeaconBlock::<MainnetConsensusSpec> {
-            parent_root: b256!("0101010101010101010101010101010101010101010101010101010101010101"),
-            body: BeaconBlockBody::Deneb(body),
-            ..Default::default()
-        };
-        let parent = beacon.parent_root;
-        let block = super::beacon_block_to_block(beacon);
-        assert_eq!(block.header.parent_beacon_block_root, Some(parent));
-        assert!(block.header.requests_hash.is_none());
-    }
-
-    #[tokio::test]
-    async fn complete_headers_preserve_beacon_fetch_budget() {
-        use helios_consensus_core::types::{
-            BeaconBlockHeader, ExecutionPayloadHeader, ExecutionPayloadHeaderElectra,
-            LightClientHeader, LightClientHeaderElectra,
-        };
-        use tree_hash::TreeHash;
-
-        let beacon = beacon_fixture();
-        let (block_send, mut blocks) = channel(4);
-        let (finalized_send, mut finalized) = watch::channel(None);
-        let (checkpoint_send, _) = watch::channel(None);
-        let mut client = Inner::<MainnetConsensusSpec, MockRpc>::new(
-            "testdata/",
-            block_send,
-            finalized_send,
-            checkpoint_send,
-            Arc::new(Config::default()),
-        );
-        let header = BeaconBlockHeader {
-            slot: beacon.slot,
-            proposer_index: beacon.proposer_index,
-            parent_root: beacon.parent_root,
-            state_root: beacon.state_root,
-            body_root: beacon.body.tree_hash_root(),
-        };
-        client.store.optimistic_header = LightClientHeader::Electra(LightClientHeaderElectra {
-            beacon: header,
-            execution: ExecutionPayloadHeader::Electra(ExecutionPayloadHeaderElectra {
-                block_hash: *beacon.body.execution_payload().block_hash(),
-                ..Default::default()
-            }),
-            ..Default::default()
-        });
-        client.store.finalized_header = client.store.optimistic_header.clone();
-        client.send_blocks().await.unwrap();
-        assert_eq!(
-            *client.rpc.fetched_blocks.lock().unwrap(),
-            vec![beacon.slot; 2]
-        );
-        let block = blocks.recv().await.unwrap();
-        assert_eq!(block.header.hash_slow(), block.header.hash);
-        let block = finalized.borrow_and_update().clone().unwrap();
-        assert_eq!(block.header.hash_slow(), block.header.hash);
-
-        client.send_blocks().await.unwrap();
-        assert_eq!(
-            *client.rpc.fetched_blocks.lock().unwrap(),
-            vec![beacon.slot; 3]
-        );
-
-        // The fetched beacon parent/body must still match the trusted header.
-        client.store.optimistic_header.beacon_mut().parent_root = Default::default();
-        assert!(client
-            .get_execution_block(&Some(beacon.slot))
-            .await
-            .is_err());
-    }
-
-    #[test]
-    fn preserves_payload_logs_bloom() {
-        use helios_consensus_core::types::{ExecutionPayload, ExecutionPayloadDeneb};
-        let mut payload = ExecutionPayloadDeneb::<MainnetConsensusSpec>::default();
-        payload.logs_bloom.inner = vec![0xaa; 256].into();
-        let block = super::payload_to_block(ExecutionPayload::Deneb(payload));
-        assert_eq!(
-            block.header.logs_bloom,
-            alloy::primitives::Bloom::from_slice(&[0xaa; 256])
-        );
-    }
-
     use std::sync::Arc;
 
     use alloy::primitives::b256;
@@ -1010,8 +656,6 @@ mod tests {
         BeaconBlockHeader, ExecutionPayloadHeader, ExecutionPayloadHeaderElectra, Fork, Forks,
         LightClientHeader, LightClientHeaderElectra, LightClientHeaderGloas, Update,
     };
-    use tree_hash::TreeHash;
-
     use url::Url;
 
     use crate::{
@@ -1022,7 +666,7 @@ mod tests {
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };
 
-    use super::TrustedExecutionPayloadReference;
+    use super::TrustedExecutionBlockHash;
 
     async fn get_client(
         strict_checkpoint_age: bool,
@@ -1061,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    fn trusted_payload_reference_uses_embedded_payload_before_gloas() {
+    fn trusted_execution_block_hash_uses_execution_payload_header_before_gloas() {
         let execution_block_hash =
             b256!("1111111111111111111111111111111111111111111111111111111111111111");
         let header = LightClientHeader::Electra(LightClientHeaderElectra {
@@ -1076,24 +720,17 @@ mod tests {
             execution_branch: Default::default(),
         });
 
-        let reference = TrustedExecutionPayloadReference::from_header::<MainnetConsensusSpec>(
+        let reference = TrustedExecutionBlockHash::from_header::<MainnetConsensusSpec>(
             &header,
             &Forks::default(),
         )
         .unwrap();
 
-        assert_eq!(
-            reference,
-            TrustedExecutionPayloadReference::EmbeddedBeaconPayload {
-                slot: MainnetConsensusSpec::slots_per_epoch(),
-                beacon_block_root: header.beacon().tree_hash_root(),
-                execution_block_hash,
-            }
-        );
+        assert_eq!(reference, TrustedExecutionBlockHash(execution_block_hash));
     }
 
     #[test]
-    fn trusted_payload_reference_uses_execution_block_hash_for_gloas() {
+    fn trusted_execution_block_hash_uses_gloas_execution_block_hash() {
         let execution_block_hash =
             b256!("2222222222222222222222222222222222222222222222222222222222222222");
         let header = LightClientHeader::Gloas(LightClientHeaderGloas {
@@ -1113,16 +750,10 @@ mod tests {
         };
 
         let reference =
-            TrustedExecutionPayloadReference::from_header::<MainnetConsensusSpec>(&header, &forks)
+            TrustedExecutionBlockHash::from_header::<MainnetConsensusSpec>(&header, &forks)
                 .unwrap();
 
-        assert_eq!(
-            reference,
-            TrustedExecutionPayloadReference::ExecutionBlockHash {
-                beacon_slot: MainnetConsensusSpec::slots_per_epoch() * 2,
-                execution_block_hash,
-            }
-        );
+        assert_eq!(reference, TrustedExecutionBlockHash(execution_block_hash));
     }
 
     #[tokio::test]

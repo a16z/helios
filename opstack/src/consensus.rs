@@ -301,6 +301,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
                 inner: recovered,
                 block_hash: Some(value.block_hash),
                 block_number: Some(value.block_number),
+                block_timestamp: Some(value.timestamp),
                 transaction_index: Some(i as u64),
                 effective_gas_price: Some(base_fee),
             };
@@ -309,7 +310,8 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
                 OpTxEnvelope::Legacy(_)
                 | OpTxEnvelope::Eip2930(_)
                 | OpTxEnvelope::Eip1559(_)
-                | OpTxEnvelope::Eip7702(_) => Transaction {
+                | OpTxEnvelope::Eip7702(_)
+                | OpTxEnvelope::PostExec(_) => Transaction {
                     inner: inner_tx,
                     deposit_nonce: None,
                     deposit_receipt_version: None,
@@ -358,6 +360,8 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         parent_beacon_block_root: None,
         extra_data: value.extra_data.to_vec().into(),
         requests_hash: None,
+        block_access_list_hash: None,
+        slot_number: None,
         logs_bloom,
     };
 

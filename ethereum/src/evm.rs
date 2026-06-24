@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::{BlockHeader, TxType},
     eips::{eip1898::RpcBlockHash, BlockId},
-    network::TransactionBuilder,
+    network::{NetworkTransactionBuilder, TransactionBuilder},
     rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
 use eyre::Result;
@@ -145,22 +145,22 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         TxEnv {
             tx_type: tx.transaction_type.unwrap_or(tx.minimal_tx_type() as u8),
             caller: tx.from.unwrap_or_default(),
-            gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
+            gas_limit: <TransactionRequest as TransactionBuilder>::gas_limit(tx)
                 .unwrap_or(default_gas_limit),
             gas_price: tx.gas_price.or(tx.max_fee_per_gas).unwrap_or_default(),
             kind: tx.to.unwrap_or_default(),
             value: tx.value.unwrap_or_default(),
-            data: <TransactionRequest as TransactionBuilder<Ethereum>>::input(tx)
+            data: <TransactionRequest as TransactionBuilder>::input(tx)
                 .unwrap_or_default()
                 .clone(),
-            nonce: <TransactionRequest as TransactionBuilder<Ethereum>>::nonce(tx)
-                .unwrap_or_default(),
-            chain_id: <TransactionRequest as TransactionBuilder<Ethereum>>::chain_id(tx),
-            access_list: <TransactionRequest as TransactionBuilder<Ethereum>>::access_list(tx)
+            nonce: <TransactionRequest as TransactionBuilder>::nonce(tx).unwrap_or_default(),
+            chain_id: <TransactionRequest as TransactionBuilder>::chain_id(tx),
+            access_list: <TransactionRequest as TransactionBuilder>::access_list(tx)
                 .cloned()
                 .unwrap_or_default(),
-            gas_priority_fee:
-                <TransactionRequest as TransactionBuilder<Ethereum>>::max_priority_fee_per_gas(tx),
+            gas_priority_fee: <TransactionRequest as TransactionBuilder>::max_priority_fee_per_gas(
+                tx,
+            ),
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap_or_default(),
             blob_hashes: tx
                 .blob_versioned_hashes
