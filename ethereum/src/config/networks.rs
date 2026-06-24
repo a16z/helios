@@ -382,6 +382,7 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1710338135,
             prague_timestamp: 1746612311,
             osaka_timestamp: 1764798551,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -408,6 +409,7 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1706655072,
             prague_timestamp: 1741159776,
             osaka_timestamp: 1760427360,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -434,6 +436,7 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1707305664,
             prague_timestamp: 1740434112,
             osaka_timestamp: 1759308480,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -460,6 +463,7 @@ impl EthereumForkSchedule {
             cancun_timestamp: 0,
             prague_timestamp: 1742999832,
             osaka_timestamp: 1761677592,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -486,6 +490,7 @@ impl EthereumForkSchedule {
             cancun_timestamp: 0,
             prague_timestamp: 0,
             osaka_timestamp: 0,
+            amsterdam_timestamp: 1780589520,
 
             ..Default::default()
         }

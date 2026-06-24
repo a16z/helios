@@ -194,6 +194,7 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price,
+            slot_num: block.header.slot_number().unwrap_or_default(),
         }
     }
 }

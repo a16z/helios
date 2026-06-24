@@ -303,7 +303,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         )
         .await?;
 
-        Ok(result.gas_used())
+        Ok(result.tx_gas_used())
     }
 
     async fn create_access_list(
@@ -341,7 +341,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
                 })
                 .collect::<Vec<_>>()
                 .into(),
-            gas_used: U256::from(result.gas_used()),
+            gas_used: U256::from(result.tx_gas_used()),
             error: matches!(result, ExecutionResult::Revert { .. })
                 .then_some(result.output().unwrap().to_string()),
         };
