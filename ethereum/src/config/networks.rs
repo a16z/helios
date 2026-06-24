@@ -116,6 +116,10 @@ pub fn mainnet() -> BaseConfig {
                 epoch: 411392,
                 fork_version: fixed_bytes!("06000000"),
             },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("07000000"),
+            },
         },
         execution_forks: EthereumForkSchedule::mainnet(),
         max_checkpoint_age: 1_209_600, // 14 days
@@ -165,6 +169,10 @@ pub fn sepolia() -> BaseConfig {
             fulu: Fork {
                 epoch: 272640,
                 fork_version: fixed_bytes!("90000075"),
+            },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("90000076"),
             },
         },
         execution_forks: EthereumForkSchedule::sepolia(),
@@ -216,6 +224,10 @@ pub fn holesky() -> BaseConfig {
                 epoch: 165120,
                 fork_version: fixed_bytes!("07017000"),
             },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("08017000"),
+            },
         },
         execution_forks: EthereumForkSchedule::holesky(),
         max_checkpoint_age: 1_209_600, // 14 days
@@ -265,6 +277,10 @@ pub fn hoodi() -> BaseConfig {
             fulu: Fork {
                 epoch: 50688,
                 fork_version: fixed_bytes!("70000910"),
+            },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("80000910"),
             },
         },
         execution_forks: EthereumForkSchedule::hoodi(),

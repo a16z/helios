@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::network::BlockResponse;
+use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     state::StateOverride, AccessListItem, AccessListResult, EIP1186AccountProofResponse,
@@ -23,7 +23,7 @@ use helios_common::{
     types::{EvmError, SubEventRx, SubscriptionEvent, SubscriptionType},
 };
 
-use crate::consensus::Consensus;
+use crate::consensus::{Consensus, TrustedBlockRef};
 use crate::errors::ClientError;
 use crate::execution::filter_state::{FilterState, FilterType};
 use crate::time::{SystemTime, UNIX_EPOCH};
@@ -61,6 +61,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                     block = block_recv.recv() => {
                         match block {
                             Some(block) => {
+                                let block = match resolve_trusted_block::<N, E>(
+                                    execution_ref.as_ref(),
+                                    block,
+                                )
+                                .await
+                                {
+                                    Ok(block) => block,
+                                    Err(err) => {
+                                        warn!(
+                                            target: "helios::client",
+                                            error = %err,
+                                            "failed to resolve trusted latest block"
+                                        );
+                                        continue;
+                                    }
+                                };
                                 let block_number = block.header().number();
                                 let timestamp = block.header().timestamp();
 
@@ -98,8 +114,24 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                             warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
                             break;
                         }
-                        let block = finalized_block_recv.borrow_and_update().clone();
-                        if let Some(block) = block {
+                        let trusted_block = finalized_block_recv.borrow_and_update().clone();
+                        if let Some(trusted_block) = trusted_block {
+                            let block = match resolve_trusted_block::<N, E>(
+                                execution_ref.as_ref(),
+                                trusted_block,
+                            )
+                            .await
+                            {
+                                Ok(block) => block,
+                                Err(err) => {
+                                    warn!(
+                                        target: "helios::client",
+                                        error = %err,
+                                        "failed to resolve trusted finalized block"
+                                    );
+                                    continue;
+                                }
+                            };
                             let block_number = block.header().number();
 
                             // Only log if this is a new finalized block
@@ -165,6 +197,45 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
 
         Ok(())
     }
+}
+
+async fn resolve_trusted_block<N: NetworkSpec, E: ExecutionProvider<N>>(
+    execution: &E,
+    trusted_block: TrustedBlockRef<N::BlockResponse>,
+) -> Result<N::BlockResponse> {
+    match trusted_block {
+        TrustedBlockRef::Full(block) => Ok(block),
+        TrustedBlockRef::Hash(block_hash) => {
+            let block = execution
+                .get_untrusted_block(BlockId::Hash(block_hash.into()), true)
+                .await?
+                .ok_or_else(|| eyre!("trusted execution block {block_hash} not found"))?;
+
+            ensure_trusted_block_valid::<N>(&block, block_hash)?;
+            Ok(block)
+        }
+    }
+}
+
+fn ensure_trusted_block_valid<N: NetworkSpec>(
+    block: &N::BlockResponse,
+    expected_hash: B256,
+) -> Result<()> {
+    let block_hash = block.header().hash();
+
+    if block_hash != expected_hash {
+        return Err(eyre!(
+            "trusted execution block hash mismatch: found {block_hash}, expected {expected_hash}"
+        ));
+    }
+
+    if !N::is_hash_valid(block) {
+        return Err(eyre!(
+            "trusted execution block {block_hash} failed local hash validation"
+        ));
+    }
+
+    Ok(())
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
