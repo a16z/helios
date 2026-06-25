@@ -176,12 +176,7 @@ pub fn verify_block(curr_signer: Address, block: &Block<Transaction>) -> Result<
     let mut header = block.header.inner.clone();
     header.extra_data = prefix;
 
-    let sighash: [u8; 32] = header
-        .hash_slow()
-        .to_vec()
-        .try_into()
-        .expect("Failed to convert header hash to fixed array");
-    let sighash = B256::new(sighash);
+    let sighash = header.hash_slow();
 
     let pk = signature
         .recover_from_prehash(&sighash)
