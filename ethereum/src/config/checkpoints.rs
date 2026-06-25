@@ -235,7 +235,12 @@ impl CheckpointFallback {
         let constructed_url = Self::construct_url(url);
         let res = get(&constructed_url).await?;
         let raw: RawSlotResponse = res.json().await?;
-        let slot = raw.data.slots[0].clone();
+        let slot = raw
+            .data
+            .slots
+            .first()
+            .ok_or_else(|| eyre::eyre!("no slots"))?
+            .clone();
         slot.block_root
             .ok_or_else(|| eyre::eyre!("Checkpoint not in returned slot"))
     }
