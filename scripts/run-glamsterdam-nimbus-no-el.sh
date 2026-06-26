@@ -5,10 +5,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-DEVNET_NAME="${DEVNET_NAME:-glamsterdam-devnet-5}"
-CONFIG_BASE="${CONFIG_BASE:-https://config.glamsterdam-devnet-5.ethpandaops.io}"
-CHECKPOINT_SYNC_URL="${CHECKPOINT_SYNC_URL:-https://checkpoint-sync.glamsterdam-devnet-5.ethpandaops.io}"
-NIMBUS_IMAGE="${NIMBUS_IMAGE:-ethpandaops/nimbus-eth2:glamsterdam-devnet-5}"
+DEVNET_NAME="${DEVNET_NAME:-glamsterdam-devnet-6}"
+CONFIG_BASE="${CONFIG_BASE:-https://config.glamsterdam-devnet-6.ethpandaops.io}"
+CHECKPOINT_SYNC_URL="${CHECKPOINT_SYNC_URL:-https://checkpoint-sync.glamsterdam-devnet-6.ethpandaops.io}"
+NIMBUS_IMAGE="${NIMBUS_IMAGE:-ethpandaops/nimbus-eth2:glamsterdam-devnet-6}"
 
 WORK_DIR="${HELIOS_GLAMSTERDAM_DIR:-$REPO_ROOT/.devnets/$DEVNET_NAME/nimbus-no-el}"
 CONFIG_DIR="$WORK_DIR/network-config"

@@ -5,9 +5,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-NETWORK="${NETWORK:-glamsterdam-devnet-5}"
-CONSENSUS_RPC="${CONSENSUS_RPC:-http://127.0.0.1:5052}"
-EXECUTION_RPC="${EXECUTION_RPC:-https://rpc.glamsterdam-devnet-5.ethpandaops.io}"
+NETWORK="${NETWORK:-glamsterdam-devnet-6}"
+CONSENSUS_RPC="${CONSENSUS_RPC:-https://beacon.glamsterdam-devnet-6.ethpandaops.io/nimbus}"
+EXECUTION_RPC="${EXECUTION_RPC:-https://rpc.glamsterdam-devnet-6.ethpandaops.io}"
 RPC_BIND_IP="${RPC_BIND_IP:-127.0.0.1}"
 RPC_PORT="${RPC_PORT:-8545}"
 DATA_DIR="${HELIOS_GLAMSTERDAM_DATA_DIR:-$REPO_ROOT/.devnets/$NETWORK/helios-data}"
