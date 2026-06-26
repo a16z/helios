@@ -26,6 +26,7 @@ pub enum Network {
     Holesky,
     Hoodi,
     GlamsterdamDevnet5,
+    GlamsterdamDevnet6,
 }
 
 impl FromStr for Network {
@@ -37,7 +38,8 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
-            "glamsterdam" | "glamsterdam-devnet-5" => Ok(Self::GlamsterdamDevnet5),
+            "glamsterdam" | "glamsterdam-devnet-6" => Ok(Self::GlamsterdamDevnet6),
+            "glamsterdam-devnet-5" => Ok(Self::GlamsterdamDevnet5),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -51,6 +53,7 @@ impl Display for Network {
             Self::Holesky => "holesky",
             Self::Hoodi => "hoodi",
             Self::GlamsterdamDevnet5 => "glamsterdam-devnet-5",
+            Self::GlamsterdamDevnet6 => "glamsterdam-devnet-6",
         };
 
         f.write_str(str)
@@ -65,6 +68,7 @@ impl Network {
             Self::Holesky => holesky(),
             Self::Hoodi => hoodi(),
             Self::GlamsterdamDevnet5 => glamsterdam_devnet_5(),
+            Self::GlamsterdamDevnet6 => glamsterdam_devnet_6(),
         }
     }
 
@@ -75,6 +79,7 @@ impl Network {
             17000 => Ok(Network::Holesky),
             560048 => Ok(Network::Hoodi),
             7095321190 => Ok(Network::GlamsterdamDevnet5),
+            7052886157 => Ok(Network::GlamsterdamDevnet6),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -350,6 +355,62 @@ pub fn glamsterdam_devnet_5() -> BaseConfig {
     }
 }
 
+pub fn glamsterdam_devnet_6() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "232b30dcfd0fe9cf9122a25ded967fea954ed462c6496f9ba42d11ff78b56900"
+        ),
+        rpc_port: 8545,
+        consensus_rpc: Some(
+            Url::parse("https://beacon.glamsterdam-devnet-6.ethpandaops.io/nimbus").unwrap(),
+        ),
+        chain: ChainConfig {
+            chain_id: 7052886157,
+            genesis_time: 1782387000,
+            genesis_root: b256!("c82d7799f23f55e75388234baf4611f9d38346ff5bfb1bfd1391e80ff9b0c708"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("10435048"),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("20435048"),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("30435048"),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("40435048"),
+            },
+            deneb: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("50435048"),
+            },
+            electra: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("60435048"),
+            },
+            fulu: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("70435048"),
+            },
+            gloas: Fork {
+                epoch: 30,
+                fork_version: fixed_bytes!("80435048"),
+            },
+        },
+        execution_forks: EthereumForkSchedule::glamsterdam_devnet_6(),
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::GlamsterdamDevnet6)),
+        ..std::default::Default::default()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn data_dir(network: Network) -> PathBuf {
     match home_dir() {
@@ -491,6 +552,33 @@ impl EthereumForkSchedule {
             prague_timestamp: 0,
             osaka_timestamp: 0,
             amsterdam_timestamp: 1780589520,
+
+            ..Default::default()
+        }
+    }
+
+    fn glamsterdam_devnet_6() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 0,
+            homestead_timestamp: 0,
+            dao_timestamp: 0,
+            tangerine_timestamp: 0,
+            spurious_dragon_timestamp: 0,
+            byzantium_timestamp: 0,
+            constantinople_timestamp: 0,
+            petersburg_timestamp: 0,
+            istanbul_timestamp: 0,
+            muir_glacier_timestamp: 0,
+            berlin_timestamp: 0,
+            london_timestamp: 0,
+            arrow_glacier_timestamp: 0,
+            gray_glacier_timestamp: 0,
+            paris_timestamp: 0,
+            shanghai_timestamp: 0,
+            cancun_timestamp: 0,
+            prague_timestamp: 0,
+            osaka_timestamp: 0,
+            amsterdam_timestamp: 1782398520,
 
             ..Default::default()
         }
