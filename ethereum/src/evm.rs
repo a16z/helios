@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::{BlockHeader, TxType},
     eips::{eip1898::RpcBlockHash, BlockId},
-    network::TransactionBuilder,
+    network::{NetworkTransactionBuilder, TransactionBuilder},
     rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
 use eyre::Result;
@@ -116,10 +116,8 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         let spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         let mut tx_env = Self::tx_env(tx, spec);
 
-        if <TxType as Into<u8>>::into(
-            <TransactionRequest as TransactionBuilder<Ethereum>>::output_tx_type(tx),
-        ) == 0u8
-        {
+        let tx_type = NetworkTransactionBuilder::<Ethereum>::output_tx_type(tx);
+        if tx_type == TxType::Legacy {
             tx_env.chain_id = None;
         } else {
             tx_env.chain_id = Some(self.chain_id);
@@ -148,23 +146,23 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         TxEnv {
             tx_type: tx.transaction_type.unwrap_or_default(),
             caller: tx.from.unwrap_or_default(),
-            gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
+            gas_limit: <TransactionRequest as TransactionBuilder>::gas_limit(tx)
                 .unwrap_or(default_gas_limit),
-            gas_price: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_price(tx)
+            gas_price: <TransactionRequest as TransactionBuilder>::gas_price(tx)
                 .unwrap_or_default(),
             kind: tx.to.unwrap_or_default(),
             value: tx.value.unwrap_or_default(),
-            data: <TransactionRequest as TransactionBuilder<Ethereum>>::input(tx)
+            data: <TransactionRequest as TransactionBuilder>::input(tx)
                 .unwrap_or_default()
                 .clone(),
-            nonce: <TransactionRequest as TransactionBuilder<Ethereum>>::nonce(tx)
-                .unwrap_or_default(),
-            chain_id: <TransactionRequest as TransactionBuilder<Ethereum>>::chain_id(tx),
-            access_list: <TransactionRequest as TransactionBuilder<Ethereum>>::access_list(tx)
+            nonce: <TransactionRequest as TransactionBuilder>::nonce(tx).unwrap_or_default(),
+            chain_id: <TransactionRequest as TransactionBuilder>::chain_id(tx),
+            access_list: <TransactionRequest as TransactionBuilder>::access_list(tx)
                 .cloned()
                 .unwrap_or_default(),
-            gas_priority_fee:
-                <TransactionRequest as TransactionBuilder<Ethereum>>::max_priority_fee_per_gas(tx),
+            gas_priority_fee: <TransactionRequest as TransactionBuilder>::max_priority_fee_per_gas(
+                tx,
+            ),
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap_or_default(),
             blob_hashes: tx
                 .blob_versioned_hashes
@@ -195,12 +193,15 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
+            slot_num: block.header.slot_number().unwrap_or_default(),
         }
     }
 }
 
 pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> SpecId {
-    if timestamp >= fork_schedule.osaka_timestamp {
+    if timestamp >= fork_schedule.amsterdam_timestamp {
+        SpecId::AMSTERDAM
+    } else if timestamp >= fork_schedule.osaka_timestamp {
         SpecId::OSAKA
     } else if timestamp >= fork_schedule.prague_timestamp {
         SpecId::PRAGUE
@@ -240,5 +241,29 @@ pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSched
         SpecId::FRONTIER
     } else {
         SpecId::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spec_id_selects_amsterdam_after_activation() {
+        let fork_schedule = ForkSchedule {
+            prague_timestamp: 10,
+            osaka_timestamp: 20,
+            amsterdam_timestamp: 30,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            get_spec_id_for_block_timestamp(29, &fork_schedule),
+            SpecId::OSAKA
+        );
+        assert_eq!(
+            get_spec_id_for_block_timestamp(30, &fork_schedule),
+            SpecId::AMSTERDAM
+        );
     }
 }

@@ -1,0 +1,6 @@
+preset: minimal
+fork: gloas
+runner: light_client
+handler: sync
+suite: pyspec_tests
+case: supply_sync_committee_from_past_update

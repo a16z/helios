@@ -18,7 +18,7 @@ use tokio::sync::{
 };
 
 use helios_core::{
-    consensus::Consensus,
+    consensus::{Consensus, TrustedBlockRef},
     time::{interval, SystemTime, UNIX_EPOCH},
 };
 
@@ -28,8 +28,8 @@ use tracing::error;
 use crate::config::Config;
 
 pub struct ConsensusClient {
-    block_recv: Option<Receiver<Block<Transaction>>>,
-    finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
+    block_recv: Option<Receiver<TrustedBlockRef<Block<Transaction>>>>,
+    finalized_block_recv: Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>>,
     chain_id: u64,
 }
 
@@ -81,11 +81,13 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
         Ok(())
     }
 
-    fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
+    fn block_recv(&mut self) -> Option<Receiver<TrustedBlockRef<Block<Transaction>>>> {
         self.block_recv.take()
     }
 
-    fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+    fn finalized_block_recv(
+        &mut self,
+    ) -> Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>> {
         self.finalized_block_recv.take()
     }
 
@@ -109,8 +111,8 @@ struct Inner {
     unsafe_signer: Arc<Mutex<Address>>,
     chain_id: u64,
     latest_block: Option<u64>,
-    block_send: Sender<Block<Transaction>>,
-    finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+    block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
+    finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
 }
 
 impl Inner {
@@ -143,7 +145,7 @@ impl Inner {
                 let age = now.saturating_sub(timestamp);
 
                 self.latest_block = Some(number);
-                _ = self.block_send.send(block).await;
+                _ = self.block_send.send(TrustedBlockRef::Full(block)).await;
 
                 tracing::debug!(
                     "unsafe head updated: block={} age={}s",
