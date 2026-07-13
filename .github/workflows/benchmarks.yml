@@ -20,7 +20,9 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v3
+        with:
+          cache-on-failure: true
       - uses: actions-rs/cargo@v1
         with:
           command: bench --package helios
