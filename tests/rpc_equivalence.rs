@@ -188,7 +188,7 @@ async fn setup() -> (
         let port = get_available_port();
         let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
-            .verifiable_api(&format!("http://localhost:{api_port}"))
+            .verifiable_api(format!("http://localhost:{api_port}"))
             .unwrap()
             .consensus_rpc(consensus_rpc)
             .unwrap()

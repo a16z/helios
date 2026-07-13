@@ -204,7 +204,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
 
         save_new_checkpoints(
             checkpoint_recv.clone(),
-            db.clone(),
+            db,
             initial_checkpoint,
             shutdown_recv,
         );
