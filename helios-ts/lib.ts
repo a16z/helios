@@ -184,8 +184,8 @@ export class HeliosProvider {
     }
     try {
       return await this.#req(req);
-    } catch (err) {
-      throw new Error(err.toString());
+    } catch (err: any) {
+      throw new Error(String(err));
     }
   }
 
@@ -330,8 +330,8 @@ export class HeliosProvider {
       });
       this.#subscriptionIds.add(id);
       return id;
-    } catch (err) {
-      throw new Error(err.toString());
+    } catch (err: any) {
+      throw new Error(String(err));
     }
   }
 
