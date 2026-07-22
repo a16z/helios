@@ -128,15 +128,30 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             if let Some(parent_block) = blocks.get(&(block_number - 1)) {
                 parent_block.header().hash() == parent_hash
             } else {
-                // No parent block in cache - check if cache is empty except finalized blocks
+                // No parent block in cache - check if new block continues from finalized or latest block
                 let finalized = self.finalized.read().await;
-                if let Some((latest_number, _)) = blocks.last_key_value() {
-                    // All blocks in cache are finalized
-                    *latest_number
-                        <= finalized
-                            .as_ref()
-                            .map(|block| block.header().number())
-                            .unwrap_or_default()
+                if let Some((latest_number, latest_block)) = blocks.last_key_value() {
+                    // Check if new block continues from finalized block
+                    if let Some(finalized_block) = finalized.as_ref() {
+                        let finalized_number = finalized_block.header().number();
+                        if block_number == finalized_number + 1 {
+                            parent_hash == finalized_block.header().hash()
+                        } else if block_number == *latest_number + 1 {
+                            // Check if new block continues from latest block in cache
+                            latest_block.header().hash() == parent_hash
+                        } else {
+                            // Block doesn't continue from any known block
+                            false
+                        }
+                    } else {
+                        // No finalized block - check if new block continues from latest block
+                        if block_number == *latest_number + 1 {
+                            latest_block.header().hash() == parent_hash
+                        } else {
+                            // Block doesn't continue from any known block
+                            false
+                        }
+                    }
                 } else {
                     // Block cache is completely empty
                     true
