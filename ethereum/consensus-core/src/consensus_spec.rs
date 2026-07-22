@@ -13,7 +13,7 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
     type MaxCommitteesPerSlot: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxDeposits: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxVoluntaryExits: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
-    type MaxBlsToExecutionChanged: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
+    type MaxBlsToExecutionChanges: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxBlobKzgCommitments: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxWithdrawals: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxValidatorsPerCommittee: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
@@ -54,7 +54,7 @@ impl ConsensusSpec for MainnetConsensusSpec {
     type MaxValidatorsPerSlot = typenum::U131072;
     type MaxDeposits = typenum::U16;
     type MaxVoluntaryExits = typenum::U16;
-    type MaxBlsToExecutionChanged = typenum::U16;
+    type MaxBlsToExecutionChanges = typenum::U16;
     type MaxBlobKzgCommitments = typenum::U4096;
     type MaxWithdrawals = typenum::U16;
     type MaxValidatorsPerCommittee = typenum::U2048;
@@ -79,7 +79,7 @@ impl ConsensusSpec for MinimalConsensusSpec {
     type MaxValidatorsPerSlot = typenum::U8192;
     type MaxDeposits = typenum::U16;
     type MaxVoluntaryExits = typenum::U16;
-    type MaxBlsToExecutionChanged = typenum::U16;
+    type MaxBlsToExecutionChanges = typenum::U16;
     type MaxBlobKzgCommitments = typenum::U4096;
     type MaxWithdrawals = typenum::U16;
     type MaxValidatorsPerCommittee = typenum::U2048;
