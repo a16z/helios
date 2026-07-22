@@ -25,7 +25,7 @@ function formatBlock(block: Block): string {
     minute: "2-digit",
     second: "2-digit",
   });
-  const txCount = block.transactions.length;
+  const txCount = block.transactions?.length ?? 0;
   const txLabel = txCount === 1 ? "transaction" : "transactions";
   return `<span class="block-number">Block ${block.number}</span><br>${date} ${time}<br>${txCount} ${txLabel}`;
 }
