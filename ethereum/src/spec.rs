@@ -252,7 +252,7 @@ impl TransactionBuilder<Ethereum> for TransactionRequest {
 
         let eip1559 = self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some();
 
-        let eip4844 = eip1559 && self.sidecar.is_some() && self.to.is_some();
+        let eip4844 = eip1559 && self.sidecar.is_some();
         common && (legacy || eip2930 || eip1559 || eip4844)
     }
 
