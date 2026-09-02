@@ -39,6 +39,10 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
     fn sync_committee_size() -> u64 {
         Self::SyncCommitteeSize::to_u64()
     }
+
+    fn seconds_per_slot() -> u64 {
+        12
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
@@ -89,4 +93,8 @@ impl ConsensusSpec for MinimalConsensusSpec {
     type MaxDepositRequests = typenum::U4;
     type MaxWithdrawalRequests = typenum::U2;
     type MaxConsolidationRequests = typenum::U1;
+
+    fn seconds_per_slot() -> u64 {
+        6
+    }
 }
