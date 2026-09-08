@@ -143,7 +143,11 @@ pub fn verify_receipt_proof<N: NetworkSpec>(
     proof: &[Bytes],
 ) -> Result<()> {
     let key = {
-        let index = receipt.transaction_index().unwrap() as usize;
+        let index = receipt
+            .transaction_index()
+            .ok_or(ExecutionError::TransactionNotIncluded(
+                receipt.transaction_hash(),
+            ))? as usize;
         let index_buffer = rlp::encode_fixed_size(&index);
         Nibbles::unpack(&index_buffer)
     };
@@ -190,7 +194,9 @@ pub fn verify_transaction_proof<N: NetworkSpec>(
     proof: &[Bytes],
 ) -> Result<()> {
     let key = {
-        let index = tx.transaction_index().unwrap() as usize;
+        let index =
+            tx.transaction_index()
+                .ok_or(ExecutionError::TransactionNotIncluded(tx.tx_hash()))? as usize;
         let index_buffer = rlp::encode_fixed_size(&index);
         Nibbles::unpack(&index_buffer)
     };
@@ -315,6 +321,29 @@ mod tests {
 
             assert!(result.is_ok());
         }
+    }
+
+    #[test]
+    fn test_verify_receipt_proof_without_transaction_index() {
+        // A receipt that is not included in a block carries no index. Verification
+        // must reject it rather than panic, since the receipt comes from a server
+        // whose responses are exactly what this proof is meant to check.
+        let mut receipt = rpc_tx_receipt();
+        receipt.transaction_index = None;
+
+        let result = verify_receipt_proof::<EthereumSpec>(&receipt, B256::ZERO, &[]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_transaction_proof_without_transaction_index() {
+        let mut tx = rpc_tx();
+        tx.transaction_index = None;
+
+        let result = verify_transaction_proof::<EthereumSpec>(&tx, B256::ZERO, &[]);
+
+        assert!(result.is_err());
     }
 
     #[test]
