@@ -548,9 +548,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             .as_secs();
 
         let time_to_next_slot = next_slot_timestamp - now;
-        let next_update = time_to_next_slot + S::seconds_per_slot() / 3;
-
-        Duration::try_seconds(next_update as i64).unwrap()
+        Duration::try_seconds(time_to_next_slot as i64).unwrap()
+            + slot_update_offset(S::seconds_per_slot())
     }
 
     pub async fn bootstrap(&mut self, checkpoint: B256) -> Result<()> {
@@ -790,6 +789,10 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .with_withdrawals(Some(Withdrawals::new(withdrawals)))
 }
 
+fn slot_update_offset(seconds_per_slot: u64) -> Duration {
+    Duration::from_std(std::time::Duration::from_secs(seconds_per_slot) / 3).unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     fn beacon_fixture() -> helios_consensus_core::types::BeaconBlock<MainnetConsensusSpec> {
@@ -941,6 +944,14 @@ mod tests {
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };
+
+    #[test]
+    fn test_slot_update_offset_preserves_fractional_seconds() {
+        assert_eq!(
+            super::slot_update_offset(5),
+            chrono::Duration::nanoseconds(1_666_666_666),
+        );
+    }
 
     async fn get_client(
         strict_checkpoint_age: bool,
