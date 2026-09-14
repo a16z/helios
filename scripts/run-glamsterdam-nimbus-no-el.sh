@@ -5,10 +5,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-DEVNET_NAME="${DEVNET_NAME:-glamsterdam-devnet-6}"
-CONFIG_BASE="${CONFIG_BASE:-https://config.glamsterdam-devnet-6.ethpandaops.io}"
-CHECKPOINT_SYNC_URL="${CHECKPOINT_SYNC_URL:-https://checkpoint-sync.glamsterdam-devnet-6.ethpandaops.io}"
-NIMBUS_IMAGE="${NIMBUS_IMAGE:-ethpandaops/nimbus-eth2:glamsterdam-devnet-6}"
+DEVNET_NAME="${DEVNET_NAME:-glamsterdam-devnet-7}"
+CONFIG_BASE="${CONFIG_BASE:-https://config.glamsterdam-devnet-7.ethpandaops.io}"
+CHECKPOINT_SYNC_URL="${CHECKPOINT_SYNC_URL:-https://checkpoint-sync.glamsterdam-devnet-7.ethpandaops.io}"
+BEACON_RPC="${BEACON_RPC:-https://beacon.glamsterdam-devnet-7.ethpandaops.io}"
+CHECKPOINT_SYNC_FALLBACK_URL="${CHECKPOINT_SYNC_FALLBACK_URL:-$BEACON_RPC}"
+DIRECT_PEER_ENDPOINT="${DIRECT_PEER_ENDPOINT:-lighthouse}"
+DIRECT_PEER="${DIRECT_PEER:-}"
+NIMBUS_IMAGE="${NIMBUS_IMAGE:-ethpandaops/nimbus-eth2:glamsterdam-devnet-7}"
 
 WORK_DIR="${HELIOS_GLAMSTERDAM_DIR:-$REPO_ROOT/.devnets/$DEVNET_NAME/nimbus-no-el}"
 CONFIG_DIR="$WORK_DIR/network-config"
@@ -39,8 +43,30 @@ is_empty_dir() {
     [ -d "$1" ] && [ -z "$(find "$1" -mindepth 1 -maxdepth 1 -print -quit)" ]
 }
 
+reset_data_dir() {
+    echo "resetting Nimbus data dir: $DATA_DIR"
+    rm -rf "$DATA_DIR"
+    mkdir -p "$DATA_DIR"
+}
+
+trusted_sync() {
+    local sync_url="$1"
+
+    echo "running Nimbus trusted sync from $sync_url"
+    docker run --rm \
+        -v "$CONFIG_DIR:/network-config:ro" \
+        -v "$DATA_DIR:/data" \
+        "$NIMBUS_IMAGE" \
+        trustedNodeSync \
+        --network=/network-config \
+        --data-dir=/data \
+        --trusted-node-url="$sync_url" \
+        --backfill="$BACKFILL"
+}
+
 require_command curl
 require_command docker
+require_command jq
 
 mkdir -p "$CONFIG_DIR" "$DATA_DIR"
 
@@ -49,29 +75,36 @@ download "$CONFIG_BASE/cl/genesis.ssz" "$CONFIG_DIR/genesis.ssz"
 download "$CONFIG_BASE/cl/bootstrap_nodes.txt" "$CONFIG_DIR/bootstrap_nodes.txt"
 
 if [ "$RESET" = "true" ] || [ "$RESET" = "1" ]; then
-    echo "resetting Nimbus data dir: $DATA_DIR"
-    rm -rf "$DATA_DIR"
-    mkdir -p "$DATA_DIR"
+    reset_data_dir
 fi
 
 if is_empty_dir "$DATA_DIR"; then
-    echo "running Nimbus trusted sync from $CHECKPOINT_SYNC_URL"
-    docker run --rm \
-        -v "$CONFIG_DIR:/network-config:ro" \
-        -v "$DATA_DIR:/data" \
-        "$NIMBUS_IMAGE" \
-        trustedNodeSync \
-        --network=/network-config \
-        --data-dir=/data \
-        --trusted-node-url="$CHECKPOINT_SYNC_URL" \
-        --backfill="$BACKFILL"
+    if ! trusted_sync "$CHECKPOINT_SYNC_URL"; then
+        if [ "$CHECKPOINT_SYNC_URL" = "$CHECKPOINT_SYNC_FALLBACK_URL" ]; then
+            exit 1
+        fi
+
+        echo "trusted sync failed; retrying from $CHECKPOINT_SYNC_FALLBACK_URL" >&2
+        reset_data_dir
+        trusted_sync "$CHECKPOINT_SYNC_FALLBACK_URL"
+    fi
 else
     echo "Nimbus data dir is not empty; skipping trusted sync"
     echo "set RESET=1 to clear it and run trusted sync again"
 fi
 
+if [ -z "$DIRECT_PEER" ]; then
+    echo "fetching direct peer from $DIRECT_PEER_ENDPOINT via $BEACON_RPC"
+    DIRECT_PEER="$(
+        curl -fsSL -H "X-Dugtrio-Next-Endpoint: $DIRECT_PEER_ENDPOINT" \
+            "$BEACON_RPC/eth/v1/node/identity" \
+            | jq -er 'first(.data.p2p_addresses[] | select(startswith("/ip4/") and contains("/tcp/")))'
+    )"
+fi
+
 echo "starting Nimbus without an execution layer"
 echo "beacon API: http://127.0.0.1:$REST_PORT"
+echo "direct peer: $DIRECT_PEER"
 
 exec docker run --rm \
     -p "127.0.0.1:$REST_PORT:5052" \
@@ -84,6 +117,7 @@ exec docker run --rm \
     --data-dir=/data \
     --no-el \
     --bootstrap-file=/network-config/bootstrap_nodes.txt \
+    --direct-peer="$DIRECT_PEER" \
     --rest=true \
     --rest-address=0.0.0.0 \
     --rest-port=5052 \

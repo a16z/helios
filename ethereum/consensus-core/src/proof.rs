@@ -14,7 +14,9 @@ pub fn is_finality_proof_valid(
     current_epoch: u64,
     forks: &Forks,
 ) -> bool {
-    let (index, depth) = if current_epoch >= forks.electra.epoch {
+    let (index, depth) = if current_epoch >= forks.gloas.epoch {
+        (223, 9)
+    } else if current_epoch >= forks.electra.epoch {
         (41, 7)
     } else {
         (41, 6)
@@ -36,7 +38,9 @@ pub fn is_next_committee_proof_valid<S: ConsensusSpec>(
     current_epoch: u64,
     forks: &Forks,
 ) -> bool {
-    let (index, depth) = if current_epoch >= forks.electra.epoch {
+    let (index, depth) = if current_epoch >= forks.gloas.epoch {
+        (898, 11)
+    } else if current_epoch >= forks.electra.epoch {
         (23, 6)
     } else {
         (23, 5)
@@ -58,7 +62,9 @@ pub fn is_current_committee_proof_valid<S: ConsensusSpec>(
     current_epoch: u64,
     forks: &Forks,
 ) -> bool {
-    let (index, depth) = if current_epoch >= forks.electra.epoch {
+    let (index, depth) = if current_epoch >= forks.gloas.epoch {
+        (897, 11)
+    } else if current_epoch >= forks.electra.epoch {
         (22, 6)
     } else {
         (22, 5)
@@ -90,8 +96,8 @@ pub fn is_execution_block_hash_proof_valid(
         attested_header.body_root,
         execution_block_hash,
         execution_branch,
-        9,
-        320,
+        11,
+        808,
     )
 }
 

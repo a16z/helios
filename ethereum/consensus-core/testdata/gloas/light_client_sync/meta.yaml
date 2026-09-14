@@ -1,4 +1,4 @@
-genesis_validators_root: '0x0a08c27fe4ece2483f9e581f78c66379a06f96e9c24cd1390594ff939b26f95b'
-trusted_block_root: '0x6189afd7d4b989d8d126a9f6abf40e34108b83cf73dd45a76241fece3d1e6922'
-bootstrap_fork_digest: '0xa23573d9'
+genesis_validators_root: '0xf5a04d65ca33493c985006efcea80acca627d0cf0c8707fc898dfe63ec8d14d7'
+trusted_block_root: '0x69b2166efb0c817414f0d93cadd21c402327f203d826384e0fea82869a9f976e'
+bootstrap_fork_digest: '0x1adabdb3'
 store_fork_version: '0x07000001'

@@ -27,6 +27,7 @@ pub enum Network {
     Hoodi,
     GlamsterdamDevnet5,
     GlamsterdamDevnet6,
+    GlamsterdamDevnet7,
 }
 
 impl FromStr for Network {
@@ -38,8 +39,9 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
-            "glamsterdam" | "glamsterdam-devnet-6" => Ok(Self::GlamsterdamDevnet6),
+            "glamsterdam" | "glamsterdam-devnet-7" => Ok(Self::GlamsterdamDevnet7),
             "glamsterdam-devnet-5" => Ok(Self::GlamsterdamDevnet5),
+            "glamsterdam-devnet-6" => Ok(Self::GlamsterdamDevnet6),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -54,6 +56,7 @@ impl Display for Network {
             Self::Hoodi => "hoodi",
             Self::GlamsterdamDevnet5 => "glamsterdam-devnet-5",
             Self::GlamsterdamDevnet6 => "glamsterdam-devnet-6",
+            Self::GlamsterdamDevnet7 => "glamsterdam-devnet-7",
         };
 
         f.write_str(str)
@@ -69,6 +72,7 @@ impl Network {
             Self::Hoodi => hoodi(),
             Self::GlamsterdamDevnet5 => glamsterdam_devnet_5(),
             Self::GlamsterdamDevnet6 => glamsterdam_devnet_6(),
+            Self::GlamsterdamDevnet7 => glamsterdam_devnet_7(),
         }
     }
 
@@ -80,6 +84,7 @@ impl Network {
             560048 => Ok(Network::Hoodi),
             7095321190 => Ok(Network::GlamsterdamDevnet5),
             7052886157 => Ok(Network::GlamsterdamDevnet6),
+            7082904758 => Ok(Network::GlamsterdamDevnet7),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -411,6 +416,62 @@ pub fn glamsterdam_devnet_6() -> BaseConfig {
     }
 }
 
+pub fn glamsterdam_devnet_7() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "8ca59e763597b950d3479a6c200be0d2a052e66728d624fa5c4fe47a5e4144dd"
+        ),
+        rpc_port: 8545,
+        consensus_rpc: Some(
+            Url::parse("https://beacon.glamsterdam-devnet-7.ethpandaops.io").unwrap(),
+        ),
+        chain: ChainConfig {
+            chain_id: 7082904758,
+            genesis_time: 1784030400,
+            genesis_root: b256!("8f9a8573a44269574a9a9c2d932243aaeeb9b88cd1ef1b83b3bea97f06d3bafe"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("10669568"),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("20669568"),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("30669568"),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("40669568"),
+            },
+            deneb: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("50669568"),
+            },
+            electra: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("60669568"),
+            },
+            fulu: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("70669568"),
+            },
+            gloas: Fork {
+                epoch: 38,
+                fork_version: fixed_bytes!("80669568"),
+            },
+        },
+        execution_forks: EthereumForkSchedule::glamsterdam_devnet_7(),
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::GlamsterdamDevnet7)),
+        ..std::default::Default::default()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn data_dir(network: Network) -> PathBuf {
     match home_dir() {
@@ -591,5 +652,55 @@ impl EthereumForkSchedule {
 
             ..Default::default()
         }
+    }
+
+    fn glamsterdam_devnet_7() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 0,
+            homestead_timestamp: 0,
+            dao_timestamp: 0,
+            tangerine_timestamp: 0,
+            spurious_dragon_timestamp: 0,
+            byzantium_timestamp: 0,
+            constantinople_timestamp: 0,
+            petersburg_timestamp: 0,
+            istanbul_timestamp: 0,
+            muir_glacier_timestamp: 0,
+            berlin_timestamp: 0,
+            london_timestamp: 0,
+            arrow_glacier_timestamp: 0,
+            gray_glacier_timestamp: 0,
+            paris_timestamp: 0,
+            shanghai_timestamp: 0,
+            cancun_timestamp: 0,
+            prague_timestamp: 0,
+            osaka_timestamp: 0,
+            amsterdam_timestamp: 1784044992,
+
+            ..Default::default()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn glamsterdam_alias_tracks_latest_devnet() {
+        let network = Network::from_str("glamsterdam").unwrap();
+
+        assert_eq!(network, Network::GlamsterdamDevnet7);
+        assert_eq!(network.to_string(), "glamsterdam-devnet-7");
+    }
+
+    #[test]
+    fn glamsterdam_devnet_7_matches_chain_configuration() {
+        let network = Network::from_chain_id(7_082_904_758).unwrap();
+        let config = network.to_base_config();
+
+        assert_eq!(network, Network::GlamsterdamDevnet7);
+        assert_eq!(config.chain.chain_id, 7_082_904_758);
+        assert_eq!(config.forks.gloas.epoch, 38);
     }
 }

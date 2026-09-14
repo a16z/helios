@@ -36,6 +36,11 @@ fn light_client_sync_gloas() {
 }
 
 #[test]
+fn light_client_sync_no_force_update_gloas() {
+    runner::run("testdata/gloas/light_client_sync_no_force_update");
+}
+
+#[test]
 fn supply_sync_committee_from_past_update_gloas() {
     runner::run("testdata/gloas/supply_sync_committee_from_past_update");
 }

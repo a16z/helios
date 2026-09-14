@@ -123,10 +123,15 @@ pub struct Bootstrap<S: ConsensusSpec> {
     )]
     pub current_sync_committee_branch: FixedVector<B256, typenum::U5>,
     #[superstruct(
-        only(Electra, Gloas),
+        only(Electra),
         partial_getter(rename = "current_sync_committee_branch_electra")
     )]
     pub current_sync_committee_branch: FixedVector<B256, typenum::U6>,
+    #[superstruct(
+        only(Gloas),
+        partial_getter(rename = "current_sync_committee_branch_gloas")
+    )]
+    pub current_sync_committee_branch: FixedVector<B256, typenum::U11>,
 }
 
 impl<S: ConsensusSpec> Bootstrap<S> {
@@ -169,10 +174,15 @@ pub struct Update<S: ConsensusSpec> {
     #[superstruct(only(Base), partial_getter(rename = "next_sync_committee_branch_base"))]
     pub next_sync_committee_branch: FixedVector<B256, typenum::U5>,
     #[superstruct(
-        only(Electra, Gloas),
+        only(Electra),
         partial_getter(rename = "next_sync_committee_branch_electra")
     )]
     pub next_sync_committee_branch: FixedVector<B256, typenum::U6>,
+    #[superstruct(
+        only(Gloas),
+        partial_getter(rename = "next_sync_committee_branch_gloas")
+    )]
+    pub next_sync_committee_branch: FixedVector<B256, typenum::U11>,
     #[superstruct(only(Base, Electra), partial_getter(rename = "finalized_header_base"))]
     pub finalized_header: LightClientHeader,
     #[superstruct(only(Gloas))]
@@ -180,11 +190,10 @@ pub struct Update<S: ConsensusSpec> {
     pub finalized_header_gloas: LightClientHeaderGloas,
     #[superstruct(only(Base), partial_getter(rename = "finality_branch_base"))]
     pub finality_branch: FixedVector<B256, typenum::U6>,
-    #[superstruct(
-        only(Electra, Gloas),
-        partial_getter(rename = "finality_branch_electra")
-    )]
+    #[superstruct(only(Electra), partial_getter(rename = "finality_branch_electra"))]
     pub finality_branch: FixedVector<B256, typenum::U7>,
+    #[superstruct(only(Gloas), partial_getter(rename = "finality_branch_gloas"))]
+    pub finality_branch: FixedVector<B256, typenum::U9>,
     pub sync_aggregate: SyncAggregate<S>,
     #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
@@ -257,11 +266,10 @@ pub struct FinalityUpdate<S: ConsensusSpec> {
     pub finalized_header_gloas: LightClientHeaderGloas,
     #[superstruct(only(Base), partial_getter(rename = "finality_branch_base"))]
     pub finality_branch: FixedVector<B256, typenum::U6>,
-    #[superstruct(
-        only(Electra, Gloas),
-        partial_getter(rename = "finality_branch_electra")
-    )]
+    #[superstruct(only(Electra), partial_getter(rename = "finality_branch_electra"))]
     pub finality_branch: FixedVector<B256, typenum::U7>,
+    #[superstruct(only(Gloas), partial_getter(rename = "finality_branch_gloas"))]
+    pub finality_branch: FixedVector<B256, typenum::U9>,
     pub sync_aggregate: SyncAggregate<S>,
     #[serde(with = "serde_utils::u64")]
     pub signature_slot: u64,
@@ -358,7 +366,7 @@ pub struct LightClientHeader {
     #[superstruct(only(Capella, Deneb, Electra))]
     pub execution_branch: FixedVector<B256, typenum::U4>,
     #[superstruct(only(Gloas), partial_getter(rename = "execution_branch_gloas"))]
-    pub execution_branch: FixedVector<B256, typenum::U9>,
+    pub execution_branch: FixedVector<B256, typenum::U11>,
 }
 
 impl Default for LightClientHeader {
@@ -510,6 +518,12 @@ fn default_branch_to_none(value: &[B256]) -> Option<Vec<B256>> {
 }
 
 fn default_header_to_none(value: LightClientHeader) -> Option<LightClientHeader> {
+    // The finalized checkpoint at genesis is represented by a zero root, not a
+    // light-client header. Some clients still return the concrete genesis header.
+    if value.beacon().slot == 0 {
+        return None;
+    }
+
     match &value {
         LightClientHeader::Bellatrix(header) => {
             if header.beacon == BeaconBlockHeader::default() {
@@ -659,4 +673,18 @@ fn default_header_to_none(value: LightClientHeader) -> Option<LightClientHeader>
 }
 
 #[cfg(test)]
-mod request_hash_tests;
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slot_zero_header_is_treated_as_absent_finality() {
+        let header = LightClientHeader::Bellatrix(LightClientHeaderBellatrix {
+            beacon: BeaconBlockHeader {
+                state_root: B256::with_last_byte(1),
+                ..Default::default()
+            },
+        });
+
+        assert!(default_header_to_none(header).is_none());
+    }
+}
