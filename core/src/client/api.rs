@@ -77,7 +77,11 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     // logs
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>>;
     // filters and subscriptions
-    async fn subscribe(&self, sub_type: SubscriptionType) -> Result<SubEventRx<N>>;
+    async fn subscribe(
+        &self,
+        sub_type: SubscriptionType,
+        filter: Option<Filter>,
+    ) -> Result<SubEventRx<N>>;
     async fn get_filter_logs(&self, filter_id: U256) -> Result<Vec<Log>>;
     async fn uninstall_filter(&self, filter_id: U256) -> Result<bool>;
     async fn new_filter(&self, filter: &Filter) -> Result<U256>;

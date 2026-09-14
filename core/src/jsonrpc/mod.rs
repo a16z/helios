@@ -180,7 +180,11 @@ trait EthRpc<
     #[method(name = "syncing")]
     async fn syncing(&self) -> Result<SyncStatus, ErrorObjectOwned>;
     #[subscription(name = "subscribe", unsubscribe = "unsubscribe", item = String)]
-    async fn subscribe(&self, event_type: SubscriptionType) -> SubscriptionResult;
+    async fn subscribe(
+        &self,
+        event_type: SubscriptionType,
+        filter: Option<Filter>,
+    ) -> SubscriptionResult;
 }
 
 #[rpc(client, server, namespace = "net")]
@@ -440,8 +444,9 @@ impl<N: NetworkSpec>
         &self,
         pending: PendingSubscriptionSink,
         event_type: SubscriptionType,
+        filter: Option<Filter>,
     ) -> SubscriptionResult {
-        let maybe_rx = self.client.subscribe(event_type).await;
+        let maybe_rx = self.client.subscribe(event_type, filter).await;
 
         handle_eth_subscription(pending, maybe_rx).await
     }
