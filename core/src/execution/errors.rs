@@ -21,6 +21,8 @@ pub enum ExecutionError {
     MissingLog(B256, U256),
     #[error("too many logs to prove: {0} spanning {1} blocks current limit is: {2} blocks")]
     TooManyLogsToProve(usize, usize, usize),
+    #[error("transaction {0} is not included in a block")]
+    TransactionNotIncluded(B256),
     #[error("execution rpc is for the incorrect network")]
     IncorrectRpcNetwork(),
     #[error("block not found: {0}")]
