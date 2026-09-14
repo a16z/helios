@@ -170,30 +170,21 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
     }
 
     async fn resolve_block_number(&self, block: Option<BlockNumberOrTag>) -> Result<u64> {
-        match block {
-            Some(BlockNumberOrTag::Latest) | None => {
-                let number = self
-                    .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
-                    .await?
-                    .ok_or(eyre!("block not found"))?
-                    .header()
-                    .number();
+        let tag = match block {
+            Some(BlockNumberOrTag::Latest) | None => BlockNumberOrTag::Latest,
+            Some(BlockNumberOrTag::Finalized) => BlockNumberOrTag::Finalized,
+            Some(BlockNumberOrTag::Number(number)) => return Ok(number),
+            _ => return Err(eyre!("block not found")),
+        };
 
-                Ok(number)
-            }
-            Some(BlockNumberOrTag::Finalized) => {
-                let number = self
-                    .get_block(BlockId::Number(BlockNumberOrTag::Finalized), false)
-                    .await?
-                    .ok_or(eyre!("block not found"))?
-                    .header()
-                    .number();
+        let number = self
+            .get_block(BlockId::Number(tag), false)
+            .await?
+            .ok_or(eyre!("block not found"))?
+            .header()
+            .number();
 
-                Ok(number)
-            }
-            Some(BlockNumberOrTag::Number(number)) => Ok(number),
-            _ => Err(eyre!("block not found")),
-        }
+        Ok(number)
     }
 }
 
