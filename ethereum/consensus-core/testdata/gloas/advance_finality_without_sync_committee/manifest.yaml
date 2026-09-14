@@ -1,0 +1,6 @@
+preset: minimal
+fork: gloas
+runner: light_client
+handler: sync
+suite: pyspec_tests
+case: advance_finality_without_sync_committee

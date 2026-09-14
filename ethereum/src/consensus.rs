@@ -1,19 +1,12 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root};
-use alloy::consensus::transaction::SignerRecoverable;
-use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
-use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
-use alloy::rlp::Decodable;
-use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
+use alloy::primitives::B256;
+use alloy::rpc::types::{Block, Transaction};
 use chrono::Duration;
 use eyre::eyre;
 use eyre::Result;
-use futures::future::join_all;
 use tracing::{debug, error, info, warn};
-use tree_hash::TreeHash;
 use url::Url;
 
 use tokio::sync::mpsc::channel;
@@ -26,10 +19,10 @@ use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
     errors::ConsensusError,
     expected_current_slot, get_bits,
-    types::{ExecutionPayload, FinalityUpdate, LightClientStore, Update},
+    types::{FinalityUpdate, Forks, LightClientHeader, LightClientStore, Update},
     verify_bootstrap, verify_finality_update, verify_update,
 };
-use helios_core::consensus::Consensus;
+use helios_core::consensus::{Consensus, TrustedBlockRef};
 use helios_core::time::{interval_at, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::config::checkpoints::CheckpointFallback;
@@ -47,8 +40,8 @@ pub enum ConsensusSyncStatus {
 }
 
 pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
-    pub block_recv: Option<Receiver<Block<Transaction>>>,
-    pub finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
+    pub block_recv: Option<Receiver<TrustedBlockRef<Block<Transaction>>>>,
+    pub finalized_block_recv: Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
     sync_status_recv: Mutex<watch::Receiver<ConsensusSyncStatus>>,
     shutdown_send: watch::Sender<bool>,
@@ -62,22 +55,60 @@ pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
     pub rpc: R,
     pub store: LightClientStore<S>,
     last_checkpoint: Option<B256>,
-    block_send: Sender<Block<Transaction>>,
-    finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+    block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
+    finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
     checkpoint_send: watch::Sender<Option<B256>>,
     pub config: Arc<Config>,
     phantom: PhantomData<S>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TrustedExecutionBlockHash(B256);
+
+impl TrustedExecutionBlockHash {
+    fn from_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) -> Result<Self> {
+        let beacon = header.beacon();
+        let beacon_slot = beacon.slot;
+        let beacon_epoch = beacon_slot / S::slots_per_epoch();
+
+        if beacon_epoch >= forks.gloas.epoch {
+            let LightClientHeader::Gloas(header) = header else {
+                return Err(eyre!(
+                    "expected a gloas light client header at slot {}",
+                    beacon_slot
+                ));
+            };
+
+            // Gloas proves the execution head as parent_block_hash in the signed payload bid.
+            return Ok(Self(header.execution_block_hash));
+        }
+
+        let execution = header.execution().map_err(|_| {
+            eyre!(
+                "light client header at slot {} does not include an execution payload header",
+                beacon_slot
+            )
+        })?;
+
+        Ok(Self(*execution.block_hash()))
+    }
+
+    fn block_hash(&self) -> B256 {
+        self.0
+    }
 }
 
 #[async_trait::async_trait]
 impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
     for ConsensusClient<S, R, DB>
 {
-    fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
+    fn block_recv(&mut self) -> Option<Receiver<TrustedBlockRef<Block<Transaction>>>> {
         self.block_recv.take()
     }
 
-    fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+    fn finalized_block_recv(
+        &mut self,
+    ) -> Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>> {
         self.finalized_block_recv.take()
     }
 
@@ -295,8 +326,8 @@ async fn sync_all_fallbacks<S: ConsensusSpec, R: ConsensusRpc<S>>(
 impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     pub fn new(
         rpc: &str,
-        block_send: Sender<Block<Transaction>>,
-        finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+        block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
+        finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
         checkpoint_send: watch::Sender<Option<B256>>,
         config: Arc<Config>,
     ) -> Inner<S, R> {
@@ -324,67 +355,18 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         }
     }
 
-    pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload<S>> {
-        let slot = slot.unwrap_or(self.store.optimistic_header.beacon().slot);
-        let block = self.rpc.get_block(slot).await?;
-        let block_hash = block.tree_hash_root();
-
-        let latest_slot = self.store.optimistic_header.beacon().slot;
-        let finalized_slot = self.store.finalized_header.beacon().slot;
-
-        let verified_block_hash = if slot == latest_slot {
-            self.store.optimistic_header.beacon().tree_hash_root()
-        } else if slot == finalized_slot {
-            self.store.finalized_header.beacon().tree_hash_root()
-        } else {
-            return Err(ConsensusError::PayloadNotFound(slot).into());
-        };
-
-        if verified_block_hash != block_hash {
-            Err(ConsensusError::InvalidHeaderHash(block_hash, verified_block_hash).into())
-        } else {
-            Ok(block.body.execution_payload().clone())
-        }
+    fn trusted_execution_block_hash(
+        &self,
+        header: &LightClientHeader,
+    ) -> Result<TrustedExecutionBlockHash> {
+        TrustedExecutionBlockHash::from_header::<S>(header, &self.config.forks)
     }
 
-    pub async fn get_payloads(
+    async fn get_execution_block(
         &self,
-        start_slot: u64,
-        end_slot: u64,
-    ) -> Result<Vec<ExecutionPayload<S>>> {
-        let payloads_fut = (start_slot..end_slot)
-            .rev()
-            .map(|slot| self.rpc.get_block(slot));
-
-        let mut prev_parent_hash: B256 = *self
-            .rpc
-            .get_block(end_slot)
-            .await?
-            .body
-            .execution_payload()
-            .parent_hash();
-
-        let mut payloads: Vec<ExecutionPayload<S>> = Vec::new();
-        for result in join_all(payloads_fut).await {
-            if result.is_err() {
-                continue;
-            }
-            let payload = result.unwrap().body.execution_payload().clone();
-            if payload.block_hash() != &prev_parent_hash {
-                warn!(
-                    target: "helios::consensus",
-                    error = %ConsensusError::InvalidHeaderHash(
-                        prev_parent_hash,
-                        *payload.parent_hash(),
-                    ),
-                    "error while backfilling blocks"
-                );
-                break;
-            }
-            prev_parent_hash = *payload.parent_hash();
-            payloads.push(payload);
-        }
-        Ok(payloads)
+        reference: TrustedExecutionBlockHash,
+    ) -> Result<TrustedBlockRef<Block<Transaction>>> {
+        Ok(TrustedBlockRef::Hash(reference.block_hash()))
     }
 
     pub async fn sync(&mut self, checkpoint: B256) -> Result<()> {
@@ -474,42 +456,29 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let slot = self.store.optimistic_header.beacon().slot;
-        let slot = Some(slot);
+        let latest_hash = self.trusted_execution_block_hash(&self.store.optimistic_header)?;
+        let finalized_hash = self.trusted_execution_block_hash(&self.store.finalized_header)?;
 
-        let latest_fin_hash = self
-            .store
-            .finalized_header
-            .execution()
-            .ok()
-            .map(|h| *h.block_hash());
+        let finalized_block_hash = finalized_hash.block_hash();
         let last_sent_fin_hash = self
             .finalized_block_send
             .borrow()
             .as_ref()
-            .map(|b| b.header.hash);
+            .map(|b| b.block_hash());
 
-        let should_fetch_finalized = latest_fin_hash
-            .zip(last_sent_fin_hash)
-            .is_none_or(|(latest, sent)| latest != sent);
+        let should_fetch_finalized =
+            last_sent_fin_hash.is_none_or(|sent| finalized_block_hash != sent);
 
         if should_fetch_finalized {
-            let finalized_slot = self.store.finalized_header.beacon().slot;
-            let finalized_slot = Some(finalized_slot);
-
-            let (payload, finalized_payload) = tokio::try_join!(
-                self.get_execution_payload(&slot),
-                self.get_execution_payload(&finalized_slot),
+            let (block, finalized_block) = tokio::try_join!(
+                self.get_execution_block(latest_hash),
+                self.get_execution_block(finalized_hash),
             )?;
-
-            let block = payload_to_block(payload);
-            let finalized_block = payload_to_block(finalized_payload);
 
             self.block_send.send(block).await?;
             self.finalized_block_send.send(Some(finalized_block))?;
         } else {
-            let payload = self.get_execution_payload(&slot).await?;
-            let block = payload_to_block(payload);
+            let block = self.get_execution_block(latest_hash).await?;
             self.block_send.send(block).await?;
         }
 
@@ -675,92 +644,6 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 }
 
-fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Transaction> {
-    let empty_nonce = fixed_bytes!("0000000000000000");
-    let empty_uncle_hash =
-        b256!("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
-
-    let block_hash = *value.block_hash();
-    let block_number = *value.block_number();
-    let base_fee = Some(value.base_fee_per_gas().to());
-
-    // Helper function to process a single transaction
-    let process_tx = |i: usize,
-                      tx_bytes: &helios_consensus_core::types::Transaction,
-                      block_hash: B256,
-                      block_number: u64,
-                      base_fee: Option<u128>|
-     -> Transaction {
-        let tx_bytes = tx_bytes.inner.to_vec();
-        let mut tx_bytes_slice = tx_bytes.as_slice();
-        let tx_envelope = TxEnvelope::decode(&mut tx_bytes_slice).unwrap();
-        let effective_gas_price = tx_envelope.effective_gas_price(base_fee.map(|v| v as u64));
-        let recovered = tx_envelope.try_into_recovered().unwrap();
-
-        Transaction {
-            block_hash: Some(block_hash),
-            block_number: Some(block_number),
-            transaction_index: Some(i as u64),
-            effective_gas_price: Some(effective_gas_price),
-            inner: recovered,
-        }
-    };
-
-    let txs = value
-        .transactions()
-        .iter()
-        .enumerate()
-        .map(|(i, tx_bytes)| process_tx(i, tx_bytes, block_hash, block_number, base_fee))
-        .collect::<Vec<_>>();
-
-    let tx_envelopes = txs.iter().map(|tx| tx.inner.clone()).collect::<Vec<_>>();
-    let txs_root = calculate_transaction_root(&tx_envelopes);
-
-    let withdrawals: Vec<Withdrawal> = value
-        .withdrawals()
-        .unwrap()
-        .into_iter()
-        .map(|w| w.clone().into())
-        .collect();
-    let withdrawals_root = calculate_withdrawals_root(&withdrawals);
-
-    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner));
-
-    let consensus_header = ConsensusHeader {
-        parent_hash: *value.parent_hash(),
-        ommers_hash: empty_uncle_hash,
-        beneficiary: *value.fee_recipient(),
-        state_root: *value.state_root(),
-        transactions_root: txs_root,
-        receipts_root: *value.receipts_root(),
-        withdrawals_root: Some(withdrawals_root),
-        difficulty: U256::ZERO,
-        number: *value.block_number(),
-        gas_limit: *value.gas_limit(),
-        gas_used: *value.gas_used(),
-        timestamp: *value.timestamp(),
-        mix_hash: *value.prev_randao(),
-        nonce: empty_nonce,
-        base_fee_per_gas: Some(value.base_fee_per_gas().to::<u64>()),
-        blob_gas_used: value.blob_gas_used().cloned().ok(),
-        excess_blob_gas: value.excess_blob_gas().cloned().ok(),
-        parent_beacon_block_root: None,
-        extra_data: value.extra_data().inner.to_vec().into(),
-        requests_hash: None,
-        logs_bloom,
-    };
-
-    let header = Header {
-        hash: *value.block_hash(),
-        inner: consensus_header,
-        total_difficulty: Some(U256::ZERO),
-        size: Some(U256::ZERO),
-    };
-
-    Block::new(header, BlockTransactions::Full(txs))
-        .with_withdrawals(Some(Withdrawals::new(withdrawals)))
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -768,11 +651,13 @@ mod tests {
     use alloy::primitives::b256;
     use tokio::sync::{mpsc::channel, watch};
 
-    use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
+    use helios_consensus_core::consensus_spec::{ConsensusSpec, MainnetConsensusSpec};
     use helios_consensus_core::errors::ConsensusError;
     use helios_consensus_core::types::bls::{PublicKey, Signature};
-    use helios_consensus_core::types::Update;
-
+    use helios_consensus_core::types::{
+        BeaconBlockHeader, ExecutionPayloadHeader, ExecutionPayloadHeaderElectra, Fork, Forks,
+        LightClientHeader, LightClientHeaderElectra, LightClientHeaderGloas, Update,
+    };
     use url::Url;
 
     use crate::{
@@ -782,6 +667,8 @@ mod tests {
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };
+
+    use super::TrustedExecutionBlockHash;
 
     async fn get_client(
         strict_checkpoint_age: bool,
@@ -817,6 +704,58 @@ mod tests {
         }
 
         client
+    }
+
+    #[test]
+    fn trusted_execution_block_hash_uses_execution_payload_header_before_gloas() {
+        let execution_block_hash =
+            b256!("1111111111111111111111111111111111111111111111111111111111111111");
+        let header = LightClientHeader::Electra(LightClientHeaderElectra {
+            beacon: BeaconBlockHeader {
+                slot: MainnetConsensusSpec::slots_per_epoch(),
+                ..Default::default()
+            },
+            execution: ExecutionPayloadHeader::Electra(ExecutionPayloadHeaderElectra {
+                block_hash: execution_block_hash,
+                ..Default::default()
+            }),
+            execution_branch: Default::default(),
+        });
+
+        let reference = TrustedExecutionBlockHash::from_header::<MainnetConsensusSpec>(
+            &header,
+            &Forks::default(),
+        )
+        .unwrap();
+
+        assert_eq!(reference, TrustedExecutionBlockHash(execution_block_hash));
+    }
+
+    #[test]
+    fn trusted_execution_block_hash_uses_gloas_execution_block_hash() {
+        let execution_block_hash =
+            b256!("2222222222222222222222222222222222222222222222222222222222222222");
+        let header = LightClientHeader::Gloas(LightClientHeaderGloas {
+            beacon: BeaconBlockHeader {
+                slot: MainnetConsensusSpec::slots_per_epoch() * 2,
+                ..Default::default()
+            },
+            execution_block_hash,
+            execution_branch: Default::default(),
+        });
+        let forks = Forks {
+            gloas: Fork {
+                epoch: 1,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let reference =
+            TrustedExecutionBlockHash::from_header::<MainnetConsensusSpec>(&header, &forks)
+                .unwrap();
+
+        assert_eq!(reference, TrustedExecutionBlockHash(execution_block_hash));
     }
 
     #[tokio::test]
@@ -872,7 +811,10 @@ mod tests {
 
         let mut next_update = updates[1].clone();
         // Set a different finalized header to test invalid finality proof
-        *next_update.finalized_header_mut() = updates[0].finalized_header().clone();
+        *next_update
+            .finalized_header_mut()
+            .expect("test update should have a generic finalized header") =
+            updates[0].finalized_header();
 
         let err = client.verify_update(&next_update).err().unwrap();
         assert_eq!(
@@ -927,7 +869,10 @@ mod tests {
             .unwrap();
 
         // Replace here to test invalid finality proof
-        *update.finalized_header_mut() = updates[0].finalized_header().clone();
+        *update
+            .finalized_header_mut()
+            .expect("test finality update should have a generic finalized header") =
+            updates[0].finalized_header();
 
         let err = client.verify_finality_update(&update).err().unwrap();
         assert_eq!(

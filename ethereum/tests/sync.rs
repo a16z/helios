@@ -4,6 +4,7 @@ use alloy::primitives::b256;
 use url::Url;
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
+use helios_core::consensus::TrustedBlockRef;
 use helios_ethereum::config::{networks, Config};
 use helios_ethereum::{consensus::ConsensusClient, database::ConfigDB, rpc::mock_rpc::MockRpc};
 
@@ -28,6 +29,11 @@ async fn setup() -> ConsensusClient<MainnetConsensusSpec, MockRpc, ConfigDB> {
 async fn test_sync() {
     let client = setup().await;
 
-    let block = client.block_recv.unwrap().recv().await.unwrap();
+    let block = match client.block_recv.unwrap().recv().await.unwrap() {
+        TrustedBlockRef::Full(block) => block,
+        TrustedBlockRef::Hash(block_hash) => {
+            panic!("expected full block, got trusted hash {block_hash}");
+        }
+    };
     assert_eq!(block.header.number, 17923112_u64);
 }

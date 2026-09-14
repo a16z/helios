@@ -13,8 +13,8 @@ use wasmtimer::std::{SystemTime, UNIX_EPOCH};
 use crate::consensus_spec::ConsensusSpec;
 use crate::errors::ConsensusError;
 use crate::proof::{
-    is_current_committee_proof_valid, is_execution_payload_proof_valid, is_finality_proof_valid,
-    is_next_committee_proof_valid,
+    is_current_committee_proof_valid, is_execution_block_hash_proof_valid,
+    is_execution_payload_proof_valid, is_finality_proof_valid, is_next_committee_proof_valid,
 };
 use crate::types::bls::Signature;
 use crate::types::{
@@ -31,19 +31,20 @@ pub fn verify_bootstrap<S: ConsensusSpec>(
     checkpoint: B256,
     forks: &Forks,
 ) -> Result<()> {
-    if !is_valid_header::<S>(bootstrap.header(), forks) {
+    let header = bootstrap.header();
+    if !is_valid_header::<S>(&header, forks) {
         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
     }
 
     let committee_valid = is_current_committee_proof_valid(
-        bootstrap.header().beacon(),
+        header.beacon(),
         bootstrap.current_sync_committee(),
         bootstrap.current_sync_committee_branch(),
-        bootstrap.header().beacon().slot / S::slots_per_epoch(),
+        header.beacon().slot / S::slots_per_epoch(),
         forks,
     );
 
-    let header_hash = bootstrap.header().beacon().tree_hash_root();
+    let header_hash = header.beacon().tree_hash_root();
     let header_valid = header_hash == checkpoint;
 
     if !header_valid {
@@ -94,11 +95,12 @@ pub fn apply_bootstrap<S: ConsensusSpec>(
     store: &mut LightClientStore<S>,
     bootstrap: &Bootstrap<S>,
 ) {
+    let header = bootstrap.header();
     *store = LightClientStore {
-        finalized_header: bootstrap.header().clone(),
+        finalized_header: header.clone(),
         current_sync_committee: bootstrap.current_sync_committee().clone(),
         next_sync_committee: None,
-        optimistic_header: bootstrap.header().clone(),
+        optimistic_header: header.clone(),
         previous_max_active_participants: 0,
         current_max_active_participants: 0,
         best_valid_update: None,
@@ -510,7 +512,16 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
     // This deviates from the spec in that it dos not check that the blob fields are unset prior to
     // deneb. This is fine since an honest sync committee will never sign an invalid block, which
     // includes blocks that have the blob fields set pre-deneb.
-    if epoch < forks.capella.epoch {
+    if let LightClientHeader::Gloas(header) = header {
+        epoch >= forks.gloas.epoch
+            && is_execution_block_hash_proof_valid(
+                &header.beacon,
+                header.execution_block_hash,
+                &header.execution_branch,
+            )
+    } else if epoch >= forks.gloas.epoch {
+        false
+    } else if epoch < forks.capella.epoch {
         header.execution().is_err() && header.execution_branch().is_err()
     } else if let (Ok(execution), Ok(execution_branch)) =
         (header.execution(), header.execution_branch())

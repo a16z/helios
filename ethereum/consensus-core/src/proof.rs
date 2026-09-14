@@ -81,9 +81,33 @@ pub fn is_execution_payload_proof_valid(
     is_proof_valid(attested_header.body_root, execution, execution_branch, 4, 9)
 }
 
+pub fn is_execution_block_hash_proof_valid(
+    attested_header: &BeaconBlockHeader,
+    execution_block_hash: B256,
+    execution_branch: &[B256],
+) -> bool {
+    is_root_proof_valid(
+        attested_header.body_root,
+        execution_block_hash,
+        execution_branch,
+        9,
+        320,
+    )
+}
+
 fn is_proof_valid<T: TreeHash>(
     root: B256,
     leaf_object: &T,
+    branch: &[B256],
+    depth: usize,
+    index: usize,
+) -> bool {
+    is_root_proof_valid(root, leaf_object.tree_hash_root(), branch, depth, index)
+}
+
+fn is_root_proof_valid(
+    root: B256,
+    leaf_root: B256,
     branch: &[B256],
     depth: usize,
     index: usize,
@@ -92,7 +116,7 @@ fn is_proof_valid<T: TreeHash>(
         return false;
     }
 
-    let mut derived_root = leaf_object.tree_hash_root();
+    let mut derived_root = leaf_root;
     let mut hasher = Sha256::new();
 
     for (i, node) in branch.iter().enumerate() {

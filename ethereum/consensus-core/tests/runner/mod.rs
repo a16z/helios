@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use alloy::primitives::{fixed_bytes, B256};
+use alloy::primitives::{fixed_bytes, FixedBytes, B256};
 use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 use ssz::Decode;
@@ -17,7 +17,14 @@ use helios_consensus_core::{
     verify_bootstrap, verify_generic_update,
 };
 
-pub fn run<P: Into<PathBuf>>(test_data_dir: P, with_electra: bool) {
+pub fn run<P: Into<PathBuf>>(test_data_dir: P) {
+    let test_data_dir = test_data_dir.into();
+    let fallback_forks = get_forks();
+    let forks = get_forks_from_config(&test_data_dir, &fallback_forks).unwrap_or(fallback_forks);
+    run_with_forks(test_data_dir, forks);
+}
+
+fn run_with_forks<P: Into<PathBuf>>(test_data_dir: P, forks: Forks) {
     let test_data_dir: PathBuf = test_data_dir.into();
     let steps_file = test_data_dir.join("steps.yaml");
     let steps = std::fs::read_to_string(steps_file).unwrap();
@@ -25,7 +32,6 @@ pub fn run<P: Into<PathBuf>>(test_data_dir: P, with_electra: bool) {
 
     let mut store = LightClientStore::default();
     let config = get_meta_config(&test_data_dir);
-    let forks = get_forks(with_electra);
 
     let bootstrap = get_bootstrap(&test_data_dir);
     verify_bootstrap(&bootstrap, config.trusted_block_root, &forks).expect("bootstrap failed");
@@ -110,18 +116,18 @@ fn get_update(path: PathBuf) -> GenericUpdate<MinimalConsensusSpec> {
     let mut decoder = snap::raw::Decoder::new();
     let decompressed = decoder.decompress_vec(&data).unwrap();
 
-    let res = Update::from_ssz_bytes(&decompressed);
-    if let Ok(update) = res {
+    let update_res = Update::from_ssz_bytes(&decompressed);
+    if let Ok(update) = update_res {
         return GenericUpdate::from(&update);
     }
 
-    let res = FinalityUpdate::from_ssz_bytes(&decompressed);
-    if let Ok(update) = res {
+    let finality_res = FinalityUpdate::from_ssz_bytes(&decompressed);
+    if let Ok(update) = finality_res {
         return GenericUpdate::from(&update);
     }
 
-    let res = OptimisticUpdate::from_ssz_bytes(&decompressed);
-    if let Ok(update) = res {
+    let optimistic_res = OptimisticUpdate::from_ssz_bytes(&decompressed);
+    if let Ok(update) = optimistic_res {
         return GenericUpdate::from(&update);
     }
 
@@ -139,10 +145,7 @@ fn check_update(value: &Value, actual: &LightClientHeader) {
     let expected: Check = serde_yaml::from_value(value.clone()).unwrap();
     assert_eq!(expected.slot, actual.beacon().slot);
     assert_eq!(expected.beacon_root, actual.beacon().tree_hash_root());
-    assert_eq!(
-        expected.execution_root,
-        actual.execution().unwrap().tree_hash_root()
-    );
+    assert_eq!(expected.execution_root, actual.execution_root());
 }
 
 #[derive(Deserialize)]
@@ -157,7 +160,7 @@ fn get_meta_config(test_data_dir: &Path) -> MetaConfig {
     serde_yaml::from_str(&meta).unwrap()
 }
 
-fn get_forks(with_electra: bool) -> Forks {
+fn get_forks() -> Forks {
     Forks {
         genesis: Fork {
             epoch: 0,
@@ -180,12 +183,86 @@ fn get_forks(with_electra: bool) -> Forks {
             fork_version: fixed_bytes!("04000001"),
         },
         electra: Fork {
-            epoch: if with_electra { 0 } else { u64::MAX },
+            epoch: u64::MAX,
             fork_version: fixed_bytes!("05000001"),
         },
         fulu: Fork {
             epoch: u64::MAX,
             fork_version: fixed_bytes!("06000001"),
         },
+        gloas: Fork {
+            epoch: u64::MAX,
+            fork_version: fixed_bytes!("07000001"),
+        },
     }
+}
+
+fn get_forks_from_config(test_data_dir: &Path, fallback: &Forks) -> Option<Forks> {
+    let config_path = test_data_dir.join("config.yaml");
+    if !config_path.exists() {
+        return None;
+    }
+
+    let raw_config = std::fs::read_to_string(config_path).unwrap();
+    let config: Mapping = serde_yaml::from_str(&raw_config).unwrap();
+
+    Some(Forks {
+        genesis: Fork {
+            epoch: 0,
+            fork_version: fork_version_from_config(&config, "GENESIS")
+                .unwrap_or(fallback.genesis.fork_version),
+        },
+        altair: fork_from_config(&config, "ALTAIR").unwrap_or_else(|| fallback.altair.clone()),
+        bellatrix: fork_from_config(&config, "BELLATRIX")
+            .unwrap_or_else(|| fallback.bellatrix.clone()),
+        capella: fork_from_config(&config, "CAPELLA").unwrap_or_else(|| fallback.capella.clone()),
+        deneb: fork_from_config(&config, "DENEB").unwrap_or_else(|| fallback.deneb.clone()),
+        electra: fork_from_config(&config, "ELECTRA").unwrap_or_else(|| fallback.electra.clone()),
+        fulu: fork_from_config(&config, "FULU").unwrap_or_else(|| fallback.fulu.clone()),
+        gloas: fork_from_config(&config, "GLOAS").unwrap_or_else(|| fallback.gloas.clone()),
+    })
+}
+
+fn fork_from_config(config: &Mapping, name: &str) -> Option<Fork> {
+    Some(Fork {
+        epoch: u64_from_config(config, &format!("{name}_FORK_EPOCH"))?,
+        fork_version: fork_version_from_config(config, name)?,
+    })
+}
+
+fn fork_version_from_config(config: &Mapping, name: &str) -> Option<FixedBytes<4>> {
+    fixed_bytes_from_value(value_from_config(config, &format!("{name}_FORK_VERSION"))?)
+}
+
+fn u64_from_config(config: &Mapping, key: &str) -> Option<u64> {
+    Some(match value_from_config(config, key)? {
+        Value::Number(number) => number.as_u64().unwrap(),
+        Value::String(value) => value.parse().unwrap(),
+        value => panic!("unexpected u64 config value for {key}: {value:?}"),
+    })
+}
+
+fn fixed_bytes_from_value(value: &Value) -> Option<FixedBytes<4>> {
+    Some(match value {
+        Value::Number(number) => {
+            let version = number.as_u64().unwrap();
+            FixedBytes::from((version as u32).to_be_bytes())
+        }
+        Value::String(value) => {
+            let hex = value.strip_prefix("0x").unwrap_or(value);
+            assert_eq!(hex.len(), 8);
+
+            let mut bytes = [0u8; 4];
+            for (i, byte) in bytes.iter_mut().enumerate() {
+                *byte = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap();
+            }
+
+            FixedBytes::from(bytes)
+        }
+        value => panic!("unexpected fork version config value: {value:?}"),
+    })
+}
+
+fn value_from_config<'a>(config: &'a Mapping, key: &str) -> Option<&'a Value> {
+    config.get(Value::String(key.to_string()))
 }
