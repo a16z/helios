@@ -171,6 +171,12 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 }
             }
 
+            if let Err(err) = inner.check_rpc().await {
+                error!(target: "helios::consensus", err = %err, "chain id mismatch with consensus rpc");
+                _ = sync_status_send.send(ConsensusSyncStatus::Error(err.to_string()));
+                return;
+            }
+
             _ = inner.send_blocks().await;
             _ = sync_status_send.send(ConsensusSyncStatus::Synced);
 
