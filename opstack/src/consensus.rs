@@ -105,6 +105,10 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
         self.finalized_block_recv.take()
     }
 
+    fn optimistic_block_recv(&self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+        None
+    }
+
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
         None
     }

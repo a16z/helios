@@ -522,4 +522,19 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
             .checkpoint_recv()
             .ok_or_else(|| eyre!("Checkpoints not supported"))
     }
+
+    async fn current_optimistic_block(&self) -> Result<Option<N::BlockResponse>> {
+        self.consensus
+            .optimistic_block_recv()
+            .map(|recv| recv.borrow().clone())
+            .ok_or_else(|| eyre!("Optimistic block updates not supported"))
+    }
+
+    fn new_optimistic_blocks_recv(
+        &self,
+    ) -> Result<tokio::sync::watch::Receiver<Option<N::BlockResponse>>> {
+        self.consensus
+            .optimistic_block_recv()
+            .ok_or_else(|| eyre!("Optimistic block updates not supported"))
+    }
 }

@@ -12,6 +12,7 @@ pub trait Consensus<
 {
     fn block_recv(&mut self) -> Option<mpsc::Receiver<B>>;
     fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<B>>>;
+    fn optimistic_block_recv(&self) -> Option<watch::Receiver<Option<B>>>;
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>>;
     fn expected_highest_block(&self) -> u64;
     fn chain_id(&self) -> u64;

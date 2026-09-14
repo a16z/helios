@@ -90,4 +90,9 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     // checkpoint
     async fn current_checkpoint(&self) -> Result<Option<B256>>;
     fn new_checkpoints_recv(&self) -> Result<tokio::sync::watch::Receiver<Option<B256>>>;
+    // optimistic block (head attested by current sync committee)
+    async fn current_optimistic_block(&self) -> Result<Option<N::BlockResponse>>;
+    fn new_optimistic_blocks_recv(
+        &self,
+    ) -> Result<tokio::sync::watch::Receiver<Option<N::BlockResponse>>>;
 }
