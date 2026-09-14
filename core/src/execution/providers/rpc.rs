@@ -452,6 +452,19 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
             storage_keys: Vec::default(),
         };
 
+        if !list
+            .iter()
+            .any(|elem| elem.address == from_access_entry.address)
+        {
+            list.push(from_access_entry)
+        }
+        if !list.iter().any(|elem| elem.address == to_access_entry.address) {
+            list.push(to_access_entry)
+        }
+        if !list
+            .iter()
+            .any(|elem| elem.address == producer_access_entry.address)
+        {
         let mut list_addresses = list.iter().map(|elem| elem.address).collect::<HashSet<_>>();
 
         if list_addresses.insert(from_access_entry.address) {
