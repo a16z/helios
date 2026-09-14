@@ -175,7 +175,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
             _ = sync_status_send.send(ConsensusSyncStatus::Synced);
 
             let start = Instant::now() + inner.duration_until_next_update().to_std().unwrap();
-            let mut interval = interval_at(start, std::time::Duration::from_secs(12));
+            let mut interval =
+                interval_at(start, std::time::Duration::from_secs(S::seconds_per_slot()));
 
             loop {
                 tokio::select! {
@@ -224,7 +225,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
     pub fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
 
-        expected_current_slot(now, self.genesis_time)
+        expected_current_slot::<S>(now, self.genesis_time)
     }
 }
 
@@ -517,7 +518,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     /// Gets the duration until the next update
-    /// Updates are scheduled for 4 seconds into each slot
+    /// Updates are scheduled for one third of a slot into each slot (4 seconds on mainnet)
     pub fn duration_until_next_update(&self) -> Duration {
         let current_slot = self.expected_current_slot();
         let next_slot = current_slot + 1;
@@ -529,9 +530,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             .as_secs();
 
         let time_to_next_slot = next_slot_timestamp - now;
-        let next_update = time_to_next_slot + 4;
-
-        Duration::try_seconds(next_update as i64).unwrap()
+        Duration::try_seconds(time_to_next_slot as i64).unwrap()
+            + slot_update_offset(S::seconds_per_slot())
     }
 
     pub async fn bootstrap(&mut self, checkpoint: B256) -> Result<()> {
@@ -654,11 +654,11 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     pub fn expected_current_slot(&self) -> u64 {
         let now = SystemTime::now();
 
-        expected_current_slot(now, self.config.chain.genesis_time)
+        expected_current_slot::<S>(now, self.config.chain.genesis_time)
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
-        slot * 12 + self.config.chain.genesis_time
+        slot * S::seconds_per_slot() + self.config.chain.genesis_time
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old
@@ -761,6 +761,10 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .with_withdrawals(Some(Withdrawals::new(withdrawals)))
 }
 
+fn slot_update_offset(seconds_per_slot: u64) -> Duration {
+    Duration::from_std(std::time::Duration::from_secs(seconds_per_slot) / 3).unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -782,6 +786,14 @@ mod tests {
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
     };
+
+    #[test]
+    fn test_slot_update_offset_preserves_fractional_seconds() {
+        assert_eq!(
+            super::slot_update_offset(5),
+            chrono::Duration::nanoseconds(1_666_666_666),
+        );
+    }
 
     async fn get_client(
         strict_checkpoint_age: bool,
