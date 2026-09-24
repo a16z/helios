@@ -326,7 +326,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Transac
 
             let block = block.ok_or(eyre!("block not found"))?;
             let txs = block.transactions().clone().into_transactions_vec();
-            Ok(txs.iter().find(|v| v.tx_hash() == tx.tx_hash()).cloned())
+            Ok(txs.iter().find(|v| v.tx_hash() == hash).cloned())
         } else {
             Ok(None)
         }
@@ -341,7 +341,10 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Transac
 
         let block = block.ok_or(eyre!("block not found"))?;
         let txs = block.transactions().clone().into_transactions_vec();
-        Ok(txs.get(index as usize).cloned())
+        Ok(usize::try_from(index)
+            .ok()
+            .and_then(|index| txs.get(index))
+            .cloned())
     }
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
