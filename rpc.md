@@ -1,5 +1,11 @@
 # Helios Remote Procedure Calls
 
+On Ethereum and OP Stack, Helios serves only blocks it can authenticate as part of
+its current canonical chain. Orphaned blocks and their state are unavailable,
+even when `requireCanonical` is omitted or `false`. Calls, gas estimates, and
+access-list requests interrupted by a detected reorg return an error; retry the
+request against a canonical block. Extending known history does not interrupt calls.
+
 Helios provides a variety of RPC methods for interacting with the Ethereum network. These methods are exposed via the `Client` struct.  The RPC methods follow the [Ethereum JSON RPC Spec](https://ethereum.github.io/execution-apis/). See [examples](./examples) of running remote procedure calls with Helios.
 
 ## RPC Methods

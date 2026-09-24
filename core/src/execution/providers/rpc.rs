@@ -270,6 +270,10 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> BlockProvider<N>
     for RpcExecutionProvider<N, B, H>
 {
+    async fn reorg_generation(&self) -> u64 {
+        self.block_provider.reorg_generation().await
+    }
+
     async fn get_block(
         &self,
         block_id: BlockId,
