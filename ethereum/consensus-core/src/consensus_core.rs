@@ -319,7 +319,18 @@ pub fn verify_generic_update<S: ConsensusSpec>(
         }
     }
 
+    if update.next_sync_committee.is_some() != update.next_sync_committee_branch.is_some() {
+        return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
+    }
     if let Some(next_sync_committee) = &update.next_sync_committee {
+        if update_attested_period == store_period
+            && store
+                .next_sync_committee
+                .as_ref()
+                .is_some_and(|known| known != next_sync_committee)
+        {
+            return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
+        }
         if let Some(next_sync_committee_branch) = &update.next_sync_committee_branch {
             let is_valid = is_next_committee_proof_valid(
                 update.attested_header.beacon(),
@@ -518,5 +529,44 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
         is_execution_payload_proof_valid(header.beacon(), execution, execution_branch)
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{consensus_spec::MinimalConsensusSpec, types::LightClientHeaderBellatrix};
+    #[test]
+    fn rejects_committee_branch_without_committee() {
+        let mut update = GenericUpdate::<MinimalConsensusSpec> {
+            attested_header: LightClientHeader::Bellatrix(LightClientHeaderBellatrix {
+                beacon: BeaconBlockHeader {
+                    slot: 1,
+                    ..Default::default()
+                },
+            }),
+            signature_slot: 2,
+            next_sync_committee_branch: Some(vec![B256::ZERO; 5]),
+            ..Default::default()
+        };
+        update
+            .sync_aggregate
+            .sync_committee_bits
+            .set(0, true)
+            .unwrap();
+        let forks = Forks {
+            capella: crate::types::Fork {
+                epoch: u64::MAX,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let err =
+            verify_generic_update(&update, 2, &LightClientStore::default(), B256::ZERO, &forks)
+                .unwrap_err();
+        assert!(matches!(
+            err.downcast_ref::<ConsensusError>(),
+            Some(ConsensusError::InvalidNextSyncCommitteeProof)
+        ));
     }
 }
