@@ -8,7 +8,7 @@ use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals
 use alloy::consensus::transaction::SignerRecoverable;
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
+use alloy::primitives::{b256, fixed_bytes, Address, Bloom, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{
     Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
@@ -325,7 +325,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
     let withdrawals: Vec<Withdrawal> = value.withdrawals.into_iter().map(|w| w.into()).collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom));
+    let logs_bloom: Bloom = Bloom::from_slice(&value.logs_bloom);
 
     let consensus_header = ConsensusHeader {
         parent_hash: value.parent_hash,
@@ -360,4 +360,34 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
 
     Ok(Block::new(header, BlockTransactions::Full(txs))
         .with_withdrawals(Some(Withdrawals::new(withdrawals))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn preserves_payload_logs_bloom() {
+        let payload = ExecutionPayload {
+            parent_hash: B256::ZERO,
+            fee_recipient: Address::ZERO,
+            state_root: B256::ZERO,
+            receipts_root: B256::ZERO,
+            logs_bloom: vec![0xaa; 256].into(),
+            prev_randao: B256::ZERO,
+            block_number: 1,
+            gas_limit: 30_000_000,
+            gas_used: 0,
+            timestamp: 1,
+            extra_data: Default::default(),
+            base_fee_per_gas: U256::ZERO,
+            block_hash: B256::ZERO,
+            transactions: Default::default(),
+            withdrawals: Default::default(),
+            blob_gas_used: 0,
+            excess_blob_gas: 0,
+            withdrawals_root: B256::ZERO,
+        };
+        let block = payload_to_block(payload).unwrap();
+        assert_eq!(block.header.logs_bloom, Bloom::from_slice(&[0xaa; 256]));
+    }
 }
