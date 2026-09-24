@@ -7,7 +7,7 @@ use alloy::{
 };
 use eyre::Result;
 use revm::{
-    primitives::{address, Address, B256, KECCAK_EMPTY, U256},
+    primitives::{Address, B256, KECCAK_EMPTY, U256},
     state::{AccountInfo, Bytecode},
     Database,
 };
@@ -220,10 +220,6 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> Database for ProofDB<N, E> {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, DatabaseError> {
-        if is_precompile(&address) {
-            return Ok(Some(AccountInfo::default()));
-        }
-
         trace!(
             target: "helios::evm",
             "fetch basic evm state for address=0x{}",
@@ -246,10 +242,6 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> Database for ProofDB<N, E> {
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, DatabaseError> {
         Err(DatabaseError::Unimplemented)
     }
-}
-
-fn is_precompile(address: &Address) -> bool {
-    address.le(&address!("0000000000000000000000000000000000000009")) && address.gt(&Address::ZERO)
 }
 
 fn apply_account_overrides(
