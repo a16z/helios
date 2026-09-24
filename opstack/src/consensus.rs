@@ -8,7 +8,7 @@ use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals
 use alloy::consensus::transaction::SignerRecoverable;
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
+use alloy::primitives::{b256, fixed_bytes, Address, Bloom, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{
     Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
@@ -325,7 +325,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
     let withdrawals: Vec<Withdrawal> = value.withdrawals.into_iter().map(|w| w.into()).collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom));
+    let logs_bloom: Bloom = Bloom::from_slice(&value.logs_bloom);
 
     let consensus_header = ConsensusHeader {
         parent_hash: value.parent_hash,
@@ -360,4 +360,62 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
 
     Ok(Block::new(header, BlockTransactions::Full(txs))
         .with_withdrawals(Some(Withdrawals::new(withdrawals))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::rpc::types::Filter;
+
+    fn payload_with_logs_bloom(bloom: Bloom) -> ExecutionPayload {
+        ExecutionPayload {
+            parent_hash: B256::ZERO,
+            fee_recipient: Address::ZERO,
+            state_root: B256::ZERO,
+            receipts_root: B256::ZERO,
+            logs_bloom: bloom.as_slice().to_vec().into(),
+            prev_randao: B256::ZERO,
+            block_number: 1,
+            gas_limit: 30_000_000,
+            gas_used: 0,
+            timestamp: 1,
+            extra_data: Default::default(),
+            base_fee_per_gas: U256::ZERO,
+            block_hash: B256::ZERO,
+            transactions: Default::default(),
+            withdrawals: Default::default(),
+            blob_gas_used: 0,
+            excess_blob_gas: 0,
+            withdrawals_root: B256::ZERO,
+        }
+    }
+
+    #[test]
+    fn preserves_payload_logs_bloom() {
+        for bloom in [
+            Bloom::ZERO,
+            Bloom::repeat_byte(0xaa),
+            Bloom::from(std::array::from_fn::<_, 256, _>(|i| i as u8)),
+        ] {
+            let block = payload_to_block(payload_with_logs_bloom(bloom)).unwrap();
+            assert_eq!(block.header.logs_bloom, bloom);
+        }
+    }
+
+    #[test]
+    fn preserves_payload_log_filter_matches() {
+        let address = Address::repeat_byte(0x11);
+        let topic = B256::repeat_byte(0x22);
+        let mut bloom = Bloom::ZERO;
+        bloom.accrue_raw_log(address, &[topic]);
+        let block = payload_to_block(payload_with_logs_bloom(bloom)).unwrap();
+
+        // A copied bloom must still match its logs when used to skip receipt fetches.
+        assert!(Filter::new()
+            .address(address)
+            .matches_bloom(block.header.logs_bloom));
+        assert!(Filter::new()
+            .event_signature(topic)
+            .matches_bloom(block.header.logs_bloom));
+    }
 }

@@ -7,7 +7,7 @@ use alloy::network::ReceiptResponse;
 use alloy::primitives::{address, Bytes, B256, U256};
 use alloy::providers::{Provider, RootProvider};
 use alloy::rpc::types::state::{AccountOverride, StateOverride};
-use alloy::rpc::types::Filter;
+use alloy::rpc::types::{Block, BlockTransactionsKind, Filter};
 use alloy::sol;
 use alloy::sol_types::SolCall;
 use eyre::Result;
@@ -36,7 +36,7 @@ use helios_verifiable_api_server::server::{
 //  - eth_blobBaseFee (get_blob_base_fee)
 //
 // Block Methods:
-//  - eth_getBlockByNumber (get_block_by_number_finalized)
+//  - eth_getBlockByNumber (get_block_by_number, get_block_by_number_finalized)
 //  - eth_getBlockByHash (get_block_by_hash, get_block_by_hash_with_txs)
 //  - eth_getBlockTransactionCountByHash (get_block_transaction_count_by_hash)
 //  - eth_getBlockTransactionCountByNumber (get_block_transaction_count_by_number)
@@ -137,6 +137,89 @@ fn get_available_port() -> u16 {
     let port = listener.local_addr().unwrap().port();
     drop(listener);
     port
+}
+
+fn ensure_blocks_equivalent(block: Option<Block>, expected_block: Option<Block>) -> Result<()> {
+    let block = block.ok_or_else(|| eyre::eyre!("Helios block not found"))?;
+    let expected_block = expected_block.ok_or_else(|| eyre::eyre!("Reference block not found"))?;
+
+    // Compare every consensus header field, including logsBloom. The reported hash
+    // is copied from consensus, so comparing that alone cannot detect a corrupt header.
+    // RPC-only metadata (size and totalDifficulty) is not part of the consensus header.
+    ensure_eq!(block.header.inner, expected_block.header.inner);
+    ensure_eq!(block.header.hash, expected_block.header.hash);
+    ensure_eq!(block.header.hash_slow(), block.header.hash);
+    ensure_eq!(block.transactions, expected_block.transactions);
+    ensure_eq!(block.withdrawals, expected_block.withdrawals);
+    ensure_eq!(block.uncles, expected_block.uncles);
+    Ok(())
+}
+
+mod block_equivalence_regressions {
+    use super::ensure_blocks_equivalent;
+    use alloy::primitives::{Bloom, BloomInput, B256};
+    use alloy::rpc::types::{Block, BlockTransactions};
+
+    fn reference_block() -> Block {
+        serde_json::from_str(include_str!("testdata/rpc/block.json")).unwrap()
+    }
+
+    #[test]
+    fn accepts_matching_blocks() {
+        let expected = reference_block();
+        let mut block = expected.clone();
+        block.header.size = None;
+        block.header.total_difficulty = None;
+        ensure_blocks_equivalent(Some(block), Some(expected)).unwrap();
+    }
+
+    #[test]
+    fn rejects_rehashed_logs_bloom_with_unchanged_block_hash() {
+        let expected = reference_block();
+        let mut block = expected.clone();
+        // Reproduce the payload conversion bug from #823. The old hash/number
+        // checks passed because neither of those fields changes.
+        block.header.logs_bloom =
+            Bloom::from(BloomInput::Raw(expected.header.logs_bloom.as_slice()));
+        assert_eq!(block.header.hash, expected.header.hash);
+        assert_eq!(block.header.number, expected.header.number);
+        assert!(ensure_blocks_equivalent(Some(block), Some(expected)).is_err());
+    }
+
+    #[test]
+    fn rejects_other_corrupt_header_fields() {
+        let expected = reference_block();
+        let mut block = expected.clone();
+        block.header.receipts_root = B256::ZERO;
+        assert!(ensure_blocks_equivalent(Some(block), Some(expected)).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_reported_hash_even_when_providers_agree() {
+        let mut block = reference_block();
+        block.header.hash = B256::ZERO;
+        assert!(ensure_blocks_equivalent(Some(block.clone()), Some(block)).is_err());
+    }
+
+    #[test]
+    fn rejects_changed_transactions_with_unchanged_count() {
+        let expected = reference_block();
+        let mut block = expected.clone();
+        let BlockTransactions::Hashes(hashes) = &mut block.transactions else {
+            panic!("fixture must contain transaction hashes");
+        };
+        hashes[0] = B256::ZERO;
+        assert_eq!(block.transactions.len(), expected.transactions.len());
+        assert!(ensure_blocks_equivalent(Some(block), Some(expected)).is_err());
+    }
+
+    #[test]
+    fn rejects_missing_blocks() {
+        let block = reference_block();
+        assert!(ensure_blocks_equivalent(None, Some(block.clone())).is_err());
+        assert!(ensure_blocks_equivalent(Some(block), None).is_err());
+        assert!(ensure_blocks_equivalent(None, None).is_err());
+    }
 }
 
 async fn setup() -> (
@@ -410,37 +493,37 @@ async fn test_get_max_priority_fee_per_gas(
     Ok(())
 }
 
+async fn test_get_block_by_number(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
+    for kind in [BlockTransactionsKind::Hashes, BlockTransactionsKind::Full] {
+        let block = helios
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .kind(kind)
+            .await?
+            .ok_or_else(|| eyre::eyre!("No latest block"))?;
+        // Pin the reference to Helios's block; independent latest queries can race.
+        let expected_block = expected
+            .get_block_by_hash(block.header.hash)
+            .kind(kind)
+            .await?;
+        let numbered_block = helios
+            .get_block_by_number(block.header.number.into())
+            .kind(kind)
+            .await?;
+        ensure_blocks_equivalent(Some(block), expected_block.clone())?;
+        ensure_blocks_equivalent(numbered_block, expected_block)?;
+    }
+    Ok(())
+}
+
 async fn test_get_block_by_hash(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
     let block = helios
         .get_block_by_number(BlockNumberOrTag::Latest)
         .await?
         .ok_or_else(|| eyre::eyre!("No latest block"))?;
     let block_hash = block.header.hash;
-    let result = helios
-        .get_block_by_hash(block_hash)
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
-    let expected_block = expected
-        .get_block_by_hash(block_hash)
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
-    ensure_eq!(
-        result.header.hash,
-        expected_block.header.hash,
-        "Block hash mismatch: expected {:?}, got {:?}",
-        expected_block.header.hash,
-        result.header.hash
-    );
-    ensure_eq!(
-        result.header.number,
-        expected_block.header.number,
-        "Block number mismatch: expected {:?}, got {:?}",
-        expected_block.header.number,
-        result.header.number
-    );
-    Ok(())
+    let result = helios.get_block_by_hash(block_hash).await?;
+    let expected_block = expected.get_block_by_hash(block_hash).await?;
+    ensure_blocks_equivalent(result, expected_block)
 }
 
 async fn test_get_block_transaction_count_by_hash(
@@ -893,21 +976,11 @@ async fn test_get_block_by_number_finalized(
 ) -> Result<()> {
     let block = helios
         .get_block_by_number(BlockNumberOrTag::Finalized)
-        .await?;
-    let expected_block = expected
-        .get_block_by_number(BlockNumberOrTag::Finalized)
-        .await?;
-
-    if let (Some(block), Some(expected_block)) = (block, expected_block) {
-        if block.header.hash != expected_block.header.hash {
-            return Err(eyre::eyre!(
-                "Finalized block hash mismatch: expected {:?}, got {:?}",
-                expected_block.header.hash,
-                block.header.hash
-            ));
-        }
-    }
-    Ok(())
+        .await?
+        .ok_or_else(|| eyre::eyre!("No finalized block"))?;
+    // Finality can advance between requests, so compare the same authenticated block.
+    let expected_block = expected.get_block_by_hash(block.header.hash).await?;
+    ensure_blocks_equivalent(Some(block), expected_block)
 }
 
 async fn test_get_balance_zero_address(
@@ -972,29 +1045,7 @@ async fn test_get_historical_block(helios: &RootProvider, expected: &RootProvide
         .get_block_by_number(historical_block_num.into())
         .await?;
 
-    if let (Some(block), Some(expected_block)) = (block, expected_block) {
-        let hash = block.header.hash;
-        let calculated_hash = block.header.hash_slow();
-        if hash != calculated_hash {
-            eyre::bail!("invalid block hash");
-        }
-
-        if block.header.number != expected_block.header.number {
-            return Err(eyre::eyre!(
-                "Historical block number mismatch: expected {:?}, got {:?}",
-                expected_block.header.number,
-                block.header.number
-            ));
-        }
-        if block.header.hash != expected_block.header.hash {
-            return Err(eyre::eyre!(
-                "Historical block hash mismatch: expected {:?}, got {:?}",
-                expected_block.header.hash,
-                block.header.hash
-            ));
-        }
-    }
-    Ok(())
+    ensure_blocks_equivalent(block, expected_block)
 }
 
 async fn test_get_too_old_block(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
@@ -1242,32 +1293,9 @@ async fn test_get_block_by_hash_with_txs(
         .await?
         .ok_or_else(|| eyre::eyre!("No latest block"))?;
     let block_hash = block.header.hash;
-    let full_block = helios
-        .get_block_by_hash(block_hash)
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
-    let expected_block = expected
-        .get_block_by_hash(block_hash)
-        .full()
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block not found"))?;
-
-    ensure_eq!(
-        full_block.header.hash,
-        expected_block.header.hash,
-        "Block hash mismatch: expected {:?}, got {:?}",
-        expected_block.header.hash,
-        full_block.header.hash
-    );
-    ensure_eq!(
-        full_block.transactions.len(),
-        expected_block.transactions.len(),
-        "Transaction count mismatch: expected {}, got {}",
-        expected_block.transactions.len(),
-        full_block.transactions.len()
-    );
-    Ok(())
+    let full_block = helios.get_block_by_hash(block_hash).full().await?;
+    let expected_block = expected.get_block_by_hash(block_hash).full().await?;
+    ensure_blocks_equivalent(full_block, expected_block)
 }
 
 async fn test_get_storage_at_specific_slot(
@@ -1479,12 +1507,6 @@ async fn rpc_equivalence_tests() {
         }};
     }
 
-    let test_count = 36; // Update count as we add tests
-    println!(
-        "Setup complete! Running {} mini-tests in parallel...",
-        test_count
-    );
-
     // Run all mini-tests in parallel
     let futures = vec![
         // Basic/Network Methods
@@ -1497,6 +1519,7 @@ async fn rpc_equivalence_tests() {
         ),
         spawn_test!(test_get_blob_base_fee, "get_blob_base_fee"),
         // Block Methods
+        spawn_test!(test_get_block_by_number, "get_block_by_number"),
         spawn_test!(
             test_get_block_by_number_finalized,
             "get_block_by_number_finalized"
@@ -1562,6 +1585,11 @@ async fn rpc_equivalence_tests() {
             "call_with_combined_overrides"
         ),
     ];
+
+    println!(
+        "Setup complete! Running {} mini-tests in parallel...",
+        futures.len()
+    );
 
     // Collect results
     let results: Vec<TestResult> = join_all(futures)

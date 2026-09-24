@@ -5,7 +5,7 @@ use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals
 use alloy::consensus::transaction::SignerRecoverable;
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait, TxEnvelope};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Bloom, BloomInput, B256, U256};
+use alloy::primitives::{b256, fixed_bytes, Bloom, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{Block, BlockTransactions, Header, Transaction};
 use chrono::Duration;
@@ -724,7 +724,7 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
         .collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom().clone().inner));
+    let logs_bloom: Bloom = Bloom::from_slice(&value.logs_bloom().inner);
 
     let consensus_header = ConsensusHeader {
         parent_hash: *value.parent_hash(),
@@ -763,6 +763,18 @@ fn payload_to_block<S: ConsensusSpec>(value: ExecutionPayload<S>) -> Block<Trans
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn preserves_payload_logs_bloom() {
+        use helios_consensus_core::types::{ExecutionPayload, ExecutionPayloadDeneb};
+        let mut payload = ExecutionPayloadDeneb::<MainnetConsensusSpec>::default();
+        payload.logs_bloom.inner = vec![0xaa; 256].into();
+        let block = super::payload_to_block(ExecutionPayload::Deneb(payload));
+        assert_eq!(
+            block.header.logs_bloom,
+            alloy::primitives::Bloom::from_slice(&[0xaa; 256])
+        );
+    }
+
     use std::sync::Arc;
 
     use alloy::primitives::b256;
