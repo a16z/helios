@@ -126,7 +126,7 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
         let stored_hash = B256::from(stored_hash);
 
         // Validate the block using network-specific validation
-        let is_hash_valid = N::is_hash_valid(&target_block);
+        let is_hash_valid = N::validate_block(&mut target_block);
 
         // Verify that the block hash matches the stored hash
         if is_hash_valid && target_block.header().hash() == stored_hash {

@@ -1,3 +1,7 @@
+use alloy::{
+    consensus::{transaction::SignerRecoverable, Transaction as _},
+    primitives::keccak256,
+};
 use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
@@ -80,6 +84,31 @@ impl NetworkSpec for Ethereum {
             return false;
         }
 
+        block.uncles.is_empty()
+    }
+
+    fn validate_block(block: &mut Self::BlockResponse) -> bool {
+        if !Self::is_hash_valid(block) {
+            return false;
+        }
+        let alloy::rpc::types::BlockTransactions::Full(txs) = &mut block.transactions else {
+            return false;
+        };
+        for (index, tx) in txs.iter_mut().enumerate() {
+            // Neither the cached hash nor recovered sender is authenticated by the trie root.
+            if keccak256(tx.inner.encoded_2718()) != *tx.inner.tx_hash()
+                || tx.inner.inner().recover_signer().ok() != Some(tx.inner.signer())
+                || tx.block_hash != Some(block.header.hash)
+                || tx.block_number != Some(block.header.number)
+                || tx.transaction_index != Some(index as u64)
+            {
+                return false;
+            }
+            tx.effective_gas_price =
+                Some(tx.inner.effective_gas_price(block.header.base_fee_per_gas));
+        }
+        block.header.total_difficulty = None;
+        block.header.size = None;
         block.uncles.is_empty()
     }
 

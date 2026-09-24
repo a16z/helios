@@ -1,3 +1,7 @@
+use alloy::{
+    consensus::{transaction::SignerRecoverable, Transaction as _},
+    primitives::keccak256,
+};
 use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
@@ -110,6 +114,33 @@ impl NetworkSpec for OpStack {
             // TODO: handle L2ToL1MessagePasser storage root check
         }
 
+        block.uncles.is_empty()
+    }
+
+    fn validate_block(block: &mut Self::BlockResponse) -> bool {
+        if !Self::is_hash_valid(block) {
+            return false;
+        }
+        let alloy::rpc::types::BlockTransactions::Full(txs) = &mut block.transactions else {
+            return false;
+        };
+        for (index, tx) in txs.iter_mut().enumerate() {
+            if keccak256(tx.inner.inner.encoded_2718()) != *tx.inner.inner.tx_hash()
+                || tx.inner.inner.inner().recover_signer().ok() != Some(tx.inner.inner.signer())
+                || tx.inner.block_hash != Some(block.header.hash)
+                || tx.inner.block_number != Some(block.header.number)
+                || tx.inner.transaction_index != Some(index as u64)
+            {
+                return false;
+            }
+            tx.inner.effective_gas_price =
+                Some(tx.effective_gas_price(block.header.base_fee_per_gas));
+            // These belong to the receipt and are not part of the transaction trie.
+            tx.deposit_nonce = None;
+            tx.deposit_receipt_version = None;
+        }
+        block.header.total_difficulty = None;
+        block.header.size = None;
         block.uncles.is_empty()
     }
 
