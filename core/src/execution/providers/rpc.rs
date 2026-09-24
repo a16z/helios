@@ -220,6 +220,9 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
             .block_id(block.header().hash().into())
             .await?;
 
+        if proof.address != address {
+            return Err(ExecutionError::InvalidAccountProof(address).into());
+        }
         verify_account_proof(&proof, block.header().state_root())?;
         verify_storage_proof(&proof)?;
 
