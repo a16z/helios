@@ -372,9 +372,8 @@ pub fn force_update<S: ConsensusSpec>(store: &mut LightClientStore<S>, current_s
             if best_valid_update
                 .finalized_header
                 .as_ref()
-                .unwrap()
-                .beacon()
-                .slot
+                .map(|header| header.beacon().slot)
+                .unwrap_or_default()
                 <= store.finalized_header.beacon().slot
             {
                 best_valid_update.finalized_header =
@@ -518,5 +517,33 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
         is_execution_payload_proof_valid(header.beacon(), execution, execution_branch)
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{consensus_spec::MinimalConsensusSpec, types::LightClientHeaderBellatrix};
+    #[test]
+    fn force_update_without_finality_uses_attested_header() {
+        let mut store = LightClientStore::<MinimalConsensusSpec> {
+            best_valid_update: Some(GenericUpdate {
+                attested_header: LightClientHeader::Bellatrix(LightClientHeaderBellatrix {
+                    beacon: BeaconBlockHeader {
+                        slot: 1,
+                        ..Default::default()
+                    },
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        force_update(
+            &mut store,
+            MinimalConsensusSpec::slots_per_sync_committee_period() + 1,
+        );
+        assert_eq!(store.finalized_header.beacon().slot, 1);
+        assert_eq!(store.optimistic_header.beacon().slot, 1);
+        assert!(store.best_valid_update.is_none());
     }
 }
