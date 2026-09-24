@@ -282,7 +282,7 @@ export class HeliosProvider {
         return this.#client.new_block_filter();
       }
       case "net_version": {
-        return this.#chainId;
+        return this.#chainId.toString();
       }
       case "eth_getBlockByNumber": {
         const block = await this.#client.get_block_by_number(req.params[0], req.params[1]);
