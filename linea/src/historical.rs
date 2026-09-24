@@ -1,7 +1,7 @@
-use alloy::eips::BlockId;
+use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::Network;
 use alloy::primitives::Address;
-use alloy::rpc::types::{Block, Transaction};
+use alloy::rpc::types::{Block, BlockTransactions, Transaction};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
@@ -47,18 +47,91 @@ impl HistoricalBlockProvider<Linea> for LineaHistoricalProvider {
         // Get the untrusted block from execution provider
         // This works for both block numbers and block hashes
         let block = execution_provider
-            .get_untrusted_block(block_id, full_tx)
+            .get_untrusted_block(block_id, true)
             .await?;
 
-        let Some(block) = block else {
+        let Some(mut block) = block else {
             return Ok(None);
         };
+
+        let matches_request = match block_id {
+            BlockId::Hash(hash) => {
+                // A sequencer signature alone cannot prove current canonicality.
+                if hash.require_canonical == Some(true) {
+                    return Err(eyre!("historical Linea canonicality cannot be verified"));
+                }
+                block.header.hash == hash.block_hash
+            }
+            BlockId::Number(BlockNumberOrTag::Number(number)) => block.header.number == number,
+            _ => false,
+        };
+        if !matches_request {
+            return Err(eyre!("historical block does not match requested block"));
+        }
 
         // Since Linea uses the Ethereum spec, BlockResponse is Block<Transaction>
         // We can directly use it with our verify_block function
         match self.verify_linea_block(&block) {
-            Ok(()) => Ok(Some(block)),
+            Ok(()) => {
+                if !full_tx {
+                    block.transactions =
+                        BlockTransactions::Hashes(block.transactions.hashes().collect());
+                }
+                Ok(Some(block))
+            }
             Err(e) => Err(eyre!("Linea block validation failed: {}", e)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::B256;
+    use helios_common::types::Account;
+
+    struct Rpc(Block<Transaction>);
+    #[async_trait]
+    impl BlockProvider<Linea> for Rpc {
+        async fn get_block(&self, _: BlockId, _: bool) -> Result<Option<Block<Transaction>>> {
+            unreachable!()
+        }
+        async fn get_untrusted_block(
+            &self,
+            _: BlockId,
+            full: bool,
+        ) -> Result<Option<Block<Transaction>>> {
+            assert!(full, "historical verification needs the full body");
+            Ok(Some(self.0.clone()))
+        }
+        async fn push_block(&self, _: Block<Transaction>, _: BlockId) {
+            unreachable!()
+        }
+    }
+    #[async_trait]
+    impl AccountProvider<Linea> for Rpc {
+        async fn get_account(
+            &self,
+            _: Address,
+            _: &[B256],
+            _: bool,
+            _: BlockId,
+        ) -> Result<Account> {
+            unreachable!()
+        }
+    }
+    #[tokio::test]
+    async fn rejects_a_different_requested_block_before_signature_verification() {
+        let provider = LineaHistoricalProvider::new(Address::ZERO);
+        let mut block: Block<Transaction> = Block::default();
+        block.header.hash = B256::repeat_byte(1);
+        let rpc = Rpc(block);
+        for id in [B256::ZERO.into(), BlockId::number(1)] {
+            let err = provider
+                .get_historical_block(id, false, &rpc)
+                .await
+                .unwrap_err();
+            assert!(err.to_string().contains("does not match requested block"));
         }
     }
 }
