@@ -145,7 +145,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         } else {
             u64::MAX
         };
-        TxEnv {
+        let mut env = TxEnv {
             tx_type: tx.transaction_type.unwrap_or_default(),
             caller: tx.from.unwrap_or_default(),
             gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
@@ -172,7 +172,9 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
                 .map(|v| v.to_vec())
                 .unwrap_or_default(),
             authorization_list: vec![],
-        }
+        };
+        env.set_signed_authorization(tx.authorization_list.clone().unwrap_or_default());
+        env
     }
 
     fn block_env(block: &Block<Transaction, Header>, fork_schedule: &ForkSchedule) -> BlockEnv {
@@ -240,5 +242,74 @@ pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSched
         SpecId::FRONTIER
     } else {
         SpecId::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::address;
+    use helios_core::execution::providers::{
+        block::block_cache::BlockCache, rpc::RpcExecutionProvider,
+    };
+    use revm::{
+        database::InMemoryDB,
+        state::{AccountInfo, Bytecode},
+    };
+    fn test_evm() -> EthereumEvm<RpcExecutionProvider<Ethereum, BlockCache<Ethereum>, ()>> {
+        let config = crate::config::networks::mainnet();
+        let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+            "http://localhost:1".parse().unwrap(),
+            BlockCache::new(),
+        );
+        EthereumEvm::new(
+            Arc::new(provider),
+            config.chain.chain_id,
+            config.execution_forks,
+            BlockId::latest(),
+        )
+    }
+
+    #[tokio::test]
+    async fn eip7702_call_executes_authorized_code() {
+        use alloy::{eips::eip7702::Authorization, primitives::Signature};
+        let evm = test_evm();
+        let caller = address!("1111111111111111111111111111111111111111");
+        let delegate = address!("2222222222222222222222222222222222222222");
+        // Any recoverable signature defines an authority; no private key is needed for this test.
+        let auth = Authorization {
+            chain_id: U256::ZERO,
+            address: delegate,
+            nonce: 0,
+        }
+        .into_signed(Signature::new(U256::from(1), U256::from(2), false));
+        let authority = auth.recover_authority().unwrap();
+        let mut block: Block<Transaction> = Block::default();
+        block.header.gas_limit = 100_000_000;
+        block.header.timestamp = evm.fork_schedule.prague_timestamp;
+        let tx = TransactionRequest {
+            authorization_list: Some(vec![auth]),
+            transaction_type: Some(4),
+            gas: Some(1_000_000),
+            ..TransactionRequest::default().from(caller).to(authority)
+        };
+        let mut db = InMemoryDB::default();
+        db.insert_account_info(
+            delegate,
+            AccountInfo::default().with_code(Bytecode::new_raw(alloy::primitives::bytes!(
+                "602a60005260206000f3"
+            ))),
+        );
+        let result = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet()
+            .replay()
+            .unwrap()
+            .result;
+        assert_eq!(
+            result.output().unwrap().as_ref(),
+            U256::from(42).to_be_bytes::<32>()
+        );
     }
 }
