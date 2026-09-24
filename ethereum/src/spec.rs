@@ -63,24 +63,24 @@ impl NetworkSpec for Ethereum {
             return false;
         }
 
-        if let Some(txs) = block.transactions.as_transactions() {
-            let txs_root = calculate_transaction_root(
-                &txs.iter().map(|t| t.clone().inner).collect::<Vec<_>>(),
-            );
-            if txs_root != block.header.transactions_root {
-                return false;
-            }
+        let Some(txs) = block.transactions.as_transactions() else {
+            return false;
+        };
+        if calculate_transaction_root(&txs.iter().map(|t| t.clone().inner).collect::<Vec<_>>())
+            != block.header.transactions_root
+        {
+            return false;
         }
 
-        if let Some(withdrawals) = &block.withdrawals {
-            let withdrawals_root =
-                calculate_withdrawals_root(&withdrawals.iter().copied().collect::<Vec<_>>());
-            if Some(withdrawals_root) != block.header.withdrawals_root {
-                return false;
-            }
+        let withdrawals_root = block
+            .withdrawals
+            .as_ref()
+            .map(|withdrawals| calculate_withdrawals_root(withdrawals));
+        if withdrawals_root != block.header.withdrawals_root {
+            return false;
         }
 
-        true
+        block.uncles.is_empty()
     }
 
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool {

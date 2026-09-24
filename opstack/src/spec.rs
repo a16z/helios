@@ -91,15 +91,16 @@ impl NetworkSpec for OpStack {
             return false;
         }
 
-        if let Some(txs) = block.transactions.as_transactions() {
-            let txs_root = calculate_transaction_root(
-                &txs.iter()
-                    .map(|t| t.clone().inner.inner)
-                    .collect::<Vec<_>>(),
-            );
-            if txs_root != block.header.transactions_root {
-                return false;
-            }
+        let Some(txs) = block.transactions.as_transactions() else {
+            return false;
+        };
+        if calculate_transaction_root(
+            &txs.iter()
+                .map(|t| t.clone().inner.inner)
+                .collect::<Vec<_>>(),
+        ) != block.header.transactions_root
+        {
+            return false;
         }
 
         if let Some(withdrawals) = &block.withdrawals {
@@ -109,7 +110,7 @@ impl NetworkSpec for OpStack {
             // TODO: handle L2ToL1MessagePasser storage root check
         }
 
-        true
+        block.uncles.is_empty()
     }
 
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool {

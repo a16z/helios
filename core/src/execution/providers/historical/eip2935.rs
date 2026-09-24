@@ -4,6 +4,7 @@ use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::{address, B256, U256};
+use alloy::rpc::types::BlockTransactions;
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
@@ -67,10 +68,10 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
         // Get the untrusted block from the execution provider first
         // This works for both block numbers and block hashes
         let target_block = execution_provider
-            .get_untrusted_block(block_id, full_tx)
+            .get_untrusted_block(block_id, true)
             .await?;
 
-        let Some(target_block) = target_block else {
+        let Some(mut target_block) = target_block else {
             return Ok(None);
         };
 
@@ -128,6 +129,10 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
 
         // Verify that the block hash matches the stored hash
         if is_hash_valid && target_block.header().hash() == stored_hash {
+            if !full_tx {
+                *target_block.transactions_mut() =
+                    BlockTransactions::Hashes(target_block.transactions().hashes().collect());
+            }
             Ok(Some(target_block))
         } else {
             Err(eyre!(
