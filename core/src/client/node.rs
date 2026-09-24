@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::network::BlockResponse;
+use alloy::network::{primitives::HeaderResponse, BlockResponse, TransactionBuilder};
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{
     state::StateOverride, AccessListItem, AccessListResult, EIP1186AccountProofResponse,
@@ -220,19 +220,69 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
     ) -> Result<u64> {
         let block_id = block_id.unwrap_or(BlockId::latest());
         self.check_blocktag_age(&block_id).await?;
+        let block = self
+            .execution
+            .get_block(block_id, false)
+            .await?
+            .ok_or(eyre!("block not found"))?;
+        let block_id = block.header().hash().into();
+        let ceiling = tx.gas_limit().unwrap_or(block.header().gas_limit());
+        let chain_id = self.get_chain_id().await;
 
+        let mut candidate = tx.clone();
+        candidate.set_gas_limit(ceiling);
         let (result, ..) = N::transact(
-            tx,
+            &candidate,
             false,
             self.execution.clone(),
-            self.get_chain_id().await,
+            chain_id,
             self.fork_schedule,
             block_id,
-            state_overrides,
+            state_overrides.clone(),
         )
         .await?;
 
-        Ok(result.gas_used())
+        match &result {
+            ExecutionResult::Revert { output, .. } => {
+                return Err(EvmError::Revert(Some(output.clone())).into())
+            }
+            ExecutionResult::Halt { .. } => return Err(EvmError::Revert(None).into()),
+            ExecutionResult::Success { .. } => (),
+        }
+
+        // Billed gas excludes refunds and does not account for gas retained by
+        // EIP-150 calls. Only return a limit that actually succeeds at this state.
+        let mut gas = match result {
+            ExecutionResult::Success {
+                gas_used,
+                gas_refunded,
+                ..
+            } => gas_used.saturating_add(gas_refunded),
+            _ => unreachable!("execution success checked above"),
+        };
+        loop {
+            if gas > ceiling {
+                return Err(eyre!("gas required exceeds allowance"));
+            }
+            candidate.set_gas_limit(gas);
+            let (result, ..) = N::transact(
+                &candidate,
+                false,
+                self.execution.clone(),
+                chain_id,
+                self.fork_schedule,
+                block_id,
+                state_overrides.clone(),
+            )
+            .await?;
+            if result.is_success() {
+                return Ok(gas);
+            }
+            if gas == ceiling {
+                return Err(eyre!("gas required exceeds allowance"));
+            }
+            gas = gas.saturating_add((gas / 10).max(1_000)).min(ceiling);
+        }
     }
 
     async fn create_access_list(
@@ -521,5 +571,217 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         self.consensus
             .checkpoint_recv()
             .ok_or_else(|| eyre!("Checkpoints not supported"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::{
+        primitives::{address, keccak256},
+        rpc::types::{Block, Transaction, TransactionReceipt, TransactionRequest},
+    };
+    use helios_common::{execution_provider::*, types::Account};
+    use helios_ethereum::spec::Ethereum;
+    use tokio::sync::{mpsc, watch};
+
+    struct TestConsensus;
+    #[async_trait]
+    impl Consensus<Block<Transaction>> for TestConsensus {
+        fn block_recv(&mut self) -> Option<mpsc::Receiver<Block<Transaction>>> {
+            None
+        }
+        fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+            None
+        }
+        fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
+            None
+        }
+        fn expected_highest_block(&self) -> u64 {
+            1
+        }
+        fn chain_id(&self) -> u64 {
+            1
+        }
+        fn shutdown(&self) -> Result<()> {
+            Ok(())
+        }
+        async fn wait_synced(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+    struct State {
+        block: Block<Transaction>,
+        code: Bytes,
+    }
+    const RECIPIENT: Address = address!("2222222222222222222222222222222222222222");
+    #[async_trait]
+    impl AccountProvider<Ethereum> for State {
+        async fn get_account(
+            &self,
+            address: Address,
+            slots: &[B256],
+            _: bool,
+            block: BlockId,
+        ) -> Result<Account> {
+            assert_eq!(block, self.block.header.hash.into());
+            let code = if address == RECIPIENT {
+                self.code.clone()
+            } else {
+                Bytes::new()
+            };
+            Ok(Account {
+                account: alloy::consensus::TrieAccount {
+                    balance: U256::from(1_000_000_000u64),
+                    code_hash: keccak256(&code),
+                    ..Default::default()
+                },
+                code: Some(code),
+                storage_proof: slots
+                    .iter()
+                    .map(|slot| EIP1186StorageProof {
+                        key: (*slot).into(),
+                        value: U256::from(1),
+                        proof: vec![],
+                    })
+                    .collect(),
+                ..Default::default()
+            })
+        }
+    }
+    #[async_trait]
+    impl BlockProvider<Ethereum> for State {
+        async fn get_block(&self, _: BlockId, _: bool) -> Result<Option<Block<Transaction>>> {
+            Ok(Some(self.block.clone()))
+        }
+        async fn get_untrusted_block(
+            &self,
+            _: BlockId,
+            _: bool,
+        ) -> Result<Option<Block<Transaction>>> {
+            unreachable!()
+        }
+        async fn push_block(&self, _: Block<Transaction>, _: BlockId) {
+            unreachable!()
+        }
+    }
+    #[async_trait]
+    impl ExecutionHintProvider<Ethereum> for State {
+        async fn get_execution_hint(
+            &self,
+            _: &TransactionRequest,
+            _: bool,
+            _: BlockId,
+        ) -> Result<std::collections::HashMap<Address, Account>> {
+            Ok(Default::default())
+        }
+    }
+    #[async_trait]
+    impl TransactionProvider<Ethereum> for State {
+        async fn get_transaction(&self, _: B256) -> Result<Option<Transaction>> {
+            unreachable!()
+        }
+        async fn get_transaction_by_location(
+            &self,
+            _: BlockId,
+            _: u64,
+        ) -> Result<Option<Transaction>> {
+            unreachable!()
+        }
+        async fn send_raw_transaction(&self, _: &[u8]) -> Result<B256> {
+            unreachable!()
+        }
+    }
+    #[async_trait]
+    impl ReceiptProvider<Ethereum> for State {
+        async fn get_receipt(&self, _: B256) -> Result<Option<TransactionReceipt>> {
+            unreachable!()
+        }
+        async fn get_block_receipts(&self, _: BlockId) -> Result<Option<Vec<TransactionReceipt>>> {
+            unreachable!()
+        }
+    }
+    #[async_trait]
+    impl LogProvider<Ethereum> for State {
+        async fn get_logs(&self, _: &Filter) -> Result<Vec<Log>> {
+            unreachable!()
+        }
+    }
+    impl ExecutionProvider<Ethereum> for State {}
+
+    fn node(code: Bytes) -> Node<Ethereum, TestConsensus, State> {
+        let forks = helios_ethereum::config::networks::mainnet().execution_forks;
+        let mut block: Block<Transaction> = Block::default();
+        block.header.number = 1;
+        block.header.hash = B256::repeat_byte(1);
+        block.header.timestamp = forks.prague_timestamp;
+        block.header.gas_limit = 1_000_000;
+        Node {
+            consensus: TestConsensus,
+            execution: Arc::new(State { block, code }),
+            filter_state: FilterState::default(),
+            block_broadcast: Sender::new(1),
+            fork_schedule: forks,
+            phantom: PhantomData,
+        }
+    }
+    fn request() -> TransactionRequest {
+        TransactionRequest {
+            to: Some(RECIPIENT.into()),
+            gas: Some(1_000_000),
+            ..Default::default()
+        }
+    }
+    #[tokio::test]
+    async fn rejects_reverting_and_halting_estimates() {
+        for code in [
+            alloy::primitives::bytes!("60006000fd"),
+            alloy::primitives::bytes!("fe"),
+        ] {
+            let node = node(code);
+            let result = node
+                .estimate_gas(&request(), Some(B256::repeat_byte(1).into()), None)
+                .await;
+            assert!(
+                result.is_err(),
+                "returned a successful estimate for failed execution"
+            );
+        }
+    }
+    #[tokio::test]
+    async fn estimate_covers_gas_spent_before_refunds() {
+        let node = node(alloy::primitives::bytes!("600060005500"));
+        let block_id = B256::repeat_byte(1).into();
+        let mut tx = request();
+        let (initial, _) = Ethereum::transact(
+            &tx,
+            false,
+            node.execution.clone(),
+            1,
+            node.fork_schedule,
+            block_id,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(initial.is_success());
+        let gas = node.estimate_gas(&tx, Some(block_id), None).await.unwrap();
+        assert!(
+            gas > initial.gas_used(),
+            "refunded gas is not a safe execution limit"
+        );
+        tx.gas = Some(gas);
+        let (result, _) = Ethereum::transact(
+            &tx,
+            false,
+            node.execution.clone(),
+            1,
+            node.fork_schedule,
+            block_id,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(result.is_success());
     }
 }
