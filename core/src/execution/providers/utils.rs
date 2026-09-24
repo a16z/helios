@@ -1,5 +1,10 @@
 use alloy::rpc::types::{BlockId, BlockNumberOrTag, Filter, Log};
-use eyre::Result;
+use alloy::{
+    eips::{Decodable2718, Encodable2718},
+    primitives::B256,
+};
+use eyre::{eyre, Result};
+use helios_common::network_spec::NetworkSpec;
 
 use crate::execution::errors::ExecutionError;
 
@@ -55,5 +60,13 @@ pub fn ensure_logs_match_filter(logs: &[Log], filter: &Filter) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+pub fn verify_submitted_transaction_hash<N: NetworkSpec>(bytes: &[u8], hash: B256) -> Result<()> {
+    let mut remaining = bytes;
+    let tx = N::TxEnvelope::decode_2718(&mut remaining)?;
+    if !remaining.is_empty() || tx.trie_hash() != hash {
+        return Err(eyre!("RPC returned the wrong submitted transaction hash"));
+    }
     Ok(())
 }

@@ -330,6 +330,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Transac
 
     async fn send_raw_transaction(&self, bytes: &[u8]) -> Result<B256> {
         let tx = self.provider.send_raw_transaction(bytes).await?;
+        super::utils::verify_submitted_transaction_hash::<N>(bytes, *tx.tx_hash())?;
         Ok(*tx.tx_hash())
     }
 }
