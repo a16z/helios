@@ -77,6 +77,15 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
         // Extract the block number from the fetched block (works for both number and hash queries)
         let target_number = target_block.header().number();
 
+        let matches_request = match block_id {
+            BlockId::Hash(hash) => target_block.header().hash() == hash.block_hash,
+            BlockId::Number(BlockNumberOrTag::Number(number)) => target_number == number,
+            _ => false,
+        };
+        if !matches_request {
+            return Err(eyre!("historical block does not match requested block"));
+        }
+
         // Get the trusted latest block from the execution provider
         let latest_block = execution_provider
             .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
@@ -91,21 +100,13 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
 
         // Check if the target block is within the EIP-2935 ring buffer range
         // The ring buffer stores the last `ring_buffer_size` block hashes
-        if target_number + self.ring_buffer_size <= latest_number {
+        let distance = latest_number.checked_sub(target_number);
+        if !distance.is_some_and(|distance| distance > 0 && distance <= self.ring_buffer_size) {
             return Err(eyre!(
                 "block {} is outside EIP-2935 ring buffer range (latest: {}, buffer size: {})",
                 target_number,
                 latest_number,
                 self.ring_buffer_size
-            ));
-        }
-
-        // Also check if target block is in the future
-        if target_number > latest_number {
-            return Err(eyre!(
-                "block {} is in the future (latest: {})",
-                target_number,
-                latest_number
             ));
         }
 
