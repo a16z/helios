@@ -138,6 +138,15 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
         }
         while state.blocks.len() > MAX_STATE_HISTORY_LENGTH {
             if let Some(old_hash) = state.insertion_order.pop_front() {
+                // Keep finalized available by hash, even when finality stalls.
+                if state
+                    .finalized
+                    .as_ref()
+                    .is_some_and(|block| block.header().hash() == old_hash)
+                {
+                    state.insertion_order.push_back(old_hash);
+                    continue;
+                }
                 if let Some(old) = state.blocks.remove(&old_hash) {
                     let old_number = old.header().number();
                     if state.canonical.get(&old_number) == Some(&old_hash) {
