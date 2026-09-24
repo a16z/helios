@@ -285,6 +285,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
                 rpc_url,
                 block_provider,
                 historical_provider,
+                config.execution_forks,
             );
             let execution = CachingProvider::new(execution);
 

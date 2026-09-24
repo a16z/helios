@@ -168,6 +168,28 @@ impl NetworkSpec for OpStack {
         receipt.inner.inner.logs().to_vec()
     }
 
+    fn receipt_metadata_valid(
+        receipt: &Self::ReceiptResponse,
+        tx: &Self::TransactionResponse,
+        block: &Self::BlockResponse,
+        _forks: &ForkSchedule,
+    ) -> bool {
+        use alloy::consensus::Transaction;
+        let nonce = receipt
+            .inner
+            .inner
+            .deposit_nonce()
+            .unwrap_or_else(|| tx.nonce());
+        let contract_address = tx
+            .is_create()
+            .then(|| tx.inner.inner.signer().create(nonce));
+        receipt.inner.contract_address == contract_address
+            && receipt.inner.effective_gas_price
+                == tx.effective_gas_price(block.header.base_fee_per_gas)
+            && receipt.inner.blob_gas_used.is_none()
+            && receipt.inner.blob_gas_price.is_none()
+    }
+
     async fn transact<E: ExecutionProvider<Self>>(
         tx: &Self::TransactionRequest,
         validate_tx: bool,
