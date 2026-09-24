@@ -164,6 +164,11 @@ impl NetworkSpec for OpStack {
         false
     }
 
+    fn sanitize_receipt(receipt: &mut Self::ReceiptResponse) {
+        // L1/operator fee fields are not encoded in the OP receipt trie.
+        receipt.l1_block_info = Default::default();
+    }
+
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log> {
         receipt.inner.inner.logs().to_vec()
     }

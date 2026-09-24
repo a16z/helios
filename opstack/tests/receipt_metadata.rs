@@ -142,3 +142,68 @@ fn op_signed_and_deposit_creation_uses_authenticated_nonce_including_failed_crea
         }
     }
 }
+
+#[tokio::test]
+async fn both_receipt_apis_strip_all_unverified_fees_without_extra_rpc_calls() {
+    use alloy::eips::BlockId;
+    use helios_common::execution_provider::{BlockProvider, ReceiptProvider};
+    use helios_core::execution::providers::{
+        block::block_cache::BlockCache, rpc::RpcExecutionProvider,
+    };
+    use jsonrpsee::{server::ServerBuilder, types::ErrorObjectOwned, RpcModule};
+    use std::sync::{Arc, Mutex};
+
+    let (block, mut receipt) = fixture(false, None, true);
+    receipt.l1_block_info = op_alloy_rpc_types::L1BlockInfo {
+        l1_gas_price: Some(u128::MAX),
+        l1_gas_used: Some(u128::MAX),
+        l1_fee: Some(u128::MAX),
+        l1_fee_scalar: Some(123456.0),
+        l1_base_fee_scalar: Some(u128::MAX),
+        l1_blob_base_fee: Some(u128::MAX),
+        l1_blob_base_fee_scalar: Some(u128::MAX),
+        operator_fee_scalar: Some(u128::MAX),
+        operator_fee_constant: Some(u128::MAX),
+    };
+    let original_encoding = OpStack::encode_receipt(&receipt);
+    let hash = receipt.inner.transaction_hash;
+    let block_hash = block.header.hash;
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let server = ServerBuilder::default().build("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", server.local_addr().unwrap());
+    let mut rpc = RpcModule::new(calls.clone());
+    let locator = receipt.clone();
+    rpc.register_method("eth_getTransactionReceipt", move |_, calls| {
+        calls.lock().unwrap().push("locator");
+        Ok::<_, ErrorObjectOwned>(Some(locator.clone()))
+    })
+    .unwrap();
+    rpc.register_method("eth_getBlockReceipts", move |params, calls| {
+        assert_eq!(params.one::<BlockId>()?, BlockId::from(block_hash));
+        calls.lock().unwrap().push("receipts");
+        Ok::<_, ErrorObjectOwned>(Some(vec![receipt.clone()]))
+    })
+    .unwrap();
+    let handle = server.start(rpc);
+    let cache = BlockCache::new();
+    cache.push_block(block, BlockId::latest()).await;
+    let provider = RpcExecutionProvider::<OpStack, _, ()>::new(
+        url.parse().unwrap(),
+        cache,
+        Default::default(),
+    );
+    let individual = provider.get_receipt(hash).await.unwrap().unwrap();
+    assert_eq!(*calls.lock().unwrap(), vec!["locator", "receipts"]);
+    calls.lock().unwrap().clear();
+    let receipts = provider
+        .get_block_receipts(block_hash.into())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(*calls.lock().unwrap(), vec!["receipts"]);
+    for clean in std::iter::once(individual).chain(receipts) {
+        assert_eq!(clean.l1_block_info, Default::default());
+        assert_eq!(OpStack::encode_receipt(&clean), original_encoding);
+    }
+    handle.stop().unwrap();
+}
