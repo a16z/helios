@@ -52,7 +52,9 @@ impl ConsensusClient {
 
         let mut inner = Inner {
             server_url: config.consensus_rpc.clone(),
-            unsafe_signer: Arc::new(Mutex::new(config.chain.unsafe_signer)),
+            unsafe_signer: Arc::new(Mutex::new(
+                (!config.verify_unsafe_signer).then_some(config.chain.unsafe_signer),
+            )),
             chain_id: config.chain.chain_id,
             latest_block: None,
             block_send,
@@ -122,7 +124,7 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
 #[allow(dead_code)]
 struct Inner {
     server_url: Url,
-    unsafe_signer: Arc<Mutex<Address>>,
+    unsafe_signer: Arc<Mutex<Option<Address>>>,
     chain_id: u64,
     latest_block: Option<u64>,
     block_send: Sender<Block<Transaction>>,
@@ -131,6 +133,11 @@ struct Inner {
 
 impl Inner {
     pub async fn advance(&mut self) -> Result<()> {
+        let curr_signer = self
+            .unsafe_signer
+            .lock()
+            .map_err(|_| eyre!("failed to lock signer"))?
+            .ok_or_eyre("waiting for verified unsafe signer")?;
         let url = self
             .server_url
             .join("latest")
@@ -140,10 +147,6 @@ impl Inner {
             .json::<SequencerCommitment>()
             .await?;
 
-        let curr_signer = *self
-            .unsafe_signer
-            .lock()
-            .map_err(|_| eyre!("failed to lock signer"))?;
         if commitment.verify(curr_signer, self.chain_id).is_ok() {
             let payload = ExecutionPayload::try_from(&commitment)?;
             if self
@@ -178,7 +181,7 @@ impl Inner {
     }
 }
 
-fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
+fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Option<Address>>>) {
     #[cfg(not(target_arch = "wasm32"))]
     let run = tokio::spawn;
 
@@ -213,6 +216,8 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 .await
                 .ok_or_eyre("failed to receive block")?;
 
+            eth_consensus.shutdown()?;
+
             // Query proof from op consensus server
             let url = config
                 .consensus_rpc
@@ -225,13 +230,18 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
 
             // Verify unsafe signer
             // with account proof
-            if verify_account_proof(&proof, block.header.state_root).is_err() {
+            if proof.address != config.chain.system_config_contract
+                || verify_account_proof(&proof, block.header.state_root).is_err()
+            {
                 warn!(target: "helios::opstack", "account proof invalid");
                 return Err(eyre!("account proof invalid"));
             }
 
             // with storage proof
-            let storage_proof = proof.storage_proof[0].clone();
+            let storage_proof = proof
+                .storage_proof
+                .first()
+                .ok_or_eyre("missing unsafe signer proof")?;
             let key = storage_proof.key.as_b256();
             if key != B256::from_str(UNSAFE_SIGNER_SLOT)? {
                 warn!(target: "helios::opstack", "account proof invalid");
@@ -255,19 +265,18 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                 Address::from_slice(&storage_proof.value.to_be_bytes::<32>()[12..32]);
             {
                 let mut curr_signer = signer.lock().map_err(|_| eyre!("failed to lock signer"))?;
-                if verified_signer != *curr_signer {
+                if Some(verified_signer) != *curr_signer {
                     debug!(target: "helios::opstack", "unsafe signer updated: {}", verified_signer);
-                    *curr_signer = verified_signer;
+                    *curr_signer = Some(verified_signer);
                 }
             }
-
-            // Shutdown eth consensus client
-            eth_consensus.shutdown()?;
 
             Ok(())
         };
 
-        _ = fut.await;
+        if let Err(err) = fut.await {
+            error!(target: "helios::opstack", "unsafe signer verification failed: {err}");
+        }
     });
 }
 
@@ -360,4 +369,24 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
 
     Ok(Block::new(header, BlockTransactions::Full(txs))
         .with_withdrawals(Some(Withdrawals::new(withdrawals))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn requires_verified_signer_before_fetching_blocks() {
+        let (block_send, _) = channel(1);
+        let (finalized_block_send, _) = watch::channel(None);
+        let mut inner = Inner {
+            server_url: "http://localhost:1".parse().unwrap(),
+            unsafe_signer: Arc::new(Mutex::new(None)),
+            chain_id: 10,
+            latest_block: None,
+            block_send,
+            finalized_block_send,
+        };
+        let err = inner.advance().await.unwrap_err();
+        assert_eq!(err.to_string(), "waiting for verified unsafe signer");
+    }
 }
