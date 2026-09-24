@@ -242,3 +242,46 @@ pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSched
         SpecId::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::address;
+    use helios_core::execution::providers::{
+        block::block_cache::BlockCache, rpc::RpcExecutionProvider,
+    };
+    fn test_evm() -> EthereumEvm<RpcExecutionProvider<Ethereum, BlockCache<Ethereum>, ()>> {
+        let config = crate::config::networks::mainnet();
+        let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+            "http://localhost:1".parse().unwrap(),
+            BlockCache::new(),
+        );
+        EthereumEvm::new(
+            Arc::new(provider),
+            config.chain.chain_id,
+            config.execution_forks,
+            BlockId::latest(),
+        )
+    }
+
+    #[tokio::test]
+    async fn funded_precompiles_use_proven_balances() {
+        use revm::Database;
+        let evm = test_evm();
+        let precompile = address!("0000000000000000000000000000000000000001");
+        let mut db = ProofDB::new(alloy::primitives::B256::ZERO.into(), evm.execution, None);
+        let account = Account {
+            account: alloy::consensus::TrieAccount {
+                balance: U256::from(123),
+                ..Default::default()
+            },
+            code: Some(Default::default()),
+            ..Default::default()
+        };
+        db.state.accounts.insert(precompile, account);
+        assert_eq!(
+            db.basic(precompile).unwrap().unwrap().balance,
+            U256::from(123)
+        );
+    }
+}
