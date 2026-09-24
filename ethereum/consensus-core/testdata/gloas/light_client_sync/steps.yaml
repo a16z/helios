@@ -1,134 +1,134 @@
 - process_update:
     update_fork_digest: '0x22953d6a'
     update: 
-      update_0x5a845ff23b81076f3e8fbd994c23f7d36bbe61e0a50be945ea8301f2e1073935_sf
+      update_0x04f9c415a3b545e2a196fa9c96bacb344f58942f5c2df721364e8866678a895b_sf
     current_slot: 41
     checks:
       finalized_header:
         slot: 24
-        beacon_root: '0x9fa8a9b3d8ffdaa1299145d83aeed1b556acb77520c10ebe4d9df7ac23834df3'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x4f0b7ad7eec444977870ed36caded3be01873732efe6299aa8038f7edab764f7'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 40
-        beacon_root: '0x5a845ff23b81076f3e8fbd994c23f7d36bbe61e0a50be945ea8301f2e1073935'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x04f9c415a3b545e2a196fa9c96bacb344f58942f5c2df721364e8866678a895b'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0xd3dd62c0'
     update: 
-      update_0x7a90ad33fb34ac7c57bd4438f60626d9abdc33d513c9e5e97f26cd201010d39b_sf
+      update_0x8f596398dfc147228d481339a56679b7e8420c28f1d09d7ed24479e53209d577_sf
     current_slot: 89
     checks:
       finalized_header:
         slot: 72
-        beacon_root: '0x175b9bb69801bb1b9334ba05235e0aaceadaeb8e365d675ef1ca7252cc6f09f3'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0xd223b727972f2cb0ae2e9c64e06aa6499f3f7bbb6315454b8bb0da65f6e9a3f8'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 88
-        beacon_root: '0x7a90ad33fb34ac7c57bd4438f60626d9abdc33d513c9e5e97f26cd201010d39b'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x8f596398dfc147228d481339a56679b7e8420c28f1d09d7ed24479e53209d577'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0xd3dd62c0'
     update: 
-      update_0x887606e07a76f8998b48c79b30e48dccc581ba322e29cc384a0861f8224b1777_xf
+      update_0x01164a12c3fbc2fe0140d7630f350185f10c41a69ee279694cfc5b631636ba81_xf
     current_slot: 129
     checks:
       finalized_header:
         slot: 96
-        beacon_root: '0x878ed65463046be5702d6f5c8229e57295d1253af56b0ba6ba990b248c7c78e5'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0xb59c7d823e990500864caf48ff4b34aea8f296b28d0cc551cfe517eef475ecf1'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 112
-        beacon_root: '0x887606e07a76f8998b48c79b30e48dccc581ba322e29cc384a0861f8224b1777'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x01164a12c3fbc2fe0140d7630f350185f10c41a69ee279694cfc5b631636ba81'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0xdc0f384c'
     update: 
-      update_0xe361fb9dff091f3ad9358c717c2811d8e0aa1fd324d1d4e38787868c615a91e8_sx
+      update_0xcb29fef2c01b060dfb8d500cc01b1e96843edaf276e148dd3cc539ea1e24408e_sx
     current_slot: 130
     checks:
       finalized_header:
         slot: 96
-        beacon_root: '0x878ed65463046be5702d6f5c8229e57295d1253af56b0ba6ba990b248c7c78e5'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0xb59c7d823e990500864caf48ff4b34aea8f296b28d0cc551cfe517eef475ecf1'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 129
-        beacon_root: '0xe361fb9dff091f3ad9358c717c2811d8e0aa1fd324d1d4e38787868c615a91e8'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0xcb29fef2c01b060dfb8d500cc01b1e96843edaf276e148dd3cc539ea1e24408e'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0xdc0f384c'
     update: 
-      update_0x38fa056945079c4224f0bf08e8c96e8554316e6af35ade5553e0d94cc87f6537_sf
+      update_0x93b3471ec19095a2fe12292894ab6156ec4bc47d3f648f5025674a7c65266b1f_sf
     current_slot: 131
     checks:
       finalized_header:
         slot: 96
-        beacon_root: '0x878ed65463046be5702d6f5c8229e57295d1253af56b0ba6ba990b248c7c78e5'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0xb59c7d823e990500864caf48ff4b34aea8f296b28d0cc551cfe517eef475ecf1'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 130
-        beacon_root: '0x38fa056945079c4224f0bf08e8c96e8554316e6af35ade5553e0d94cc87f6537'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x93b3471ec19095a2fe12292894ab6156ec4bc47d3f648f5025674a7c65266b1f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - force_update:
     current_slot: 194
     checks:
       finalized_header:
         slot: 130
-        beacon_root: '0x38fa056945079c4224f0bf08e8c96e8554316e6af35ade5553e0d94cc87f6537'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x93b3471ec19095a2fe12292894ab6156ec4bc47d3f648f5025674a7c65266b1f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 130
-        beacon_root: '0x38fa056945079c4224f0bf08e8c96e8554316e6af35ade5553e0d94cc87f6537'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x93b3471ec19095a2fe12292894ab6156ec4bc47d3f648f5025674a7c65266b1f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0xdc0f384c'
     update: 
-      update_0x5d88f11b0878da9ec02d73c4481671acaf09f3db6b27e690562747ab7b4c4250_xx
+      update_0x26de34d1195fa87a19b884339e9ae0536c2cef1b1853d74f1a447659b9687e6a_xx
     current_slot: 195
     checks:
       finalized_header:
         slot: 130
-        beacon_root: '0x38fa056945079c4224f0bf08e8c96e8554316e6af35ade5553e0d94cc87f6537'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x93b3471ec19095a2fe12292894ab6156ec4bc47d3f648f5025674a7c65266b1f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 131
-        beacon_root: '0x5d88f11b0878da9ec02d73c4481671acaf09f3db6b27e690562747ab7b4c4250'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x26de34d1195fa87a19b884339e9ae0536c2cef1b1853d74f1a447659b9687e6a'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0xb1b95df4'
     update: 
-      update_0x6ce297906a1085523c175a1d26102c966ca528b33998fd228036247ae1cc6649_sf
+      update_0x48d2fb56c7ae8c46b89513ec179121625394d89930186726005387b8db49a33f_sf
     current_slot: 196
     checks:
       finalized_header:
         slot: 130
-        beacon_root: '0x38fa056945079c4224f0bf08e8c96e8554316e6af35ade5553e0d94cc87f6537'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x93b3471ec19095a2fe12292894ab6156ec4bc47d3f648f5025674a7c65266b1f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 195
-        beacon_root: '0x6ce297906a1085523c175a1d26102c966ca528b33998fd228036247ae1cc6649'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x48d2fb56c7ae8c46b89513ec179121625394d89930186726005387b8db49a33f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - force_update:
     current_slot: 196
     checks:
       finalized_header:
         slot: 195
-        beacon_root: '0x6ce297906a1085523c175a1d26102c966ca528b33998fd228036247ae1cc6649'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x48d2fb56c7ae8c46b89513ec179121625394d89930186726005387b8db49a33f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 195
-        beacon_root: '0x6ce297906a1085523c175a1d26102c966ca528b33998fd228036247ae1cc6649'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x48d2fb56c7ae8c46b89513ec179121625394d89930186726005387b8db49a33f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
 - process_update:
     update_fork_digest: '0x7552f079'
     update: 
-      update_0x362b4641f9eb8ea84d1c4c92d5c1e91016a61bb13bce5cdee67fff42835a4274_sf
+      update_0xdb83b7af3fde9bd05963072b69fea352ed7b729c54f1c7ac7b81fec4847b6b4f_sf
     current_slot: 281
     checks:
       finalized_header:
         slot: 264
-        beacon_root: '0x326e9272d9edd5c30395ef14d8fd704814dbb3c711060a3ff184148a220c1608'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0x88f8a5e2fbe2caea67f63fbb56cc687f8221b65f5bd8dfae717abfe8febc02fe'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'
       optimistic_header:
         slot: 280
-        beacon_root: '0x362b4641f9eb8ea84d1c4c92d5c1e91016a61bb13bce5cdee67fff42835a4274'
-        execution_root: '0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada'
+        beacon_root: '0xdb83b7af3fde9bd05963072b69fea352ed7b729c54f1c7ac7b81fec4847b6b4f'
+        execution_root: '0x29d8a214d96100167f5d016dafbc05f15eb2c4158fdf07d7c187d05068ac8dbe'

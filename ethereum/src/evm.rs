@@ -122,8 +122,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             tx_env.chain_id = Some(self.chain_id);
         }
 
-        let mut cfg = CfgEnv::default();
-        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
+        let mut cfg = CfgEnv::new_with_spec(spec);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
@@ -215,30 +214,20 @@ pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSched
         SpecId::SHANGHAI
     } else if timestamp >= fork_schedule.paris_timestamp {
         SpecId::MERGE
-    } else if timestamp >= fork_schedule.gray_glacier_timestamp {
-        SpecId::GRAY_GLACIER
-    } else if timestamp >= fork_schedule.arrow_glacier_timestamp {
-        SpecId::ARROW_GLACIER
     } else if timestamp >= fork_schedule.london_timestamp {
         SpecId::LONDON
     } else if timestamp >= fork_schedule.berlin_timestamp {
         SpecId::BERLIN
-    } else if timestamp >= fork_schedule.muir_glacier_timestamp {
-        SpecId::MUIR_GLACIER
     } else if timestamp >= fork_schedule.istanbul_timestamp {
         SpecId::ISTANBUL
     } else if timestamp >= fork_schedule.petersburg_timestamp {
         SpecId::PETERSBURG
-    } else if timestamp >= fork_schedule.constantinople_timestamp {
-        SpecId::CONSTANTINOPLE
     } else if timestamp >= fork_schedule.byzantium_timestamp {
         SpecId::BYZANTIUM
     } else if timestamp >= fork_schedule.spurious_dragon_timestamp {
         SpecId::SPURIOUS_DRAGON
     } else if timestamp >= fork_schedule.tangerine_timestamp {
         SpecId::TANGERINE
-    } else if timestamp >= fork_schedule.dao_timestamp {
-        SpecId::DAO_FORK
     } else if timestamp >= fork_schedule.homestead_timestamp {
         SpecId::HOMESTEAD
     } else if timestamp >= fork_schedule.frontier_timestamp {
@@ -373,4 +362,66 @@ mod tests {
             SpecId::AMSTERDAM
         );
     }
+    #[tokio::test]
+    async fn amsterdam_calls_use_final_gas_rules_and_slot_number() {
+        let config = crate::config::networks::plataberget();
+        let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+            "http://localhost:1".parse().unwrap(),
+            BlockCache::new(),
+            config.execution_forks,
+        );
+        let evm = EthereumEvm::new(
+            Arc::new(provider),
+            config.chain.chain_id,
+            config.execution_forks,
+            BlockId::latest(),
+        );
+        let caller = address!("1111111111111111111111111111111111111111");
+        let recipient = address!("2222222222222222222222222222222222222222");
+        for (timestamp, value, gas) in [
+            (config.execution_forks.amsterdam_timestamp - 1, 0, 21_000),
+            (config.execution_forks.amsterdam_timestamp, 0, 15_000),
+            (config.execution_forks.amsterdam_timestamp, 1, 21_000),
+        ] {
+            let mut block: Block<Transaction> = Block::default();
+            block.header.timestamp = timestamp;
+            let tx = TransactionRequest::default()
+                .from(caller)
+                .to(recipient)
+                .value(U256::from(value));
+            let mut db = InMemoryDB::default();
+            db.insert_account_info(caller, AccountInfo::from_balance(U256::from(1_000_000)));
+            db.insert_account_info(recipient, AccountInfo::from_balance(U256::from(1)));
+            let mut vm = evm
+                .get_context(&tx, &block, false)
+                .with_db(db)
+                .build_mainnet();
+            let result = vm.replay().unwrap().result;
+            assert!(result.is_success(), "{result:?}");
+            assert_eq!(result.tx_gas_used(), gas);
+        }
+
+        let mut block: Block<Transaction> = Block::default();
+        block.header.timestamp = config.execution_forks.amsterdam_timestamp;
+        block.header.slot_number = Some(49_152);
+        let tx = TransactionRequest::default().from(caller).to(recipient);
+        let mut db = InMemoryDB::default();
+        // SLOTNUM; MSTORE(0); RETURN(0, 32)
+        db.insert_account_info(
+            recipient,
+            AccountInfo::default().with_code(Bytecode::new_raw(alloy::primitives::bytes!(
+                "4b60005260206000f3"
+            ))),
+        );
+        let mut vm = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet();
+        let result = vm.replay().unwrap().result;
+        assert_eq!(
+            result.output().unwrap().as_ref(),
+            U256::from(49_152).to_be_bytes::<32>()
+        );
+    }
+
 }

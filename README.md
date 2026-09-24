@@ -56,13 +56,37 @@ helios linea --execution-rpc $ETH_RPC_URL
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
+### Platåberget (Glamsterdam)
+
+From a source checkout, run:
+
+```sh
+./scripts/run-glamsterdam-helios.sh
+```
+
+This uses the public Platåberget Nimbus light-client API and execution RPC,
+fetches a fresh finalized checkpoint from that Nimbus endpoint, and serves
+Helios at `http://127.0.0.1:8545`. Set `CHECKPOINT` to use an independently
+obtained trusted checkpoint. `CONSENSUS_RPC`, `EXECUTION_RPC`, and `RPC_PORT`
+can also be overridden. Checkpoint data is stored under `.devnets/plataberget/`.
+
+If the public RPC pool rejects recent `eth_getProof` requests, select its Geth
+backends:
+
+```sh
+EXECUTION_RPC='https://rpc.plataberget.ethpandaops.io/?use-upstream=*geth*' ./scripts/run-glamsterdam-helios.sh
+```
+
+Sepolia's Gloas activation at epoch `353024` and Amsterdam activation at
+Unix timestamp `1791294816` are included in `--network sepolia`.
+
 ### Additional Ethereum CLI Options <a id="additional-cli-options"></a>
 
 `--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal to the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
-`--network` or `-n` sets the network to sync to. Current valid options are `mainnet`, `sepolia`, and `holesky` however users can add custom networks in their configuration files.
+`--network` or `-n` sets the network to sync to. Built-in networks include `mainnet`, `sepolia`, `hoodi`, `holesky`, and `plataberget`. The `glamsterdam` alias selects Platåberget. Users can also add custom networks in their configuration files.
 
 `--rpc-port` or `-p` sets the port that the local RPC should run on. The default value is `8545`.
 

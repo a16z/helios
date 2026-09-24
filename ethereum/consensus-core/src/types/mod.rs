@@ -101,12 +101,12 @@ pub struct BeaconBlockHeader {
 #[superstruct(
     variants(Base, Electra, Gloas),
     variant_attributes(
-        derive(Deserialize, Debug, Decode),
+        derive(Serialize, Deserialize, Debug, Decode),
         serde(deny_unknown_fields),
         serde(bound = "S: ConsensusSpec"),
     )
 )]
-#[derive(Deserialize, Debug, Decode)]
+#[derive(Serialize, Deserialize, Debug, Decode)]
 #[serde(untagged)]
 #[serde(bound = "S: ConsensusSpec")]
 #[ssz(enum_behaviour = "transparent")]

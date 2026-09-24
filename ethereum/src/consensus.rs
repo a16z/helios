@@ -71,16 +71,17 @@ impl TrustedExecutionBlockHash {
         let beacon_slot = beacon.slot;
         let beacon_epoch = beacon_slot / S::slots_per_epoch();
 
-        if beacon_epoch >= forks.gloas.epoch {
-            let LightClientHeader::Gloas(header) = header else {
-                return Err(eyre!(
-                    "expected a gloas light client header at slot {}",
-                    beacon_slot
-                ));
-            };
-
+        if let LightClientHeader::Gloas(header) = header {
             // Gloas proves the execution head as parent_block_hash in the signed payload bid.
+            // Upgraded pre-Gloas headers instead prove their own execution block hash.
             return Ok(Self(header.execution_block_hash));
+        }
+
+        if beacon_epoch >= forks.gloas.epoch {
+            return Err(eyre!(
+                "expected a gloas light client header at slot {}",
+                beacon_slot
+            ));
         }
 
         let execution = header.execution().map_err(|_| {

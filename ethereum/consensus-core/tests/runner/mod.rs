@@ -24,8 +24,7 @@ pub fn run<P: Into<PathBuf>>(test_data_dir: P) {
     run_with_forks(test_data_dir, forks);
 }
 
-fn run_with_forks<P: Into<PathBuf>>(test_data_dir: P, forks: Forks) {
-    let test_data_dir: PathBuf = test_data_dir.into();
+fn run_with_forks(test_data_dir: PathBuf, forks: Forks) {
     let steps_file = test_data_dir.join("steps.yaml");
     let steps = std::fs::read_to_string(steps_file).unwrap();
     let steps: Vec<Value> = serde_yaml::from_str(&steps).unwrap();
@@ -53,6 +52,13 @@ fn run_with_forks<P: Into<PathBuf>>(test_data_dir: P, forks: Forks) {
             let step = step.as_mapping().unwrap();
             process_force_update(step, &mut store);
         }
+
+        if let Some(step) = step.as_mapping().unwrap().get("upgrade_store") {
+            // Helios keeps fork-specific headers in an enum, so no store migration is needed.
+            let checks = step.get("checks").unwrap();
+            check_update(&checks["finalized_header"], &store.finalized_header);
+            check_update(&checks["optimistic_header"], &store.optimistic_header);
+        }
     }
 }
 
@@ -77,16 +83,16 @@ fn process_update(
         forks,
     );
 
-    if update_res.is_ok() {
+    if step.get("valid").and_then(Value::as_bool).unwrap_or(true) {
+        update_res.expect("valid update rejected");
         apply_generic_update::<MinimalConsensusSpec>(store, &update);
         let checks = step.get("checks").unwrap().as_mapping().unwrap();
         let finalized_header = checks.get("finalized_header").unwrap();
         let optimistic_header = checks.get("optimistic_header").unwrap();
         check_update(finalized_header, &store.finalized_header);
         check_update(optimistic_header, &store.optimistic_header);
-        println!("update success");
     } else {
-        println!("update failed: {:?}", update_res.err().unwrap());
+        assert!(update_res.is_err(), "invalid update accepted");
     }
 }
 
@@ -100,7 +106,6 @@ fn process_force_update(step: &Mapping, store: &mut LightClientStore<MinimalCons
     let optimistic_header = checks.get("optimistic_header").unwrap();
     check_update(finalized_header, &store.finalized_header);
     check_update(optimistic_header, &store.optimistic_header);
-    println!("force update success");
 }
 
 fn get_bootstrap(test_data_dir: &Path) -> Bootstrap<MinimalConsensusSpec> {
@@ -179,7 +184,7 @@ fn get_forks() -> Forks {
             fork_version: fixed_bytes!("03000001"),
         },
         deneb: Fork {
-            epoch: 0,
+            epoch: u64::MAX,
             fork_version: fixed_bytes!("04000001"),
         },
         electra: Fork {

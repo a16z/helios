@@ -9,14 +9,15 @@ use alloy::{
 use eyre::Result;
 use op_alloy_consensus::OpTxType;
 use op_alloy_rpc_types::{OpTransactionRequest, Transaction};
-use op_revm::{DefaultOp, OpBuilder, OpContext, OpHaltReason, OpSpecId, OpTransaction};
-use revm::{
-    context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
+use op_revm::revm::{
+    context::{BlockEnv, CfgEnv, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
     database::EmptyDB,
     primitives::{Address, Bytes, U256},
     Context, ExecuteEvm,
 };
+use op_revm::{DefaultOp, OpBuilder, OpContext, OpHaltReason, OpSpecId, OpTransaction};
+use revm::context::result::ExecutionResult;
 use tracing::debug;
 
 use helios_common::{
@@ -28,6 +29,9 @@ use helios_core::execution::errors::ExecutionError;
 use helios_revm_utils::proof_db::ProofDB;
 
 use crate::spec::OpStack;
+
+mod revm_compat;
+use revm_compat::{execution_result, LegacyDb};
 
 pub struct OpStackEvm<E: ExecutionProvider<OpStack>> {
     execution: Arc<E>,
@@ -97,14 +101,20 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
 
             // Execute in a scope to ensure EVM is dropped before any potential async operations
             let (result, needs_update) = {
-                let mut evm = context.with_db(&mut db).build_op();
+                let mut evm = context.with_db(LegacyDb(&mut db)).build_op();
                 let res = evm.replay();
-                let needs_update = evm.0.db_mut().state.needs_update();
+                drop(evm);
+                let needs_update = db.state.needs_update();
                 (res, needs_update)
             };
 
             if result.is_ok() || !needs_update {
-                break result.map(|res| (res.result, mem::take(&mut db.state.accounts)));
+                break result.map(|res| {
+                    (
+                        execution_result(res.result),
+                        mem::take(&mut db.state.accounts),
+                    )
+                });
             }
         };
 

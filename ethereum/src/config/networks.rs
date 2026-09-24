@@ -28,6 +28,7 @@ pub enum Network {
     GlamsterdamDevnet5,
     GlamsterdamDevnet6,
     GlamsterdamDevnet7,
+    Plataberget,
 }
 
 impl FromStr for Network {
@@ -39,7 +40,8 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
-            "glamsterdam" | "glamsterdam-devnet-7" => Ok(Self::GlamsterdamDevnet7),
+            "glamsterdam" | "plataberget" | "glamsterdam-devnet-8" => Ok(Self::Plataberget),
+            "glamsterdam-devnet-7" => Ok(Self::GlamsterdamDevnet7),
             "glamsterdam-devnet-5" => Ok(Self::GlamsterdamDevnet5),
             "glamsterdam-devnet-6" => Ok(Self::GlamsterdamDevnet6),
             _ => Err(eyre::eyre!("network not recognized")),
@@ -57,6 +59,7 @@ impl Display for Network {
             Self::GlamsterdamDevnet5 => "glamsterdam-devnet-5",
             Self::GlamsterdamDevnet6 => "glamsterdam-devnet-6",
             Self::GlamsterdamDevnet7 => "glamsterdam-devnet-7",
+            Self::Plataberget => "plataberget",
         };
 
         f.write_str(str)
@@ -73,6 +76,7 @@ impl Network {
             Self::GlamsterdamDevnet5 => glamsterdam_devnet_5(),
             Self::GlamsterdamDevnet6 => glamsterdam_devnet_6(),
             Self::GlamsterdamDevnet7 => glamsterdam_devnet_7(),
+            Self::Plataberget => plataberget(),
         }
     }
 
@@ -85,6 +89,7 @@ impl Network {
             7095321190 => Ok(Network::GlamsterdamDevnet5),
             7052886157 => Ok(Network::GlamsterdamDevnet6),
             7082904758 => Ok(Network::GlamsterdamDevnet7),
+            7091047534 => Ok(Network::Plataberget),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -186,7 +191,7 @@ pub fn sepolia() -> BaseConfig {
                 fork_version: fixed_bytes!("90000075"),
             },
             gloas: Fork {
-                epoch: u64::MAX,
+                epoch: 353024,
                 fork_version: fixed_bytes!("90000076"),
             },
         },
@@ -472,6 +477,62 @@ pub fn glamsterdam_devnet_7() -> BaseConfig {
     }
 }
 
+pub fn plataberget() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "b6f4e50f573bc4094cd1cbb74a4adca6653cd6e74da5a7f0b82824715a8415d0"
+        ),
+        rpc_port: 8545,
+        consensus_rpc: Some(
+            Url::parse("https://beacon.plataberget.ethpandaops.io/nimbus").unwrap(),
+        ),
+        chain: ChainConfig {
+            chain_id: 7091047534,
+            genesis_time: 1786622400,
+            genesis_root: b256!("bb4a1a9e3f7f4e10edcd734e4acc3b5ffd4f830efe0af2748fa458cfee5d2658"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("10733183"),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("20733183"),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("30733183"),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("40733183"),
+            },
+            deneb: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("50733183"),
+            },
+            electra: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("60733183"),
+            },
+            fulu: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("70733183"),
+            },
+            gloas: Fork {
+                epoch: 1536,
+                fork_version: fixed_bytes!("80733183"),
+            },
+        },
+        execution_forks: EthereumForkSchedule::plataberget(),
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::Plataberget)),
+        ..std::default::Default::default()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn data_dir(network: Network) -> PathBuf {
     match home_dir() {
@@ -534,9 +595,10 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1706655072,
             prague_timestamp: 1741159776,
             osaka_timestamp: 1760427360,
+            amsterdam_timestamp: 1791294816,
+
             bpo1_timestamp: 1761017184,
             bpo2_timestamp: 1761607008,
-            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -680,6 +742,35 @@ impl EthereumForkSchedule {
             ..Default::default()
         }
     }
+    fn plataberget() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 0,
+            homestead_timestamp: 0,
+            dao_timestamp: 0,
+            tangerine_timestamp: 0,
+            spurious_dragon_timestamp: 0,
+            byzantium_timestamp: 0,
+            constantinople_timestamp: 0,
+            petersburg_timestamp: 0,
+            istanbul_timestamp: 0,
+            muir_glacier_timestamp: 0,
+            berlin_timestamp: 0,
+            london_timestamp: 0,
+            arrow_glacier_timestamp: 0,
+            gray_glacier_timestamp: 0,
+            paris_timestamp: 0,
+            shanghai_timestamp: 0,
+            cancun_timestamp: 0,
+            prague_timestamp: 0,
+            osaka_timestamp: 0,
+            amsterdam_timestamp: 1787212224,
+
+            bpo1_timestamp: 0,
+            bpo2_timestamp: 0,
+
+            ..Default::default()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -690,8 +781,8 @@ mod tests {
     fn glamsterdam_alias_tracks_latest_devnet() {
         let network = Network::from_str("glamsterdam").unwrap();
 
-        assert_eq!(network, Network::GlamsterdamDevnet7);
-        assert_eq!(network.to_string(), "glamsterdam-devnet-7");
+        assert_eq!(network, Network::Plataberget);
+        assert_eq!(network.to_string(), "plataberget");
     }
 
     #[test]
@@ -702,5 +793,25 @@ mod tests {
         assert_eq!(network, Network::GlamsterdamDevnet7);
         assert_eq!(config.chain.chain_id, 7_082_904_758);
         assert_eq!(config.forks.gloas.epoch, 38);
+    }
+
+    #[test]
+    fn glamsterdam_network_forks_match_consensus_and_execution() {
+        for (network, chain_id, epoch, timestamp) in [
+            (Network::Plataberget, 7_091_047_534, 1536, 1_787_212_224),
+            (Network::Sepolia, 11_155_111, 353024, 1_791_294_816),
+        ] {
+            let config = network.to_base_config();
+            assert_eq!(Network::from_chain_id(chain_id).unwrap(), network);
+            assert_eq!(config.forks.gloas.epoch, epoch);
+            assert_eq!(config.chain.genesis_time + epoch * 32 * 12, timestamp);
+            assert_eq!(config.execution_forks.amsterdam_timestamp, timestamp);
+            assert_eq!(
+                config
+                    .execution_forks
+                    .get_blob_base_fee_update_fraction(timestamp),
+                11_684_671
+            );
+        }
     }
 }
