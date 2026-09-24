@@ -242,3 +242,47 @@ pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSched
         SpecId::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use helios_core::execution::providers::{
+        block::block_cache::BlockCache, rpc::RpcExecutionProvider,
+    };
+    fn test_evm() -> EthereumEvm<RpcExecutionProvider<Ethereum, BlockCache<Ethereum>, ()>> {
+        let config = crate::config::networks::mainnet();
+        let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+            "http://localhost:1".parse().unwrap(),
+            BlockCache::new(),
+        );
+        EthereumEvm::new(
+            Arc::new(provider),
+            config.chain.chain_id,
+            config.execution_forks,
+            BlockId::latest(),
+        )
+    }
+
+    #[tokio::test]
+    async fn blockhash_follows_the_pinned_parent() {
+        use alloy::primitives::B256;
+        use helios_common::execution_provider::BlockProvider;
+        use helios_revm_utils::proof_db::StateAccess;
+        let evm = test_evm();
+        let mut block: Block<Transaction> = Block::default();
+        block.header.gas_limit = 100_000_000;
+        block.header.number = 10;
+        block.header.hash = B256::repeat_byte(1);
+        block.header.parent_hash = B256::repeat_byte(2);
+        evm.execution
+            .push_block(block.clone(), BlockId::latest())
+            .await;
+        let mut db = ProofDB::new(block.header.hash.into(), evm.execution, None);
+        db.state.access = Some(StateAccess::BlockHash(9));
+        db.state.update_state().await.unwrap();
+        assert_eq!(
+            db.state.get_block_hash(9).unwrap(),
+            block.header.parent_hash
+        );
+    }
+}
