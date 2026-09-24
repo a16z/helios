@@ -9,7 +9,7 @@ use alloy::{
 use eyre::Result;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
-    context_interface::block::BlobExcessGasAndPrice,
+    context_interface::{block::BlobExcessGasAndPrice, either::Either},
     primitives::{eip7825, hardfork::SpecId, Address, U256},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
@@ -116,10 +116,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         let spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         let mut tx_env = Self::tx_env(tx, spec);
 
-        if <TxType as Into<u8>>::into(
-            <TransactionRequest as TransactionBuilder<Ethereum>>::output_tx_type(tx),
-        ) == 0u8
-        {
+        if tx_env.tx_type == TxType::Legacy as u8 {
             tx_env.chain_id = None;
         } else {
             tx_env.chain_id = Some(self.chain_id);
@@ -145,13 +142,12 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         } else {
             u64::MAX
         };
-        let mut env = TxEnv {
-            tx_type: tx.transaction_type.unwrap_or_default(),
+        TxEnv {
+            tx_type: tx.transaction_type.unwrap_or(tx.minimal_tx_type() as u8),
             caller: tx.from.unwrap_or_default(),
             gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
                 .unwrap_or(default_gas_limit),
-            gas_price: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_price(tx)
-                .unwrap_or_default(),
+            gas_price: tx.gas_price.or(tx.max_fee_per_gas).unwrap_or_default(),
             kind: tx.to.unwrap_or_default(),
             value: tx.value.unwrap_or_default(),
             data: <TransactionRequest as TransactionBuilder<Ethereum>>::input(tx)
@@ -171,10 +167,14 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
                 .as_ref()
                 .map(|v| v.to_vec())
                 .unwrap_or_default(),
-            authorization_list: vec![],
-        };
-        env.set_signed_authorization(tx.authorization_list.clone().unwrap_or_default());
-        env
+            authorization_list: tx
+                .authorization_list
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .map(Either::Left)
+                .collect(),
+        }
     }
 
     fn block_env(block: &Block<Transaction, Header>, fork_schedule: &ForkSchedule) -> BlockEnv {
@@ -268,6 +268,45 @@ mod tests {
             config.execution_forks,
             BlockId::latest(),
         )
+    }
+
+    #[tokio::test]
+    async fn eip1559_call_uses_effective_gas_price() {
+        let evm = test_evm();
+        let caller = address!("1111111111111111111111111111111111111111");
+        let recipient = address!("2222222222222222222222222222222222222222");
+        let mut block: Block<Transaction> = Block::default();
+        block.header.gas_limit = 100_000_000;
+        block.header.timestamp = evm.fork_schedule.prague_timestamp;
+        block.header.base_fee_per_gas = Some(5);
+        let tx = TransactionRequest::default()
+            .from(caller)
+            .to(recipient)
+            .max_fee_per_gas(20)
+            .max_priority_fee_per_gas(2)
+            .gas_limit(1_000_000);
+        let mut db = InMemoryDB::default();
+        db.insert_account_info(
+            caller,
+            AccountInfo::from_balance(U256::from(10_000_000_000u64)),
+        );
+        db.insert_account_info(
+            recipient,
+            AccountInfo::default().with_code(Bytecode::new_raw(alloy::primitives::bytes!(
+                "3a60005260206000f3"
+            ))),
+        );
+        let result = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet()
+            .replay()
+            .unwrap()
+            .result;
+        assert_eq!(
+            result.output().unwrap().as_ref(),
+            U256::from(7).to_be_bytes::<32>()
+        );
     }
 
     #[tokio::test]

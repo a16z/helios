@@ -127,6 +127,7 @@ impl EthereumClient {
 
             chain: base.chain,
             forks: base.forks,
+            execution_forks: base.execution_forks,
 
             database_type: Some(db_type),
             ..Default::default()
@@ -174,8 +175,8 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
-    pub fn chain_id(&self) -> u32 {
-        self.chain_id as u32
+    pub fn chain_id(&self) -> u64 {
+        self.chain_id
     }
 
     #[wasm_bindgen]
