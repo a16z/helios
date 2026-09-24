@@ -2,24 +2,23 @@ use std::collections::{HashMap, HashSet};
 
 use alloy::{
     consensus::BlockHeader,
-    eips::{BlockId, BlockNumberOrTag},
+    eips::BlockId,
     network::{
         primitives::HeaderResponse, BlockResponse, ReceiptResponse, TransactionBuilder,
         TransactionResponse,
     },
-    primitives::{Address, Bytes, B256, U256},
+    primitives::{Address, Bytes, B256},
     providers::{Provider, ProviderBuilder, RootProvider},
-    rlp,
     rpc::{
         client::ClientBuilder,
-        types::{AccessListItem, Filter, FilterBlockOption, Log},
+        types::{AccessListItem, Filter, Log},
     },
     transports::layers::RetryBackoffLayer,
 };
 use alloy_trie::{TrieAccount, KECCAK_EMPTY};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
-use futures::future::{join_all, try_join_all};
+use futures::future::join_all;
 use reqwest::Url;
 
 use helios_common::{
@@ -33,14 +32,11 @@ use helios_common::{
 
 use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
-    errors::ExecutionError,
     proof::{
         verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
     },
     providers::historical::HistoricalBlockProvider,
 };
-
-use super::utils::ensure_logs_match_filter;
 
 // Implementation for unit type to provide no historical block support
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -103,96 +99,6 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             provider,
             block_provider,
             historical_provider: Some(historical_provider),
-        }
-    }
-
-    async fn verify_logs(&self, logs: &[Log]) -> Result<()> {
-        // get latest block
-        let latest = self
-            .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
-            .await?
-            .ok_or(eyre!("block not found"))?
-            .header()
-            .number();
-
-        // Collect all (unique) block numbers
-        let block_nums = logs
-            .iter()
-            .filter_map(|log| log.block_number.filter(|number| *number <= latest))
-            .collect::<HashSet<u64>>();
-
-        // Collect all (proven) tx receipts for all block numbers
-        let blocks_receipts_fut = block_nums
-            .into_iter()
-            .map(|block_num| async move { self.get_block_receipts(block_num.into()).await });
-
-        let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
-        let receipts = blocks_receipts
-            .into_iter()
-            .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
-
-        // Map tx hashes to encoded logs
-        let receipts_logs_encoded = receipts
-            .into_iter()
-            .filter_map(|receipt| {
-                let logs = N::receipt_logs(&receipt);
-                if logs.is_empty() {
-                    None
-                } else {
-                    let tx_hash = logs[0].transaction_hash.unwrap();
-                    let encoded_logs = logs
-                        .iter()
-                        .map(|l| rlp::encode(&l.inner))
-                        .collect::<Vec<_>>();
-                    Some((tx_hash, encoded_logs))
-                }
-            })
-            .collect::<HashMap<_, _>>();
-
-        for log in logs {
-            // Check if the receipt contains the desired log
-            // Encoding logs for comparison
-            let tx_hash = log.transaction_hash.unwrap();
-            let log_encoded = rlp::encode(&log.inner);
-            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash,
-                    U256::from(log.log_index.unwrap()),
-                )
-                .into());
-            }
-        }
-        Ok(())
-    }
-
-    async fn resolve_block_number(&self, block: Option<BlockNumberOrTag>) -> Result<u64> {
-        match block {
-            Some(BlockNumberOrTag::Latest) | None => {
-                let number = self
-                    .get_block(BlockId::Number(BlockNumberOrTag::Latest), false)
-                    .await?
-                    .ok_or(eyre!("block not found"))?
-                    .header()
-                    .number();
-
-                Ok(number)
-            }
-            Some(BlockNumberOrTag::Finalized) => {
-                let number = self
-                    .get_block(BlockId::Number(BlockNumberOrTag::Finalized), false)
-                    .await?
-                    .ok_or(eyre!("block not found"))?
-                    .header()
-                    .number();
-
-                Ok(number)
-            }
-            Some(BlockNumberOrTag::Number(number)) => Ok(number),
-            _ => Err(eyre!("block not found")),
         }
     }
 }
@@ -390,28 +296,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProv
     for RpcExecutionProvider<N, B, H>
 {
     async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>> {
-        let block_option = match filter.block_option {
-            FilterBlockOption::Range {
-                from_block,
-                to_block,
-            } => {
-                let from = self.resolve_block_number(from_block).await?;
-                let to = self.resolve_block_number(to_block).await?;
-                FilterBlockOption::Range {
-                    from_block: Some(BlockNumberOrTag::Number(from)),
-                    to_block: Some(BlockNumberOrTag::Number(to)),
-                }
-            }
-            FilterBlockOption::AtBlockHash(hash) => FilterBlockOption::AtBlockHash(hash),
-        };
-
-        let mut filter = filter.clone();
-        filter.block_option = block_option;
-
-        let logs = self.provider.get_logs(&filter).await?;
-        self.verify_logs(&logs).await?;
-        ensure_logs_match_filter(&logs, &filter)?;
-        Ok(logs)
+        super::utils::get_verified_logs::<N, _>(self, filter).await
     }
 }
 
