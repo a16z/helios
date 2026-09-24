@@ -9,7 +9,7 @@ use alloy::{
 use eyre::Result;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, ContextTr, TxEnv},
-    context_interface::block::BlobExcessGasAndPrice,
+    context_interface::{block::BlobExcessGasAndPrice, either::Either},
     primitives::{eip7825, hardfork::SpecId, Address, U256},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
@@ -167,7 +167,13 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
                 .as_ref()
                 .map(|v| v.to_vec())
                 .unwrap_or_default(),
-            authorization_list: vec![],
+            authorization_list: tx
+                .authorization_list
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .map(Either::Left)
+                .collect(),
         }
     }
 
@@ -300,6 +306,49 @@ mod tests {
         assert_eq!(
             result.output().unwrap().as_ref(),
             U256::from(7).to_be_bytes::<32>()
+        );
+    }
+
+    #[tokio::test]
+    async fn eip7702_call_executes_authorized_code() {
+        use alloy::{eips::eip7702::Authorization, primitives::Signature};
+        let evm = test_evm();
+        let caller = address!("1111111111111111111111111111111111111111");
+        let delegate = address!("2222222222222222222222222222222222222222");
+        // Any recoverable signature defines an authority; no private key is needed for this test.
+        let auth = Authorization {
+            chain_id: U256::ZERO,
+            address: delegate,
+            nonce: 0,
+        }
+        .into_signed(Signature::new(U256::from(1), U256::from(2), false));
+        let authority = auth.recover_authority().unwrap();
+        let mut block: Block<Transaction> = Block::default();
+        block.header.gas_limit = 100_000_000;
+        block.header.timestamp = evm.fork_schedule.prague_timestamp;
+        let tx = TransactionRequest {
+            authorization_list: Some(vec![auth]),
+            transaction_type: Some(4),
+            gas: Some(1_000_000),
+            ..TransactionRequest::default().from(caller).to(authority)
+        };
+        let mut db = InMemoryDB::default();
+        db.insert_account_info(
+            delegate,
+            AccountInfo::default().with_code(Bytecode::new_raw(alloy::primitives::bytes!(
+                "602a60005260206000f3"
+            ))),
+        );
+        let result = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet()
+            .replay()
+            .unwrap()
+            .result;
+        assert_eq!(
+            result.output().unwrap().as_ref(),
+            U256::from(42).to_be_bytes::<32>()
         );
     }
 }
