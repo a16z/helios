@@ -118,17 +118,17 @@ impl Inner {
         let rpc_url = Url::parse(self.server_url.as_str())?;
         let provider = ProviderBuilder::new().connect_http(rpc_url);
 
-        let block = provider
+        let mut block = provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .full()
             .await?
-            .unwrap();
+            .ok_or_else(|| eyre!("latest block not found"))?;
 
         let curr_signer = *self
             .unsafe_signer
             .lock()
             .map_err(|_| eyre!("failed to lock signer"))?;
-        if verify_block(curr_signer, &block).is_ok() {
+        if verify_block(curr_signer, &mut block).is_ok() {
             let number = block.header.number;
             if self
                 .latest_block
@@ -157,40 +157,117 @@ impl Inner {
     }
 }
 
-pub fn verify_block(curr_signer: Address, block: &Block<Transaction>) -> Result<()> {
-    let extra_data = block.header.inner.extra_data.clone();
+pub fn verify_block(curr_signer: Address, block: &mut Block<Transaction>) -> Result<()> {
+    use crate::spec::Linea;
+    use alloy::{
+        consensus::{
+            proofs::calculate_withdrawals_root, transaction::SignerRecoverable, Transaction as _,
+        },
+        eips::Encodable2718,
+        primitives::keccak256,
+        rpc::types::BlockTransactions,
+    };
+    use helios_common::network_spec::NetworkSpec;
 
-    let length = extra_data.len();
-    let prefix = extra_data.slice(0..length - 65);
-    let signature_bytes = extra_data.slice(length - 65..length);
-    let r = signature_bytes[..32]
-        .try_into()
-        .expect("Failed to extract r component from signature");
-    let s = signature_bytes[32..64]
-        .try_into()
-        .expect("Failed to extract s component from signature");
-    let p = signature_bytes[64];
-
-    let signature = Signature::from_scalars_and_parity(r, s, p == 1);
-
+    if !Linea::is_hash_valid(block) {
+        eyre::bail!("invalid block hash or body");
+    }
+    let withdrawals_root = block
+        .withdrawals
+        .as_ref()
+        .map(|w| calculate_withdrawals_root(w));
+    if withdrawals_root != block.header.withdrawals_root || !block.uncles.is_empty() {
+        eyre::bail!("invalid block body");
+    }
+    let BlockTransactions::Full(txs) = &mut block.transactions else {
+        eyre::bail!("missing full transactions");
+    };
+    for (index, tx) in txs.iter_mut().enumerate() {
+        if keccak256(tx.inner.encoded_2718()) != *tx.inner.tx_hash()
+            || tx.inner.inner().recover_signer().ok() != Some(tx.inner.signer())
+            || tx.block_hash != Some(block.header.hash)
+            || tx.block_number != Some(block.header.number)
+            || tx.transaction_index != Some(index as u64)
+        {
+            eyre::bail!("invalid transaction metadata");
+        }
+        tx.effective_gas_price = Some(tx.effective_gas_price(block.header.base_fee_per_gas));
+    }
+    let extra_data = &block.header.extra_data;
+    let prefix_length = extra_data
+        .len()
+        .checked_sub(65)
+        .ok_or_else(|| eyre!("missing sequencer signature"))?;
+    let signature_bytes = &extra_data[prefix_length..];
+    if signature_bytes[64] > 1 {
+        eyre::bail!("invalid signature recovery id");
+    }
+    let signature = Signature::from_scalars_and_parity(
+        signature_bytes[..32].try_into()?,
+        signature_bytes[32..64].try_into()?,
+        signature_bytes[64] == 1,
+    );
     let mut header = block.header.inner.clone();
-    header.extra_data = prefix;
-
-    let sighash: [u8; 32] = header
-        .hash_slow()
-        .to_vec()
-        .try_into()
-        .expect("Failed to convert header hash to fixed array");
-    let sighash = B256::new(sighash);
-
-    let pk = signature
-        .recover_from_prehash(&sighash)
-        .expect("Failed to recover public key from signature");
-    let recovered_signer = Address::from_public_key(&pk);
-
+    header.extra_data = extra_data.slice(..prefix_length);
+    let recovered_signer = signature.recover_address_from_prehash(&header.hash_slow())?;
     if curr_signer != recovered_signer {
         eyre::bail!("invalid signer");
     }
-
+    block.header.size = None;
+    block.header.total_difficulty = None;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::{
+        consensus::proofs::calculate_transaction_root,
+        primitives::{Signature, U256},
+        rpc::types::BlockTransactions,
+    };
+
+    fn signed_block() -> (Address, Block<Transaction>) {
+        let mut block: Block<Transaction> = Block::default();
+        block.transactions = BlockTransactions::Full(vec![]);
+        block.header.transactions_root =
+            calculate_transaction_root::<alloy::consensus::TxEnvelope>(&[]);
+        let signature = Signature::new(U256::from(1), U256::from(2), false);
+        let signer = signature
+            .recover_address_from_prehash(&block.header.hash_slow())
+            .unwrap();
+        let mut signature_bytes = signature.as_bytes();
+        signature_bytes[64] = 0;
+        block.header.extra_data = signature_bytes.to_vec().into();
+        block.header.hash = block.header.hash_slow();
+        (signer, block)
+    }
+
+    #[test]
+    fn authenticates_the_body_and_cached_hash() {
+        let (signer, block) = signed_block();
+        verify_block(signer, &mut block.clone()).unwrap();
+        let mut forged = block.clone();
+        forged.header.hash = B256::ZERO;
+        assert!(verify_block(signer, &mut forged).is_err());
+        let mut forged = block.clone();
+        forged.transactions = BlockTransactions::Hashes(vec![B256::ZERO]);
+        assert!(verify_block(signer, &mut forged).is_err());
+        let mut forged = block.clone();
+        forged.withdrawals = Some(vec![Default::default()].into());
+        assert!(verify_block(signer, &mut forged).is_err());
+        let mut forged = block;
+        forged.uncles.push(B256::ZERO);
+        assert!(verify_block(signer, &mut forged).is_err());
+    }
+
+    #[test]
+    fn malformed_signatures_return_errors() {
+        let (signer, mut block) = signed_block();
+        for extra in [vec![], vec![0; 64], vec![0; 65], vec![2; 65]] {
+            block.header.extra_data = extra.into();
+            block.header.hash = block.header.hash_slow();
+            assert!(verify_block(signer, &mut block).is_err());
+        }
+    }
 }

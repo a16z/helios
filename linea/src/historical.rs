@@ -1,7 +1,7 @@
 use alloy::eips::BlockId;
 use alloy::network::Network;
 use alloy::primitives::Address;
-use alloy::rpc::types::{Block, Transaction};
+use alloy::rpc::types::{Block, BlockTransactions, Transaction};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
@@ -27,7 +27,7 @@ impl LineaHistoricalProvider {
 
     /// Verify a Linea block by checking the signature in the extradata field
     /// This reuses the same logic as the Linea consensus verify_block function
-    fn verify_linea_block(&self, block: &Block<Transaction>) -> Result<()> {
+    fn verify_linea_block(&self, block: &mut Block<Transaction>) -> Result<()> {
         verify_block(self.unsafe_signer, block)
     }
 }
@@ -47,17 +47,23 @@ impl HistoricalBlockProvider<Linea> for LineaHistoricalProvider {
         // Get the untrusted block from execution provider
         // This works for both block numbers and block hashes
         let block = execution_provider
-            .get_untrusted_block(block_id, full_tx)
+            .get_untrusted_block(block_id, true)
             .await?;
 
-        let Some(block) = block else {
+        let Some(mut block) = block else {
             return Ok(None);
         };
 
         // Since Linea uses the Ethereum spec, BlockResponse is Block<Transaction>
         // We can directly use it with our verify_block function
-        match self.verify_linea_block(&block) {
-            Ok(()) => Ok(Some(block)),
+        match self.verify_linea_block(&mut block) {
+            Ok(()) => {
+                if !full_tx {
+                    block.transactions =
+                        BlockTransactions::Hashes(block.transactions.hashes().collect());
+                }
+                Ok(Some(block))
+            }
             Err(e) => Err(eyre!("Linea block validation failed: {}", e)),
         }
     }
