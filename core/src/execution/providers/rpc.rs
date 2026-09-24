@@ -225,6 +225,15 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
         }
         verify_account_proof(&proof, block.header().state_root())?;
         verify_storage_proof(&proof)?;
+        for slot in slots {
+            if !proof
+                .storage_proof
+                .iter()
+                .any(|entry| entry.key.as_b256() == *slot)
+            {
+                return Err(eyre!("missing requested storage proof for {slot}"));
+            }
+        }
 
         let code = if with_code {
             if proof.code_hash == KECCAK_EMPTY || proof.code_hash == B256::ZERO {
