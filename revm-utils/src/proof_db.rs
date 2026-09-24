@@ -1,8 +1,9 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use alloy::{
-    eips::{eip1898::RpcBlockHash, BlockNumberOrTag},
-    network::{primitives::HeaderResponse, BlockResponse},
+    consensus::BlockHeader,
+    eips::eip1898::RpcBlockHash,
+    network::BlockResponse,
     rpc::types::state::{AccountOverride, StateOverride},
 };
 use eyre::Result;
@@ -102,14 +103,35 @@ impl<N: NetworkSpec, E: ExecutionProvider<N>> EvmState<N, E> {
                     }
                 }
                 StateAccess::BlockHash(number) => {
-                    let block_id = BlockNumberOrTag::Number(number).into();
-                    let block = self
+                    // Follow the pinned block's parents. Looking up by number could
+                    // mix a new canonical fork into an execution already in progress.
+                    let block_id = self.block.into();
+                    let mut block = self
                         .execution
                         .get_block(block_id, false)
                         .await?
                         .ok_or(ExecutionError::BlockNotFound(block_id))?;
 
-                    self.block_hash.insert(number, block.header().hash());
+                    while block.header().number() > number {
+                        let parent_number = block.header().number() - 1;
+                        let parent_hash = block.header().parent_hash();
+                        self.block_hash.insert(parent_number, parent_hash);
+                        if parent_number == number {
+                            break;
+                        }
+                        let parent_id = parent_hash.into();
+                        block = self
+                            .execution
+                            .get_block(parent_id, false)
+                            .await?
+                            .ok_or(ExecutionError::BlockNotFound(parent_id))?;
+                        if block.header().number() != parent_number {
+                            return Err(eyre::eyre!("inconsistent block ancestry"));
+                        }
+                    }
+                    if !self.block_hash.contains_key(&number) {
+                        return Err(eyre::eyre!("requested block is not a pinned ancestor"));
+                    }
                 }
             }
         }
