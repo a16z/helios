@@ -25,9 +25,6 @@ pub enum Network {
     Sepolia,
     Holesky,
     Hoodi,
-    GlamsterdamDevnet5,
-    GlamsterdamDevnet6,
-    GlamsterdamDevnet7,
     Plataberget,
 }
 
@@ -40,10 +37,7 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
-            "glamsterdam" | "plataberget" | "glamsterdam-devnet-8" => Ok(Self::Plataberget),
-            "glamsterdam-devnet-7" => Ok(Self::GlamsterdamDevnet7),
-            "glamsterdam-devnet-5" => Ok(Self::GlamsterdamDevnet5),
-            "glamsterdam-devnet-6" => Ok(Self::GlamsterdamDevnet6),
+            "plataberget" => Ok(Self::Plataberget),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -56,9 +50,6 @@ impl Display for Network {
             Self::Sepolia => "sepolia",
             Self::Holesky => "holesky",
             Self::Hoodi => "hoodi",
-            Self::GlamsterdamDevnet5 => "glamsterdam-devnet-5",
-            Self::GlamsterdamDevnet6 => "glamsterdam-devnet-6",
-            Self::GlamsterdamDevnet7 => "glamsterdam-devnet-7",
             Self::Plataberget => "plataberget",
         };
 
@@ -73,9 +64,6 @@ impl Network {
             Self::Sepolia => sepolia(),
             Self::Holesky => holesky(),
             Self::Hoodi => hoodi(),
-            Self::GlamsterdamDevnet5 => glamsterdam_devnet_5(),
-            Self::GlamsterdamDevnet6 => glamsterdam_devnet_6(),
-            Self::GlamsterdamDevnet7 => glamsterdam_devnet_7(),
             Self::Plataberget => plataberget(),
         }
     }
@@ -86,9 +74,6 @@ impl Network {
             11155111 => Ok(Network::Sepolia),
             17000 => Ok(Network::Holesky),
             560048 => Ok(Network::Hoodi),
-            7095321190 => Ok(Network::GlamsterdamDevnet5),
-            7052886157 => Ok(Network::GlamsterdamDevnet6),
-            7082904758 => Ok(Network::GlamsterdamDevnet7),
             7091047534 => Ok(Network::Plataberget),
             _ => Err(eyre::eyre!("chain id not known")),
         }
@@ -311,172 +296,6 @@ pub fn hoodi() -> BaseConfig {
     }
 }
 
-pub fn glamsterdam_devnet_5() -> BaseConfig {
-    BaseConfig {
-        default_checkpoint: b256!(
-            "3d1bffc8aefae9d6edda7035f598c8fe7c29b2e7091ea78aaa55b05de930cf2f"
-        ),
-        rpc_port: 8545,
-        consensus_rpc: Some(Url::parse("http://127.0.0.1:5052").unwrap()),
-        chain: ChainConfig {
-            chain_id: 7095321190,
-            genesis_time: 1780578000,
-            genesis_root: b256!("f90dd748ec351f30bd3c9c93e6496d426b49c1246f962fa9826f2185b41ccced"),
-        },
-        forks: Forks {
-            genesis: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("10766571"),
-            },
-            altair: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("20766571"),
-            },
-            bellatrix: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("30766571"),
-            },
-            capella: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("40766571"),
-            },
-            deneb: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("50766571"),
-            },
-            electra: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("60766571"),
-            },
-            fulu: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("70766571"),
-            },
-            gloas: Fork {
-                epoch: 30,
-                fork_version: fixed_bytes!("80766571"),
-            },
-        },
-        execution_forks: EthereumForkSchedule::glamsterdam_devnet_5(),
-        max_checkpoint_age: 1_209_600, // 14 days
-        #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::GlamsterdamDevnet5)),
-        ..std::default::Default::default()
-    }
-}
-
-pub fn glamsterdam_devnet_6() -> BaseConfig {
-    BaseConfig {
-        default_checkpoint: b256!(
-            "232b30dcfd0fe9cf9122a25ded967fea954ed462c6496f9ba42d11ff78b56900"
-        ),
-        rpc_port: 8545,
-        consensus_rpc: Some(
-            Url::parse("https://beacon.glamsterdam-devnet-6.ethpandaops.io/nimbus").unwrap(),
-        ),
-        chain: ChainConfig {
-            chain_id: 7052886157,
-            genesis_time: 1782387000,
-            genesis_root: b256!("c82d7799f23f55e75388234baf4611f9d38346ff5bfb1bfd1391e80ff9b0c708"),
-        },
-        forks: Forks {
-            genesis: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("10435048"),
-            },
-            altair: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("20435048"),
-            },
-            bellatrix: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("30435048"),
-            },
-            capella: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("40435048"),
-            },
-            deneb: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("50435048"),
-            },
-            electra: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("60435048"),
-            },
-            fulu: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("70435048"),
-            },
-            gloas: Fork {
-                epoch: 30,
-                fork_version: fixed_bytes!("80435048"),
-            },
-        },
-        execution_forks: EthereumForkSchedule::glamsterdam_devnet_6(),
-        max_checkpoint_age: 1_209_600, // 14 days
-        #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::GlamsterdamDevnet6)),
-        ..std::default::Default::default()
-    }
-}
-
-pub fn glamsterdam_devnet_7() -> BaseConfig {
-    BaseConfig {
-        default_checkpoint: b256!(
-            "8ca59e763597b950d3479a6c200be0d2a052e66728d624fa5c4fe47a5e4144dd"
-        ),
-        rpc_port: 8545,
-        consensus_rpc: Some(
-            Url::parse("https://beacon.glamsterdam-devnet-7.ethpandaops.io").unwrap(),
-        ),
-        chain: ChainConfig {
-            chain_id: 7082904758,
-            genesis_time: 1784030400,
-            genesis_root: b256!("8f9a8573a44269574a9a9c2d932243aaeeb9b88cd1ef1b83b3bea97f06d3bafe"),
-        },
-        forks: Forks {
-            genesis: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("10669568"),
-            },
-            altair: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("20669568"),
-            },
-            bellatrix: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("30669568"),
-            },
-            capella: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("40669568"),
-            },
-            deneb: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("50669568"),
-            },
-            electra: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("60669568"),
-            },
-            fulu: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("70669568"),
-            },
-            gloas: Fork {
-                epoch: 38,
-                fork_version: fixed_bytes!("80669568"),
-            },
-        },
-        execution_forks: EthereumForkSchedule::glamsterdam_devnet_7(),
-        max_checkpoint_age: 1_209_600, // 14 days
-        #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::GlamsterdamDevnet7)),
-        ..std::default::Default::default()
-    }
-}
-
 pub fn plataberget() -> BaseConfig {
     BaseConfig {
         default_checkpoint: b256!(
@@ -485,6 +304,10 @@ pub fn plataberget() -> BaseConfig {
         rpc_port: 8545,
         consensus_rpc: Some(
             Url::parse("https://beacon.plataberget.ethpandaops.io/nimbus").unwrap(),
+        ),
+        // Route to Geth for eth_getProof support at recent block hashes.
+        execution_rpc: Some(
+            Url::parse("https://rpc.plataberget.ethpandaops.io/?use-upstream=*geth*").unwrap(),
         ),
         chain: ChainConfig {
             chain_id: 7091047534,
@@ -595,10 +418,9 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1706655072,
             prague_timestamp: 1741159776,
             osaka_timestamp: 1760427360,
-            amsterdam_timestamp: 1791294816,
-
             bpo1_timestamp: 1761017184,
             bpo2_timestamp: 1761607008,
+            amsterdam_timestamp: 1791294816,
 
             ..Default::default()
         }
@@ -662,86 +484,6 @@ impl EthereumForkSchedule {
         }
     }
 
-    fn glamsterdam_devnet_5() -> ForkSchedule {
-        ForkSchedule {
-            frontier_timestamp: 0,
-            homestead_timestamp: 0,
-            dao_timestamp: 0,
-            tangerine_timestamp: 0,
-            spurious_dragon_timestamp: 0,
-            byzantium_timestamp: 0,
-            constantinople_timestamp: 0,
-            petersburg_timestamp: 0,
-            istanbul_timestamp: 0,
-            muir_glacier_timestamp: 0,
-            berlin_timestamp: 0,
-            london_timestamp: 0,
-            arrow_glacier_timestamp: 0,
-            gray_glacier_timestamp: 0,
-            paris_timestamp: 0,
-            shanghai_timestamp: 0,
-            cancun_timestamp: 0,
-            prague_timestamp: 0,
-            osaka_timestamp: 0,
-            amsterdam_timestamp: 1780589520,
-
-            ..Default::default()
-        }
-    }
-
-    fn glamsterdam_devnet_6() -> ForkSchedule {
-        ForkSchedule {
-            frontier_timestamp: 0,
-            homestead_timestamp: 0,
-            dao_timestamp: 0,
-            tangerine_timestamp: 0,
-            spurious_dragon_timestamp: 0,
-            byzantium_timestamp: 0,
-            constantinople_timestamp: 0,
-            petersburg_timestamp: 0,
-            istanbul_timestamp: 0,
-            muir_glacier_timestamp: 0,
-            berlin_timestamp: 0,
-            london_timestamp: 0,
-            arrow_glacier_timestamp: 0,
-            gray_glacier_timestamp: 0,
-            paris_timestamp: 0,
-            shanghai_timestamp: 0,
-            cancun_timestamp: 0,
-            prague_timestamp: 0,
-            osaka_timestamp: 0,
-            amsterdam_timestamp: 1782398520,
-
-            ..Default::default()
-        }
-    }
-
-    fn glamsterdam_devnet_7() -> ForkSchedule {
-        ForkSchedule {
-            frontier_timestamp: 0,
-            homestead_timestamp: 0,
-            dao_timestamp: 0,
-            tangerine_timestamp: 0,
-            spurious_dragon_timestamp: 0,
-            byzantium_timestamp: 0,
-            constantinople_timestamp: 0,
-            petersburg_timestamp: 0,
-            istanbul_timestamp: 0,
-            muir_glacier_timestamp: 0,
-            berlin_timestamp: 0,
-            london_timestamp: 0,
-            arrow_glacier_timestamp: 0,
-            gray_glacier_timestamp: 0,
-            paris_timestamp: 0,
-            shanghai_timestamp: 0,
-            cancun_timestamp: 0,
-            prague_timestamp: 0,
-            osaka_timestamp: 0,
-            amsterdam_timestamp: 1784044992,
-
-            ..Default::default()
-        }
-    }
     fn plataberget() -> ForkSchedule {
         ForkSchedule {
             frontier_timestamp: 0,
@@ -763,10 +505,9 @@ impl EthereumForkSchedule {
             cancun_timestamp: 0,
             prague_timestamp: 0,
             osaka_timestamp: 0,
-            amsterdam_timestamp: 1787212224,
-
             bpo1_timestamp: 0,
             bpo2_timestamp: 0,
+            amsterdam_timestamp: 1787212224,
 
             ..Default::default()
         }
@@ -776,24 +517,6 @@ impl EthereumForkSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn glamsterdam_alias_tracks_latest_devnet() {
-        let network = Network::from_str("glamsterdam").unwrap();
-
-        assert_eq!(network, Network::Plataberget);
-        assert_eq!(network.to_string(), "plataberget");
-    }
-
-    #[test]
-    fn glamsterdam_devnet_7_matches_chain_configuration() {
-        let network = Network::from_chain_id(7_082_904_758).unwrap();
-        let config = network.to_base_config();
-
-        assert_eq!(network, Network::GlamsterdamDevnet7);
-        assert_eq!(config.chain.chain_id, 7_082_904_758);
-        assert_eq!(config.forks.gloas.epoch, 38);
-    }
 
     #[test]
     fn glamsterdam_network_forks_match_consensus_and_execution() {

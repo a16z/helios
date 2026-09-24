@@ -9,7 +9,6 @@ helios-ts/pkg
 helios-ts/LICENSE
 
 .vscode
-.devnets/
 
 CLAUDE.md
 .dockerignore

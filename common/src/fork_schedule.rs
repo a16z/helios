@@ -23,11 +23,11 @@ pub struct ForkSchedule {
     pub prague_timestamp: u64,
     pub osaka_timestamp: u64,
     #[serde(default = "inactive_fork_timestamp")]
-    pub amsterdam_timestamp: u64,
-    #[serde(default = "inactive_fork_timestamp")]
     pub bpo1_timestamp: u64,
     #[serde(default = "inactive_fork_timestamp")]
     pub bpo2_timestamp: u64,
+    #[serde(default = "inactive_fork_timestamp")]
+    pub amsterdam_timestamp: u64,
 
     // Optimism Forks
     pub bedrock_timestamp: u64,
@@ -69,9 +69,9 @@ impl Default for ForkSchedule {
             cancun_timestamp: u64::MAX,
             prague_timestamp: u64::MAX,
             osaka_timestamp: u64::MAX,
-            amsterdam_timestamp: u64::MAX,
             bpo1_timestamp: u64::MAX,
             bpo2_timestamp: u64::MAX,
+            amsterdam_timestamp: u64::MAX,
 
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,
