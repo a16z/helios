@@ -23,6 +23,10 @@ pub trait NetworkSpec: Network {
     fn encode_receipt(receipt: &Self::ReceiptResponse) -> Vec<u8>;
     fn encode_transaction(tx: &Self::TransactionResponse) -> Vec<u8>;
     fn is_hash_valid(block: &Self::BlockResponse) -> bool;
+    /// Authenticate a full RPC body and normalize the response before exposing it.
+    /// When `full_tx` is false, replace transactions with hashes derived from their
+    /// authenticated encodings; discarded sender/location metadata need not be recovered.
+    fn validate_block(block: &mut Self::BlockResponse, full_tx: bool) -> bool;
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool;
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log>;
     async fn transact<E: ExecutionProvider<Self>>(

@@ -1,3 +1,7 @@
+use alloy::{
+    consensus::{transaction::SignerRecoverable, Transaction as _},
+    primitives::keccak256,
+};
 use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
@@ -80,6 +84,41 @@ impl NetworkSpec for Ethereum {
             return false;
         }
 
+        block.uncles.is_empty()
+    }
+
+    fn validate_block(block: &mut Self::BlockResponse, full_tx: bool) -> bool {
+        if !Self::is_hash_valid(block) {
+            return false;
+        }
+        let alloy::rpc::types::BlockTransactions::Full(txs) = &mut block.transactions else {
+            return false;
+        };
+        if full_tx {
+            for (index, tx) in txs.iter_mut().enumerate() {
+                // Neither the cached hash nor recovered sender is authenticated by the trie root.
+                if keccak256(tx.inner.encoded_2718()) != *tx.inner.tx_hash()
+                    || tx.inner.inner().recover_signer().ok() != Some(tx.inner.signer())
+                    || tx.block_hash != Some(block.header.hash)
+                    || tx.block_number != Some(block.header.number)
+                    || tx.transaction_index != Some(index as u64)
+                {
+                    return false;
+                }
+                tx.effective_gas_price =
+                    Some(tx.inner.effective_gas_price(block.header.base_fee_per_gas));
+            }
+        } else {
+            // Cached RPC hashes are not committed by the transaction trie. Derive
+            // the only transaction field exposed by this response from signed bytes.
+            block.transactions = alloy::rpc::types::BlockTransactions::Hashes(
+                txs.iter()
+                    .map(|tx| keccak256(Self::encode_transaction(tx)))
+                    .collect(),
+            );
+        }
+        block.header.total_difficulty = None;
+        block.header.size = None;
         block.uncles.is_empty()
     }
 
