@@ -535,6 +535,7 @@ export type Network =
   | "mainnet"      // Ethereum mainnet (chain ID: 1)
   | "goerli"       // Goerli testnet (deprecated)
   | "sepolia"      // Sepolia testnet (chain ID: 11155111)
+  | "plataberget"  // Platåberget testnet (chain ID: 7091047534)
   | "holesky"      // Holesky testnet (chain ID: 17000)
   | "hoodi"        // Hoodi testnet (chain ID: 560048)
   // OP Stack networks

@@ -166,6 +166,7 @@ pub(crate) fn fixture(
                 block_hash: Some(block.header.hash),
                 block_number: Some(block.header.number),
                 transaction_index: Some(i as u64),
+                block_timestamp: Some(block.header.timestamp),
                 effective_gas_price: Some(receipts[i].effective_gas_price),
             })
             .collect(),

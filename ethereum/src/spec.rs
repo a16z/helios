@@ -110,6 +110,7 @@ impl NetworkSpec for Ethereum {
                 }
                 tx.effective_gas_price =
                     Some(tx.inner.effective_gas_price(block.header.base_fee_per_gas));
+                tx.block_timestamp = Some(block.header.timestamp);
             }
         } else {
             // Cached RPC hashes are not committed by the transaction trie. Derive

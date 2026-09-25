@@ -19,7 +19,6 @@ use super::ConsensusRpc;
 pub struct MockRpc {
     testdata: PathBuf,
     pub fetched_updates: Arc<Mutex<bool>>,
-    pub fetched_blocks: Arc<Mutex<Vec<u64>>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -36,7 +35,6 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
         MockRpc {
             testdata,
             fetched_updates: Arc::new(Mutex::new(false)),
-            fetched_blocks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 

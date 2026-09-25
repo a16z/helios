@@ -5,7 +5,7 @@ use alloy::{
 use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
-    consensus::{proofs::calculate_transaction_root, RlpEncodableReceipt, TxReceipt, TxType},
+    consensus::{proofs::calculate_transaction_root, Eip2718EncodableReceipt, TxReceipt, TxType},
     eips::{BlockId, Encodable2718},
     primitives::Address,
     rpc::types::{state::StateOverride, Log},
@@ -18,7 +18,7 @@ use helios_common::{
     network_spec::NetworkSpec,
     types::{Account, EvmError},
 };
-use op_alloy_consensus::{OpTxEnvelope, OpTxType, OpTypedTransaction};
+use op_alloy_consensus::{OpTxEnvelope, OpTxReceipt, OpTxType, OpTypedTransaction};
 use op_alloy_network::{
     BuildResult, Ethereum, Network, NetworkTransactionBuilder, NetworkWallet,
     TransactionBuilderError,
@@ -41,7 +41,7 @@ impl NetworkSpec for OpStack {
         let receipt_with_bloom = &receipt.inner.inner;
         let receipt = receipt_with_bloom.receipt.clone().map_logs(|log| log.inner);
         let mut encoded = Vec::new();
-        receipt.rlp_encode_with_bloom(&receipt_with_bloom.logs_bloom, &mut encoded);
+        receipt.eip2718_encode_with_bloom(&receipt_with_bloom.logs_bloom, &mut encoded);
         encoded
     }
 
@@ -95,6 +95,7 @@ impl NetworkSpec for OpStack {
                 }
                 tx.inner.effective_gas_price =
                     Some(tx.effective_gas_price(block.header.base_fee_per_gas));
+                tx.inner.block_timestamp = Some(block.header.timestamp);
                 // These belong to the receipt and are not part of the transaction trie.
                 tx.deposit_nonce = None;
                 tx.deposit_receipt_version = None;
@@ -124,8 +125,9 @@ impl NetworkSpec for OpStack {
     }
 
     fn sanitize_receipt(receipt: &mut Self::ReceiptResponse) {
-        // L1/operator fee fields are not encoded in the OP receipt trie.
+        // L1/operator fee fields and gas refunds are not encoded in the OP receipt trie.
         receipt.l1_block_info = Default::default();
+        receipt.op_gas_refund = None;
     }
 
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log> {
@@ -142,6 +144,7 @@ impl NetworkSpec for OpStack {
         let nonce = receipt
             .inner
             .inner
+            .receipt
             .deposit_nonce()
             .unwrap_or_else(|| tx.nonce());
         let contract_address = tx

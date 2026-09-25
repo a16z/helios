@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, mem, sync::Arc};
 use alloy::{
     consensus::{BlockHeader, TxType},
     eips::{eip1898::RpcBlockHash, BlockId},
-    network::{NetworkTransactionBuilder, TransactionBuilder},
+    network::TransactionBuilder,
     rpc::types::{state::StateOverride, Block, Header, Transaction, TransactionRequest},
 };
 use eyre::Result;
@@ -114,7 +114,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         validate_tx: bool,
     ) -> Context {
         let spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
-        let mut tx_env = Self::tx_env(tx, spec);
+        let mut tx_env = Self::tx_env(tx, spec, block.header.gas_limit);
 
         if tx_env.tx_type == TxType::Legacy as u8 {
             tx_env.chain_id = None;
@@ -135,8 +135,12 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             .with_cfg(cfg)
     }
 
-    fn tx_env(tx: &TransactionRequest, spec: SpecId) -> TxEnv {
-        let default_gas_limit = if spec >= SpecId::OSAKA {
+    fn tx_env(tx: &TransactionRequest, spec: SpecId, block_gas_limit: u64) -> TxEnv {
+        let default_gas_limit = if spec >= SpecId::AMSTERDAM {
+            // EIP-8037 caps execution gas, while state gas can use the remaining
+            // transaction gas. REVM enforces the separate execution cap.
+            block_gas_limit
+        } else if spec >= SpecId::OSAKA {
             eip7825::TX_GAS_LIMIT_CAP
         } else {
             u64::MAX
@@ -384,6 +388,7 @@ mod tests {
             (config.execution_forks.amsterdam_timestamp, 1, 21_000),
         ] {
             let mut block: Block<Transaction> = Block::default();
+            block.header.gas_limit = 100_000_000;
             block.header.timestamp = timestamp;
             let tx = TransactionRequest::default()
                 .from(caller)
@@ -402,6 +407,7 @@ mod tests {
         }
 
         let mut block: Block<Transaction> = Block::default();
+        block.header.gas_limit = 100_000_000;
         block.header.timestamp = config.execution_forks.amsterdam_timestamp;
         block.header.slot_number = Some(49_152);
         let tx = TransactionRequest::default().from(caller).to(recipient);
@@ -424,4 +430,39 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn amsterdam_default_call_gas_allows_state_reservoir() {
+        let mut evm = test_evm();
+        evm.fork_schedule = crate::config::networks::plataberget().execution_forks;
+        let recipient = address!("2222222222222222222222222222222222222222");
+        let mut block: Block<Transaction> = Block::default();
+        block.header.timestamp = evm.fork_schedule.amsterdam_timestamp;
+        block.header.gas_limit = 100_000_000;
+        let tx = TransactionRequest::default().to(recipient);
+        // Fill distinct slots: execution gas stays below the cap but state gas
+        // requires a total transaction gas allowance greater than 2^24.
+        let mut code = Vec::new();
+        for slot in 0u16..800 {
+            code.extend_from_slice(&[0x60, 1, 0x61]);
+            code.extend_from_slice(&slot.to_be_bytes());
+            code.push(0x55);
+        }
+        let mut db = InMemoryDB::default();
+        db.insert_account_info(
+            recipient,
+            AccountInfo::default().with_code(Bytecode::new_raw(code.into())),
+        );
+        let result = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet()
+            .replay()
+            .unwrap()
+            .result;
+        assert!(result.is_success(), "{result:?}");
+        assert!(
+            result.tx_gas_used() > eip7825::TX_GAS_LIMIT_CAP,
+            "{result:?}"
+        );
+    }
 }

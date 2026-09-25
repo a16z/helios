@@ -60,7 +60,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
                 select! {
                     block = block_recv.recv() => {
                         match block {
-                            Some(block) => {
+                            Some(mut block) => {
+                                while let Ok(newer) = block_recv.try_recv() {
+                                    block = newer;
+                                }
                                 let block = match resolve_trusted_block::<N, E>(
                                     execution_ref.as_ref(),
                                     block,
@@ -206,19 +209,19 @@ async fn resolve_trusted_block<N: NetworkSpec, E: ExecutionProvider<N>>(
     match trusted_block {
         TrustedBlockRef::Full(block) => Ok(block),
         TrustedBlockRef::Hash(block_hash) => {
-            let block = execution
+            let mut block = execution
                 .get_untrusted_block(BlockId::Hash(block_hash.into()), true)
                 .await?
                 .ok_or_else(|| eyre!("trusted execution block {block_hash} not found"))?;
 
-            ensure_trusted_block_valid::<N>(&block, block_hash)?;
+            ensure_trusted_block_valid::<N>(&mut block, block_hash)?;
             Ok(block)
         }
     }
 }
 
 fn ensure_trusted_block_valid<N: NetworkSpec>(
-    block: &N::BlockResponse,
+    block: &mut N::BlockResponse,
     expected_hash: B256,
 ) -> Result<()> {
     let block_hash = block.header().hash();
@@ -229,7 +232,7 @@ fn ensure_trusted_block_valid<N: NetworkSpec>(
         ));
     }
 
-    if !N::is_hash_valid(block) {
+    if !N::validate_block(block, true) {
         return Err(eyre!(
             "trusted execution block {block_hash} failed local hash validation"
         ));
@@ -592,5 +595,69 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         self.consensus
             .checkpoint_recv()
             .ok_or_else(|| eyre!("Checkpoints not supported"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_trusted_block_valid;
+    use alloy::{
+        consensus::proofs::{calculate_transaction_root, calculate_withdrawals_root},
+        primitives::B256,
+        rpc::types::{Block, BlockTransactions},
+    };
+    use helios_ethereum::spec::Ethereum;
+
+    fn full_block() -> Block {
+        let mut block = helios_test_utils::rpc_block();
+        let mut tx = helios_test_utils::rpc_tx();
+        block.header.transactions_root = calculate_transaction_root(&[tx.inner.clone()]);
+        block.header.withdrawals_root = Some(calculate_withdrawals_root(&[]));
+        block.withdrawals = Some(Default::default());
+        block.header.hash = block.header.hash_slow();
+        tx.block_hash = Some(block.header.hash);
+        tx.block_number = Some(block.header.number);
+        tx.transaction_index = Some(0);
+        tx.block_timestamp = Some(u64::MAX);
+        block.transactions = BlockTransactions::Full(vec![tx]);
+        block
+    }
+
+    #[test]
+    fn hash_handoff_authenticates_and_normalizes_rpc_block() {
+        let mut block = full_block();
+        let hash = block.header.hash;
+        ensure_trusted_block_valid::<Ethereum>(&mut block, hash).unwrap();
+        assert!(block.header.size.is_none());
+        assert!(block.header.total_difficulty.is_none());
+        assert_eq!(
+            block.transactions.as_transactions().unwrap()[0].block_timestamp,
+            Some(block.header.timestamp)
+        );
+    }
+
+    #[test]
+    fn hash_handoff_rejects_forged_header_body_and_transaction_metadata() {
+        let original = full_block();
+        for field in ["hash", "logs_bloom", "requests_hash", "body", "metadata"] {
+            let mut block = original.clone();
+            match field {
+                "hash" => block.header.hash = B256::ZERO,
+                "logs_bloom" => block.header.logs_bloom = Default::default(),
+                "requests_hash" => block.header.requests_hash = Some(B256::ZERO),
+                "body" => block.transactions = BlockTransactions::Full(vec![]),
+                "metadata" => {
+                    let BlockTransactions::Full(txs) = &mut block.transactions else {
+                        unreachable!()
+                    };
+                    txs[0].block_number = None;
+                }
+                _ => unreachable!(),
+            }
+            assert!(
+                ensure_trusted_block_valid::<Ethereum>(&mut block, original.header.hash).is_err(),
+                "accepted forged {field}"
+            );
+        }
     }
 }
