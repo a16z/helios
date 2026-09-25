@@ -29,6 +29,12 @@ pub trait NetworkSpec: Network {
     fn validate_block(block: &mut Self::BlockResponse, full_tx: bool) -> bool;
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool;
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log>;
+    fn receipt_metadata_valid(
+        receipt: &Self::ReceiptResponse,
+        tx: &Self::TransactionResponse,
+        block: &Self::BlockResponse,
+        forks: &ForkSchedule,
+    ) -> bool;
     async fn transact<E: ExecutionProvider<Self>>(
         tx: &Self::TransactionRequest,
         validate_tx: bool,

@@ -46,7 +46,11 @@ async fn rpc_cannot_substitute_another_transaction() {
     cache
         .push_block(block.clone(), alloy::eips::BlockId::latest())
         .await;
-    let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(url.parse().unwrap(), cache);
+    let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+        url.parse().unwrap(),
+        cache,
+        Default::default(),
+    );
     assert!(provider.get_transaction(hash).await.unwrap().is_some());
     assert!(provider
         .get_transaction(B256::ZERO)

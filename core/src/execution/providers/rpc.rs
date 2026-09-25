@@ -1,3 +1,4 @@
+use helios_common::fork_schedule::ForkSchedule;
 use std::collections::{HashMap, HashSet};
 
 use alloy::{
@@ -35,7 +36,8 @@ use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
     errors::ExecutionError,
     proof::{
-        verify_account_proof, verify_block_receipts, verify_code_hash_proof, verify_storage_proof,
+        verify_account_proof, verify_authenticated_block_receipts, verify_code_hash_proof,
+        verify_storage_proof,
     },
     providers::historical::HistoricalBlockProvider,
 };
@@ -64,6 +66,7 @@ pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>, H: Historic
     provider: RootProvider<N>,
     block_provider: B,
     historical_provider: Option<H>,
+    fork_schedule: ForkSchedule,
 }
 
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> ExecutionProvider<N>
@@ -74,7 +77,11 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
     RpcExecutionProvider<N, B, H>
 {
-    pub fn new(rpc_url: Url, block_provider: B) -> RpcExecutionProvider<N, B, ()> {
+    pub fn new(
+        rpc_url: Url,
+        block_provider: B,
+        fork_schedule: ForkSchedule,
+    ) -> RpcExecutionProvider<N, B, ()> {
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
             .http(rpc_url);
@@ -85,6 +92,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             provider,
             block_provider,
             historical_provider: None,
+            fork_schedule,
         }
     }
 
@@ -92,6 +100,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
         rpc_url: Url,
         block_provider: B,
         historical_provider: H,
+        fork_schedule: ForkSchedule,
     ) -> Self {
         let client = ClientBuilder::default()
             .layer(RetryBackoffLayer::new(100, 50, 300))
@@ -103,6 +112,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             provider,
             block_provider,
             historical_provider: Some(historical_provider),
+            fork_schedule,
         }
     }
 
@@ -368,7 +378,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
 
         let block_hash = receipt.block_hash().ok_or(eyre!("block not found"))?;
         let block = self
-            .get_block(block_hash.into(), false)
+            .get_block(block_hash.into(), true)
             .await?
             .ok_or(eyre!("block not found"))?;
 
@@ -378,7 +388,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
             .await?
             .ok_or(eyre!("block not found"))?;
 
-        verify_block_receipts::<N>(&receipts, &block)?;
+        verify_authenticated_block_receipts::<N>(&receipts, &block, &self.fork_schedule)?;
         Ok(receipts
             .iter()
             .find(|receipt| receipt.transaction_hash() == hash)
@@ -389,7 +399,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let Some(block) = self.get_block(block_id, false).await? else {
+        let Some(block) = self.get_block(block_id, true).await? else {
             return Ok(None);
         };
 
@@ -399,7 +409,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
             .await?
             .ok_or(eyre!("receipt fetch failed"))?;
 
-        verify_block_receipts::<N>(&receipts, &block)?;
+        verify_authenticated_block_receipts::<N>(&receipts, &block, &self.fork_schedule)?;
         Ok(Some(receipts))
     }
 }

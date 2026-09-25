@@ -24,7 +24,11 @@ async fn rejects_account_proof_for_different_address() {
     cache
         .push_block(rpc_block(), alloy::eips::BlockId::latest())
         .await;
-    let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(url.parse().unwrap(), cache);
+    let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+        url.parse().unwrap(),
+        cache,
+        Default::default(),
+    );
     let valid = provider
         .get_account(address, &[], false, alloy::eips::BlockId::latest())
         .await;

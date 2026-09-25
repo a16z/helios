@@ -136,6 +136,29 @@ impl NetworkSpec for Ethereum {
         receipt.inner.logs().to_vec()
     }
 
+    fn receipt_metadata_valid(
+        receipt: &Self::ReceiptResponse,
+        tx: &Self::TransactionResponse,
+        block: &Self::BlockResponse,
+        forks: &ForkSchedule,
+    ) -> bool {
+        let contract_address = tx.is_create().then(|| tx.inner.signer().create(tx.nonce()));
+        let blob_gas_used = tx.blob_gas_used();
+        let blob_gas_price = blob_gas_used.and_then(|_| {
+            block.header.excess_blob_gas.map(|excess| {
+                alloy::eips::eip4844::fake_exponential(
+                    1,
+                    excess as u128,
+                    forks.get_blob_base_fee_update_fraction(block.header.timestamp) as u128,
+                )
+            })
+        });
+        receipt.contract_address == contract_address
+            && receipt.effective_gas_price == tx.effective_gas_price(block.header.base_fee_per_gas)
+            && receipt.blob_gas_used == blob_gas_used
+            && receipt.blob_gas_price == blob_gas_price
+    }
+
     async fn transact<E: ExecutionProvider<Self>>(
         tx: &Self::TransactionRequest,
         validate_tx: bool,

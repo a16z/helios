@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::net::{SocketAddr, TcpListener};
+use std::sync::Arc;
 
 use alloy::eips::BlockNumberOrTag;
 use alloy::network::ReceiptResponse;
@@ -74,7 +75,7 @@ use helios_verifiable_api_server::server::{
 // 1. Set environment variable:
 //    export MAINNET_EXECUTION_RPC=YOUR_API_KEY
 //
-// 2. Run all tests (single test with parallel mini-tests, ~30-60 seconds):
+// 2. Run all tests (single test with bounded parallel mini-tests):
 //    cargo test --workspace --test rpc_equivalence
 
 // Test framework for parallel mini-tests
@@ -153,6 +154,59 @@ fn ensure_blocks_equivalent(block: Option<Block>, expected_block: Option<Block>)
     ensure_eq!(block.withdrawals, expected_block.withdrawals);
     ensure_eq!(block.uncles, expected_block.uncles);
     Ok(())
+}
+
+fn ensure_transactions_equivalent(tx: Value, expected: Value) -> Result<()> {
+    // Compare the fields exposed by the transaction API. Some nodes also return
+    // extensions such as blockTimestamp, which Alloy's Transaction does not expose.
+    // Deserializing a non-optional transaction also rejects null responses.
+    let tx: alloy::rpc::types::Transaction = serde_json::from_value(tx)?;
+    let expected: alloy::rpc::types::Transaction = serde_json::from_value(expected)?;
+    ensure_eq!(tx, expected);
+    Ok(())
+}
+
+mod transaction_equivalence_regressions {
+    use super::*;
+
+    fn reference_transaction() -> Value {
+        serde_json::from_str(include_str!("testdata/rpc/transaction.json")).unwrap()
+    }
+
+    #[test]
+    fn accepts_optional_node_transaction_extensions() {
+        let tx = reference_transaction();
+        let mut expected = tx.clone();
+        expected["blockTimestamp"] = json!("0x6ab5c81f");
+        ensure_transactions_equivalent(tx, expected).unwrap();
+    }
+
+    #[test]
+    fn rejects_changed_transaction_metadata() {
+        let expected = reference_transaction();
+        for (field, value) in [
+            ("from", json!("0x0000000000000000000000000000000000000000")),
+            ("hash", json!(format!("0x{}", "00".repeat(32)))),
+            ("blockHash", json!(format!("0x{}", "00".repeat(32)))),
+            ("transactionIndex", json!("0xffff")),
+            ("gasPrice", json!("0x1")),
+        ] {
+            let mut tx = expected.clone();
+            tx[field] = value;
+            assert!(
+                ensure_transactions_equivalent(tx, expected.clone()).is_err(),
+                "accepted {field}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_missing_transactions() {
+        let tx = reference_transaction();
+        assert!(ensure_transactions_equivalent(Value::Null, tx.clone()).is_err());
+        assert!(ensure_transactions_equivalent(tx, Value::Null).is_err());
+        assert!(ensure_transactions_equivalent(Value::Null, Value::Null).is_err());
+    }
 }
 
 mod block_equivalence_regressions {
@@ -271,7 +325,7 @@ async fn setup() -> (
         let port = get_available_port();
         let helios_client = EthereumClientBuilder::new()
             .network(Network::Mainnet)
-            .verifiable_api(&format!("http://localhost:{api_port}"))
+            .verifiable_api(format!("http://localhost:{api_port}"))
             .unwrap()
             .consensus_rpc(consensus_rpc)
             .unwrap()
@@ -485,11 +539,10 @@ async fn test_get_max_priority_fee_per_gas(
     helios: &RootProvider,
     expected: &RootProvider,
 ) -> Result<()> {
-    let fee = helios.get_max_priority_fee_per_gas().await?;
-    let expected_fee = expected.get_max_priority_fee_per_gas().await?;
-    // Fees can vary, just ensure they're both non-zero
-    ensure!(fee > 0, "Fee should be positive");
-    ensure!(expected_fee > 0, "Expected fee should be positive");
+    // Both endpoints must return a valid fee quantity. Estimates use different
+    // policies, and zero is valid; neither equality nor positivity is required.
+    helios.get_max_priority_fee_per_gas().await?;
+    expected.get_max_priority_fee_per_gas().await?;
     Ok(())
 }
 
@@ -630,15 +683,7 @@ async fn test_get_transaction_by_block_hash_and_index(
         )
         .await?;
 
-    // Compare the transaction objects
-    ensure_eq!(
-        tx,
-        expected_tx,
-        "Transaction mismatch for block hash {:?} index {}",
-        block_hash,
-        tx_index
-    );
-    Ok(())
+    ensure_transactions_equivalent(tx, expected_tx)
 }
 
 async fn test_get_transaction_by_block_number_and_index(
@@ -674,15 +719,7 @@ async fn test_get_transaction_by_block_number_and_index(
         )
         .await?;
 
-    // Compare the transaction objects
-    ensure_eq!(
-        tx,
-        expected_tx,
-        "Transaction mismatch for block number {} index {}",
-        block_num,
-        tx_index
-    );
-    Ok(())
+    ensure_transactions_equivalent(tx, expected_tx)
 }
 
 async fn test_get_nonce(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
@@ -1477,6 +1514,9 @@ async fn rpc_equivalence_tests() {
     let helios_api = &providers[0];
     let helios_rpc = &providers[1];
     let provider = &providers[2];
+    // Bound independent live comparisons so CI does not burst all 37 methods
+    // against the same upstream quota. This does not change Helios's RPC paths.
+    let permits = Arc::new(tokio::sync::Semaphore::new(4));
 
     // Create a macro to simplify adding tests
     macro_rules! spawn_test {
@@ -1484,18 +1524,25 @@ async fn rpc_equivalence_tests() {
             let helios_api = helios_api.clone();
             let helios_rpc = helios_rpc.clone();
             let provider = provider.clone();
+            let permits = permits.clone();
             tokio::spawn(async move {
+                let _permit = permits.acquire_owned().await.unwrap();
                 let api_result = $test_fn(&helios_api, &provider).await;
                 let rpc_result = $test_fn(&helios_rpc, &provider).await;
 
-                if let Err(e) = api_result {
-                    let result =
-                        TestResult::fail($test_name, format!("API provider failed: {}", e));
-                    println!("  ❌ {}: {}", result.name, result.error.as_ref().unwrap());
-                    result
-                } else if let Err(e) = rpc_result {
-                    let result =
-                        TestResult::fail($test_name, format!("RPC provider failed: {}", e));
+                let errors = [
+                    api_result
+                        .err()
+                        .map(|e| format!("API provider failed: {e}")),
+                    rpc_result
+                        .err()
+                        .map(|e| format!("RPC provider failed: {e}")),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+                if !errors.is_empty() {
+                    let result = TestResult::fail($test_name, errors.join("; "));
                     println!("  ❌ {}: {}", result.name, result.error.as_ref().unwrap());
                     result
                 } else {
@@ -1507,7 +1554,7 @@ async fn rpc_equivalence_tests() {
         }};
     }
 
-    // Run all mini-tests in parallel
+    // Schedule all mini-tests, with concurrency bounded by the semaphore above.
     let futures = vec![
         // Basic/Network Methods
         spawn_test!(test_get_chain_id, "get_chain_id"),
@@ -1587,7 +1634,7 @@ async fn rpc_equivalence_tests() {
     ];
 
     println!(
-        "Setup complete! Running {} mini-tests in parallel...",
+        "Setup complete! Running {} mini-tests with at most four in parallel...",
         futures.len()
     );
 

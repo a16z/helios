@@ -232,6 +232,7 @@ impl<N: NetworkSpec> VerifiableApi<N> for ApiService<N> {
         let provider = RpcExecutionProvider::<N, BlockCache<N>, ()>::new(
             self.rpc_url.parse().unwrap(),
             block_provider,
+            ForkSchedule::default(),
         );
         let provider = CachingProvider::new(provider);
         provider.push_block(block, block_id).await;

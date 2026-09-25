@@ -100,6 +100,15 @@ impl<S: ConsensusSpec> Default for BeaconBlockBody<S> {
     }
 }
 
+impl<S: ConsensusSpec> BeaconBlockBody<S> {
+    /// EIP-7685 commitment to the requests already contained in the beacon body.
+    pub fn execution_requests_hash(&self) -> Option<B256> {
+        self.execution_requests()
+            .ok()
+            .map(ExecutionRequests::requests_hash)
+    }
+}
+
 #[derive(Default, Clone, Debug, Encode, TreeHash, Deserialize)]
 pub struct SignedBlsToExecutionChange {
     message: BlsToExecutionChange,
@@ -388,6 +397,30 @@ pub struct ExecutionRequests<S: ConsensusSpec> {
     deposits: VariableList<DepositRequest, S::MaxDepositRequests>,
     withdrawals: VariableList<WithdrawalRequest, S::MaxWithdrawalRequests>,
     consolidations: VariableList<ConsolidationRequest, S::MaxConsolidationRequests>,
+}
+
+impl<S: ConsensusSpec> ExecutionRequests<S> {
+    pub fn requests_hash(&self) -> B256 {
+        use sha2::{Digest, Sha256};
+        use ssz::Encode;
+
+        // Electra encodes each nonempty request list as its type byte followed
+        // by its SSZ bytes. EIP-7685 hashes those groups in ascending type order.
+        let mut hash = Sha256::new();
+        for (kind, requests) in [
+            (0u8, self.deposits.as_ssz_bytes()),
+            (1, self.withdrawals.as_ssz_bytes()),
+            (2, self.consolidations.as_ssz_bytes()),
+        ] {
+            if !requests.is_empty() {
+                let mut group = Sha256::new();
+                group.update([kind]);
+                group.update(requests);
+                hash.update(group.finalize());
+            }
+        }
+        B256::from_slice(&hash.finalize())
+    }
 }
 
 #[derive(Deserialize, Debug, Default, Encode, TreeHash, Clone)]
@@ -803,3 +836,6 @@ fn default_header_to_none(value: LightClientHeader) -> Option<LightClientHeader>
         },
     }
 }
+
+#[cfg(test)]
+mod request_hash_tests;

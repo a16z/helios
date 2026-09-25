@@ -120,6 +120,7 @@ impl OpStackClientBuilder {
                 rpc_url,
                 block_provider,
                 historical_provider,
+                config.chain.forks,
             );
             let execution = CachingProvider::new(execution);
 
