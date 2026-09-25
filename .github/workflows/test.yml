@@ -39,6 +39,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: version-check
+    # All branches share the same live RPC quota, including every stack layer.
+    concurrency:
+      group: live-rpc-tests
+      queue: max
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
