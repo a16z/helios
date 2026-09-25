@@ -10,13 +10,12 @@ use helios_ethereum::spec::Ethereum;
 use metadata::{envelopes, fixture, forks};
 
 #[test]
-fn every_configured_ethereum_network_uses_its_own_bpo_activation_times() {
+fn active_ethereum_networks_use_their_own_bpo_activation_times() {
     use helios_ethereum::config::networks::Network;
     // Mainnet EIP-8134/8135; testnet times from go-ethereum's network configs.
     for (network, bpo1, bpo2) in [
         (Network::Mainnet, 1765290071, 1767747671),
         (Network::Sepolia, 1761017184, 1761607008),
-        (Network::Holesky, 1759800000, 1760389824),
         (Network::Hoodi, 1762365720, 1762955544),
     ] {
         let schedule = network.to_base_config().execution_forks;
