@@ -26,11 +26,7 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
@@ -45,11 +41,7 @@ jobs:
       queue: max
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install libfont
         run: sudo apt install libfontconfig libfontconfig1-dev
@@ -63,11 +55,8 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
@@ -80,11 +69,8 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
@@ -96,14 +82,10 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown
       - name: Check wasm compatibility
         uses: actions-rs/cargo@v1
         with:
