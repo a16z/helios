@@ -457,15 +457,17 @@ async fn test_get_chain_id(helios: &RootProvider, expected: &RootProvider) -> Re
 }
 
 async fn test_get_block_number(helios: &RootProvider, expected: &RootProvider) -> Result<()> {
-    let block_number = helios.get_block_number().await?;
-    let expected_block_number = expected.get_block_number().await?;
-    // Allow for small differences due to sync timing
+    let (block_number, expected_block_number) =
+        tokio::try_join!(helios.get_block_number(), expected.get_block_number())?;
+    // The authenticated head trails the chain head; polling and fetch timing can
+    // briefly widen the gap to three blocks. Read both heads concurrently.
+    let difference = block_number.abs_diff(expected_block_number);
     ensure!(
-        (block_number as i64 - expected_block_number as i64).abs() <= 2,
+        difference <= 3,
         "Block number too different: expected {}, got {} (diff: {})",
         expected_block_number,
         block_number,
-        (block_number as i64 - expected_block_number as i64).abs()
+        difference
     );
     Ok(())
 }
