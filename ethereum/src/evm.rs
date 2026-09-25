@@ -261,6 +261,7 @@ mod tests {
         let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
             "http://localhost:1".parse().unwrap(),
             BlockCache::new(),
+            config.execution_forks,
         );
         EthereumEvm::new(
             Arc::new(provider),
