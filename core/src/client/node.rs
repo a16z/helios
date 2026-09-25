@@ -154,7 +154,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             .get_block(tag, false)
             .await
             .map_err(|_| ClientError::BlockNotFound(tag))?
-            .ok_or_else(|| ClientError::OutOfSync(timestamp))?
+            .ok_or(ClientError::BlockNotFound(tag))?
             .header()
             .timestamp();
 
