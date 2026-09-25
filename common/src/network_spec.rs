@@ -28,6 +28,8 @@ pub trait NetworkSpec: Network {
     /// authenticated encodings; discarded sender/location metadata need not be recovered.
     fn validate_block(block: &mut Self::BlockResponse, full_tx: bool) -> bool;
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool;
+    /// Remove optional RPC fields that this network cannot authenticate.
+    fn sanitize_receipt(_receipt: &mut Self::ReceiptResponse) {}
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log>;
     fn receipt_metadata_valid(
         receipt: &Self::ReceiptResponse,

@@ -188,13 +188,14 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             return Ok(None);
         };
 
-        let receipts = self
+        let mut receipts = self
             .provider
             .get_block_receipts(block.header().hash().into())
             .await?
             .ok_or(eyre!("receipt fetch failed"))?;
 
         verify_authenticated_block_receipts::<N>(&receipts, &block, &self.fork_schedule)?;
+        receipts.iter_mut().for_each(N::sanitize_receipt);
         Ok(Some((receipts, block.header().timestamp())))
     }
 
@@ -401,13 +402,14 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
             .await?
             .ok_or(eyre!("block not found"))?;
 
-        let receipts = self
+        let mut receipts = self
             .provider
             .get_block_receipts(block_hash.into())
             .await?
             .ok_or(eyre!("block not found"))?;
 
         verify_authenticated_block_receipts::<N>(&receipts, &block, &self.fork_schedule)?;
+        receipts.iter_mut().for_each(N::sanitize_receipt);
         Ok(receipts
             .iter()
             .find(|receipt| receipt.transaction_hash() == hash)

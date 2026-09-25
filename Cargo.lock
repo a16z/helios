@@ -3762,6 +3762,7 @@ dependencies = [
  "helios-ethereum",
  "helios-revm-utils",
  "hex",
+ "jsonrpsee",
  "libp2p",
  "libp2p-identity",
  "op-alloy-consensus",
