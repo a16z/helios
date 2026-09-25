@@ -203,7 +203,11 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 }
             }
 
-            _ = inner.send_blocks().await;
+            if let Err(err) = inner.send_blocks().await {
+                error!(target: "helios::consensus", error = %err, "failed to publish initial blocks");
+                _ = sync_status_send.send(ConsensusSyncStatus::Error(err.to_string()));
+                return;
+            }
             _ = sync_status_send.send(ConsensusSyncStatus::Synced);
 
             let start = Instant::now() + inner.duration_until_next_update().to_std().unwrap();

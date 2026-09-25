@@ -18,6 +18,7 @@ use helios_common::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     // node management
+    /// Wait until consensus has synced and its initial execution heads are cached.
     async fn wait_synced(&self) -> Result<()>;
     async fn shutdown(&self);
     // state fetch

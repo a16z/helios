@@ -13,7 +13,10 @@ use async_trait::async_trait;
 use eyre::{eyre, Result};
 use revm::context::result::ExecutionResult;
 use revm::context_interface::block::BlobExcessGasAndPrice;
-use tokio::{select, sync::broadcast::Sender};
+use tokio::{
+    select,
+    sync::{broadcast::Sender, watch},
+};
 use tracing::{info, warn};
 
 use helios_common::{
@@ -36,13 +39,40 @@ pub struct Node<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProv
     filter_state: FilterState,
     block_broadcast: Sender<SubscriptionEvent<N>>,
     fork_schedule: ForkSchedule,
+    latest_block_status: watch::Receiver<BlockSyncStatus>,
+    finalized_block_status: watch::Receiver<BlockSyncStatus>,
+    finalized_block_watch: watch::Receiver<Option<TrustedBlockRef<N::BlockResponse>>>,
     phantom: PhantomData<N>,
+}
+
+#[derive(Clone)]
+enum BlockSyncStatus {
+    Pending,
+    Ready,
+    Failed(String),
+}
+
+async fn wait_for_initial_block(mut status: watch::Receiver<BlockSyncStatus>) -> Result<()> {
+    loop {
+        let current = status.borrow_and_update().clone();
+        match current {
+            BlockSyncStatus::Ready => return Ok(()),
+            BlockSyncStatus::Failed(error) => return Err(eyre!(error)),
+            BlockSyncStatus::Pending => status.changed().await.map_err(|_| {
+                eyre!("consensus stopped before the initial execution block was cached")
+            })?,
+        }
+    }
 }
 
 impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> Node<N, C, E> {
     pub fn new(mut consensus: C, execution: E, fork_schedule: ForkSchedule) -> Self {
         let mut block_recv = consensus.block_recv().unwrap();
         let mut finalized_block_recv = consensus.finalized_block_recv().unwrap();
+        let finalized_block_watch = finalized_block_recv.clone();
+        let (latest_block_send, latest_block_status) = watch::channel(BlockSyncStatus::Pending);
+        let (finalized_block_send, finalized_block_status) =
+            watch::channel(BlockSyncStatus::Pending);
         let execution = Arc::new(execution);
         let execution_ref = execution.clone();
         let block_broadcast = Sender::new(100);
@@ -54,107 +84,91 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
-            let mut last_finalized_block_number = None;
-
-            loop {
-                select! {
-                    block = block_recv.recv() => {
-                        match block {
-                            Some(mut block) => {
-                                while let Ok(newer) = block_recv.try_recv() {
-                                    block = newer;
-                                }
-                                let block = match resolve_trusted_block::<N, E>(
-                                    execution_ref.as_ref(),
-                                    block,
-                                )
-                                .await
-                                {
-                                    Ok(block) => block,
-                                    Err(err) => {
-                                        warn!(
-                                            target: "helios::client",
-                                            error = %err,
-                                            "failed to resolve trusted latest block"
-                                        );
-                                        continue;
-                                    }
-                                };
-                                let block_number = block.header().number();
-                                let timestamp = block.header().timestamp();
-
-                                // Calculate age of the block
-                                let current_time = SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_secs();
-
-                                let age = current_time.saturating_sub(timestamp);
-
-                                info!(
-                                    target: "helios::client",
-                                    "latest block     number={} age={}s",
-                                    block_number,
-                                    age
-                                );
-
-                                execution_ref.push_block(
-                                    block.clone(),
-                                    BlockId::Number(BlockNumberOrTag::Latest)
-                                ).await;
-
-                                _ = block_broadcast_ref.send(SubscriptionEvent::NewHeads(block));
+            // BlockCache updates can clear history, so keep writes serialized
+            // while allowing the network fetches themselves to overlap.
+            let cache_update = tokio::sync::Mutex::new(());
+            // Resolve the two heads independently so a slow finalized fetch cannot
+            // delay the latest head (or add a sequential RPC round trip).
+            let latest = async {
+                while let Some(mut trusted_block) = block_recv.recv().await {
+                    while let Ok(newer) = block_recv.try_recv() {
+                        trusted_block = newer;
+                    }
+                    let block = match resolve_trusted_block::<N, E>(
+                        execution_ref.as_ref(),
+                        trusted_block,
+                    )
+                    .await
+                    {
+                        Ok(block) => block,
+                        Err(err) => {
+                            warn!(target: "helios::client", error = %err, "failed to resolve trusted latest block");
+                            if !matches!(*latest_block_send.borrow(), BlockSyncStatus::Ready) {
+                                latest_block_send.send_replace(BlockSyncStatus::Failed(format!(
+                                    "failed to resolve initial latest block: {err}"
+                                )));
                             }
-                            None => {
-                                // Sender dropped, consensus task has exited - client is no longer usable
-                                warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
-                                break;
-                            }
+                            continue;
                         }
-                    },
-                    finalized_changed = finalized_block_recv.changed() => {
-                        if finalized_changed.is_err() {
-                            warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
-                            break;
-                        }
-                        let trusted_block = finalized_block_recv.borrow_and_update().clone();
-                        if let Some(trusted_block) = trusted_block {
-                            let block = match resolve_trusted_block::<N, E>(
-                                execution_ref.as_ref(),
-                                trusted_block,
-                            )
-                            .await
-                            {
-                                Ok(block) => block,
-                                Err(err) => {
-                                    warn!(
-                                        target: "helios::client",
-                                        error = %err,
-                                        "failed to resolve trusted finalized block"
-                                    );
-                                    continue;
-                                }
-                            };
-                            let block_number = block.header().number();
+                    };
+                    let block_number = block.header().number();
+                    let timestamp = block.header().timestamp();
+                    let current_time = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    let age = current_time.saturating_sub(timestamp);
+                    info!(target: "helios::client", "latest block     number={} age={}s", block_number, age);
 
-                            // Only log if this is a new finalized block
-                            if last_finalized_block_number != Some(block_number) {
-                                info!(
-                                    target: "helios::client",
-                                    "finalized block  number={}",
-                                    block_number
-                                );
-                                last_finalized_block_number = Some(block_number);
-                            }
-
-                            execution_ref.push_block(
-                                block,
-                                BlockId::Number(BlockNumberOrTag::Finalized)
-                            ).await;
-                        }
-                    },
+                    let _cache_update = cache_update.lock().await;
+                    execution_ref
+                        .push_block(block.clone(), BlockId::Number(BlockNumberOrTag::Latest))
+                        .await;
+                    latest_block_send.send_replace(BlockSyncStatus::Ready);
+                    _ = block_broadcast_ref.send(SubscriptionEvent::NewHeads(block));
                 }
+            };
+            let finalized = async {
+                let mut last_finalized_block_number = None;
+                while finalized_block_recv.changed().await.is_ok() {
+                    let trusted_block = finalized_block_recv.borrow_and_update().clone();
+                    let Some(trusted_block) = trusted_block else {
+                        continue;
+                    };
+                    let block = match resolve_trusted_block::<N, E>(
+                        execution_ref.as_ref(),
+                        trusted_block,
+                    )
+                    .await
+                    {
+                        Ok(block) => block,
+                        Err(err) => {
+                            warn!(target: "helios::client", error = %err, "failed to resolve trusted finalized block");
+                            if !matches!(*finalized_block_send.borrow(), BlockSyncStatus::Ready) {
+                                finalized_block_send.send_replace(BlockSyncStatus::Failed(
+                                    format!("failed to resolve initial finalized block: {err}"),
+                                ));
+                            }
+                            continue;
+                        }
+                    };
+                    let block_number = block.header().number();
+                    if last_finalized_block_number != Some(block_number) {
+                        info!(target: "helios::client", "finalized block  number={}", block_number);
+                        last_finalized_block_number = Some(block_number);
+                    }
+                    let _cache_update = cache_update.lock().await;
+                    execution_ref
+                        .push_block(block, BlockId::Number(BlockNumberOrTag::Finalized))
+                        .await;
+                    finalized_block_send.send_replace(BlockSyncStatus::Ready);
+                }
+            };
+            select! {
+                _ = latest => {},
+                _ = finalized => {},
             }
+            warn!(target: "helios::client", "consensus client stopped, shut Helios down manually");
         });
 
         Node {
@@ -163,6 +177,9 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
             filter_state: FilterState::default(),
             block_broadcast,
             fork_schedule,
+            latest_block_status,
+            finalized_block_status,
+            finalized_block_watch,
             phantom: PhantomData,
         }
     }
@@ -254,7 +271,20 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
     }
 
     async fn wait_synced(&self) -> Result<()> {
-        self.consensus.wait_synced().await
+        self.consensus.wait_synced().await?;
+        // Ethereum publishes both heads before consensus reports Synced. Other
+        // networks (e.g. OP Stack) may only publish a latest head.
+        let has_finalized_head = self.finalized_block_watch.borrow().is_some();
+        tokio::try_join!(
+            wait_for_initial_block(self.latest_block_status.clone()),
+            async {
+                if has_finalized_head {
+                    wait_for_initial_block(self.finalized_block_status.clone()).await?;
+                }
+                Ok::<_, eyre::Report>(())
+            },
+        )?;
+        Ok(())
     }
 
     async fn call(

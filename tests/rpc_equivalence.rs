@@ -344,11 +344,8 @@ async fn setup() -> (
     };
 
     // Wait for both Helios instances to sync
-    join_all(vec![
-        helios_client.wait_synced(),
-        helios_client_api.wait_synced(),
-    ])
-    .await;
+    tokio::try_join!(helios_client.wait_synced(), helios_client_api.wait_synced())
+        .expect("Helios failed to sync its initial execution blocks");
 
     (
         helios_client,
