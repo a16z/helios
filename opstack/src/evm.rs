@@ -59,6 +59,22 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         validate_tx: bool,
         state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult<OpHaltReason>, HashMap<Address, Account>), EvmError> {
+        let generation = self.execution.reorg_generation().await;
+        let result = self
+            .transact_at_block(tx, validate_tx, state_overrides)
+            .await;
+        if self.execution.reorg_generation().await != generation {
+            return Err(EvmError::Reorg);
+        }
+        result
+    }
+
+    async fn transact_at_block(
+        &mut self,
+        tx: &OpTransactionRequest,
+        validate_tx: bool,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<(ExecutionResult<OpHaltReason>, HashMap<Address, Account>), EvmError> {
         let block = self
             .execution
             .get_block(self.block_id, false)
