@@ -56,7 +56,17 @@ where
         block_id: BlockId,
     ) -> Result<Account> {
         let block_hash = match block_id {
-            BlockId::Hash(hash) => hash.into(),
+            BlockId::Hash(hash) => {
+                // Cached state remains valid for its hash after a reorg, but a
+                // caller requiring canonicality must also check the current chain.
+                if hash.require_canonical == Some(true) {
+                    self.inner
+                        .get_block(block_id, false)
+                        .await?
+                        .ok_or_else(|| eyre!("canonical block not found"))?;
+                }
+                hash.into()
+            }
             _ => self
                 .inner
                 .get_block(block_id, false)
