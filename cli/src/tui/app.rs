@@ -136,7 +136,7 @@ impl<N: NetworkSpec> App<N> {
 
         // Sort by block number descending (newest first)
         let mut sorted: Vec<BlockInfo> = self.block_history.drain(..).collect();
-        sorted.sort_by(|a, b| b.number.cmp(&a.number));
+        sorted.sort_by_key(|block| std::cmp::Reverse(block.number));
         sorted.truncate(MAX_STATE_HISTORY_LENGTH);
 
         self.block_history = sorted.into_iter().collect();
