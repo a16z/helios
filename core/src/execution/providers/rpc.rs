@@ -10,7 +10,6 @@ use alloy::{
     },
     primitives::{Address, Bytes, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
-    rlp,
     rpc::{
         client::ClientBuilder,
         types::{AccessListItem, Filter, FilterBlockOption, Log},
@@ -125,58 +124,78 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
             .header()
             .number();
 
-        // Collect all (unique) block numbers
+        // Only fetch receipts for blocks represented in the returned logs.
         let block_nums = logs
             .iter()
-            .filter_map(|log| log.block_number.filter(|number| *number <= latest))
-            .collect::<HashSet<u64>>();
+            .map(|log| {
+                let number = log
+                    .block_number
+                    .ok_or_else(|| eyre!("log missing block number"))?;
+                if number > latest {
+                    return Err(eyre!("log is ahead of the latest verified block"));
+                }
+                Ok(number)
+            })
+            .collect::<Result<HashSet<_>>>()?;
 
         // Collect all (proven) tx receipts for all block numbers
-        let blocks_receipts_fut = block_nums
-            .into_iter()
-            .map(|block_num| async move { self.get_block_receipts(block_num.into()).await });
+        let blocks_receipts_fut = block_nums.into_iter().map(|block_num| async move {
+            self.get_block_receipts_with_timestamp(block_num.into())
+                .await
+        });
 
         let blocks_receipts = try_join_all(blocks_receipts_fut).await?;
-        let receipts = blocks_receipts
-            .into_iter()
-            .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
-
-        // Map tx hashes to encoded logs
-        let receipts_logs_encoded = receipts
-            .into_iter()
-            .filter_map(|receipt| {
-                let logs = N::receipt_logs(&receipt);
-                if logs.is_empty() {
-                    None
-                } else {
-                    let tx_hash = logs[0].transaction_hash.unwrap();
-                    let encoded_logs = logs
-                        .iter()
-                        .map(|l| rlp::encode(&l.inner))
-                        .collect::<Vec<_>>();
-                    Some((tx_hash, encoded_logs))
-                }
-            })
-            .collect::<HashMap<_, _>>();
+        let mut receipt_logs = HashMap::new();
+        for (receipts, timestamp) in blocks_receipts.into_iter().flatten() {
+            for log in receipts.iter().flat_map(N::receipt_logs) {
+                // Receipt metadata is authenticated against the block and receipt order.
+                receipt_logs.insert((log.block_number, log.log_index), (log, timestamp));
+            }
+        }
 
         for log in logs {
-            // Check if the receipt contains the desired log
-            // Encoding logs for comparison
-            let tx_hash = log.transaction_hash.unwrap();
-            let log_encoded = rlp::encode(&log.inner);
-            let receipt_logs_encoded = receipts_logs_encoded.get(&tx_hash).unwrap();
+            let tx_hash = log
+                .transaction_hash
+                .ok_or_else(|| eyre!("log missing transaction hash"))?;
+            let log_index = log
+                .log_index
+                .ok_or_else(|| eyre!("log missing log index"))?;
+            let missing_log = || ExecutionError::MissingLog(tx_hash, U256::from(log_index));
+            let (expected, timestamp) = receipt_logs
+                .get(&(log.block_number, log.log_index))
+                .ok_or_else(missing_log)?;
 
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash,
-                    U256::from(log.log_index.unwrap()),
-                )
-                .into());
+            // The lookup binds the block number and log index. Check all remaining
+            // fields, allowing either RPC response to omit the optional timestamp.
+            if log.inner != expected.inner
+                || log.block_hash != expected.block_hash
+                || log.transaction_hash != expected.transaction_hash
+                || log.transaction_index != expected.transaction_index
+                || log.removed != expected.removed
+                || log.block_timestamp.is_some_and(|t| t != *timestamp)
+            {
+                return Err(missing_log().into());
             }
         }
         Ok(())
+    }
+
+    async fn get_block_receipts_with_timestamp(
+        &self,
+        block_id: BlockId,
+    ) -> Result<Option<(Vec<N::ReceiptResponse>, u64)>> {
+        let Some(block) = self.get_block(block_id, true).await? else {
+            return Ok(None);
+        };
+
+        let receipts = self
+            .provider
+            .get_block_receipts(block.header().hash().into())
+            .await?
+            .ok_or(eyre!("receipt fetch failed"))?;
+
+        verify_authenticated_block_receipts::<N>(&receipts, &block, &self.fork_schedule)?;
+        Ok(Some((receipts, block.header().timestamp())))
     }
 
     async fn resolve_block_number(&self, block: Option<BlockNumberOrTag>) -> Result<u64> {
@@ -399,18 +418,10 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Receipt
         &self,
         block_id: BlockId,
     ) -> Result<Option<Vec<N::ReceiptResponse>>> {
-        let Some(block) = self.get_block(block_id, true).await? else {
-            return Ok(None);
-        };
-
-        let receipts = self
-            .provider
-            .get_block_receipts(block.header().hash().into())
+        Ok(self
+            .get_block_receipts_with_timestamp(block_id)
             .await?
-            .ok_or(eyre!("receipt fetch failed"))?;
-
-        verify_authenticated_block_receipts::<N>(&receipts, &block, &self.fork_schedule)?;
-        Ok(Some(receipts))
+            .map(|(receipts, _)| receipts))
     }
 }
 
