@@ -22,9 +22,7 @@ pub struct ForkSchedule {
     pub cancun_timestamp: u64,
     pub prague_timestamp: u64,
     pub osaka_timestamp: u64,
-    #[serde(default = "inactive_fork")]
     pub bpo1_timestamp: u64,
-    #[serde(default = "inactive_fork")]
     pub bpo2_timestamp: u64,
 
     // Optimism Forks
@@ -96,10 +94,6 @@ impl ForkSchedule {
     }
 }
 
-fn inactive_fork() -> u64 {
-    u64::MAX
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,17 +119,5 @@ mod tests {
         ] {
             assert_eq!(forks.get_blob_base_fee_update_fraction(timestamp), fraction);
         }
-    }
-
-    #[test]
-    fn older_configurations_leave_bpo_forks_inactive() {
-        let mut json = serde_json::to_value(ForkSchedule::default()).unwrap();
-        let fields = json.as_object_mut().unwrap();
-        fields.remove("bpo1_timestamp");
-        fields.remove("bpo2_timestamp");
-        let forks: ForkSchedule = serde_json::from_value(json).unwrap();
-        assert_eq!(forks.bpo1_timestamp, u64::MAX);
-        assert_eq!(forks.bpo2_timestamp, u64::MAX);
-        assert_eq!(forks.get_blob_base_fee_update_fraction(u64::MAX), 3338477);
     }
 }
