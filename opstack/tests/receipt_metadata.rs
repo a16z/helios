@@ -13,7 +13,7 @@ use helios_core::execution::proof::{
     ordered_trie_root_noop_encoder, verify_authenticated_block_receipts, verify_block_receipts,
 };
 use helios_opstack::spec::OpStack;
-use op_alloy_consensus::{OpDepositReceipt, OpReceiptEnvelope, OpTxEnvelope, TxDeposit};
+use op_alloy_consensus::{OpDepositReceipt, OpReceipt, OpTxEnvelope, TxDeposit};
 use op_alloy_rpc_types::{OpTransactionReceipt, Transaction};
 
 fn fixture(
@@ -55,6 +55,7 @@ fn fixture(
             block_hash: None,
             block_number: Some(0),
             transaction_index: Some(0),
+            block_timestamp: None,
             effective_gas_price: None,
         },
         deposit_nonce: None,
@@ -66,17 +67,17 @@ fn fixture(
         logs: vec![],
     };
     let inner = if deposit {
-        OpReceiptEnvelope::Deposit(ReceiptWithBloom::from(OpDepositReceipt {
+        OpReceipt::Deposit(OpDepositReceipt {
             inner: r,
             deposit_nonce: nonce,
             deposit_receipt_version: nonce.map(|_| 1),
-        }))
+        })
     } else {
-        OpReceiptEnvelope::Eip1559(ReceiptWithBloom::from(r))
+        OpReceipt::Eip1559(r)
     };
     let mut receipt = OpTransactionReceipt {
         inner: TransactionReceipt {
-            inner,
+            inner: ReceiptWithBloom::from(inner),
             transaction_hash: tx.tx_hash(),
             transaction_index: Some(0),
             block_hash: None,
@@ -90,6 +91,7 @@ fn fixture(
             contract_address: Some(tx.from().create(nonce.unwrap_or_else(|| tx.nonce()))),
         },
         l1_block_info: Default::default(),
+        op_gas_refund: None,
     };
     block.header.receipts_root =
         ordered_trie_root_noop_encoder(&[OpStack::encode_receipt(&receipt)]);
@@ -154,6 +156,7 @@ async fn both_receipt_apis_strip_all_unverified_fees_without_extra_rpc_calls() {
     use std::sync::{Arc, Mutex};
 
     let (block, mut receipt) = fixture(false, None, true);
+    receipt.op_gas_refund = Some(u64::MAX);
     receipt.l1_block_info = op_alloy_rpc_types::L1BlockInfo {
         l1_gas_price: Some(u128::MAX),
         l1_gas_used: Some(u128::MAX),
@@ -164,6 +167,7 @@ async fn both_receipt_apis_strip_all_unverified_fees_without_extra_rpc_calls() {
         l1_blob_base_fee_scalar: Some(u128::MAX),
         operator_fee_scalar: Some(u128::MAX),
         operator_fee_constant: Some(u128::MAX),
+        da_footprint_gas_scalar: Some(u16::MAX),
     };
     let original_encoding = OpStack::encode_receipt(&receipt);
     let hash = receipt.inner.transaction_hash;
@@ -203,7 +207,23 @@ async fn both_receipt_apis_strip_all_unverified_fees_without_extra_rpc_calls() {
     assert_eq!(*calls.lock().unwrap(), vec!["receipts"]);
     for clean in std::iter::once(individual).chain(receipts) {
         assert_eq!(clean.l1_block_info, Default::default());
+        assert!(clean.op_gas_refund.is_none());
         assert_eq!(OpStack::encode_receipt(&clean), original_encoding);
     }
     handle.stop().unwrap();
+}
+
+#[test]
+fn receipt_trie_encoding_matches_eip2718_envelopes() {
+    use alloy::eips::Encodable2718;
+    for deposit in [false, true] {
+        let (_, receipt) = fixture(deposit, deposit.then_some(42), true);
+        let envelope: op_alloy_consensus::OpReceiptEnvelope = receipt
+            .inner
+            .inner
+            .clone()
+            .map_receipt(|receipt| receipt.map_logs(|log| log.inner))
+            .into();
+        assert_eq!(OpStack::encode_receipt(&receipt), envelope.encoded_2718());
+    }
 }

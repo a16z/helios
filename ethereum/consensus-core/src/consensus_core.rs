@@ -13,8 +13,8 @@ use wasmtimer::std::{SystemTime, UNIX_EPOCH};
 use crate::consensus_spec::ConsensusSpec;
 use crate::errors::ConsensusError;
 use crate::proof::{
-    is_current_committee_proof_valid, is_execution_payload_proof_valid, is_finality_proof_valid,
-    is_next_committee_proof_valid,
+    is_current_committee_proof_valid, is_execution_block_hash_proof_valid,
+    is_execution_payload_proof_valid, is_finality_proof_valid, is_next_committee_proof_valid,
 };
 use crate::types::bls::Signature;
 use crate::types::{
@@ -31,19 +31,20 @@ pub fn verify_bootstrap<S: ConsensusSpec>(
     checkpoint: B256,
     forks: &Forks,
 ) -> Result<()> {
-    if !is_valid_header::<S>(bootstrap.header(), forks) {
+    let header = bootstrap.header();
+    if !is_valid_header::<S>(&header, forks) {
         return Err(ConsensusError::InvalidExecutionPayloadProof.into());
     }
 
     let committee_valid = is_current_committee_proof_valid(
-        bootstrap.header().beacon(),
+        header.beacon(),
         bootstrap.current_sync_committee(),
         bootstrap.current_sync_committee_branch(),
-        bootstrap.header().beacon().slot / S::slots_per_epoch(),
+        header.beacon().slot / S::slots_per_epoch(),
         forks,
     );
 
-    let header_hash = bootstrap.header().beacon().tree_hash_root();
+    let header_hash = header.beacon().tree_hash_root();
     let header_valid = header_hash == checkpoint;
 
     if !header_valid {
@@ -94,11 +95,12 @@ pub fn apply_bootstrap<S: ConsensusSpec>(
     store: &mut LightClientStore<S>,
     bootstrap: &Bootstrap<S>,
 ) {
+    let header = bootstrap.header();
     *store = LightClientStore {
-        finalized_header: bootstrap.header().clone(),
+        finalized_header: header.clone(),
         current_sync_committee: bootstrap.current_sync_committee().clone(),
         next_sync_committee: None,
-        optimistic_header: bootstrap.header().clone(),
+        optimistic_header: header.clone(),
         previous_max_active_participants: 0,
         current_max_active_participants: 0,
         best_valid_update: None,
@@ -297,26 +299,29 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 
     let update_attested_epoch = update.attested_header.beacon().slot / S::slots_per_epoch();
 
-    if let Some(finalized_header) = &update.finalized_header {
-        if let Some(finality_branch) = &update.finality_branch {
+    if let Some(finality_branch) = &update.finality_branch {
+        if let Some(finalized_header) = &update.finalized_header {
             if !is_valid_header::<S>(finalized_header, forks) {
                 return Err(ConsensusError::InvalidExecutionPayloadProof.into());
             }
+        }
 
-            let is_valid = is_finality_proof_valid(
-                update.attested_header.beacon(),
-                finalized_header.beacon(),
-                finality_branch,
-                update_attested_epoch,
-                forks,
-            );
+        let is_valid = is_finality_proof_valid(
+            update.attested_header.beacon(),
+            update
+                .finalized_header
+                .as_ref()
+                .map(LightClientHeader::beacon),
+            finality_branch,
+            update_attested_epoch,
+            forks,
+        );
 
-            if !is_valid {
-                return Err(ConsensusError::InvalidFinalityProof.into());
-            }
-        } else {
+        if !is_valid {
             return Err(ConsensusError::InvalidFinalityProof.into());
         }
+    } else if update.finalized_header.is_some() {
+        return Err(ConsensusError::InvalidFinalityProof.into());
     }
 
     if let Some(next_sync_committee) = &update.next_sync_committee {
@@ -509,7 +514,17 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
     // This deviates from the spec in that it dos not check that the blob fields are unset prior to
     // deneb. This is fine since an honest sync committee will never sign an invalid block, which
     // includes blocks that have the blob fields set pre-deneb.
-    if epoch < forks.capella.epoch {
+    if let LightClientHeader::Gloas(header) = header {
+        is_execution_block_hash_proof_valid(
+            &header.beacon,
+            header.execution_block_hash,
+            &header.execution_branch,
+            epoch,
+            forks,
+        )
+    } else if epoch >= forks.gloas.epoch {
+        false
+    } else if epoch < forks.capella.epoch {
         header.execution().is_err() && header.execution_branch().is_err()
     } else if let (Ok(execution), Ok(execution_branch)) =
         (header.execution(), header.execution_branch())
@@ -524,6 +539,43 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
 mod tests {
     use super::*;
     use crate::{consensus_spec::MinimalConsensusSpec, types::LightClientHeaderBellatrix};
+
+    #[test]
+    #[ignore = "set CONSENSUS_SPEC_TESTS to the extracted tests directory"]
+    fn official_update_ranking() {
+        use ssz::Decode;
+        use std::path::PathBuf;
+
+        let root =
+            PathBuf::from(std::env::var("CONSENSUS_SPEC_TESTS").expect("CONSENSUS_SPEC_TESTS"));
+        for fork in ["capella", "deneb", "electra", "fulu", "gloas"] {
+            let case = root
+                .join("minimal")
+                .join(fork)
+                .join("light_client/update_ranking/pyspec_tests/update_ranking");
+            let meta: serde_yaml::Value =
+                serde_yaml::from_str(&std::fs::read_to_string(case.join("meta.yaml")).unwrap())
+                    .unwrap();
+            let count = meta["updates_count"].as_u64().unwrap();
+            assert!(count > 0);
+            let updates: Vec<GenericUpdate<MinimalConsensusSpec>> = (0..count)
+                .map(|index| {
+                    let compressed =
+                        std::fs::read(case.join(format!("updates_{index}.ssz_snappy"))).unwrap();
+                    let bytes = snap::raw::Decoder::new()
+                        .decompress_vec(&compressed)
+                        .unwrap();
+                    GenericUpdate::from(&Update::from_ssz_bytes(&bytes).unwrap())
+                })
+                .collect();
+            for (i, update) in updates.iter().enumerate() {
+                for (j, other) in updates.iter().enumerate() {
+                    assert_eq!(is_better_update(update, other), i < j, "{fork}: {i}, {j}");
+                }
+            }
+        }
+    }
+
     #[test]
     fn force_update_without_finality_uses_attested_header() {
         let mut store = LightClientStore::<MinimalConsensusSpec> {

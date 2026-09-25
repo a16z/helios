@@ -7,7 +7,7 @@ use eyre::Result;
 
 use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
-    types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
+    types::{Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
 };
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -18,6 +18,5 @@ pub trait ConsensusRpc<S: ConsensusSpec>: Send + Sync + 'static {
     async fn get_updates(&self, period: u64, count: u8) -> Result<Vec<Update<S>>>;
     async fn get_finality_update(&self) -> Result<FinalityUpdate<S>>;
     async fn get_optimistic_update(&self) -> Result<OptimisticUpdate<S>>;
-    async fn get_block(&self, slot: u64) -> Result<BeaconBlock<S>>;
     async fn chain_id(&self) -> Result<u64>;
 }

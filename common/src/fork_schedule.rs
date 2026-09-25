@@ -24,6 +24,7 @@ pub struct ForkSchedule {
     pub osaka_timestamp: u64,
     pub bpo1_timestamp: u64,
     pub bpo2_timestamp: u64,
+    pub amsterdam_timestamp: u64,
 
     // Optimism Forks
     pub bedrock_timestamp: u64,
@@ -63,6 +64,7 @@ impl Default for ForkSchedule {
             osaka_timestamp: u64::MAX,
             bpo1_timestamp: u64::MAX,
             bpo2_timestamp: u64::MAX,
+            amsterdam_timestamp: u64::MAX,
 
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,

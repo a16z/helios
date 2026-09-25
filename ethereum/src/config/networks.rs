@@ -25,6 +25,7 @@ pub enum Network {
     Sepolia,
     Holesky,
     Hoodi,
+    Plataberget,
 }
 
 impl FromStr for Network {
@@ -36,6 +37,7 @@ impl FromStr for Network {
             "sepolia" => Ok(Self::Sepolia),
             "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
+            "plataberget" => Ok(Self::Plataberget),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -48,6 +50,7 @@ impl Display for Network {
             Self::Sepolia => "sepolia",
             Self::Holesky => "holesky",
             Self::Hoodi => "hoodi",
+            Self::Plataberget => "plataberget",
         };
 
         f.write_str(str)
@@ -61,6 +64,7 @@ impl Network {
             Self::Sepolia => sepolia(),
             Self::Holesky => holesky(),
             Self::Hoodi => hoodi(),
+            Self::Plataberget => plataberget(),
         }
     }
 
@@ -70,6 +74,7 @@ impl Network {
             11155111 => Ok(Network::Sepolia),
             17000 => Ok(Network::Holesky),
             560048 => Ok(Network::Hoodi),
+            7091047534 => Ok(Network::Plataberget),
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
@@ -115,6 +120,10 @@ pub fn mainnet() -> BaseConfig {
             fulu: Fork {
                 epoch: 411392,
                 fork_version: fixed_bytes!("06000000"),
+            },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("07000000"),
             },
         },
         execution_forks: EthereumForkSchedule::mainnet(),
@@ -166,6 +175,10 @@ pub fn sepolia() -> BaseConfig {
                 epoch: 272640,
                 fork_version: fixed_bytes!("90000075"),
             },
+            gloas: Fork {
+                epoch: 353024,
+                fork_version: fixed_bytes!("90000076"),
+            },
         },
         execution_forks: EthereumForkSchedule::sepolia(),
         max_checkpoint_age: 1_209_600, // 14 days
@@ -215,6 +228,10 @@ pub fn holesky() -> BaseConfig {
             fulu: Fork {
                 epoch: 165120,
                 fork_version: fixed_bytes!("07017000"),
+            },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("08017000"),
             },
         },
         execution_forks: EthereumForkSchedule::holesky(),
@@ -266,11 +283,75 @@ pub fn hoodi() -> BaseConfig {
                 epoch: 50688,
                 fork_version: fixed_bytes!("70000910"),
             },
+            gloas: Fork {
+                epoch: u64::MAX,
+                fork_version: fixed_bytes!("80000910"),
+            },
         },
         execution_forks: EthereumForkSchedule::hoodi(),
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Hoodi)),
+        ..std::default::Default::default()
+    }
+}
+
+pub fn plataberget() -> BaseConfig {
+    BaseConfig {
+        default_checkpoint: b256!(
+            "b6f4e50f573bc4094cd1cbb74a4adca6653cd6e74da5a7f0b82824715a8415d0"
+        ),
+        rpc_port: 8545,
+        consensus_rpc: Some(
+            Url::parse("https://beacon.plataberget.ethpandaops.io/nimbus").unwrap(),
+        ),
+        // Route to Geth for eth_getProof support at recent block hashes.
+        execution_rpc: Some(
+            Url::parse("https://rpc.plataberget.ethpandaops.io/?use-upstream=*geth*").unwrap(),
+        ),
+        chain: ChainConfig {
+            chain_id: 7091047534,
+            genesis_time: 1786622400,
+            genesis_root: b256!("bb4a1a9e3f7f4e10edcd734e4acc3b5ffd4f830efe0af2748fa458cfee5d2658"),
+        },
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("10733183"),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("20733183"),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("30733183"),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("40733183"),
+            },
+            deneb: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("50733183"),
+            },
+            electra: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("60733183"),
+            },
+            fulu: Fork {
+                epoch: 0,
+                fork_version: fixed_bytes!("70733183"),
+            },
+            gloas: Fork {
+                epoch: 1536,
+                fork_version: fixed_bytes!("80733183"),
+            },
+        },
+        execution_forks: EthereumForkSchedule::plataberget(),
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::Plataberget)),
         ..std::default::Default::default()
     }
 }
@@ -310,6 +391,7 @@ impl EthereumForkSchedule {
             // Mainnet BPO schedule: EIP-8134 and EIP-8135.
             bpo1_timestamp: 1765290071,
             bpo2_timestamp: 1767747671,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -338,6 +420,7 @@ impl EthereumForkSchedule {
             osaka_timestamp: 1760427360,
             bpo1_timestamp: 1761017184,
             bpo2_timestamp: 1761607008,
+            amsterdam_timestamp: 1791294816,
 
             ..Default::default()
         }
@@ -366,6 +449,7 @@ impl EthereumForkSchedule {
             osaka_timestamp: 1759308480,
             bpo1_timestamp: 1759800000,
             bpo2_timestamp: 1760389824,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
@@ -394,8 +478,63 @@ impl EthereumForkSchedule {
             osaka_timestamp: 1761677592,
             bpo1_timestamp: 1762365720,
             bpo2_timestamp: 1762955544,
+            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
+        }
+    }
+
+    fn plataberget() -> ForkSchedule {
+        ForkSchedule {
+            frontier_timestamp: 0,
+            homestead_timestamp: 0,
+            dao_timestamp: 0,
+            tangerine_timestamp: 0,
+            spurious_dragon_timestamp: 0,
+            byzantium_timestamp: 0,
+            constantinople_timestamp: 0,
+            petersburg_timestamp: 0,
+            istanbul_timestamp: 0,
+            muir_glacier_timestamp: 0,
+            berlin_timestamp: 0,
+            london_timestamp: 0,
+            arrow_glacier_timestamp: 0,
+            gray_glacier_timestamp: 0,
+            paris_timestamp: 0,
+            shanghai_timestamp: 0,
+            cancun_timestamp: 0,
+            prague_timestamp: 0,
+            osaka_timestamp: 0,
+            bpo1_timestamp: 0,
+            bpo2_timestamp: 0,
+            amsterdam_timestamp: 1787212224,
+
+            ..Default::default()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn glamsterdam_network_forks_match_consensus_and_execution() {
+        for (network, chain_id, epoch, timestamp) in [
+            (Network::Plataberget, 7_091_047_534, 1536, 1_787_212_224),
+            (Network::Sepolia, 11_155_111, 353024, 1_791_294_816),
+        ] {
+            let config = network.to_base_config();
+            assert_eq!(Network::from_chain_id(chain_id).unwrap(), network);
+            assert_eq!(config.forks.gloas.epoch, epoch);
+            assert_eq!(config.chain.genesis_time + epoch * 32 * 12, timestamp);
+            assert_eq!(config.execution_forks.amsterdam_timestamp, timestamp);
+            assert_eq!(
+                config
+                    .execution_forks
+                    .get_blob_base_fee_update_fraction(timestamp),
+                11_684_671
+            );
         }
     }
 }

@@ -10,7 +10,7 @@ use eyre::Result;
 
 use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
-    types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
+    types::{Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
 };
 use serde::Deserialize;
 
@@ -19,7 +19,6 @@ use super::ConsensusRpc;
 pub struct MockRpc {
     testdata: PathBuf,
     pub fetched_updates: Arc<Mutex<bool>>,
-    pub fetched_blocks: Arc<Mutex<Vec<u64>>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -36,7 +35,6 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
         MockRpc {
             testdata,
             fetched_updates: Arc::new(Mutex::new(false)),
-            fetched_blocks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -68,29 +66,9 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for MockRpc {
         Ok(optimistic.data)
     }
 
-    async fn get_block(&self, slot: u64) -> Result<BeaconBlock<S>> {
-        self.fetched_blocks.lock().unwrap().push(slot);
-        let path = self.testdata.join(format!("blocks/{slot}.json"));
-        let res = read_to_string(path)?;
-        let block: BeaconBlockResponse<S> = serde_json::from_str(&res)?;
-        Ok(block.data.message)
-    }
-
     async fn chain_id(&self) -> Result<u64> {
         eyre::bail!("not implemented")
     }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(bound = "S: ConsensusSpec")]
-struct BeaconBlockResponse<S: ConsensusSpec> {
-    data: BeaconBlockData<S>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(bound = "S: ConsensusSpec")]
-struct BeaconBlockData<S: ConsensusSpec> {
-    message: BeaconBlock<S>,
 }
 
 #[derive(Deserialize, Debug)]

@@ -153,17 +153,16 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             config.to_base_config()
         };
 
-        let consensus_rpc = self.consensus_rpc.unwrap_or_else(|| {
-            self.config
-                .as_ref()
-                .expect("missing consensus rpc")
-                .consensus_rpc
-                .clone()
-        });
+        let consensus_rpc = self
+            .consensus_rpc
+            .or_else(|| self.config.as_ref().map(|c| c.consensus_rpc.clone()))
+            .or(base_config.consensus_rpc)
+            .ok_or_else(|| eyre!("missing consensus rpc"))?;
 
         let execution_rpc = self
             .execution_rpc
-            .or_else(|| self.config.as_ref().and_then(|c| c.execution_rpc.clone()));
+            .or_else(|| self.config.as_ref().and_then(|c| c.execution_rpc.clone()))
+            .or(base_config.execution_rpc);
 
         let verifiable_api = self
             .verifiable_api

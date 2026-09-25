@@ -157,11 +157,13 @@ fn ensure_blocks_equivalent(block: Option<Block>, expected_block: Option<Block>)
 }
 
 fn ensure_transactions_equivalent(tx: Value, expected: Value) -> Result<()> {
-    // Compare the fields exposed by the transaction API. Some nodes also return
-    // extensions such as blockTimestamp, which Alloy's Transaction does not expose.
+    // Some reference nodes omit the optional blockTimestamp field. Its value is
+    // authenticated against the block header in Helios's block validation.
     // Deserializing a non-optional transaction also rejects null responses.
-    let tx: alloy::rpc::types::Transaction = serde_json::from_value(tx)?;
-    let expected: alloy::rpc::types::Transaction = serde_json::from_value(expected)?;
+    let mut tx: alloy::rpc::types::Transaction = serde_json::from_value(tx)?;
+    let mut expected: alloy::rpc::types::Transaction = serde_json::from_value(expected)?;
+    tx.block_timestamp = None;
+    expected.block_timestamp = None;
     ensure_eq!(tx, expected);
     Ok(())
 }
@@ -342,11 +344,8 @@ async fn setup() -> (
     };
 
     // Wait for both Helios instances to sync
-    join_all(vec![
-        helios_client.wait_synced(),
-        helios_client_api.wait_synced(),
-    ])
-    .await;
+    tokio::try_join!(helios_client.wait_synced(), helios_client_api.wait_synced())
+        .expect("Helios failed to sync its initial execution blocks");
 
     (
         helios_client,

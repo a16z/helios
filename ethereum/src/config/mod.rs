@@ -85,6 +85,7 @@ impl Config {
             rpc_bind_ip: self.rpc_bind_ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             rpc_port: self.rpc_port.unwrap_or(8545),
             consensus_rpc: Some(self.consensus_rpc.clone()),
+            execution_rpc: self.execution_rpc.clone(),
             default_checkpoint: self.default_checkpoint,
             chain: self.chain.clone(),
             forks: self.forks.clone(),
@@ -105,7 +106,7 @@ impl From<BaseConfig> for Config {
             consensus_rpc: base
                 .consensus_rpc
                 .unwrap_or_else(|| Url::parse("http://localhost:8545").unwrap()),
-            execution_rpc: None,
+            execution_rpc: base.execution_rpc,
             verifiable_api: None,
             checkpoint: None,
             default_checkpoint: base.default_checkpoint,
