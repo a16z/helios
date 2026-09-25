@@ -307,6 +307,9 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1710338135,
             prague_timestamp: 1746612311,
             osaka_timestamp: 1764798551,
+            // Mainnet BPO schedule: EIP-8134 and EIP-8135.
+            bpo1_timestamp: 1765290071,
+            bpo2_timestamp: 1767747671,
 
             ..Default::default()
         }
@@ -333,6 +336,8 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1706655072,
             prague_timestamp: 1741159776,
             osaka_timestamp: 1760427360,
+            bpo1_timestamp: 1761017184,
+            bpo2_timestamp: 1761607008,
 
             ..Default::default()
         }
@@ -359,6 +364,8 @@ impl EthereumForkSchedule {
             cancun_timestamp: 1707305664,
             prague_timestamp: 1740434112,
             osaka_timestamp: 1759308480,
+            bpo1_timestamp: 1759800000,
+            bpo2_timestamp: 1760389824,
 
             ..Default::default()
         }
@@ -385,6 +392,8 @@ impl EthereumForkSchedule {
             cancun_timestamp: 0,
             prague_timestamp: 1742999832,
             osaka_timestamp: 1761677592,
+            bpo1_timestamp: 1762365720,
+            bpo2_timestamp: 1762955544,
 
             ..Default::default()
         }

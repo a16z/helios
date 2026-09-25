@@ -22,6 +22,10 @@ pub struct ForkSchedule {
     pub cancun_timestamp: u64,
     pub prague_timestamp: u64,
     pub osaka_timestamp: u64,
+    #[serde(default = "inactive_fork")]
+    pub bpo1_timestamp: u64,
+    #[serde(default = "inactive_fork")]
+    pub bpo2_timestamp: u64,
 
     // Optimism Forks
     pub bedrock_timestamp: u64,
@@ -59,6 +63,8 @@ impl Default for ForkSchedule {
             cancun_timestamp: u64::MAX,
             prague_timestamp: u64::MAX,
             osaka_timestamp: u64::MAX,
+            bpo1_timestamp: u64::MAX,
+            bpo2_timestamp: u64::MAX,
 
             bedrock_timestamp: u64::MAX,
             regolith_timestamp: u64::MAX,
@@ -76,12 +82,60 @@ impl Default for ForkSchedule {
 
 impl ForkSchedule {
     /// Get the blob base fee update fraction for a given timestamp.
-    /// The fraction changes from Cancun to Prague according to EIP-7892.
+    /// EIP-7691 changes the Prague fraction; EIP-7892 permits later BPO changes.
     pub fn get_blob_base_fee_update_fraction(&self, timestamp: u64) -> u64 {
-        if timestamp >= self.prague_timestamp {
-            5007716 // Prague and later (EIP-7892)
+        if self.bpo2_timestamp != u64::MAX && timestamp >= self.bpo2_timestamp {
+            11684671
+        } else if self.bpo1_timestamp != u64::MAX && timestamp >= self.bpo1_timestamp {
+            8346193
+        } else if self.prague_timestamp != u64::MAX && timestamp >= self.prague_timestamp {
+            5007716
         } else {
             3338477 // Cancun
         }
+    }
+}
+
+fn inactive_fork() -> u64 {
+    u64::MAX
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blob_prices_follow_each_activation_boundary() {
+        let forks = ForkSchedule {
+            prague_timestamp: 10,
+            osaka_timestamp: 20,
+            bpo1_timestamp: 30,
+            bpo2_timestamp: 40,
+            ..Default::default()
+        };
+        for (timestamp, fraction) in [
+            (9, 3338477),
+            (10, 5007716),
+            (19, 5007716),
+            (20, 5007716),
+            (29, 5007716),
+            (30, 8346193),
+            (39, 8346193),
+            (40, 11684671),
+        ] {
+            assert_eq!(forks.get_blob_base_fee_update_fraction(timestamp), fraction);
+        }
+    }
+
+    #[test]
+    fn older_configurations_leave_bpo_forks_inactive() {
+        let mut json = serde_json::to_value(ForkSchedule::default()).unwrap();
+        let fields = json.as_object_mut().unwrap();
+        fields.remove("bpo1_timestamp");
+        fields.remove("bpo2_timestamp");
+        let forks: ForkSchedule = serde_json::from_value(json).unwrap();
+        assert_eq!(forks.bpo1_timestamp, u64::MAX);
+        assert_eq!(forks.bpo2_timestamp, u64::MAX);
+        assert_eq!(forks.get_blob_base_fee_update_fraction(u64::MAX), 3338477);
     }
 }

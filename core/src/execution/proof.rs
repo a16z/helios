@@ -237,6 +237,62 @@ pub fn ordered_trie_root_noop_encoder(items: &[Vec<u8>]) -> B256 {
     ordered_trie_root_with_encoder(items, noop_encoder)
 }
 
+pub fn verify_authenticated_block_receipts<N: NetworkSpec>(
+    receipts: &[N::ReceiptResponse],
+    block: &N::BlockResponse,
+    forks: &ForkSchedule,
+) -> Result<()> {
+    let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
+    let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
+
+    if expected_receipt_root != block.header().receipts_root() {
+        return Err(
+            ExecutionError::BlockReceiptsRootMismatch(block.header().number().into()).into(),
+        );
+    }
+
+    let txs = block
+        .transactions()
+        .as_transactions()
+        .ok_or(eyre!("missing full transactions"))?;
+    if txs.len() != receipts.len() {
+        return Err(eyre!("receipt count does not match block"));
+    }
+    let mut cumulative_gas = 0;
+    let mut log_index = 0;
+    for (index, (receipt, tx)) in receipts.iter().zip(txs).enumerate() {
+        if receipt.transaction_hash() != tx.tx_hash()
+            || receipt.transaction_index() != Some(index as u64)
+            || receipt.block_hash() != Some(block.header().hash())
+            || receipt.block_number() != Some(block.header().number())
+            || receipt.from() != tx.from()
+            || receipt.to() != tx.to()
+            || receipt.cumulative_gas_used().checked_sub(cumulative_gas) != Some(receipt.gas_used())
+            || !N::receipt_metadata_valid(receipt, tx, block, forks)
+        {
+            return Err(eyre!("invalid receipt metadata at transaction {index}"));
+        }
+        cumulative_gas = receipt.cumulative_gas_used();
+        for log in N::receipt_logs(receipt) {
+            if log.block_hash != Some(block.header().hash())
+                || log.block_number != Some(block.header().number())
+                || log.transaction_hash != Some(tx.tx_hash())
+                || log.transaction_index != Some(index as u64)
+                || log.log_index != Some(log_index)
+                || log.removed
+                || log
+                    .block_timestamp
+                    .is_some_and(|t| t != block.header().timestamp())
+            {
+                return Err(eyre!("invalid log metadata at log {log_index}"));
+            }
+            log_index += 1;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use alloy::primitives::b256;
@@ -370,60 +426,4 @@ mod tests {
             b256!("0x5369c64e2b262259b880114e7ac092e69c673e2671352991989f3a89fbc8f0af")
         );
     }
-}
-
-pub fn verify_authenticated_block_receipts<N: NetworkSpec>(
-    receipts: &[N::ReceiptResponse],
-    block: &N::BlockResponse,
-    forks: &ForkSchedule,
-) -> Result<()> {
-    let receipts_encoded = receipts.iter().map(N::encode_receipt).collect::<Vec<_>>();
-    let expected_receipt_root = ordered_trie_root_noop_encoder(&receipts_encoded);
-
-    if expected_receipt_root != block.header().receipts_root() {
-        return Err(
-            ExecutionError::BlockReceiptsRootMismatch(block.header().number().into()).into(),
-        );
-    }
-
-    let txs = block
-        .transactions()
-        .as_transactions()
-        .ok_or(eyre!("missing full transactions"))?;
-    if txs.len() != receipts.len() {
-        return Err(eyre!("receipt count does not match block"));
-    }
-    let mut cumulative_gas = 0;
-    let mut log_index = 0;
-    for (index, (receipt, tx)) in receipts.iter().zip(txs).enumerate() {
-        if receipt.transaction_hash() != tx.tx_hash()
-            || receipt.transaction_index() != Some(index as u64)
-            || receipt.block_hash() != Some(block.header().hash())
-            || receipt.block_number() != Some(block.header().number())
-            || receipt.from() != tx.from()
-            || receipt.to() != tx.to()
-            || receipt.cumulative_gas_used().checked_sub(cumulative_gas) != Some(receipt.gas_used())
-            || !N::receipt_metadata_valid(receipt, tx, block, forks)
-        {
-            return Err(eyre!("invalid receipt metadata at transaction {index}"));
-        }
-        cumulative_gas = receipt.cumulative_gas_used();
-        for log in N::receipt_logs(receipt) {
-            if log.block_hash != Some(block.header().hash())
-                || log.block_number != Some(block.header().number())
-                || log.transaction_hash != Some(tx.tx_hash())
-                || log.transaction_index != Some(index as u64)
-                || log.log_index != Some(log_index)
-                || log.removed
-                || log
-                    .block_timestamp
-                    .is_some_and(|t| t != block.header().timestamp())
-            {
-                return Err(eyre!("invalid log metadata at log {log_index}"));
-            }
-            log_index += 1;
-        }
-    }
-
-    Ok(())
 }

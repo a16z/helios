@@ -44,6 +44,7 @@ async fn historical_blocks_must_match_the_requested_hash_or_height() {
         url.parse().unwrap(),
         BlockCache::new(),
         Eip2935Provider::new(),
+        Default::default(),
     );
     for id in [
         B256::ZERO.into(),
