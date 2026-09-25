@@ -117,27 +117,37 @@ impl NetworkSpec for OpStack {
         block.uncles.is_empty()
     }
 
-    fn validate_block(block: &mut Self::BlockResponse) -> bool {
+    fn validate_block(block: &mut Self::BlockResponse, full_tx: bool) -> bool {
         if !Self::is_hash_valid(block) {
             return false;
         }
         let alloy::rpc::types::BlockTransactions::Full(txs) = &mut block.transactions else {
             return false;
         };
-        for (index, tx) in txs.iter_mut().enumerate() {
-            if keccak256(tx.inner.inner.encoded_2718()) != *tx.inner.inner.tx_hash()
-                || tx.inner.inner.inner().recover_signer().ok() != Some(tx.inner.inner.signer())
-                || tx.inner.block_hash != Some(block.header.hash)
-                || tx.inner.block_number != Some(block.header.number)
-                || tx.inner.transaction_index != Some(index as u64)
-            {
-                return false;
+        if full_tx {
+            for (index, tx) in txs.iter_mut().enumerate() {
+                if keccak256(tx.inner.inner.encoded_2718()) != *tx.inner.inner.tx_hash()
+                    || tx.inner.inner.inner().recover_signer().ok() != Some(tx.inner.inner.signer())
+                    || tx.inner.block_hash != Some(block.header.hash)
+                    || tx.inner.block_number != Some(block.header.number)
+                    || tx.inner.transaction_index != Some(index as u64)
+                {
+                    return false;
+                }
+                tx.inner.effective_gas_price =
+                    Some(tx.effective_gas_price(block.header.base_fee_per_gas));
+                // These belong to the receipt and are not part of the transaction trie.
+                tx.deposit_nonce = None;
+                tx.deposit_receipt_version = None;
             }
-            tx.inner.effective_gas_price =
-                Some(tx.effective_gas_price(block.header.base_fee_per_gas));
-            // These belong to the receipt and are not part of the transaction trie.
-            tx.deposit_nonce = None;
-            tx.deposit_receipt_version = None;
+        } else {
+            // Cached RPC hashes are not committed by the transaction trie. Derive
+            // the only transaction field exposed by this response from signed bytes.
+            block.transactions = alloy::rpc::types::BlockTransactions::Hashes(
+                txs.iter()
+                    .map(|tx| keccak256(Self::encode_transaction(tx)))
+                    .collect(),
+            );
         }
         block.header.total_difficulty = None;
         block.header.size = None;

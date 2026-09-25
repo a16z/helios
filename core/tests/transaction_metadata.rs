@@ -33,7 +33,7 @@ fn rejects_forged_transaction_sender() {
         tx.inner.clone().into_inner(),
         Address::ZERO,
     );
-    assert!(!Ethereum::validate_block(&mut block));
+    assert!(!Ethereum::validate_block(&mut block, true));
 }
 #[test]
 fn rejects_forged_cached_transaction_hash_and_location() {
@@ -51,7 +51,7 @@ fn rejects_forged_cached_transaction_hash_and_location() {
         json[field] = value;
         txs[0] = serde_json::from_value(json).unwrap();
         assert!(
-            !Ethereum::validate_block(&mut block),
+            !Ethereum::validate_block(&mut block, true),
             "accepted forged {field}"
         );
     }
@@ -61,9 +61,37 @@ fn does_not_expose_unproven_optional_block_metadata() {
     let mut block = full_block();
     block.header.size = Some(alloy::primitives::U256::from(123));
     block.header.total_difficulty = Some(alloy::primitives::U256::from(456));
-    assert!(Ethereum::validate_block(&mut block));
+    assert!(Ethereum::validate_block(&mut block, true));
     assert!(block.header.size.is_none());
     assert!(block.header.total_difficulty.is_none());
     block.uncles.push(B256::ZERO);
-    assert!(!Ethereum::validate_block(&mut block));
+    assert!(!Ethereum::validate_block(&mut block, true));
+}
+
+#[test]
+fn hash_only_responses_derive_hashes_and_discard_unproven_transaction_fields() {
+    let original = full_block();
+    let expected: Vec<_> = original.transactions.hashes().collect();
+    let mut block = original;
+    let BlockTransactions::Full(txs) = &mut block.transactions else {
+        panic!()
+    };
+    let mut json = serde_json::to_value(&txs[0]).unwrap();
+    json["hash"] = serde_json::json!(B256::ZERO);
+    json["from"] = serde_json::json!(Address::ZERO);
+    json["blockHash"] = serde_json::Value::Null;
+    txs[0] = serde_json::from_value(json).unwrap();
+    block.header.size = Some(alloy::primitives::U256::from(123));
+    block.header.total_difficulty = Some(alloy::primitives::U256::from(456));
+    assert!(Ethereum::validate_block(&mut block, false));
+    assert_eq!(block.transactions, BlockTransactions::Hashes(expected));
+    assert!(block.header.size.is_none());
+    assert!(block.header.total_difficulty.is_none());
+}
+
+#[test]
+fn hash_only_responses_still_authenticate_the_full_body() {
+    let mut block = full_block();
+    block.transactions = BlockTransactions::Full(vec![]);
+    assert!(!Ethereum::validate_block(&mut block, false));
 }

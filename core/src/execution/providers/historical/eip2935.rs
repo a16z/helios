@@ -4,7 +4,6 @@ use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::{address, B256, U256};
-use alloy::rpc::types::BlockTransactions;
 use async_trait::async_trait;
 use eyre::{eyre, Result};
 
@@ -125,20 +124,14 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
 
         let stored_hash = B256::from(stored_hash);
 
-        // Validate the block using network-specific validation
-        let is_hash_valid = N::validate_block(&mut target_block);
-
-        // Verify that the block hash matches the stored hash
-        if is_hash_valid && target_block.header().hash() == stored_hash {
-            if !full_tx {
-                *target_block.transactions_mut() =
-                    BlockTransactions::Hashes(target_block.transactions().hashes().collect());
-            }
-            Ok(Some(target_block))
-        } else {
-            Err(eyre!(
+        // Reject the wrong header before doing transaction hashing or sender recovery.
+        if target_block.header().hash() != stored_hash
+            || !N::validate_block(&mut target_block, full_tx)
+        {
+            return Err(eyre!(
                 "block validation failed: hash mismatch or invalid block structure"
-            ))
+            ));
         }
+        Ok(Some(target_block))
     }
 }
