@@ -315,8 +315,8 @@ export class HeliosProvider {
   async #handleSubscribe(req: Request) {
     try {
       const id = uuidv4();
-      // Capture only the emitter reference, not `this`
       const emitter = this.#eventEmitter;
+      // params[1] is the filter object for "logs" subscriptions, undefined otherwise
       await this.#client.subscribe(req.params[0], id, (data: any, subId: string) => {
         const result = data instanceof Map ? mapToObj(data) : data;
         const payload = {
@@ -327,7 +327,7 @@ export class HeliosProvider {
           },
         };
         emitter.emit("message", payload);
-      });
+      }, req.params[1]);
       this.#subscriptionIds.add(id);
       return id;
     } catch (err) {
