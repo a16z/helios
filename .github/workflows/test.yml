@@ -35,6 +35,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
+      - name: Check library crates without hickory-dns
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: -p helios -p helios-core -p helios-ethereum -p helios-opstack -p helios-linea -p helios-verifiable-api-client -p helios-verifiable-api-server
 
   test:
     runs-on: ubuntu-latest

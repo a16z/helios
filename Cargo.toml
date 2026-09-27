@@ -98,6 +98,9 @@ helios-core = { path = "./core" }
 helios-ethereum = { path = "./ethereum" }
 helios-opstack = { path = "./opstack" }
 
+[features]
+hickory-dns = ["helios-core/hickory-dns", "helios-ethereum/hickory-dns", "helios-opstack/hickory-dns"]
+
 [dev-dependencies]
 tokio.workspace = true
 futures.workspace = true
