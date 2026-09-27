@@ -112,6 +112,12 @@ A comprehensive breakdown of config options is available in the [config.md](./co
 
 Examples of running Helios as a rust library can be seen in the [examples](./examples) directory.
 
+The library crates use the system DNS resolver by default. To use [hickory-resolver](https://github.com/hickory-dns/hickory-dns) instead, enable the `hickory-dns` feature on `helios-core`, `helios-ethereum`, or `helios-opstack`:
+
+```toml
+helios-ethereum = { git = "https://github.com/a16z/helios", features = ["hickory-dns"] }
+```
+
 ### Supported Ethereum Checkpoints <a id="supported-checkpoints"></a>
 
 A checkpoint is a Beacon Chain Consensus Layer block hash rather than an Execution Layer block hash. An example of an Execution Layer block hash for Holesky is shown at https://holesky.etherscan.io/blocks

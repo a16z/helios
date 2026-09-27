@@ -70,3 +70,6 @@ getrandom = { version = "0.2.1", features = ["js"] }
 
 [dev-dependencies]
 jsonrpsee = { version = "0.19.0", features = ["server"] }
+
+[features]
+hickory-dns = ["reqwest/hickory-dns", "helios-core/hickory-dns", "helios-ethereum/hickory-dns"]
