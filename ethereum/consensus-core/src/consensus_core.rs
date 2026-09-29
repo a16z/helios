@@ -385,12 +385,12 @@ pub fn force_update<S: ConsensusSpec>(store: &mut LightClientStore<S>, current_s
     }
 }
 
-pub fn expected_current_slot(now: SystemTime, genesis_time: u64) -> u64 {
+pub fn expected_current_slot<S: ConsensusSpec>(now: SystemTime, genesis_time: u64) -> u64 {
     let now = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
     let since_genesis = now - genesis_time;
 
-    since_genesis / 12
+    since_genesis / S::seconds_per_slot()
 }
 
 pub fn calc_sync_period<S: ConsensusSpec>(slot: u64) -> u64 {
@@ -522,8 +522,14 @@ fn is_valid_header<S: ConsensusSpec>(header: &LightClientHeader, forks: &Forks) 
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
-    use crate::{consensus_spec::MinimalConsensusSpec, types::LightClientHeaderBellatrix};
+    use crate::{
+        consensus_spec::{MainnetConsensusSpec, MinimalConsensusSpec},
+        types::LightClientHeaderBellatrix,
+    };
+
     #[test]
     fn force_update_without_finality_uses_attested_header() {
         let mut store = LightClientStore::<MinimalConsensusSpec> {
@@ -545,5 +551,20 @@ mod tests {
         assert_eq!(store.finalized_header.beacon().slot, 1);
         assert_eq!(store.optimistic_header.beacon().slot, 1);
         assert!(store.best_valid_update.is_none());
+    }
+
+    #[test]
+    fn expected_current_slot_uses_spec_slot_duration() {
+        let genesis_time = 1_606_824_023;
+        let now = UNIX_EPOCH + Duration::from_secs(genesis_time + 60);
+
+        assert_eq!(
+            expected_current_slot::<MainnetConsensusSpec>(now, genesis_time),
+            5
+        );
+        assert_eq!(
+            expected_current_slot::<MinimalConsensusSpec>(now, genesis_time),
+            10
+        );
     }
 }
