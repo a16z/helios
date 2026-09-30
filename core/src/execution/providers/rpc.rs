@@ -11,10 +11,13 @@ use alloy::{
     primitives::{Address, Bytes, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
     rpc::{
-        client::ClientBuilder,
+        client::{ClientBuilder, RpcClient},
         types::{AccessListItem, Filter, FilterBlockOption, Log},
     },
-    transports::layers::RetryBackoffLayer,
+    transports::{
+        http::{reqwest::Client as HttpClient, Http},
+        layers::{FallbackService, RetryBackoffLayer},
+    },
 };
 use alloy_trie::{TrieAccount, KECCAK_EMPTY};
 use async_trait::async_trait;
@@ -60,6 +63,29 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for () {
     }
 }
 
+/// Builds an RPC client for one or more execution RPC endpoints.
+///
+/// With a single URL this behaves exactly like a plain HTTP client. With several URLs the
+/// endpoints are ranked by latency and success rate, requests go to the best ones and
+/// automatically fail over to the next if they error.
+fn make_rpc_client(mut rpc_urls: Vec<Url>) -> RpcClient {
+    let retry = RetryBackoffLayer::new(100, 50, 300);
+
+    if rpc_urls.len() == 1 {
+        return ClientBuilder::default()
+            .layer(retry)
+            .http(rpc_urls.remove(0));
+    }
+
+    let transports: Vec<_> = rpc_urls.into_iter().map(Http::<HttpClient>::new).collect();
+    // Query the two best-ranked endpoints in parallel so a single failing endpoint
+    // never causes a failed request.
+    let active = transports.len().clamp(1, 2);
+    ClientBuilder::default()
+        .layer(retry)
+        .transport(FallbackService::new(transports, active), false)
+}
+
 pub struct RpcExecutionProvider<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
 {
     provider: RootProvider<N>,
@@ -81,9 +107,7 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
         block_provider: B,
         fork_schedule: ForkSchedule,
     ) -> RpcExecutionProvider<N, B, ()> {
-        let client = ClientBuilder::default()
-            .layer(RetryBackoffLayer::new(100, 50, 300))
-            .http(rpc_url);
+        let client = make_rpc_client(vec![rpc_url]);
 
         let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 
@@ -101,9 +125,27 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>>
         historical_provider: H,
         fork_schedule: ForkSchedule,
     ) -> Self {
-        let client = ClientBuilder::default()
-            .layer(RetryBackoffLayer::new(100, 50, 300))
-            .http(rpc_url);
+        Self::with_historical_provider_and_urls(
+            vec![rpc_url],
+            block_provider,
+            historical_provider,
+            fork_schedule,
+        )
+    }
+
+    /// Like [`Self::with_historical_provider`] but accepts several RPC endpoints, which are
+    /// ranked and used with automatic failover. Panics if `rpc_urls` is empty.
+    pub fn with_historical_provider_and_urls(
+        rpc_urls: Vec<Url>,
+        block_provider: B,
+        historical_provider: H,
+        fork_schedule: ForkSchedule,
+    ) -> Self {
+        assert!(
+            !rpc_urls.is_empty(),
+            "at least one execution rpc is required"
+        );
+        let client = make_rpc_client(rpc_urls);
 
         let provider = ProviderBuilder::<_, _, N>::default().connect_client(client);
 

@@ -28,7 +28,8 @@ mod types;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub consensus_rpc: Url,
-    pub execution_rpc: Option<Url>,
+    #[serde(default, deserialize_with = "deserialize_urls")]
+    pub execution_rpc: Option<Vec<Url>>,
     pub verifiable_api: Option<Url>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
@@ -85,7 +86,10 @@ impl Config {
             rpc_bind_ip: self.rpc_bind_ip.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             rpc_port: self.rpc_port.unwrap_or(8545),
             consensus_rpc: Some(self.consensus_rpc.clone()),
-            execution_rpc: self.execution_rpc.clone(),
+            execution_rpc: self
+                .execution_rpc
+                .as_ref()
+                .and_then(|urls| urls.first().cloned()),
             default_checkpoint: self.default_checkpoint,
             chain: self.chain.clone(),
             forks: self.forks.clone(),
@@ -106,7 +110,7 @@ impl From<BaseConfig> for Config {
             consensus_rpc: base
                 .consensus_rpc
                 .unwrap_or_else(|| Url::parse("http://localhost:8545").unwrap()),
-            execution_rpc: base.execution_rpc,
+            execution_rpc: base.execution_rpc.map(|url| vec![url]),
             verifiable_api: None,
             checkpoint: None,
             default_checkpoint: base.default_checkpoint,
@@ -144,4 +148,24 @@ impl Default for Config {
             database_type: None,
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum OneOrMany<T> {
+    One(T),
+    Many(Vec<T>),
+}
+
+/// Accepts either a single URL string or a list of URLs, so existing configs keep working.
+fn deserialize_urls<'de, D>(deserializer: D) -> Result<Option<Vec<Url>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(
+        Option::<OneOrMany<Url>>::deserialize(deserializer)?.map(|v| match v {
+            OneOrMany::One(u) => vec![u],
+            OneOrMany::Many(v) => v,
+        }),
+    )
 }
