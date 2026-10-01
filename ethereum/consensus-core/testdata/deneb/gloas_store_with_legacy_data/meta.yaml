@@ -1,0 +1,4 @@
+genesis_validators_root: '0x0a08c27fe4ece2483f9e581f78c66379a06f96e9c24cd1390594ff939b26f95b'
+trusted_block_root: '0x17ca91327f132919742d51e9ed3727171144f9f88e01b58c4c2997de918aad5c'
+bootstrap_fork_digest: '0x0cbce901'
+store_fork_version: '0x07000001'

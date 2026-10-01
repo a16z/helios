@@ -88,6 +88,7 @@ impl EthereumClient {
             "mainnet" => networks::mainnet(),
             "sepolia" => networks::sepolia(),
             "holesky" => networks::holesky(),
+            "plataberget" => networks::plataberget(),
             other => Err(JsError::new(&format!("invalid network: {other}")))?,
         };
 
@@ -112,7 +113,8 @@ impl EthereumClient {
         let execution_rpc = execution_rpc
             .map(|url| Url::parse(&url))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?;
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?
+            .or(base.execution_rpc);
 
         let verifiable_api = verifiable_api
             .map(|url| Url::parse(&url))

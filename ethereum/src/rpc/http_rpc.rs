@@ -10,7 +10,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 
 use helios_consensus_core::{
     consensus_spec::ConsensusSpec,
-    types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
+    types::{Bootstrap, FinalityUpdate, OptimisticUpdate, Update},
 };
 use helios_core::errors::RpcError;
 
@@ -137,34 +137,12 @@ impl<S: ConsensusSpec> ConsensusRpc<S> for HttpRpc {
         Ok(res.data)
     }
 
-    async fn get_block(&self, slot: u64) -> Result<BeaconBlock<S>> {
-        let req = format!("{}/eth/v2/beacon/blocks/{}", self.rpc, slot);
-        let res: BeaconBlockResponse<S> = self
-            .get(&req)
-            .await
-            .map_err(|e| RpcError::new("blocks", e))?;
-
-        Ok(res.data.message)
-    }
-
     async fn chain_id(&self) -> Result<u64> {
         let req = format!("{}/eth/v1/config/spec", self.rpc);
         let res: SpecResponse = self.get(&req).await.map_err(|e| RpcError::new("spec", e))?;
 
         Ok(res.data.chain_id)
     }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(bound = "S: ConsensusSpec")]
-struct BeaconBlockResponse<S: ConsensusSpec> {
-    data: BeaconBlockData<S>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(bound = "S: ConsensusSpec")]
-struct BeaconBlockData<S: ConsensusSpec> {
-    message: BeaconBlock<S>,
 }
 
 #[derive(Deserialize, Debug)]

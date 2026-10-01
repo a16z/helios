@@ -1,0 +1,6 @@
+preset: minimal
+fork: fulu
+runner: light_client
+handler: sync
+suite: pyspec_tests
+case: gloas_store_with_legacy_data
