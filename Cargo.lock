@@ -4007,7 +4007,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "helios"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "criterion",
@@ -4037,7 +4037,7 @@ dependencies = [
 
 [[package]]
 name = "helios-cli"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "chrono",
@@ -4062,7 +4062,7 @@ dependencies = [
 
 [[package]]
 name = "helios-common"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "async-trait",
@@ -4077,7 +4077,7 @@ dependencies = [
 
 [[package]]
 name = "helios-consensus-core"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "alloy-rlp",
@@ -4105,7 +4105,7 @@ dependencies = [
 
 [[package]]
 name = "helios-core"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "alloy-trie",
@@ -4137,7 +4137,7 @@ dependencies = [
 
 [[package]]
 name = "helios-ethereum"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "alloy-trie",
@@ -4174,7 +4174,7 @@ dependencies = [
 
 [[package]]
 name = "helios-linea"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "async-trait",
@@ -4194,7 +4194,7 @@ dependencies = [
 
 [[package]]
 name = "helios-opstack"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "alloy-rlp",
@@ -4240,7 +4240,7 @@ dependencies = [
 
 [[package]]
 name = "helios-revm-utils"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "eyre",
@@ -4254,7 +4254,7 @@ dependencies = [
 
 [[package]]
 name = "helios-test-utils"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "helios-common",
@@ -4267,7 +4267,7 @@ dependencies = [
 
 [[package]]
 name = "helios-ts"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "console_error_panic_hook",
@@ -4290,7 +4290,7 @@ dependencies = [
 
 [[package]]
 name = "helios-verifiable-api-client"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "async-trait",
@@ -4308,7 +4308,7 @@ dependencies = [
 
 [[package]]
 name = "helios-verifiable-api-server"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "async-trait",
@@ -4338,7 +4338,7 @@ dependencies = [
 
 [[package]]
 name = "helios-verifiable-api-types"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "alloy",
  "helios-common",
