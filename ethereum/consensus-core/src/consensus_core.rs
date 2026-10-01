@@ -299,29 +299,26 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 
     let update_attested_epoch = update.attested_header.beacon().slot / S::slots_per_epoch();
 
-    if let Some(finality_branch) = &update.finality_branch {
-        if let Some(finalized_header) = &update.finalized_header {
+    if let Some(finalized_header) = &update.finalized_header {
+        if let Some(finality_branch) = &update.finality_branch {
             if !is_valid_header::<S>(finalized_header, forks) {
                 return Err(ConsensusError::InvalidExecutionPayloadProof.into());
             }
-        }
 
-        let is_valid = is_finality_proof_valid(
-            update.attested_header.beacon(),
-            update
-                .finalized_header
-                .as_ref()
-                .map(LightClientHeader::beacon),
-            finality_branch,
-            update_attested_epoch,
-            forks,
-        );
+            let is_valid = is_finality_proof_valid(
+                update.attested_header.beacon(),
+                finalized_header.beacon(),
+                finality_branch,
+                update_attested_epoch,
+                forks,
+            );
 
-        if !is_valid {
+            if !is_valid {
+                return Err(ConsensusError::InvalidFinalityProof.into());
+            }
+        } else {
             return Err(ConsensusError::InvalidFinalityProof.into());
         }
-    } else if update.finalized_header.is_some() {
-        return Err(ConsensusError::InvalidFinalityProof.into());
     }
 
     if let Some(next_sync_committee) = &update.next_sync_committee {

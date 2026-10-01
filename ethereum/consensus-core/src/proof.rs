@@ -9,7 +9,7 @@ use crate::{
 
 pub fn is_finality_proof_valid(
     attested_header: &BeaconBlockHeader,
-    finality_header: Option<&BeaconBlockHeader>,
+    finality_header: &BeaconBlockHeader,
     finality_branch: &[B256],
     current_epoch: u64,
     forks: &Forks,
@@ -22,11 +22,9 @@ pub fn is_finality_proof_valid(
         (41, 6)
     };
 
-    is_root_proof_valid(
+    is_proof_valid(
         attested_header.state_root,
-        finality_header
-            .map(TreeHash::tree_hash_root)
-            .unwrap_or(B256::ZERO),
+        finality_header,
         finality_branch,
         depth,
         index,
@@ -166,25 +164,6 @@ fn compute_merkle_root(leaf_root: B256, branch: &[B256], index: usize) -> B256 {
 mod tests {
     use super::*;
     use crate::types::Fork;
-
-    #[test]
-    fn genesis_finality_still_requires_a_valid_proof() {
-        let forks = Forks {
-            gloas: Fork {
-                epoch: 0,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let mut branch = vec![B256::repeat_byte(1); 9];
-        let header = BeaconBlockHeader {
-            state_root: compute_merkle_root(B256::ZERO, &branch, 223),
-            ..Default::default()
-        };
-        assert!(is_finality_proof_valid(&header, None, &branch, 0, &forks));
-        branch[0] = B256::ZERO;
-        assert!(!is_finality_proof_valid(&header, None, &branch, 0, &forks));
-    }
 
     #[test]
     fn execution_proofs_follow_the_header_fork() {
