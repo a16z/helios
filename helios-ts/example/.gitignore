@@ -9,6 +9,7 @@ node_modules/
 # Build output
 dist/
 build/
+public/worker
 
 # IDE
 .vscode/
