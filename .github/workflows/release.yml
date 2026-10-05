@@ -20,12 +20,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: install target
         run: rustup target add aarch64-apple-darwin
@@ -60,12 +56,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: install target
         run: rustup target add x86_64-apple-darwin
@@ -100,12 +92,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: install target
         run: rustup target add aarch64-unknown-linux-gnu
@@ -146,12 +134,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: install target
         run: rustup target add x86_64-unknown-linux-gnu
@@ -186,12 +170,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: install target
         run: rustup target add armv7-unknown-linux-gnueabihf
@@ -235,12 +215,8 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: install target
         run: rustup target add riscv64gc-unknown-linux-gnu
@@ -289,12 +265,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2

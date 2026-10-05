@@ -23,12 +23,8 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
           
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
         
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
