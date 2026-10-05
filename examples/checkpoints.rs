@@ -17,12 +17,6 @@ async fn main() -> Result<()> {
         .await?;
     println!("Fetched latest sepolia checkpoint: {sepolia_checkpoint}");
 
-    // Fetch the latest hoodi checkpoint
-    let hoodi_checkpoint = cf
-        .fetch_latest_checkpoint(&networks::Network::Hoodi)
-        .await?;
-    println!("Fetched latest hoodi checkpoint: {hoodi_checkpoint}");
-
     // Fetch the latest mainnet checkpoint
     let mainnet_checkpoint = cf
         .fetch_latest_checkpoint(&networks::Network::Mainnet)

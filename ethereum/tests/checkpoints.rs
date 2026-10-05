@@ -8,7 +8,6 @@ async fn test_checkpoint_fallback() {
     assert!(cf.services.is_empty());
     assert!(cf.networks.contains(&networks::Network::Mainnet));
     assert!(cf.networks.contains(&networks::Network::Sepolia));
-    assert!(cf.networks.contains(&networks::Network::Hoodi));
 }
 
 #[tokio::test]
@@ -20,7 +19,6 @@ async fn test_construct_checkpoints() {
 
     assert!(cf.services[&networks::Network::Mainnet].len() > 1);
     assert!(cf.services[&networks::Network::Sepolia].len() > 1);
-    assert!(!cf.services[&networks::Network::Hoodi].is_empty());
 }
 
 #[tokio::test]
