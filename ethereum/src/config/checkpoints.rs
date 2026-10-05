@@ -80,7 +80,7 @@ pub struct CheckpointFallback {
     /// Services Map
     pub services: HashMap<networks::Network, Vec<CheckpointFallbackService>>,
     /// A list of supported networks to build.
-    /// Default: [mainnet, goerli]
+    /// Default: [mainnet, sepolia]
     pub networks: Vec<networks::Network>,
 }
 
@@ -108,11 +108,7 @@ impl CheckpointFallback {
     pub fn new() -> Self {
         Self {
             services: Default::default(),
-            networks: vec![
-                networks::Network::Mainnet,
-                networks::Network::Sepolia,
-                networks::Network::Holesky,
-            ],
+            networks: vec![networks::Network::Mainnet, networks::Network::Sepolia],
         }
     }
 
