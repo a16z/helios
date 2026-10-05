@@ -4226,6 +4226,7 @@ dependencies = [
  "reqwest 0.12.22",
  "revm 43.0.3",
  "serde",
+ "serde_json",
  "sha2 0.9.9",
  "snap",
  "ssz_types",

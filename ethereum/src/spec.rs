@@ -23,7 +23,7 @@ use revm::context::result::{ExecutionResult, HaltReason};
 use helios_common::{
     execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
-    network_spec::NetworkSpec,
+    network_spec::{has_valid_header_field_order, NetworkSpec},
     types::{Account, EvmError},
 };
 
@@ -66,7 +66,9 @@ impl NetworkSpec for Ethereum {
     }
 
     fn is_hash_valid(block: &Self::BlockResponse) -> bool {
-        if block.header.hash_slow() != block.header.hash {
+        if !has_valid_header_field_order(&block.header.inner)
+            || block.header.hash_slow() != block.header.hash
+        {
             return false;
         }
 
