@@ -66,6 +66,22 @@ impl NetworkSpec for Ethereum {
     }
 
     fn is_hash_valid(block: &Self::BlockResponse) -> bool {
+        // RLP omits absent optional fields. Require a contiguous prefix so an
+        // RPC cannot move a value into a later field without changing the hash.
+        let fields = [
+            block.header.base_fee_per_gas.is_some(),
+            block.header.withdrawals_root.is_some(),
+            block.header.blob_gas_used.is_some(),
+            block.header.excess_blob_gas.is_some(),
+            block.header.parent_beacon_block_root.is_some(),
+            block.header.requests_hash.is_some(),
+            block.header.block_access_list_hash.is_some(),
+            block.header.slot_number.is_some(),
+        ];
+        if fields.windows(2).any(|pair| !pair[0] && pair[1]) {
+            return false;
+        }
+
         if block.header.hash_slow() != block.header.hash {
             return false;
         }
