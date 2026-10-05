@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use helios_common::{
     execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
-    network_spec::NetworkSpec,
+    network_spec::{has_valid_header_field_order, NetworkSpec},
     types::{Account, EvmError},
 };
 use op_alloy_consensus::{OpTxEnvelope, OpTxReceipt, OpTxType, OpTypedTransaction};
@@ -50,7 +50,9 @@ impl NetworkSpec for OpStack {
     }
 
     fn is_hash_valid(block: &Self::BlockResponse) -> bool {
-        if block.header.hash_slow() != block.header.hash {
+        if !has_valid_header_field_order(&block.header.inner)
+            || block.header.hash_slow() != block.header.hash
+        {
             return false;
         }
 

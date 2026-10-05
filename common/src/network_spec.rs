@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use alloy::{
+    consensus::Header,
     eips::BlockId,
     network::Network,
     primitives::Address,
@@ -14,6 +15,22 @@ use crate::{
     fork_schedule::ForkSchedule,
     types::{Account, EvmError},
 };
+
+/// Require optional header fields to form a contiguous prefix in RLP order.
+/// RLP skips absent fields, so a gap could change field names without changing the hash.
+pub fn has_valid_header_field_order(header: &Header) -> bool {
+    let fields = [
+        header.base_fee_per_gas.is_some(),
+        header.withdrawals_root.is_some(),
+        header.blob_gas_used.is_some(),
+        header.excess_blob_gas.is_some(),
+        header.parent_beacon_block_root.is_some(),
+        header.requests_hash.is_some(),
+        header.block_access_list_hash.is_some(),
+        header.slot_number.is_some(),
+    ];
+    !fields.windows(2).any(|pair| !pair[0] && pair[1])
+}
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]

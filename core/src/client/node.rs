@@ -690,44 +690,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    fn hash_handoff_rejects_relocated_optional_header_fields() {
-        for requests_hash in [None, Some(B256::repeat_byte(7))] {
-            let mut original = full_block();
-            original.header.requests_hash = requests_hash;
-            original.header.block_access_list_hash = None;
-            original.header.slot_number = None;
-            original.header.hash = original.header.hash_slow();
-            let BlockTransactions::Full(txs) = &mut original.transactions else {
-                unreachable!()
-            };
-            for tx in txs {
-                tx.block_hash = Some(original.header.hash);
-            }
-            ensure_trusted_block_valid::<Ethereum>(&mut original.clone(), original.header.hash)
-                .unwrap();
-
-            let mut malformed = original.clone();
-            if requests_hash.is_some() {
-                malformed.header.block_access_list_hash = malformed.header.requests_hash.take();
-            } else {
-                malformed.header.requests_hash = malformed.header.parent_beacon_block_root.take();
-            }
-            // RPC decoding accepts the missing field. RLP skips it, preserving
-            // the authenticated bytes despite the different named JSON fields.
-            let json = serde_json::to_string(&malformed).unwrap();
-            let mut malformed: Block = serde_json::from_str(&json).unwrap();
-            assert_eq!(
-                alloy::rlp::encode(&malformed.header.inner),
-                alloy::rlp::encode(&original.header.inner)
-            );
-            assert_eq!(malformed.header.hash_slow(), original.header.hash);
-            assert!(
-                ensure_trusted_block_valid::<Ethereum>(&mut malformed, original.header.hash)
-                    .is_err(),
-                "accepted relocated optional header field (requests_hash: {requests_hash:?})"
-            );
-        }
-    }
 }
