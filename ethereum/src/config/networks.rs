@@ -23,7 +23,6 @@ use crate::config::types::ChainConfig;
 pub enum Network {
     Mainnet,
     Sepolia,
-    Holesky,
     Hoodi,
     Plataberget,
 }
@@ -35,7 +34,6 @@ impl FromStr for Network {
         match s {
             "mainnet" => Ok(Self::Mainnet),
             "sepolia" => Ok(Self::Sepolia),
-            "holesky" => Ok(Self::Holesky),
             "hoodi" => Ok(Self::Hoodi),
             "plataberget" => Ok(Self::Plataberget),
             _ => Err(eyre::eyre!("network not recognized")),
@@ -48,7 +46,6 @@ impl Display for Network {
         let str = match self {
             Self::Mainnet => "mainnet",
             Self::Sepolia => "sepolia",
-            Self::Holesky => "holesky",
             Self::Hoodi => "hoodi",
             Self::Plataberget => "plataberget",
         };
@@ -62,7 +59,6 @@ impl Network {
         match self {
             Self::Mainnet => mainnet(),
             Self::Sepolia => sepolia(),
-            Self::Holesky => holesky(),
             Self::Hoodi => hoodi(),
             Self::Plataberget => plataberget(),
         }
@@ -72,7 +68,6 @@ impl Network {
         match id {
             1 => Ok(Network::Mainnet),
             11155111 => Ok(Network::Sepolia),
-            17000 => Ok(Network::Holesky),
             560048 => Ok(Network::Hoodi),
             7091047534 => Ok(Network::Plataberget),
             _ => Err(eyre::eyre!("chain id not known")),
@@ -184,60 +179,6 @@ pub fn sepolia() -> BaseConfig {
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::Sepolia)),
-        ..std::default::Default::default()
-    }
-}
-
-pub fn holesky() -> BaseConfig {
-    BaseConfig {
-        default_checkpoint: b256!(
-            "e1f575f0b691404fe82cce68a09c2c98af197816de14ce53c0fe9f9bd02d2399"
-        ),
-        rpc_port: 8545,
-        consensus_rpc: None,
-        chain: ChainConfig {
-            chain_id: 17000,
-            genesis_time: 1695902400,
-            genesis_root: b256!("9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1"),
-        },
-        forks: Forks {
-            genesis: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("01017000"),
-            },
-            altair: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("02017000"),
-            },
-            bellatrix: Fork {
-                epoch: 0,
-                fork_version: fixed_bytes!("03017000"),
-            },
-            capella: Fork {
-                epoch: 256,
-                fork_version: fixed_bytes!("04017000"),
-            },
-            deneb: Fork {
-                epoch: 29696,
-                fork_version: fixed_bytes!("05017000"),
-            },
-            electra: Fork {
-                epoch: 115968,
-                fork_version: fixed_bytes!("06017000"),
-            },
-            fulu: Fork {
-                epoch: 165120,
-                fork_version: fixed_bytes!("07017000"),
-            },
-            gloas: Fork {
-                epoch: u64::MAX,
-                fork_version: fixed_bytes!("08017000"),
-            },
-        },
-        execution_forks: EthereumForkSchedule::holesky(),
-        max_checkpoint_age: 1_209_600, // 14 days
-        #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::Holesky)),
         ..std::default::Default::default()
     }
 }
@@ -421,35 +362,6 @@ impl EthereumForkSchedule {
             bpo1_timestamp: 1761017184,
             bpo2_timestamp: 1761607008,
             amsterdam_timestamp: 1791294816,
-
-            ..Default::default()
-        }
-    }
-
-    fn holesky() -> ForkSchedule {
-        ForkSchedule {
-            frontier_timestamp: 1695902100,
-            homestead_timestamp: 1695902100,
-            dao_timestamp: 1695902100,
-            tangerine_timestamp: 1695902100,
-            spurious_dragon_timestamp: 1695902100,
-            byzantium_timestamp: 1695902100,
-            constantinople_timestamp: 1695902100,
-            petersburg_timestamp: 1695902100,
-            istanbul_timestamp: 1695902100,
-            muir_glacier_timestamp: 1695902100,
-            berlin_timestamp: 1695902100,
-            london_timestamp: 1695902100,
-            arrow_glacier_timestamp: 1695902100,
-            gray_glacier_timestamp: 1695902100,
-            paris_timestamp: 1695902100,
-            shanghai_timestamp: 1696000704,
-            cancun_timestamp: 1707305664,
-            prague_timestamp: 1740434112,
-            osaka_timestamp: 1759308480,
-            bpo1_timestamp: 1759800000,
-            bpo2_timestamp: 1760389824,
-            amsterdam_timestamp: u64::MAX,
 
             ..Default::default()
         }
