@@ -26,11 +26,8 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
@@ -39,13 +36,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: version-check
+    # All branches share the same live RPC quota, including every stack layer.
+    concurrency:
+      group: live-rpc-tests
+      queue: max
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - name: Install libfont
         run: sudo apt install libfontconfig libfontconfig1-dev
@@ -59,12 +57,8 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
@@ -76,12 +70,8 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
@@ -92,11 +82,8 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown

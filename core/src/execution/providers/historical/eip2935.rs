@@ -67,15 +67,24 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
         // Get the untrusted block from the execution provider first
         // This works for both block numbers and block hashes
         let target_block = execution_provider
-            .get_untrusted_block(block_id, full_tx)
+            .get_untrusted_block(block_id, true)
             .await?;
 
-        let Some(target_block) = target_block else {
+        let Some(mut target_block) = target_block else {
             return Ok(None);
         };
 
         // Extract the block number from the fetched block (works for both number and hash queries)
         let target_number = target_block.header().number();
+
+        let matches_request = match block_id {
+            BlockId::Hash(hash) => target_block.header().hash() == hash.block_hash,
+            BlockId::Number(BlockNumberOrTag::Number(number)) => target_number == number,
+            _ => false,
+        };
+        if !matches_request {
+            return Err(eyre!("historical block does not match requested block"));
+        }
 
         // Get the trusted latest block from the execution provider
         let latest_block = execution_provider
@@ -91,21 +100,13 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
 
         // Check if the target block is within the EIP-2935 ring buffer range
         // The ring buffer stores the last `ring_buffer_size` block hashes
-        if target_number + self.ring_buffer_size <= latest_number {
+        let distance = latest_number.checked_sub(target_number);
+        if !distance.is_some_and(|distance| distance > 0 && distance <= self.ring_buffer_size) {
             return Err(eyre!(
                 "block {} is outside EIP-2935 ring buffer range (latest: {}, buffer size: {})",
                 target_number,
                 latest_number,
                 self.ring_buffer_size
-            ));
-        }
-
-        // Also check if target block is in the future
-        if target_number > latest_number {
-            return Err(eyre!(
-                "block {} is in the future (latest: {})",
-                target_number,
-                latest_number
             ));
         }
 
@@ -123,16 +124,14 @@ impl<N: NetworkSpec> HistoricalBlockProvider<N> for Eip2935Provider<N> {
 
         let stored_hash = B256::from(stored_hash);
 
-        // Validate the block using network-specific validation
-        let is_hash_valid = N::is_hash_valid(&target_block);
-
-        // Verify that the block hash matches the stored hash
-        if is_hash_valid && target_block.header().hash() == stored_hash {
-            Ok(Some(target_block))
-        } else {
-            Err(eyre!(
+        // Reject the wrong header before doing transaction hashing or sender recovery.
+        if target_block.header().hash() != stored_hash
+            || !N::validate_block(&mut target_block, full_tx)
+        {
+            return Err(eyre!(
                 "block validation failed: hash mismatch or invalid block structure"
-            ))
+            ));
         }
+        Ok(Some(target_block))
     }
 }

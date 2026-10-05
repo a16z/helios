@@ -87,7 +87,8 @@ impl EthereumClient {
         let base = match network.as_str() {
             "mainnet" => networks::mainnet(),
             "sepolia" => networks::sepolia(),
-            "holesky" => networks::holesky(),
+            "hoodi" => networks::hoodi(),
+            "plataberget" => networks::plataberget(),
             other => Err(JsError::new(&format!("invalid network: {other}")))?,
         };
 
@@ -112,7 +113,8 @@ impl EthereumClient {
         let execution_rpc = execution_rpc
             .map(|url| Url::parse(&url))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?;
+            .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?
+            .or(base.execution_rpc);
 
         let verifiable_api = verifiable_api
             .map(|url| Url::parse(&url))
@@ -127,6 +129,7 @@ impl EthereumClient {
 
             chain: base.chain,
             forks: base.forks,
+            execution_forks: base.execution_forks,
 
             database_type: Some(db_type),
             ..Default::default()
@@ -174,8 +177,8 @@ impl EthereumClient {
     }
 
     #[wasm_bindgen]
-    pub fn chain_id(&self) -> u32 {
-        self.chain_id as u32
+    pub fn chain_id(&self) -> u64 {
+        self.chain_id
     }
 
     #[wasm_bindgen]

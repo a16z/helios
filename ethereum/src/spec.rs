@@ -1,3 +1,7 @@
+use alloy::{
+    consensus::{transaction::SignerRecoverable, Transaction as _},
+    primitives::keccak256,
+};
 use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
@@ -6,9 +10,12 @@ use alloy::{
         Receipt, ReceiptWithBloom, TxReceipt, TxType, TypedTransaction,
     },
     eips::{BlockId, Encodable2718},
-    network::{BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError},
-    primitives::{Address, Bytes, ChainId, TxKind, U256},
-    rpc::types::{state::StateOverride, AccessList, Log, TransactionRequest},
+    network::{
+        BuildResult, Network, NetworkTransactionBuilder, NetworkWallet, TransactionBuilder,
+        TransactionBuilderError,
+    },
+    primitives::Address,
+    rpc::types::{state::StateOverride, Log, TransactionRequest},
 };
 use async_trait::async_trait;
 use revm::context::result::{ExecutionResult, HaltReason};
@@ -63,24 +70,60 @@ impl NetworkSpec for Ethereum {
             return false;
         }
 
-        if let Some(txs) = block.transactions.as_transactions() {
-            let txs_root = calculate_transaction_root(
-                &txs.iter().map(|t| t.clone().inner).collect::<Vec<_>>(),
+        let Some(txs) = block.transactions.as_transactions() else {
+            return false;
+        };
+        if calculate_transaction_root(&txs.iter().map(|t| t.clone().inner).collect::<Vec<_>>())
+            != block.header.transactions_root
+        {
+            return false;
+        }
+
+        let withdrawals_root = block
+            .withdrawals
+            .as_ref()
+            .map(|withdrawals| calculate_withdrawals_root(withdrawals));
+        if withdrawals_root != block.header.withdrawals_root {
+            return false;
+        }
+
+        block.uncles.is_empty()
+    }
+
+    fn validate_block(block: &mut Self::BlockResponse, full_tx: bool) -> bool {
+        if !Self::is_hash_valid(block) {
+            return false;
+        }
+        let alloy::rpc::types::BlockTransactions::Full(txs) = &mut block.transactions else {
+            return false;
+        };
+        if full_tx {
+            for (index, tx) in txs.iter_mut().enumerate() {
+                // Neither the cached hash nor recovered sender is authenticated by the trie root.
+                if keccak256(tx.inner.encoded_2718()) != *tx.inner.tx_hash()
+                    || tx.inner.inner().recover_signer().ok() != Some(tx.inner.signer())
+                    || tx.block_hash != Some(block.header.hash)
+                    || tx.block_number != Some(block.header.number)
+                    || tx.transaction_index != Some(index as u64)
+                {
+                    return false;
+                }
+                tx.effective_gas_price =
+                    Some(tx.inner.effective_gas_price(block.header.base_fee_per_gas));
+                tx.block_timestamp = Some(block.header.timestamp);
+            }
+        } else {
+            // Cached RPC hashes are not committed by the transaction trie. Derive
+            // the only transaction field exposed by this response from signed bytes.
+            block.transactions = alloy::rpc::types::BlockTransactions::Hashes(
+                txs.iter()
+                    .map(|tx| keccak256(Self::encode_transaction(tx)))
+                    .collect(),
             );
-            if txs_root != block.header.transactions_root {
-                return false;
-            }
         }
-
-        if let Some(withdrawals) = &block.withdrawals {
-            let withdrawals_root =
-                calculate_withdrawals_root(&withdrawals.iter().copied().collect::<Vec<_>>());
-            if Some(withdrawals_root) != block.header.withdrawals_root {
-                return false;
-            }
-        }
-
-        true
+        block.header.total_difficulty = None;
+        block.header.size = None;
+        block.uncles.is_empty()
     }
 
     fn receipt_contains(list: &[Self::ReceiptResponse], elem: &Self::ReceiptResponse) -> bool {
@@ -95,6 +138,29 @@ impl NetworkSpec for Ethereum {
 
     fn receipt_logs(receipt: &Self::ReceiptResponse) -> Vec<Log> {
         receipt.inner.logs().to_vec()
+    }
+
+    fn receipt_metadata_valid(
+        receipt: &Self::ReceiptResponse,
+        tx: &Self::TransactionResponse,
+        block: &Self::BlockResponse,
+        forks: &ForkSchedule,
+    ) -> bool {
+        let contract_address = tx.is_create().then(|| tx.inner.signer().create(tx.nonce()));
+        let blob_gas_used = tx.blob_gas_used();
+        let blob_gas_price = blob_gas_used.and_then(|_| {
+            block.header.excess_blob_gas.map(|excess| {
+                alloy::eips::eip4844::fake_exponential(
+                    1,
+                    excess as u128,
+                    forks.get_blob_base_fee_update_fraction(block.header.timestamp) as u128,
+                )
+            })
+        });
+        receipt.contract_address == contract_address
+            && receipt.effective_gas_price == tx.effective_gas_price(block.header.base_fee_per_gas)
+            && receipt.blob_gas_used == blob_gas_used
+            && receipt.blob_gas_price == blob_gas_price
     }
 
     async fn transact<E: ExecutionProvider<Self>>(
@@ -125,103 +191,7 @@ impl Network for Ethereum {
     type BlockResponse = alloy::rpc::types::Block<Self::TransactionResponse, Self::HeaderResponse>;
 }
 
-impl TransactionBuilder<Ethereum> for TransactionRequest {
-    fn chain_id(&self) -> Option<ChainId> {
-        self.chain_id
-    }
-
-    fn set_chain_id(&mut self, chain_id: ChainId) {
-        self.chain_id = Some(chain_id);
-    }
-
-    fn nonce(&self) -> Option<u64> {
-        self.nonce
-    }
-
-    fn set_nonce(&mut self, nonce: u64) {
-        self.nonce = Some(nonce);
-    }
-
-    fn take_nonce(&mut self) -> Option<u64> {
-        self.nonce.take()
-    }
-
-    fn input(&self) -> Option<&Bytes> {
-        self.input.input()
-    }
-
-    fn set_input<T: Into<Bytes>>(&mut self, input: T) {
-        self.input.input = Some(input.into());
-    }
-
-    fn from(&self) -> Option<Address> {
-        self.from
-    }
-
-    fn set_from(&mut self, from: Address) {
-        self.from = Some(from);
-    }
-
-    fn kind(&self) -> Option<TxKind> {
-        self.to
-    }
-
-    fn clear_kind(&mut self) {
-        self.to = None;
-    }
-
-    fn set_kind(&mut self, kind: TxKind) {
-        self.to = Some(kind);
-    }
-
-    fn value(&self) -> Option<U256> {
-        self.value
-    }
-
-    fn set_value(&mut self, value: U256) {
-        self.value = Some(value)
-    }
-
-    fn gas_price(&self) -> Option<u128> {
-        self.gas_price
-    }
-
-    fn set_gas_price(&mut self, gas_price: u128) {
-        self.gas_price = Some(gas_price);
-    }
-
-    fn max_fee_per_gas(&self) -> Option<u128> {
-        self.max_fee_per_gas
-    }
-
-    fn set_max_fee_per_gas(&mut self, max_fee_per_gas: u128) {
-        self.max_fee_per_gas = Some(max_fee_per_gas);
-    }
-
-    fn max_priority_fee_per_gas(&self) -> Option<u128> {
-        self.max_priority_fee_per_gas
-    }
-
-    fn set_max_priority_fee_per_gas(&mut self, max_priority_fee_per_gas: u128) {
-        self.max_priority_fee_per_gas = Some(max_priority_fee_per_gas);
-    }
-
-    fn gas_limit(&self) -> Option<u64> {
-        self.gas
-    }
-
-    fn set_gas_limit(&mut self, gas_limit: u64) {
-        self.gas = Some(gas_limit);
-    }
-
-    fn access_list(&self) -> Option<&AccessList> {
-        self.access_list.as_ref()
-    }
-
-    fn set_access_list(&mut self, access_list: AccessList) {
-        self.access_list = Some(access_list);
-    }
-
+impl NetworkTransactionBuilder<Ethereum> for TransactionRequest {
     fn complete_type(&self, ty: TxType) -> Result<(), Vec<&'static str>> {
         match ty {
             TxType::Legacy => self.complete_legacy(),
@@ -247,8 +217,7 @@ impl TransactionBuilder<Ethereum> for TransactionRequest {
         let common = self.gas.is_some() && self.nonce.is_some();
 
         let legacy = self.gas_price.is_some();
-        let eip2930 = legacy
-            && <TransactionRequest as TransactionBuilder<Ethereum>>::access_list(self).is_some();
+        let eip2930 = legacy && self.access_list().is_some();
 
         let eip1559 = self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some();
 

@@ -8,7 +8,7 @@ use alloy::consensus::proofs::{calculate_transaction_root, calculate_withdrawals
 use alloy::consensus::transaction::SignerRecoverable;
 use alloy::consensus::{Header as ConsensusHeader, Transaction as TxTrait};
 use alloy::eips::eip4895::{Withdrawal, Withdrawals};
-use alloy::primitives::{b256, fixed_bytes, Address, Bloom, BloomInput, B256, U256};
+use alloy::primitives::{b256, fixed_bytes, Address, Bloom, B256, U256};
 use alloy::rlp::Decodable;
 use alloy::rpc::types::{
     Block, EIP1186AccountProofResponse, Header, Transaction as EthTransaction,
@@ -25,7 +25,7 @@ use tokio::sync::{
 use tracing::{debug, error, warn};
 
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
-use helios_core::consensus::Consensus;
+use helios_core::consensus::{Consensus, TrustedBlockRef};
 use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
 use helios_core::time::{interval, SystemTime, UNIX_EPOCH};
 use helios_ethereum::consensus::ConsensusClient as EthConsensusClient;
@@ -40,8 +40,8 @@ const UNSAFE_SIGNER_SLOT: &str =
     "0x65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08";
 
 pub struct ConsensusClient {
-    block_recv: Option<Receiver<Block<Transaction>>>,
-    finalized_block_recv: Option<watch::Receiver<Option<Block<Transaction>>>>,
+    block_recv: Option<Receiver<TrustedBlockRef<Block<Transaction>>>>,
+    finalized_block_recv: Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>>,
     chain_id: u64,
 }
 
@@ -97,11 +97,13 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
         Ok(())
     }
 
-    fn block_recv(&mut self) -> Option<Receiver<Block<Transaction>>> {
+    fn block_recv(&mut self) -> Option<Receiver<TrustedBlockRef<Block<Transaction>>>> {
         self.block_recv.take()
     }
 
-    fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<Block<Transaction>>>> {
+    fn finalized_block_recv(
+        &mut self,
+    ) -> Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>> {
         self.finalized_block_recv.take()
     }
 
@@ -125,8 +127,8 @@ struct Inner {
     unsafe_signer: Arc<Mutex<Address>>,
     chain_id: u64,
     latest_block: Option<u64>,
-    block_send: Sender<Block<Transaction>>,
-    finalized_block_send: watch::Sender<Option<Block<Transaction>>>,
+    block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
+    finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
 }
 
 impl Inner {
@@ -161,7 +163,7 @@ impl Inner {
 
                 if let Ok(block) = payload_to_block(payload) {
                     self.latest_block = Some(block.header.number);
-                    _ = self.block_send.send(block).await;
+                    _ = self.block_send.send(TrustedBlockRef::Full(block)).await;
 
                     tracing::debug!(
                         "unsafe head updated: block={} age={}s",
@@ -206,12 +208,20 @@ fn verify_unsafe_signer(config: Config, signer: Arc<Mutex<Address>>) {
                     Arc::new(eth_config.into()),
                 )?;
 
-            let block = eth_consensus
+            let trusted_block = eth_consensus
                 .block_recv()
                 .unwrap()
                 .recv()
                 .await
                 .ok_or_eyre("failed to receive block")?;
+            let block = match trusted_block {
+                TrustedBlockRef::Full(block) => block,
+                TrustedBlockRef::Hash(block_hash) => {
+                    return Err(eyre!(
+                        "unsafe signer verification requires full L1 block for trusted hash {block_hash}"
+                    ));
+                }
+            };
 
             // Query proof from op consensus server
             let url = config
@@ -291,6 +301,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
                 inner: recovered,
                 block_hash: Some(value.block_hash),
                 block_number: Some(value.block_number),
+                block_timestamp: Some(value.timestamp),
                 transaction_index: Some(i as u64),
                 effective_gas_price: Some(base_fee),
             };
@@ -299,7 +310,8 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
                 OpTxEnvelope::Legacy(_)
                 | OpTxEnvelope::Eip2930(_)
                 | OpTxEnvelope::Eip1559(_)
-                | OpTxEnvelope::Eip7702(_) => Transaction {
+                | OpTxEnvelope::Eip7702(_)
+                | OpTxEnvelope::PostExec(_) => Transaction {
                     inner: inner_tx,
                     deposit_nonce: None,
                     deposit_receipt_version: None,
@@ -325,7 +337,7 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
     let withdrawals: Vec<Withdrawal> = value.withdrawals.into_iter().map(|w| w.into()).collect();
     let withdrawals_root = calculate_withdrawals_root(&withdrawals);
 
-    let logs_bloom: Bloom = Bloom::from(BloomInput::Raw(&value.logs_bloom));
+    let logs_bloom: Bloom = Bloom::from_slice(&value.logs_bloom);
 
     let consensus_header = ConsensusHeader {
         parent_hash: value.parent_hash,
@@ -348,6 +360,8 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
         parent_beacon_block_root: None,
         extra_data: value.extra_data.to_vec().into(),
         requests_hash: None,
+        block_access_list_hash: None,
+        slot_number: None,
         logs_bloom,
     };
 
@@ -360,4 +374,62 @@ fn payload_to_block(value: ExecutionPayload) -> Result<Block<Transaction>> {
 
     Ok(Block::new(header, BlockTransactions::Full(txs))
         .with_withdrawals(Some(Withdrawals::new(withdrawals))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::rpc::types::Filter;
+
+    fn payload_with_logs_bloom(bloom: Bloom) -> ExecutionPayload {
+        ExecutionPayload {
+            parent_hash: B256::ZERO,
+            fee_recipient: Address::ZERO,
+            state_root: B256::ZERO,
+            receipts_root: B256::ZERO,
+            logs_bloom: bloom.as_slice().to_vec().into(),
+            prev_randao: B256::ZERO,
+            block_number: 1,
+            gas_limit: 30_000_000,
+            gas_used: 0,
+            timestamp: 1,
+            extra_data: Default::default(),
+            base_fee_per_gas: U256::ZERO,
+            block_hash: B256::ZERO,
+            transactions: Default::default(),
+            withdrawals: Default::default(),
+            blob_gas_used: 0,
+            excess_blob_gas: 0,
+            withdrawals_root: B256::ZERO,
+        }
+    }
+
+    #[test]
+    fn preserves_payload_logs_bloom() {
+        for bloom in [
+            Bloom::ZERO,
+            Bloom::repeat_byte(0xaa),
+            Bloom::from(std::array::from_fn::<_, 256, _>(|i| i as u8)),
+        ] {
+            let block = payload_to_block(payload_with_logs_bloom(bloom)).unwrap();
+            assert_eq!(block.header.logs_bloom, bloom);
+        }
+    }
+
+    #[test]
+    fn preserves_payload_log_filter_matches() {
+        let address = Address::repeat_byte(0x11);
+        let topic = B256::repeat_byte(0x22);
+        let mut bloom = Bloom::ZERO;
+        bloom.accrue_raw_log(address, &[topic]);
+        let block = payload_to_block(payload_with_logs_bloom(bloom)).unwrap();
+
+        // A copied bloom must still match its logs when used to skip receipt fetches.
+        assert!(Filter::new()
+            .address(address)
+            .matches_bloom(block.header.logs_bloom));
+        assert!(Filter::new()
+            .event_signature(topic)
+            .matches_bloom(block.header.logs_bloom));
+    }
 }

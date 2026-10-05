@@ -111,8 +111,8 @@ impl OpStackClient {
     }
 
     #[wasm_bindgen]
-    pub fn chain_id(&self) -> u32 {
-        self.chain_id as u32
+    pub fn chain_id(&self) -> u64 {
+        self.chain_id
     }
 
     #[wasm_bindgen]

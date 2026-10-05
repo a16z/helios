@@ -135,6 +135,7 @@ impl LineaClientBuilder {
             rpc_url,
             block_provider,
             historical_provider,
+            fork_schedule,
         );
         let execution = CachingProvider::new(execution);
 

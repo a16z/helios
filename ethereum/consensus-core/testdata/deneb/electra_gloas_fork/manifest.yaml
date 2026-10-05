@@ -1,0 +1,6 @@
+preset: minimal
+fork: deneb
+runner: light_client
+handler: sync
+suite: pyspec_tests
+case: electra_gloas_fork
