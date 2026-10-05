@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install repository Rust toolchain
-        run: rustup toolchain install --profile minimal --component rustfmt
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
@@ -71,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install repository Rust toolchain
-        run: rustup toolchain install --profile minimal --component clippy
+        run: rustup toolchain install --profile minimal
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
