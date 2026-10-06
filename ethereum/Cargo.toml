@@ -52,3 +52,6 @@ dirs = "5.0.1"
 
 [target.wasm32-unknown-unknown.dependencies]
 parking_lot = { version = "0.12.2" }
+
+[features]
+hickory-dns = ["reqwest/hickory-dns", "helios-core/hickory-dns"]
