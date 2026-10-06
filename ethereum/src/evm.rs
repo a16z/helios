@@ -114,7 +114,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         validate_tx: bool,
     ) -> Context {
         let spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
-        let mut tx_env = Self::tx_env(tx, spec);
+        let mut tx_env = Self::tx_env(tx, spec, block.header.gas_limit);
 
         if tx_env.tx_type == TxType::Legacy as u8 {
             tx_env.chain_id = None;
@@ -122,8 +122,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             tx_env.chain_id = Some(self.chain_id);
         }
 
-        let mut cfg = CfgEnv::default();
-        cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
+        let mut cfg = CfgEnv::new_with_spec(spec);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
@@ -136,8 +135,12 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             .with_cfg(cfg)
     }
 
-    fn tx_env(tx: &TransactionRequest, spec: SpecId) -> TxEnv {
-        let default_gas_limit = if spec >= SpecId::OSAKA {
+    fn tx_env(tx: &TransactionRequest, spec: SpecId, block_gas_limit: u64) -> TxEnv {
+        let default_gas_limit = if spec >= SpecId::AMSTERDAM {
+            // EIP-8037 caps execution gas, while state gas can use the remaining
+            // transaction gas. REVM enforces the separate execution cap.
+            block_gas_limit
+        } else if spec >= SpecId::OSAKA {
             eip7825::TX_GAS_LIMIT_CAP
         } else {
             u64::MAX
@@ -145,22 +148,22 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         TxEnv {
             tx_type: tx.transaction_type.unwrap_or(tx.minimal_tx_type() as u8),
             caller: tx.from.unwrap_or_default(),
-            gas_limit: <TransactionRequest as TransactionBuilder<Ethereum>>::gas_limit(tx)
+            gas_limit: <TransactionRequest as TransactionBuilder>::gas_limit(tx)
                 .unwrap_or(default_gas_limit),
             gas_price: tx.gas_price.or(tx.max_fee_per_gas).unwrap_or_default(),
             kind: tx.to.unwrap_or_default(),
             value: tx.value.unwrap_or_default(),
-            data: <TransactionRequest as TransactionBuilder<Ethereum>>::input(tx)
+            data: <TransactionRequest as TransactionBuilder>::input(tx)
                 .unwrap_or_default()
                 .clone(),
-            nonce: <TransactionRequest as TransactionBuilder<Ethereum>>::nonce(tx)
-                .unwrap_or_default(),
-            chain_id: <TransactionRequest as TransactionBuilder<Ethereum>>::chain_id(tx),
-            access_list: <TransactionRequest as TransactionBuilder<Ethereum>>::access_list(tx)
+            nonce: <TransactionRequest as TransactionBuilder>::nonce(tx).unwrap_or_default(),
+            chain_id: <TransactionRequest as TransactionBuilder>::chain_id(tx),
+            access_list: <TransactionRequest as TransactionBuilder>::access_list(tx)
                 .cloned()
                 .unwrap_or_default(),
-            gas_priority_fee:
-                <TransactionRequest as TransactionBuilder<Ethereum>>::max_priority_fee_per_gas(tx),
+            gas_priority_fee: <TransactionRequest as TransactionBuilder>::max_priority_fee_per_gas(
+                tx,
+            ),
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap_or_default(),
             blob_hashes: tx
                 .blob_versioned_hashes
@@ -197,12 +200,15 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
             difficulty: block.header.difficulty(),
             prevrandao: block.header.mix_hash(),
             blob_excess_gas_and_price: Some(blob_excess_gas_and_price),
+            slot_num: block.header.slot_number().unwrap_or_default(),
         }
     }
 }
 
 pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSchedule) -> SpecId {
-    if timestamp >= fork_schedule.osaka_timestamp {
+    if timestamp >= fork_schedule.amsterdam_timestamp {
+        SpecId::AMSTERDAM
+    } else if timestamp >= fork_schedule.osaka_timestamp {
         SpecId::OSAKA
     } else if timestamp >= fork_schedule.prague_timestamp {
         SpecId::PRAGUE
@@ -212,30 +218,20 @@ pub fn get_spec_id_for_block_timestamp(timestamp: u64, fork_schedule: &ForkSched
         SpecId::SHANGHAI
     } else if timestamp >= fork_schedule.paris_timestamp {
         SpecId::MERGE
-    } else if timestamp >= fork_schedule.gray_glacier_timestamp {
-        SpecId::GRAY_GLACIER
-    } else if timestamp >= fork_schedule.arrow_glacier_timestamp {
-        SpecId::ARROW_GLACIER
     } else if timestamp >= fork_schedule.london_timestamp {
         SpecId::LONDON
     } else if timestamp >= fork_schedule.berlin_timestamp {
         SpecId::BERLIN
-    } else if timestamp >= fork_schedule.muir_glacier_timestamp {
-        SpecId::MUIR_GLACIER
     } else if timestamp >= fork_schedule.istanbul_timestamp {
         SpecId::ISTANBUL
     } else if timestamp >= fork_schedule.petersburg_timestamp {
         SpecId::PETERSBURG
-    } else if timestamp >= fork_schedule.constantinople_timestamp {
-        SpecId::CONSTANTINOPLE
     } else if timestamp >= fork_schedule.byzantium_timestamp {
         SpecId::BYZANTIUM
     } else if timestamp >= fork_schedule.spurious_dragon_timestamp {
         SpecId::SPURIOUS_DRAGON
     } else if timestamp >= fork_schedule.tangerine_timestamp {
         SpecId::TANGERINE
-    } else if timestamp >= fork_schedule.dao_timestamp {
-        SpecId::DAO_FORK
     } else if timestamp >= fork_schedule.homestead_timestamp {
         SpecId::HOMESTEAD
     } else if timestamp >= fork_schedule.frontier_timestamp {
@@ -350,6 +346,123 @@ mod tests {
         assert_eq!(
             result.output().unwrap().as_ref(),
             U256::from(42).to_be_bytes::<32>()
+        );
+    }
+    #[test]
+    fn spec_id_selects_amsterdam_after_activation() {
+        let fork_schedule = ForkSchedule {
+            prague_timestamp: 10,
+            osaka_timestamp: 20,
+            amsterdam_timestamp: 30,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            get_spec_id_for_block_timestamp(29, &fork_schedule),
+            SpecId::OSAKA
+        );
+        assert_eq!(
+            get_spec_id_for_block_timestamp(30, &fork_schedule),
+            SpecId::AMSTERDAM
+        );
+    }
+    #[tokio::test]
+    async fn amsterdam_calls_use_final_gas_rules_and_slot_number() {
+        let config = crate::config::networks::plataberget();
+        let provider = RpcExecutionProvider::<Ethereum, _, ()>::new(
+            "http://localhost:1".parse().unwrap(),
+            BlockCache::new(),
+            config.execution_forks,
+        );
+        let evm = EthereumEvm::new(
+            Arc::new(provider),
+            config.chain.chain_id,
+            config.execution_forks,
+            BlockId::latest(),
+        );
+        let caller = address!("1111111111111111111111111111111111111111");
+        let recipient = address!("2222222222222222222222222222222222222222");
+        for (timestamp, value, gas) in [
+            (config.execution_forks.amsterdam_timestamp - 1, 0, 21_000),
+            (config.execution_forks.amsterdam_timestamp, 0, 15_000),
+            (config.execution_forks.amsterdam_timestamp, 1, 21_000),
+        ] {
+            let mut block: Block<Transaction> = Block::default();
+            block.header.gas_limit = 100_000_000;
+            block.header.timestamp = timestamp;
+            let tx = TransactionRequest::default()
+                .from(caller)
+                .to(recipient)
+                .value(U256::from(value));
+            let mut db = InMemoryDB::default();
+            db.insert_account_info(caller, AccountInfo::from_balance(U256::from(1_000_000)));
+            db.insert_account_info(recipient, AccountInfo::from_balance(U256::from(1)));
+            let mut vm = evm
+                .get_context(&tx, &block, false)
+                .with_db(db)
+                .build_mainnet();
+            let result = vm.replay().unwrap().result;
+            assert!(result.is_success(), "{result:?}");
+            assert_eq!(result.tx_gas_used(), gas);
+        }
+
+        let mut block: Block<Transaction> = Block::default();
+        block.header.gas_limit = 100_000_000;
+        block.header.timestamp = config.execution_forks.amsterdam_timestamp;
+        block.header.slot_number = Some(49_152);
+        let tx = TransactionRequest::default().from(caller).to(recipient);
+        let mut db = InMemoryDB::default();
+        // SLOTNUM; MSTORE(0); RETURN(0, 32)
+        db.insert_account_info(
+            recipient,
+            AccountInfo::default().with_code(Bytecode::new_raw(alloy::primitives::bytes!(
+                "4b60005260206000f3"
+            ))),
+        );
+        let mut vm = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet();
+        let result = vm.replay().unwrap().result;
+        assert_eq!(
+            result.output().unwrap().as_ref(),
+            U256::from(49_152).to_be_bytes::<32>()
+        );
+    }
+
+    #[tokio::test]
+    async fn amsterdam_default_call_gas_allows_state_reservoir() {
+        let mut evm = test_evm();
+        evm.fork_schedule = crate::config::networks::plataberget().execution_forks;
+        let recipient = address!("2222222222222222222222222222222222222222");
+        let mut block: Block<Transaction> = Block::default();
+        block.header.timestamp = evm.fork_schedule.amsterdam_timestamp;
+        block.header.gas_limit = 100_000_000;
+        let tx = TransactionRequest::default().to(recipient);
+        // Fill distinct slots: execution gas stays below the cap but state gas
+        // requires a total transaction gas allowance greater than 2^24.
+        let mut code = Vec::new();
+        for slot in 0u16..800 {
+            code.extend_from_slice(&[0x60, 1, 0x61]);
+            code.extend_from_slice(&slot.to_be_bytes());
+            code.push(0x55);
+        }
+        let mut db = InMemoryDB::default();
+        db.insert_account_info(
+            recipient,
+            AccountInfo::default().with_code(Bytecode::new_raw(code.into())),
+        );
+        let result = evm
+            .get_context(&tx, &block, false)
+            .with_db(db)
+            .build_mainnet()
+            .replay()
+            .unwrap()
+            .result;
+        assert!(result.is_success(), "{result:?}");
+        assert!(
+            result.tx_gas_used() > eip7825::TX_GAS_LIMIT_CAP,
+            "{result:?}"
         );
     }
 }

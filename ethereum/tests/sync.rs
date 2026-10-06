@@ -29,5 +29,8 @@ async fn test_sync() {
     let client = setup().await;
 
     let block = client.block_recv.unwrap().recv().await.unwrap();
-    assert_eq!(block.header.number, 17923112_u64);
+    assert_eq!(
+        block.block_hash(),
+        b256!("71305d343b77fa1444cf825353974dacfd7ba0813e085ea87a02ec261d66262a")
+    );
 }

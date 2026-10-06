@@ -509,7 +509,7 @@ export type Config = {
  * 
  * @remarks
  * Networks are organized by their network kind:
- * - Ethereum networks: "mainnet", "sepolia", "holesky", "hoodi"
+ * - Ethereum networks: "mainnet", "sepolia", "hoodi", "plataberget"
  * - OP Stack networks: "op-mainnet", "base", "worldchain", "zora", "unichain"
  * - Linea networks: "linea", "linea-sepolia"
  * 
@@ -535,7 +535,7 @@ export type Network =
   | "mainnet"      // Ethereum mainnet (chain ID: 1)
   | "goerli"       // Goerli testnet (deprecated)
   | "sepolia"      // Sepolia testnet (chain ID: 11155111)
-  | "holesky"      // Holesky testnet (chain ID: 17000)
+  | "plataberget"  // Platåberget testnet (chain ID: 7091047534)
   | "hoodi"        // Hoodi testnet (chain ID: 560048)
   // OP Stack networks
   | "op-mainnet"   // OP Mainnet (chain ID: 10)

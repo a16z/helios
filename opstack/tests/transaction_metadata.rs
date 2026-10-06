@@ -44,6 +44,7 @@ fn full_block(deposit: bool) -> Block<Transaction> {
             block_hash: Some(block.header.hash),
             block_number: Some(0),
             transaction_index: Some(0),
+            block_timestamp: Some(u64::MAX),
             effective_gas_price: Some(u128::MAX),
         },
         deposit_nonce: Some(9999),
@@ -65,6 +66,7 @@ fn accepts_deposits_and_signed_transactions_and_normalizes_unproven_fields() {
         if deposit {
             assert_eq!(tx.inner.effective_gas_price, Some(0));
         }
+        assert_eq!(tx.inner.block_timestamp, Some(block.header.timestamp));
         assert!(tx.deposit_nonce.is_none());
         assert!(tx.deposit_receipt_version.is_none());
     }
