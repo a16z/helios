@@ -29,7 +29,7 @@ use crate::EthereumClient;
 pub struct EthereumClientBuilder<DB: Database> {
     network: Option<Network>,
     consensus_rpc: Option<Url>,
-    execution_rpc: Option<Url>,
+    execution_rpc: Option<Vec<Url>>,
     verifiable_api: Option<Url>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -84,11 +84,26 @@ impl<DB: Database> EthereumClientBuilder<DB> {
     }
 
     pub fn execution_rpc<T: IntoUrl>(mut self, execution_rpc: T) -> Result<Self> {
-        self.execution_rpc = Some(
-            execution_rpc
-                .into_url()
-                .map_err(|_| eyre!("Invalid execution RPC URL"))?,
-        );
+        self.execution_rpc = Some(vec![execution_rpc
+            .into_url()
+            .map_err(|_| eyre!("Invalid execution RPC URL"))?]);
+        Ok(self)
+    }
+
+    /// Sets several execution RPC endpoints. They are ranked by latency and reliability and
+    /// requests automatically fail over between them.
+    pub fn execution_rpcs<T: IntoUrl>(
+        mut self,
+        execution_rpcs: impl IntoIterator<Item = T>,
+    ) -> Result<Self> {
+        let urls = execution_rpcs
+            .into_iter()
+            .map(|u| u.into_url().map_err(|_| eyre!("Invalid execution RPC URL")))
+            .collect::<Result<Vec<_>>>()?;
+        if urls.is_empty() {
+            return Err(eyre!("At least one execution RPC URL is required"));
+        }
+        self.execution_rpc = Some(urls);
         Ok(self)
     }
 
@@ -162,7 +177,7 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         let execution_rpc = self
             .execution_rpc
             .or_else(|| self.config.as_ref().and_then(|c| c.execution_rpc.clone()))
-            .or(base_config.execution_rpc);
+            .or(base_config.execution_rpc.map(|url| vec![url]));
 
         let verifiable_api = self
             .verifiable_api
@@ -278,10 +293,10 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         } else {
             let block_provider = BlockCache::<Ethereum>::new();
             // Create EIP-2935 historical block provider
-            let rpc_url = config.execution_rpc.as_ref().unwrap().clone();
+            let rpc_urls = config.execution_rpc.as_ref().unwrap().clone();
             let historical_provider = Eip2935Provider::new();
-            let execution = RpcExecutionProvider::with_historical_provider(
-                rpc_url,
+            let execution = RpcExecutionProvider::with_historical_provider_and_urls(
+                rpc_urls,
                 block_provider,
                 historical_provider,
                 config.execution_forks,

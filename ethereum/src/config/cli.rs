@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// Cli Config
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CliConfig {
-    pub execution_rpc: Option<Url>,
+    pub execution_rpc: Option<Vec<Url>>,
     pub verifiable_api: Option<Url>,
     pub consensus_rpc: Option<Url>,
     pub checkpoint: Option<B256>,
@@ -25,8 +25,9 @@ impl CliConfig {
     pub fn as_provider(&self, network: &str) -> Serialized<HashMap<&str, Value>> {
         let mut user_dict = HashMap::new();
 
-        if let Some(rpc) = &self.execution_rpc {
-            user_dict.insert("execution_rpc", Value::from(rpc.to_string()));
+        if let Some(rpcs) = &self.execution_rpc {
+            let rpcs: Vec<String> = rpcs.iter().map(|u| u.to_string()).collect();
+            user_dict.insert("execution_rpc", Value::from(rpcs));
         }
 
         if let Some(api) = &self.verifiable_api {
