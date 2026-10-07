@@ -54,6 +54,9 @@ pub type SubEventRx<N> = Receiver<SubscriptionEvent<N>>;
 
 #[derive(Debug, Error)]
 pub enum EvmError {
+    #[error("chain reorganized during execution; retry the request")]
+    Reorg,
+
     #[error("execution reverted: {}", display_revert(.0))]
     Revert(Option<Bytes>),
 

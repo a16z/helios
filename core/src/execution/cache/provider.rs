@@ -55,16 +55,14 @@ where
         with_code: bool,
         block_id: BlockId,
     ) -> Result<Account> {
-        let block_hash = match block_id {
-            BlockId::Hash(hash) => hash.into(),
-            _ => self
-                .inner
-                .get_block(block_id, false)
-                .await?
-                .ok_or_else(|| eyre!("block not found"))?
-                .header()
-                .hash(),
-        };
+        // Cached proofs can outlive a reorg; authenticate the block even on cache hits.
+        let block_hash = self
+            .inner
+            .get_block(block_id, false)
+            .await?
+            .ok_or_else(|| eyre!("canonical block not found"))?
+            .header()
+            .hash();
 
         let cached = self.cache.get_account(address, slots, block_hash);
 
@@ -124,6 +122,10 @@ where
     N: NetworkSpec,
     P: ExecutionProvider<N>,
 {
+    async fn reorg_generation(&self) -> u64 {
+        self.inner.reorg_generation().await
+    }
+
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {
         self.inner.push_block(block, block_id).await
     }

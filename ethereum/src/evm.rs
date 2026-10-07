@@ -55,6 +55,22 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         validate_tx: bool,
         state_overrides: Option<StateOverride>,
     ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
+        let generation = self.execution.reorg_generation().await;
+        let result = self
+            .transact_at_block(tx, validate_tx, state_overrides)
+            .await;
+        if self.execution.reorg_generation().await != generation {
+            return Err(EvmError::Reorg);
+        }
+        result
+    }
+
+    async fn transact_at_block(
+        &mut self,
+        tx: &TransactionRequest,
+        validate_tx: bool,
+        state_overrides: Option<StateOverride>,
+    ) -> Result<(ExecutionResult, HashMap<Address, Account>), EvmError> {
         let block = self
             .execution
             .get_block(self.block_id, false)

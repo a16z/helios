@@ -4116,6 +4116,7 @@ dependencies = [
  "getrandom 0.4.3",
  "helios-common",
  "helios-ethereum",
+ "helios-opstack",
  "helios-test-utils",
  "helios-verifiable-api-client",
  "hex",
