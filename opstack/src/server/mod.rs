@@ -1,8 +1,12 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use alloy::primitives::Address;
 use axum::{extract::State, routing::get, Json, Router};
-use eyre::Result;
+use eyre::{eyre, Result};
 use tokio::{
     sync::{
         mpsc::{channel, Receiver},
@@ -26,10 +30,11 @@ pub async fn start_server(
     signer: Address,
     replica_urls: Vec<Url>,
 ) -> Result<()> {
+    let signer = Arc::new(Mutex::new(signer));
     let state = Arc::new(RwLock::new(ServerState::new(
         gossip_addr,
         chain_id,
-        signer,
+        signer.clone(),
         replica_urls,
     )?));
 
@@ -72,11 +77,12 @@ impl ServerState {
     pub fn new(
         addr: SocketAddr,
         chain_id: u64,
-        signer: Address,
+        signer: Arc<Mutex<Address>>,
         replica_urls: Vec<Url>,
     ) -> Result<Self> {
         let (send, commitment_recv) = channel(256);
-        poller::start(replica_urls, signer, chain_id, send.clone());
+        let initial_signer = *signer.lock().map_err(|_| eyre!("failed to lock signer"))?;
+        poller::start(replica_urls, initial_signer, chain_id, send.clone());
         let handler = BlockHandler::new(signer, chain_id, send);
         let gossip = GossipService::new(addr, chain_id, handler);
         gossip.start()?;
