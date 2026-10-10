@@ -33,6 +33,13 @@ impl SequencerCommitment {
         let mut decoder = snap::raw::Decoder::new();
         let decompressed = decoder.decompress_vec(data)?;
 
+        if decompressed.len() < 65 {
+            eyre::bail!(
+                "decompressed message too short: {} bytes (minimum 65 required)",
+                decompressed.len()
+            );
+        }
+
         let signature = Signature::try_from(&decompressed[..65])?;
         let data = Bytes::from(decompressed[65..].to_vec());
 
@@ -73,4 +80,35 @@ fn signature_msg(data: &[u8], chain_id: u64) -> B256 {
     ];
 
     keccak256(signing_data.concat())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_decompressed_message_returns_error() {
+        let short = vec![0u8; 10];
+        let mut encoder = snap::raw::Encoder::new();
+        let compressed = encoder.compress_vec(&short).unwrap();
+
+        let result = SequencerCommitment::new(&compressed);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn empty_input_returns_error() {
+        let result = SequencerCommitment::new(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn short_message_after_valid_compression_returns_error() {
+        let data = vec![0u8; 64];
+        let mut encoder = snap::raw::Encoder::new();
+        let compressed = encoder.compress_vec(&data).unwrap();
+
+        let result = SequencerCommitment::new(&compressed);
+        assert!(result.is_err());
+    }
 }
