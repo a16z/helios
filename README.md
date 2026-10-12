@@ -52,13 +52,13 @@ To run Helios on Linea, run the command below, replacing `$ETH_RPC_URL` with an 
 helios linea --execution-rpc $ETH_RPC_URL
 ```
 
-`$ETH_RPC_URL` must be a [supported Ethereum Execution API Provider](#supported-execution-api-providers) that provides the eth_getProof endpoint. We recommend using Alchemy or other compatible providers.
+`$ETH_RPC_URL` must be an Ethereum execution RPC provider that supports the eth_getProof endpoint. We recommend using Alchemy or other compatible providers.
 
 Helios will now run a local RPC server at `http://127.0.0.1:8545`.
 
 ### Additional Ethereum CLI Options <a id="additional-cli-options"></a>
 
-`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+`--consensus-rpc` or `-c` can be used to set a custom consensus layer rpc endpoint. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, mainnet defaults to `https://ethereum.operationsolarstorm.org`, which is run by us.
 
 `--checkpoint` or `-w` can be used to set a custom weak subjectivity checkpoint. This must be equal to the first beacon block hash of an epoch. Weak subjectivity checkpoints are the root of trust in the system. If this is set to a malicious value, an attacker can cause the client to sync to the wrong chain. Helios sets a default value initially, then caches the most recent finalized block it has seen for later use.
 
