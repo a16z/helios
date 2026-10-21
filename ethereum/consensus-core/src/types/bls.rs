@@ -25,8 +25,8 @@ pub struct Signature {
 
 impl PublicKey {
     pub(crate) fn point(&self) -> Result<G1Affine> {
-        let bytes = self.inner.inner.to_vec();
-        let bytes = bytes.as_slice().try_into()?;
+        let bytes: &[u8] = &self.inner.inner;
+        let bytes = bytes.try_into()?;
         let point_opt = G1Affine::from_compressed(bytes);
         if point_opt.is_some().into() {
             Ok(point_opt.unwrap())
@@ -53,8 +53,8 @@ impl Signature {
     }
 
     fn point(&self) -> Result<G2Affine> {
-        let bytes = self.inner.inner.to_vec();
-        let bytes = bytes.as_slice().try_into()?;
+        let bytes: &[u8] = &self.inner.inner;
+        let bytes = bytes.try_into()?;
         let point_opt = G2Affine::from_compressed(bytes);
         if point_opt.is_some().into() {
             Ok(point_opt.unwrap())
