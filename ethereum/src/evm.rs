@@ -20,7 +20,7 @@ use helios_common::{
     fork_schedule::ForkSchedule,
     types::{Account, EvmError},
 };
-use helios_core::execution::errors::ExecutionError;
+use helios_core::execution::errors::{is_verification_failure, ExecutionError};
 use helios_revm_utils::proof_db::ProofDB;
 
 use crate::spec::Ethereum;
@@ -67,7 +67,16 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         let pinned_block: RpcBlockHash = block.header.hash.into();
 
         let mut db = ProofDB::new(pinned_block, self.execution.clone(), state_overrides);
-        _ = db.state.prefetch_state(tx, validate_tx).await;
+        // The prefetch is only a hint: on failure the EVM run below fetches missing state on
+        // demand. A proof verification failure, however, means the RPC served data that does not
+        // verify, so report it instead of letting a later, unrelated error take its place.
+        if let Err(err) = db.state.prefetch_state(tx, validate_tx).await {
+            if let Ok(EvmError::RpcError(err)) = err.downcast::<EvmError>() {
+                if is_verification_failure(&err) {
+                    return Err(EvmError::RpcError(err));
+                }
+            }
+        }
 
         // Track iterations for debugging
         let mut iteration: u32 = 0;

@@ -19,7 +19,7 @@ use alloy::{
 use alloy_trie::{TrieAccount, KECCAK_EMPTY};
 use async_trait::async_trait;
 use eyre::{eyre, Result};
-use futures::future::{join_all, try_join_all};
+use futures::{future::try_join_all, stream::FuturesUnordered, StreamExt};
 use reqwest::Url;
 
 use helios_common::{
@@ -33,7 +33,7 @@ use helios_common::{
 
 use crate::execution::{
     constants::PARALLEL_QUERY_BATCH_SIZE,
-    errors::ExecutionError,
+    errors::{is_verification_failure, ExecutionError},
     proof::{
         verify_account_proof, verify_authenticated_block_receipts, verify_code_hash_proof,
         verify_storage_proof,
@@ -515,14 +515,102 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Executi
                 async move { (account.address, account_fut.await) }
             });
 
-            let account_chunk = join_all(account_chunk_futs).await;
-
-            for (address, value) in account_chunk {
-                let account = value?;
-                account_map.insert(address, account);
-            }
+            account_map.extend(collect_accounts(account_chunk_futs).await?);
         }
 
         Ok(account_map)
+    }
+}
+
+/// Awaits a batch of account fetches concurrently, consuming results as they complete.
+///
+/// A proof verification failure is returned as soon as it is detected, without waiting for the
+/// remaining requests, and is never masked by an unrelated (e.g. transport) error for another
+/// account in the same batch. If no verification failure occurs, the first other error to
+/// complete is returned.
+async fn collect_accounts<T, F>(futs: impl IntoIterator<Item = F>) -> Result<Vec<(Address, T)>>
+where
+    F: std::future::Future<Output = (Address, Result<T>)>,
+{
+    let mut futs = futs.into_iter().collect::<FuturesUnordered<_>>();
+    let mut accounts = Vec::with_capacity(futs.len());
+    let mut first_err = None;
+
+    while let Some((address, value)) = futs.next().await {
+        match value {
+            Ok(account) => accounts.push((address, account)),
+            Err(err) if is_verification_failure(&err) => return Err(err),
+            Err(err) => {
+                first_err.get_or_insert(err);
+            }
+        }
+    }
+
+    match first_err {
+        Some(err) => Err(err),
+        None => Ok(accounts),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::{pending, ready};
+
+    use futures::{future::Either, FutureExt};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn collect_accounts_prefers_verification_failure_over_earlier_error() {
+        let a = Address::repeat_byte(0xaa);
+        let b = Address::repeat_byte(0xbb);
+        let futs = vec![
+            ready((a, Err::<(), _>(eyre!("503 Service Unavailable")))),
+            ready((b, Err(ExecutionError::InvalidAccountProof(b).into()))),
+        ];
+
+        let err = collect_accounts(futs).await.unwrap_err();
+        assert!(matches!(
+            err.downcast_ref::<ExecutionError>(),
+            Some(ExecutionError::InvalidAccountProof(addr)) if *addr == b
+        ));
+    }
+
+    #[tokio::test]
+    async fn collect_accounts_returns_verification_failure_without_waiting_for_stalled_requests() {
+        let b = Address::repeat_byte(0xbb);
+        let futs = vec![
+            Either::Left(pending::<(Address, Result<()>)>()),
+            Either::Right(ready((
+                b,
+                Err(ExecutionError::InvalidStorageProof(b, B256::ZERO).into()),
+            ))),
+        ];
+
+        let err = collect_accounts(futs)
+            .now_or_never()
+            .expect("must not wait for the stalled request")
+            .unwrap_err();
+        assert!(is_verification_failure(&err));
+    }
+
+    #[tokio::test]
+    async fn collect_accounts_returns_other_errors_and_successes() {
+        let a = Address::repeat_byte(0xaa);
+        let b = Address::repeat_byte(0xbb);
+
+        let ok = collect_accounts(vec![ready((a, Ok(1u8))), ready((b, Ok(2u8)))])
+            .await
+            .unwrap();
+        assert_eq!(ok, vec![(a, 1), (b, 2)]);
+
+        let err = collect_accounts(vec![
+            ready((a, Ok(1u8))),
+            ready((b, Err(eyre!("request timed out")))),
+        ])
+        .await
+        .unwrap_err();
+        assert!(!is_verification_failure(&err));
+        assert_eq!(err.to_string(), "request timed out");
     }
 }
