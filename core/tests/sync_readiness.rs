@@ -13,7 +13,7 @@ use alloy::{
 };
 use async_trait::async_trait;
 use eyre::{eyre, Result};
-use helios_common::execution_provider::BlockProvider;
+use helios_common::{execution_provider::BlockProvider, types::CheckpointInfo};
 use helios_core::{
     client::{api::HeliosApi, node::Node},
     consensus::{Consensus, TrustedBlockRef},
@@ -42,6 +42,9 @@ impl Consensus<Block> for TestConsensus {
         self.finalized.take()
     }
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
+        None
+    }
+    fn checkpoint_info_recv(&self) -> Option<watch::Receiver<Option<CheckpointInfo>>> {
         None
     }
     fn expected_highest_block(&self) -> u64 {

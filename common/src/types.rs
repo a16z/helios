@@ -52,6 +52,16 @@ pub enum SubscriptionEvent<N: NetworkSpec> {
 
 pub type SubEventRx<N> = Receiver<SubscriptionEvent<N>>;
 
+/// A finalized beacon chain checkpoint along with the timestamp of its slot.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckpointInfo {
+    /// Beacon block root of the checkpoint.
+    pub hash: B256,
+    /// Unix timestamp (in seconds) of the checkpoint's slot.
+    pub timestamp: u64,
+}
+
 #[derive(Debug, Error)]
 pub enum EvmError {
     #[error("execution reverted: {}", display_revert(.0))]

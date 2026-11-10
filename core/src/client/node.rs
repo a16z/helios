@@ -23,7 +23,7 @@ use helios_common::{
     execution_provider::ExecutionProvider,
     fork_schedule::ForkSchedule,
     network_spec::NetworkSpec,
-    types::{EvmError, SubEventRx, SubscriptionEvent, SubscriptionType},
+    types::{CheckpointInfo, EvmError, SubEventRx, SubscriptionEvent, SubscriptionType},
 };
 
 use crate::consensus::{Consensus, TrustedBlockRef};
@@ -617,6 +617,13 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
     async fn current_checkpoint(&self) -> Result<Option<B256>> {
         self.consensus
             .checkpoint_recv()
+            .map(|recv| *recv.borrow())
+            .ok_or_else(|| eyre!("Checkpoints not supported"))
+    }
+
+    async fn current_checkpoint_info(&self) -> Result<Option<CheckpointInfo>> {
+        self.consensus
+            .checkpoint_info_recv()
             .map(|recv| *recv.borrow())
             .ok_or_else(|| eyre!("Checkpoints not supported"))
     }

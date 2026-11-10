@@ -14,6 +14,7 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{watch, Mutex};
 
+use helios_common::types::CheckpointInfo;
 use helios_consensus_core::{
     apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
     consensus_spec::ConsensusSpec,
@@ -43,6 +44,7 @@ pub struct ConsensusClient<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> {
     pub block_recv: Option<Receiver<TrustedBlockRef<Block<Transaction>>>>,
     pub finalized_block_recv: Option<watch::Receiver<Option<TrustedBlockRef<Block<Transaction>>>>>,
     pub checkpoint_recv: watch::Receiver<Option<B256>>,
+    pub checkpoint_info_recv: watch::Receiver<Option<CheckpointInfo>>,
     sync_status_recv: Mutex<watch::Receiver<ConsensusSyncStatus>>,
     shutdown_send: watch::Sender<bool>,
     genesis_time: u64,
@@ -58,6 +60,7 @@ pub struct Inner<S: ConsensusSpec, R: ConsensusRpc<S>> {
     block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
     finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
     checkpoint_send: watch::Sender<Option<B256>>,
+    checkpoint_info_send: watch::Sender<Option<CheckpointInfo>>,
     pub config: Arc<Config>,
     phantom: PhantomData<S>,
 }
@@ -117,6 +120,10 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> Consensus<Block>
         Some(self.checkpoint_recv.clone())
     }
 
+    fn checkpoint_info_recv(&self) -> Option<watch::Receiver<Option<CheckpointInfo>>> {
+        Some(self.checkpoint_info_recv.clone())
+    }
+
     fn expected_highest_block(&self) -> u64 {
         u64::MAX
     }
@@ -152,6 +159,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
         let (block_send, block_recv) = channel(256);
         let (finalized_block_send, finalized_block_recv) = watch::channel(None);
         let (checkpoint_send, checkpoint_recv) = watch::channel(None);
+        let (checkpoint_info_send, checkpoint_info_recv) = watch::channel(None);
         let (sync_status_send, sync_status_recv) = watch::channel(ConsensusSyncStatus::Syncing);
         let (shutdown_send, shutdown_recv) = watch::channel(false);
 
@@ -177,6 +185,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
                 block_send,
                 finalized_block_send,
                 checkpoint_send,
+                checkpoint_info_send,
                 config.clone(),
             );
 
@@ -249,6 +258,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>, DB: Database> ConsensusClient<S, R, D
             block_recv: Some(block_recv),
             finalized_block_recv: Some(finalized_block_recv),
             checkpoint_recv,
+            checkpoint_info_recv,
             sync_status_recv: Mutex::new(sync_status_recv),
             shutdown_send,
             genesis_time,
@@ -334,6 +344,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         block_send: Sender<TrustedBlockRef<Block<Transaction>>>,
         finalized_block_send: watch::Sender<Option<TrustedBlockRef<Block<Transaction>>>>,
         checkpoint_send: watch::Sender<Option<B256>>,
+        checkpoint_info_send: watch::Sender<Option<CheckpointInfo>>,
         config: Arc<Config>,
     ) -> Inner<S, R> {
         let rpc = R::new(rpc);
@@ -345,6 +356,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             block_send,
             finalized_block_send,
             checkpoint_send,
+            checkpoint_info_send,
             config,
             phantom: PhantomData,
         }
@@ -379,6 +391,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.last_checkpoint = None;
 
         self.bootstrap(checkpoint).await?;
+        let checkpoint_slot = self.store.finalized_header.beacon().slot;
 
         let updates: Vec<Update<S>> = self.get_updates().await?;
 
@@ -391,8 +404,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.apply_finality_update(&finality_update);
 
         if self.last_checkpoint.is_none() {
-            self.last_checkpoint = Some(checkpoint);
-            let _ = self.checkpoint_send.send(self.last_checkpoint);
+            self.set_checkpoint(checkpoint, checkpoint_slot);
         }
 
         debug!(
@@ -553,9 +565,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
     pub fn apply_update(&mut self, update: &Update<S>) {
         let new_checkpoint = apply_update::<S>(&mut self.store, update);
-        if new_checkpoint.is_some() {
-            self.last_checkpoint = new_checkpoint;
-            let _ = self.checkpoint_send.send(self.last_checkpoint);
+        if let Some(checkpoint) = new_checkpoint {
+            self.set_checkpoint(checkpoint, self.store.finalized_header.beacon().slot);
         }
     }
 
@@ -565,9 +576,8 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         let new_checkpoint = apply_finality_update::<S>(&mut self.store, update);
         let new_finalized_slot = self.store.finalized_header.beacon().slot;
         let new_optimistic_slot = self.store.optimistic_header.beacon().slot;
-        if new_checkpoint.is_some() {
-            self.last_checkpoint = new_checkpoint;
-            let _ = self.checkpoint_send.send(self.last_checkpoint);
+        if let Some(checkpoint) = new_checkpoint {
+            self.set_checkpoint(checkpoint, new_finalized_slot);
         }
         if new_finalized_slot != prev_finalized_slot {
             self.log_finality_update(update);
@@ -575,6 +585,16 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         if new_optimistic_slot != prev_optimistic_slot {
             self.log_optimistic_update(update)
         }
+    }
+
+    fn set_checkpoint(&mut self, checkpoint: B256, slot: u64) {
+        self.last_checkpoint = Some(checkpoint);
+        // publish the info first so it is already current when hash subscribers are notified
+        let _ = self.checkpoint_info_send.send(Some(CheckpointInfo {
+            hash: checkpoint,
+            timestamp: self.slot_timestamp(slot),
+        }));
+        let _ = self.checkpoint_send.send(self.last_checkpoint);
     }
 
     fn log_finality_update(&self, update: &FinalityUpdate<S>) {
@@ -691,12 +711,14 @@ mod tests {
         let (block_send, _) = channel(256);
         let (finalized_block_send, _) = watch::channel(None);
         let (channel_send, _) = watch::channel(None);
+        let (checkpoint_info_send, _) = watch::channel(None);
 
         let mut client = Inner::new(
             "testdata/",
             block_send,
             finalized_block_send,
             channel_send,
+            checkpoint_info_send,
             Arc::new(config),
         );
 
@@ -896,6 +918,26 @@ mod tests {
             err.to_string(),
             ConsensusError::InvalidSignature.to_string()
         );
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_info() {
+        use tree_hash::TreeHash;
+
+        let mut client = get_client(false, false).await;
+        let checkpoint = client.store.finalized_header.beacon().tree_hash_root();
+        let checkpoint_info_recv = client.checkpoint_info_send.subscribe();
+
+        client.sync(checkpoint).await.unwrap();
+
+        let info = checkpoint_info_recv.borrow().unwrap();
+        assert_eq!(Some(info.hash), client.last_checkpoint);
+        assert_eq!(
+            info.hash,
+            client.store.finalized_header.beacon().tree_hash_root()
+        );
+        // finalized slot 7109344 from the finality update, mainnet genesis time
+        assert_eq!(info.timestamp, 1606824023 + 7109344 * 12);
     }
 
     #[tokio::test]

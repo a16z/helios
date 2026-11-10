@@ -5,6 +5,8 @@ use eyre::Result;
 use serde::Serialize;
 use tokio::sync::{mpsc, watch};
 
+use helios_common::types::CheckpointInfo;
+
 #[derive(Debug, Clone, Serialize)]
 pub enum TrustedBlockRef<B> {
     Full(B),
@@ -31,6 +33,7 @@ pub trait Consensus<
     fn block_recv(&mut self) -> Option<mpsc::Receiver<TrustedBlockRef<B>>>;
     fn finalized_block_recv(&mut self) -> Option<watch::Receiver<Option<TrustedBlockRef<B>>>>;
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>>;
+    fn checkpoint_info_recv(&self) -> Option<watch::Receiver<Option<CheckpointInfo>>>;
     fn expected_highest_block(&self) -> u64;
     fn chain_id(&self) -> u64;
     fn shutdown(&self) -> Result<()>;

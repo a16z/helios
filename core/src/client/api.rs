@@ -11,7 +11,7 @@ use eyre::Result;
 
 use helios_common::{
     network_spec::NetworkSpec,
-    types::{SubEventRx, SubscriptionType},
+    types::{CheckpointInfo, SubEventRx, SubscriptionType},
 };
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -90,5 +90,6 @@ pub trait HeliosApi<N: NetworkSpec>: Send + Sync + 'static {
     async fn syncing(&self) -> Result<SyncStatus>;
     // checkpoint
     async fn current_checkpoint(&self) -> Result<Option<B256>>;
+    async fn current_checkpoint_info(&self) -> Result<Option<CheckpointInfo>>;
     fn new_checkpoints_recv(&self) -> Result<tokio::sync::watch::Receiver<Option<B256>>>;
 }

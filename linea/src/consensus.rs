@@ -17,6 +17,7 @@ use tokio::sync::{
     watch,
 };
 
+use helios_common::types::CheckpointInfo;
 use helios_core::{
     consensus::{Consensus, TrustedBlockRef},
     time::{interval, SystemTime, UNIX_EPOCH},
@@ -92,6 +93,10 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
     }
 
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
+        None
+    }
+
+    fn checkpoint_info_recv(&self) -> Option<watch::Receiver<Option<CheckpointInfo>>> {
         None
     }
 
