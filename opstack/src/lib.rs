@@ -32,6 +32,9 @@ impl SequencerCommitment {
     pub fn new(data: &[u8]) -> Result<Self> {
         let mut decoder = snap::raw::Decoder::new();
         let decompressed = decoder.decompress_vec(data)?;
+        if decompressed.len() < 65 {
+            eyre::bail!("sequencer commitment shorter than a signature");
+        }
 
         let signature = Signature::try_from(&decompressed[..65])?;
         let data = Bytes::from(decompressed[65..].to_vec());
@@ -73,4 +76,33 @@ fn signature_msg(data: &[u8], chain_id: u64) -> B256 {
     ];
 
     keccak256(signing_data.concat())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn compress(data: &[u8]) -> Vec<u8> {
+        snap::raw::Encoder::new().compress_vec(data).unwrap()
+    }
+
+    #[test]
+    fn rejects_messages_shorter_than_a_signature() {
+        for len in [0, 10, 64] {
+            assert!(SequencerCommitment::new(&compress(&vec![0u8; len])).is_err());
+        }
+    }
+
+    #[test]
+    fn splits_signature_and_data() {
+        let mut msg = vec![0u8; 65];
+        msg[0] = 1;
+        msg[32] = 1;
+        msg.extend_from_slice(&[0xaa, 0xbb]);
+
+        let commitment = SequencerCommitment::new(&compress(&msg)).unwrap();
+
+        assert_eq!(commitment.data, Bytes::from(vec![0xaa, 0xbb]));
+        assert_eq!(commitment.signature.as_bytes()[..64], msg[..64]);
+    }
 }
