@@ -8,7 +8,7 @@ pub struct BlockHandler {
     chain_id: u64,
     signer: Address,
     commitment_sender: Sender<SequencerCommitment>,
-    blocks_v3_topic: IdentTopic,
+    blocks_v4_topic: IdentTopic,
 }
 
 impl BlockHandler {
@@ -17,12 +17,12 @@ impl BlockHandler {
             chain_id,
             signer,
             commitment_sender: sender,
-            blocks_v3_topic: IdentTopic::new(format!("/optimism/{chain_id}/2/blocks")),
+            blocks_v4_topic: IdentTopic::new(format!("/optimism/{chain_id}/3/blocks")),
         }
     }
 
     pub fn topics(&self) -> Vec<TopicHash> {
-        vec![self.blocks_v3_topic.hash()]
+        vec![self.blocks_v4_topic.hash()]
     }
 
     pub fn handle(&self, msg: Message) -> MessageAcceptance {

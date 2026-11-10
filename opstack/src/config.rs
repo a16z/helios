@@ -227,8 +227,9 @@ impl SuperchainForkSchedule {
             fjord_timestamp: 1720627201,
             granite_timestamp: 1726070401,
             holocene_timestamp: 1736445601,
-            isthmus_timestamp: 1744905600,
+            isthmus_timestamp: 1746806401,
             jovian_timestamp: 1764691201,
+            karst_timestamp: 1783526401,
 
             ..Default::default()
         }
@@ -248,6 +249,7 @@ impl SuperchainForkSchedule {
             holocene_timestamp: 1732633200, // 2024-11-26 15:00:00 UTC
             isthmus_timestamp: 1744905600,  // 2025-04-17 16:00:00 UTC
             jovian_timestamp: 1763568001,   // 2025-11-19 16:00:01 UTC
+            karst_timestamp: 1781712001,    // 2026-06-17 16:00:01 UTC
 
             ..Default::default()
         }
