@@ -24,6 +24,7 @@ use tokio::sync::{
 };
 use tracing::{debug, error, warn};
 
+use helios_common::types::CheckpointInfo;
 use helios_consensus_core::consensus_spec::MainnetConsensusSpec;
 use helios_core::consensus::{Consensus, TrustedBlockRef};
 use helios_core::execution::proof::{verify_account_proof, verify_mpt_proof};
@@ -108,6 +109,10 @@ impl Consensus<Block<Transaction>> for ConsensusClient {
     }
 
     fn checkpoint_recv(&self) -> Option<watch::Receiver<Option<B256>>> {
+        None
+    }
+
+    fn checkpoint_info_recv(&self) -> Option<watch::Receiver<Option<CheckpointInfo>>> {
         None
     }
 
