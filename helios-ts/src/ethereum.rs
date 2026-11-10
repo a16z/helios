@@ -24,6 +24,18 @@ use crate::map_err;
 use crate::storage::LocalStorageDB;
 use crate::subscription::Subscription;
 
+/// Resolves the user supplied checkpoint, falling back to the network default
+/// only when none was given. A checkpoint that is present but does not parse
+/// is an error rather than being silently replaced by the (possibly stale)
+/// default.
+fn parse_checkpoint(checkpoint: Option<&str>, default: B256) -> Result<B256, String> {
+    match checkpoint {
+        None => Ok(default),
+        Some(c) => B256::from_hex(c.strip_prefix("0x").unwrap_or(c))
+            .map_err(|e| format!("Invalid checkpoint {c:?}: {e}")),
+    }
+}
+
 #[derive(Clone)]
 pub enum DatabaseType {
     Memory(ConfigDB),
@@ -95,11 +107,8 @@ impl EthereumClient {
         let chain_id = base.chain.chain_id;
 
         let checkpoint = Some(
-            checkpoint
-                .as_ref()
-                .map(|c| c.strip_prefix("0x").unwrap_or(c.as_str()))
-                .and_then(|c| B256::from_hex(c).ok())
-                .unwrap_or(base.default_checkpoint),
+            parse_checkpoint(checkpoint.as_deref(), base.default_checkpoint)
+                .map_err(|e| JsError::new(&e))?,
         );
 
         let consensus_rpc = if let Some(rpc) = consensus_rpc {
@@ -507,5 +516,36 @@ impl EthereumClient {
         }
 
         self.inner.shutdown().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DEFAULT: B256 = B256::repeat_byte(0x11);
+    const ROOT: &str = "0x9b41a80f58c52068a00e8535b8d6704769c7577a5fd506af5e0c018687991d55";
+
+    #[test]
+    fn missing_checkpoint_uses_the_network_default() {
+        assert_eq!(parse_checkpoint(None, DEFAULT), Ok(DEFAULT));
+    }
+
+    #[test]
+    fn valid_checkpoint_is_used_with_or_without_prefix() {
+        let expected = B256::from_hex(ROOT).unwrap();
+        assert_eq!(parse_checkpoint(Some(ROOT), DEFAULT), Ok(expected));
+        assert_eq!(
+            parse_checkpoint(Some(ROOT.trim_start_matches("0x")), DEFAULT),
+            Ok(expected)
+        );
+    }
+
+    #[test]
+    fn malformed_checkpoint_is_an_error_instead_of_the_default() {
+        for bad in ["0x...", "", "0x", "0x1234", "not a checkpoint"] {
+            let err = parse_checkpoint(Some(bad), DEFAULT).unwrap_err();
+            assert!(err.starts_with("Invalid checkpoint"), "{bad}: {err}");
+        }
     }
 }
