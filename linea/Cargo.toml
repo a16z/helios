@@ -28,3 +28,6 @@ helios-ethereum = { path = "../ethereum" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.37"
+
+[features]
+hickory-dns = ["reqwest/hickory-dns", "helios-core/hickory-dns", "helios-ethereum/hickory-dns"]
