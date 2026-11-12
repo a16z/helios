@@ -150,11 +150,11 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
             .map_err(|e| eyre!("Failed to construct logs URL: {}", e))?;
 
         let mut request = self.client.get(url.as_str());
-        if let Some(from_block) = filter.get_from_block() {
-            request = request.query(&[("fromBlock", U256::from(from_block))]);
+        if let Some(from_block) = filter.block_option.get_from_block() {
+            request = request.query(&[("fromBlock", from_block)]);
         }
-        if let Some(to_block) = filter.get_to_block() {
-            request = request.query(&[("toBlock", U256::from(to_block))]);
+        if let Some(to_block) = filter.block_option.get_to_block() {
+            request = request.query(&[("toBlock", to_block)]);
         }
         if let Some(block_hash) = filter.get_block_hash() {
             request = request.query(&[("blockHash", block_hash)]);
