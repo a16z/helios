@@ -9,7 +9,9 @@ async fn main() -> Result<()> {
     let home = home_dir().ok_or_else(|| eyre::eyre!("Could not find home directory"))?;
     let config_path = home.join(".helios/helios.toml");
     let config = Config::from_file(&config_path, "mainnet", &CliConfig::default());
-    println!("Constructed config: {config:#?}");
+    // Do not print the whole config: url::Url renders the full URL in its
+    // Debug output, which can expose RPC API keys in stdout/CI logs.
+    println!("Constructed config successfully");
 
     Ok(())
 }
