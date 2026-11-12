@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use alloy::{
     consensus::BlockHeader,
@@ -39,6 +39,60 @@ use crate::execution::{
 };
 
 use super::{historical::HistoricalBlockProvider, utils::ensure_logs_match_filter};
+
+
+/// Bind a returned RPC log to a proved receipt.
+///
+/// Receipt inclusion is proved separately via `verify_receipt_proof`. This
+/// check ensures the log's provenance metadata matches that receipt and that
+/// the event payload appears in the receipt's logs — so a response cannot
+/// re-key a valid receipt proof under a forged `transactionHash` or attach
+/// an unrelated `logIndex`/`blockHash` to a verified payload.
+fn verify_log_against_proved_receipt<N: NetworkSpec>(
+    log: &Log,
+    receipt: &N::ReceiptResponse,
+) -> Result<()> {
+    let tx_hash = log
+        .transaction_hash
+        .ok_or_else(|| eyre!("log missing transaction hash"))?;
+    let missing = || {
+        ExecutionError::MissingLog(tx_hash, U256::from(log.log_index.unwrap_or_default())).into()
+    };
+
+    if log.transaction_hash != Some(receipt.transaction_hash())
+        || log.block_hash != receipt.block_hash()
+        || log.block_number != receipt.block_number()
+        || log.transaction_index != receipt.transaction_index()
+    {
+        return Err(missing());
+    }
+
+    let receipt_logs = N::receipt_logs(receipt);
+    let log_encoded = rlp::encode(&log.inner);
+
+    // Prefer the occurrence that shares log_index when both sides carry one,
+    // so identical event payloads in one receipt cannot be rebound.
+    let expected = match log.log_index {
+        Some(idx) => receipt_logs
+            .iter()
+            .find(|l| l.log_index == Some(idx) && rlp::encode(&l.inner) == log_encoded)
+            .or_else(|| {
+                receipt_logs
+                    .iter()
+                    .find(|l| rlp::encode(&l.inner) == log_encoded)
+            }),
+        None => receipt_logs
+            .iter()
+            .find(|l| rlp::encode(&l.inner) == log_encoded),
+    }
+    .ok_or_else(missing)?;
+
+    if log.removed != expected.removed {
+        return Err(missing());
+    }
+
+    Ok(())
+}
 
 pub struct VerifiableApiExecutionProvider<
     N: NetworkSpec,
@@ -308,37 +362,21 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> LogProv
             receipt_proofs,
         } = self.api.get_logs(filter).await?;
 
-        // Map of tx_hash -> encoded receipt logs to avoid encoding multiple times
-        let mut txhash_encodedlogs_map: HashMap<B256, Vec<Vec<u8>>> = HashMap::new();
-
-        // Verify each log entry exists in the corresponding receipt logs
+        // Verify each log against its proved receipt: event payload membership
+        // and RPC provenance metadata (tx/block hash, block number, tx index).
         for log in &logs {
-            let tx_hash = log.transaction_hash.unwrap();
-            let log_encoded = rlp::encode(&log.inner);
+            let tx_hash = log
+                .transaction_hash
+                .ok_or_else(|| eyre!("log missing transaction hash"))?;
 
-            if let Entry::Vacant(e) = txhash_encodedlogs_map.entry(tx_hash) {
-                let TransactionReceiptResponse {
-                    receipt,
-                    receipt_proof: _,
-                } = receipt_proofs
-                    .get(&tx_hash)
-                    .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
+            let TransactionReceiptResponse {
+                receipt,
+                receipt_proof: _,
+            } = receipt_proofs
+                .get(&tx_hash)
+                .ok_or(ExecutionError::NoReceiptForTransaction(tx_hash))?;
 
-                let encoded_logs = N::receipt_logs(receipt)
-                    .iter()
-                    .map(|l| rlp::encode(&l.inner))
-                    .collect::<Vec<_>>();
-                e.insert(encoded_logs);
-            }
-            let receipt_logs_encoded = txhash_encodedlogs_map.get(&tx_hash).unwrap();
-
-            if !receipt_logs_encoded.contains(&log_encoded) {
-                return Err(ExecutionError::MissingLog(
-                    tx_hash,
-                    U256::from(log.log_index.unwrap()),
-                )
-                .into());
-            }
+            verify_log_against_proved_receipt::<N>(log, receipt)?;
         }
 
         // fetch required blocks
