@@ -157,8 +157,10 @@ struct EthereumArgs {
     rpc_port: Option<u16>,
     #[arg(short = 'w', long, env)]
     checkpoint: Option<B256>,
-    #[arg(short, long, env, value_parser = parse_url)]
-    execution_rpc: Option<Url>,
+    /// Execution RPC URL(s). Accepts a comma-separated list; endpoints are ranked and
+    /// requests fail over between them.
+    #[arg(short, long, env, value_parser = parse_url, value_delimiter = ',')]
+    execution_rpc: Option<Vec<Url>>,
     #[arg(short, long, env, value_parser = parse_url)]
     verifiable_api: Option<Url>,
     #[arg(short, long, env, value_parser = parse_url)]

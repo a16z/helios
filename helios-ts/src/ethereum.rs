@@ -114,7 +114,8 @@ impl EthereumClient {
             .map(|url| Url::parse(&url))
             .transpose()
             .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?
-            .or(base.execution_rpc);
+            .map(|url| vec![url])
+            .or(base.execution_rpc.map(|url| vec![url]));
 
         let verifiable_api = verifiable_api
             .map(|url| Url::parse(&url))
