@@ -15,12 +15,16 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::{watch, Mutex};
 
 use helios_consensus_core::{
-    apply_bootstrap, apply_finality_update, apply_update, calc_sync_period,
+    apply_bootstrap, apply_finality_update, apply_optimistic_update, apply_update,
+    calc_sync_period,
     consensus_spec::ConsensusSpec,
     errors::ConsensusError,
     expected_current_slot, get_bits,
-    types::{FinalityUpdate, Forks, LightClientHeader, LightClientStore, Update},
-    verify_bootstrap, verify_finality_update, verify_update,
+    types::{
+        FinalityUpdate, Forks, LightClientHeader, LightClientStore, OptimisticUpdate,
+        SyncAggregate, Update,
+    },
+    verify_bootstrap, verify_finality_update, verify_optimistic_update, verify_update,
 };
 use helios_core::consensus::{Consensus, TrustedBlockRef};
 use helios_core::time::{interval_at, Instant, SystemTime, UNIX_EPOCH};
@@ -441,6 +445,17 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         self.verify_finality_update(&finality_update)?;
         self.apply_finality_update(&finality_update);
 
+        // Finality updates only advance when finality changes, leaving the head stale
+        // for up to an epoch and potentially beyond the 60s age limit. Optimistic
+        // updates keep the head fresh each slot. On failure, the finality head remains.
+        match self.rpc.get_optimistic_update().await {
+            Ok(update) => match self.verify_optimistic_update(&update) {
+                Ok(()) => self.apply_optimistic_update(&update),
+                Err(err) => warn!(target: "helios::consensus", "invalid optimistic update: {err}"),
+            },
+            Err(err) => warn!(target: "helios::consensus", "optimistic update failed: {err}"),
+        }
+
         if self.store.next_sync_committee.is_none() {
             debug!(target: "helios::consensus", "checking for sync committee update");
             let current_period = calc_sync_period::<S>(self.store.finalized_header.beacon().slot);
@@ -541,6 +556,25 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         )
     }
 
+    fn verify_optimistic_update(&self, update: &OptimisticUpdate<S>) -> Result<()> {
+        verify_optimistic_update::<S>(
+            update,
+            self.expected_current_slot(),
+            &self.store,
+            self.config.chain.genesis_root,
+            &self.config.forks,
+        )
+    }
+
+    fn apply_optimistic_update(&mut self, update: &OptimisticUpdate<S>) {
+        let prev_optimistic_slot = self.store.optimistic_header.beacon().slot;
+        // Optimistic updates carry no finalized header, so they never produce a checkpoint.
+        apply_optimistic_update::<S>(&mut self.store, update);
+        if self.store.optimistic_header.beacon().slot != prev_optimistic_slot {
+            self.log_optimistic_update(update.sync_aggregate());
+        }
+    }
+
     fn verify_finality_update(&self, update: &FinalityUpdate<S>) -> Result<()> {
         verify_finality_update::<S>(
             update,
@@ -573,7 +607,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
             self.log_finality_update(update);
         }
         if new_optimistic_slot != prev_optimistic_slot {
-            self.log_optimistic_update(update)
+            self.log_optimistic_update(update.sync_aggregate())
         }
     }
 
@@ -596,10 +630,10 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
         );
     }
 
-    fn log_optimistic_update(&self, update: &FinalityUpdate<S>) {
+    fn log_optimistic_update(&self, sync_aggregate: &SyncAggregate<S>) {
         let size = S::sync_committee_size() as f32;
         let participation =
-            get_bits::<S>(&update.sync_aggregate().sync_committee_bits) as f32 / size * 100f32;
+            get_bits::<S>(&sync_aggregate.sync_committee_bits) as f32 / size * 100f32;
         let decimals = if participation == 100.0 { 1 } else { 2 };
         let age = self.age(self.store.optimistic_header.beacon().slot);
 
@@ -649,6 +683,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::sync::Arc;
 
     use alloy::primitives::b256;
@@ -659,7 +694,8 @@ mod tests {
     use helios_consensus_core::types::bls::{PublicKey, Signature};
     use helios_consensus_core::types::{
         BeaconBlockHeader, ExecutionPayloadHeader, ExecutionPayloadHeaderElectra, Fork, Forks,
-        LightClientHeader, LightClientHeaderElectra, LightClientHeaderGloas, Update,
+        LightClientHeader, LightClientHeaderElectra, LightClientHeaderGloas, OptimisticUpdate,
+        Update,
     };
     use url::Url;
 
@@ -896,6 +932,43 @@ mod tests {
             err.to_string(),
             ConsensusError::InvalidSignature.to_string()
         );
+    }
+
+    #[tokio::test]
+    async fn test_advance_applies_newer_optimistic_update() {
+        let mut client = get_client(false, true).await;
+        let optimistic: OptimisticUpdate<MainnetConsensusSpec> =
+            client.rpc.get_optimistic_update().await.unwrap();
+        let optimistic_head = optimistic.attested_header().beacon().slot;
+        assert!(client.store.optimistic_header.beacon().slot < optimistic_head);
+
+        client.advance().await.unwrap();
+
+        assert_eq!(
+            client.store.optimistic_header.beacon().slot,
+            optimistic_head
+        );
+    }
+
+    #[tokio::test]
+    async fn test_advance_tolerates_missing_optimistic_update() {
+        let mut client = get_client(false, true).await;
+        let finality_head = client.store.optimistic_header.beacon().slot;
+
+        let testdata =
+            std::env::temp_dir().join(format!("helios-no-optimistic-{}", std::process::id()));
+        std::fs::create_dir_all(&testdata).unwrap();
+        for file in ["finality.json", "updates.json"] {
+            std::fs::copy(Path::new("testdata").join(file), testdata.join(file)).unwrap();
+        }
+        client.rpc =
+            <MockRpc as ConsensusRpc<MainnetConsensusSpec>>::new(testdata.to_str().unwrap());
+
+        let res = client.advance().await;
+        std::fs::remove_dir_all(&testdata).unwrap();
+
+        res.unwrap();
+        assert_eq!(client.store.optimistic_header.beacon().slot, finality_head);
     }
 
     #[tokio::test]
