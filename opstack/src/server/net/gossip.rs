@@ -94,33 +94,34 @@ fn socket_to_multiaddr(socket: SocketAddr) -> Multiaddr {
     multiaddr
 }
 
-/// Computes the message ID of a `gossipsub` message
-fn compute_message_id(msg: &Message) -> MessageId {
-    let mut decoder = snap::raw::Decoder::new();
-    let id = match decoder.decompress_vec(&msg.data) {
-        Ok(data) => {
-            let domain_valid_snappy: Vec<u8> = vec![0x1, 0x0, 0x0, 0x0];
-            let mut hasher = Sha256::new();
-            hasher.update(
-                [domain_valid_snappy.as_slice(), data.as_slice()]
-                    .concat()
-                    .as_slice(),
-            );
-            hasher.finalize()[..20].to_vec()
-        }
-        Err(_) => {
-            let domain_invalid_snappy: Vec<u8> = vec![0x0, 0x0, 0x0, 0x0];
-            let mut hasher = Sha256::new();
-            hasher.update(
-                [domain_invalid_snappy.as_slice(), msg.data.as_slice()]
-                    .concat()
-                    .as_slice(),
-            );
-            hasher.finalize()[..20].to_vec()
-        }
-    };
+/// Maximum decompressed size of a gossip message, matching op-node's `maxGossipSize`.
+const MAX_GOSSIP_SIZE: usize = 10 * (1 << 20);
 
-    MessageId(id)
+/// Computes the message ID of a `gossipsub` message.
+///
+/// Mirrors op-node's `BuildMsgIdFn` (op-node/p2p/gossip.go): the ID is the first 20 bytes of
+/// `sha256(domain || uint64_le(len(topic)) || topic || data)`. If the message is valid snappy
+/// within [`MAX_GOSSIP_SIZE`], `data` is the decompressed payload under the valid-snappy domain.
+/// Otherwise it is the raw payload under the invalid-snappy domain.
+fn compute_message_id(msg: &Message) -> MessageId {
+    let decompressed = snap::raw::decompress_len(&msg.data)
+        .ok()
+        .filter(|&len| len <= MAX_GOSSIP_SIZE)
+        .and_then(|_| snap::raw::Decoder::new().decompress_vec(&msg.data).ok());
+
+    let (domain, data) = match &decompressed {
+        Some(data) => ([0x1, 0x0, 0x0, 0x0], data.as_slice()),
+        None => ([0x0, 0x0, 0x0, 0x0], msg.data.as_slice()),
+    };
+    let topic = msg.topic.as_str().as_bytes();
+
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update((topic.len() as u64).to_le_bytes());
+    hasher.update(topic);
+    hasher.update(data);
+
+    MessageId(hasher.finalize()[..20].to_vec())
 }
 
 /// Creates the libp2p [Swarm]
@@ -229,5 +230,46 @@ impl From<gossipsub::Event> for Event {
     /// Converts [gossipsub::Event] to [Event]
     fn from(value: gossipsub::Event) -> Self {
         Event::Gossipsub(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use libp2p::gossipsub::TopicHash;
+
+    use super::*;
+
+    fn message(data: Vec<u8>, topic: &str) -> Message {
+        Message {
+            source: None,
+            data,
+            sequence_number: None,
+            topic: TopicHash::from_raw(topic),
+        }
+    }
+
+    // Reference vectors from kona's `compute_message_id_matches_op_node_golden_vectors`
+    // (optimism repo, rust/kona/crates/node/gossip/src/config.rs), which mirrors
+    // op-node's `BuildMsgIdFn` in op-node/p2p/gossip.go.
+
+    #[test]
+    fn test_compute_message_id_valid_snappy() {
+        let data = snap::raw::Encoder::new()
+            .compress_vec(&[1, 2, 3, 4, 5])
+            .unwrap();
+        let id = compute_message_id(&message(data, "test"));
+        assert_eq!(
+            hex::encode(id.0),
+            "adbe547b27f41294a08a09210a5e8531e83cdc16"
+        );
+    }
+
+    #[test]
+    fn test_compute_message_id_invalid_snappy() {
+        let id = compute_message_id(&message(vec![1, 2, 3, 4, 5], "test"));
+        assert_eq!(
+            hex::encode(id.0),
+            "b6897dcba59347fedcd694cc0f5117093c9dc727"
+        );
     }
 }
