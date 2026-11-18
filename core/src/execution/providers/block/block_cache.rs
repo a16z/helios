@@ -54,6 +54,25 @@ impl<N: NetworkSpec> BlockCache<N> {
     }
 }
 
+impl<N: NetworkSpec> BlockCache<N> {
+    /// If a block other than `block_hash` is cached at `block_number`, remove it together with
+    /// the cached blocks above it, and their hash mappings.
+    async fn remove_replaced_block(&self, block_number: u64, block_hash: B256) {
+        let mut blocks = self.blocks.write().await;
+        let replaced = blocks
+            .get(&block_number)
+            .is_some_and(|block| block.header().hash() != block_hash);
+        if !replaced {
+            return;
+        }
+
+        let mut hashes = self.hashes.write().await;
+        for (_, block) in blocks.split_off(&block_number) {
+            hashes.remove(&block.header().hash());
+        }
+    }
+}
+
 impl<N: NetworkSpec> Default for BlockCache<N> {
     fn default() -> Self {
         Self::new()
@@ -79,8 +98,15 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             },
             BlockId::Hash(hash) => {
                 let hash: B256 = hash.into();
-                if let Some(number) = self.hashes.read().await.get(&hash) {
-                    self.blocks.read().await.get(number).cloned()
+                let number = self.hashes.read().await.get(&hash).copied();
+                if let Some(number) = number {
+                    // Only return the cached block if it is the one that was asked for.
+                    self.blocks
+                        .read()
+                        .await
+                        .get(&number)
+                        .filter(|block| block.header().hash() == hash)
+                        .cloned()
                 } else {
                     None
                 }
@@ -159,6 +185,10 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             }
         }
 
+        // A different block already cached at this height is being replaced: drop its hash
+        // mapping and every block cached on top of it, which no longer has a cached parent.
+        self.remove_replaced_block(block_number, block_hash).await;
+
         // Insert the new block
         self.hashes.write().await.insert(block_hash, block_number);
 
@@ -178,5 +208,91 @@ impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
             self.blocks.write().await.remove(&num).unwrap();
             self.hashes.write().await.remove(&old_block_hash);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::rpc::types::{Block, Header};
+    use helios_ethereum::spec::Ethereum;
+
+    fn block(number: u64, hash: u8, parent: u8) -> Block {
+        let mut block = Block::<_, Header>::default();
+        block.header.hash = B256::repeat_byte(hash);
+        block.header.inner.number = number;
+        block.header.inner.parent_hash = B256::repeat_byte(parent);
+        block
+    }
+
+    async fn get_by_hash(cache: &BlockCache<Ethereum>, hash: u8) -> Option<B256> {
+        cache
+            .get_block(BlockId::Hash(B256::repeat_byte(hash).into()), false)
+            .await
+            .unwrap()
+            .map(|block| block.header.hash)
+    }
+
+    #[tokio::test]
+    async fn replaced_sibling_is_no_longer_found_by_hash() {
+        let cache = BlockCache::<Ethereum>::new();
+        let latest: BlockId = BlockNumberOrTag::Latest.into();
+        cache.push_block(block(9, 0x09, 0x08), latest).await;
+        cache.push_block(block(10, 0x0a, 0x09), latest).await;
+        cache.push_block(block(10, 0x0b, 0x09), latest).await;
+
+        assert_eq!(get_by_hash(&cache, 0x0a).await, None);
+        assert_eq!(
+            get_by_hash(&cache, 0x0b).await,
+            Some(B256::repeat_byte(0x0b))
+        );
+        assert_eq!(
+            get_by_hash(&cache, 0x09).await,
+            Some(B256::repeat_byte(0x09))
+        );
+    }
+
+    #[tokio::test]
+    async fn replacing_a_block_drops_the_blocks_built_on_it() {
+        let cache = BlockCache::<Ethereum>::new();
+        let latest: BlockId = BlockNumberOrTag::Latest.into();
+        cache.push_block(block(9, 0x09, 0x08), latest).await;
+        cache.push_block(block(10, 0x0a, 0x09), latest).await;
+        cache.push_block(block(11, 0x1a, 0x0a), latest).await;
+        // A sibling of block 10 arrives through a by-number push.
+        let number: BlockId = BlockNumberOrTag::Number(10).into();
+        cache.push_block(block(10, 0x0b, 0x09), number).await;
+
+        assert_eq!(get_by_hash(&cache, 0x0a).await, None);
+        assert_eq!(get_by_hash(&cache, 0x1a).await, None);
+        let at_11 = cache
+            .get_block(BlockNumberOrTag::Number(11).into(), false)
+            .await
+            .unwrap();
+        assert!(at_11.is_none());
+        assert_eq!(
+            get_by_hash(&cache, 0x0b).await,
+            Some(B256::repeat_byte(0x0b))
+        );
+    }
+
+    #[tokio::test]
+    async fn pushing_the_same_block_again_keeps_its_descendants() {
+        let cache = BlockCache::<Ethereum>::new();
+        let latest: BlockId = BlockNumberOrTag::Latest.into();
+        cache.push_block(block(9, 0x09, 0x08), latest).await;
+        cache.push_block(block(10, 0x0a, 0x09), latest).await;
+        cache.push_block(block(11, 0x1a, 0x0a), latest).await;
+        let number: BlockId = BlockNumberOrTag::Number(10).into();
+        cache.push_block(block(10, 0x0a, 0x09), number).await;
+
+        assert_eq!(
+            get_by_hash(&cache, 0x0a).await,
+            Some(B256::repeat_byte(0x0a))
+        );
+        assert_eq!(
+            get_by_hash(&cache, 0x1a).await,
+            Some(B256::repeat_byte(0x1a))
+        );
     }
 }
