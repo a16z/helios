@@ -9,7 +9,13 @@ async fn main() -> Result<()> {
     let home = home_dir().ok_or_else(|| eyre::eyre!("Could not find home directory"))?;
     let config_path = home.join(".helios/helios.toml");
     let config = Config::from_file(&config_path, "mainnet", &CliConfig::default());
-    println!("Constructed config: {config:#?}");
+    // Do not Debug-print Config: Url fields embed the full string, so RPC URLs
+    // that carry API keys (for example Alchemy `/v2/<key>`) would leak to logs.
+    println!(
+        "Loaded Helios config for 'mainnet' from {} (chain id {})",
+        config_path.display(),
+        config.chain.chain_id
+    );
 
     Ok(())
 }
