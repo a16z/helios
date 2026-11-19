@@ -217,6 +217,22 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> No
 
         Ok(())
     }
+
+    /// Returns the number of the block currently cached as the latest head,
+    /// without checking how old that head is.
+    ///
+    /// Most RPC methods must reject stale heads and should use
+    /// `get_block_number`, which runs the freshness check first.
+    async fn latest_block_number(&self) -> Result<U256> {
+        let block_id = BlockNumberOrTag::Latest.into();
+        let block = self
+            .execution
+            .get_block(block_id, false)
+            .await?
+            .ok_or(eyre!(ClientError::BlockNotFound(block_id)))?;
+
+        Ok(U256::from(block.header().number()))
+    }
 }
 
 async fn resolve_trusted_block<N: NetworkSpec, E: ExecutionProvider<N>>(
@@ -564,14 +580,7 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
 
     async fn get_block_number(&self) -> Result<U256> {
         self.check_head_age().await?;
-        let block_id = BlockNumberOrTag::Latest.into();
-        let block = self
-            .execution
-            .get_block(block_id, false)
-            .await?
-            .ok_or(eyre!(ClientError::BlockNotFound(block_id)))?;
-
-        Ok(U256::from(block.header().number()))
+        self.latest_block_number().await
     }
 
     async fn get_block(
@@ -591,7 +600,10 @@ impl<N: NetworkSpec, C: Consensus<N::BlockResponse>, E: ExecutionProvider<N>> He
         if self.check_head_age().await.is_ok() {
             Ok(SyncStatus::None)
         } else {
-            let latest_synced_block = self.get_block_number().await.unwrap_or(U256::ZERO);
+            // The head is stale, so `get_block_number` would reject it and this
+            // would collapse to zero. Report the block actually synced so far
+            // instead, which is what `currentBlock` means on the wire.
+            let latest_synced_block = self.latest_block_number().await.unwrap_or(U256::ZERO);
             let highest_block = self.consensus.expected_highest_block();
 
             Ok(SyncStatus::Info(Box::new(SyncInfo {
