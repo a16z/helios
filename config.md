@@ -6,8 +6,8 @@ All configuration options can be set on a per-network level in `~/.helios/helios
 
 ```toml
 [mainnet]
-# The consensus rpc to use. This should be a trusted rpc endpoint. Defaults to "https://www.lightclientdata.org".
-consensus_rpc = "https://www.lightclientdata.org"
+# The consensus rpc to use. This should be a trusted rpc endpoint. Defaults to "https://ethereum.operationsolarstorm.org".
+consensus_rpc = "https://ethereum.operationsolarstorm.org"
 # [REQUIRED] The execution rpc to use. This should be a trusted rpc endpoint.
 execution_rpc = "https://eth-mainnet.g.alchemy.com/v2/XXXXX"
 # The port to run the JSON-RPC server on. By default, Helios will use port 8545.
@@ -30,7 +30,7 @@ fallback = "https://sync-mainnet.beaconcha.in"
 load_external_fallback = true
 
 [sepolia]
-# The consensus rpc to use. This should be a trusted rpc endpoint. Defaults to Nimbus testnet.
+# The consensus rpc to use. This should be a trusted rpc endpoint. Sepolia has no built-in default, so set this explicitly.
 consensus_rpc = "http://unstable.sepolia.beacon-api.nimbus.team"
 # [REQUIRED] The execution rpc to use. This should be a trusted rpc endpoint.
 execution_rpc = "https://eth-sepolia.g.alchemy.com/v2/XXXXX"
@@ -57,10 +57,10 @@ load_external_fallback = true
 
 #### Options
 
-All configuration options below are available on a per-network level, where network is specified by a header (eg `[mainnet]` or `[sepolia]`). Many of these options can be configured through cli flags as well. See [README.md](./README.md#additional-options) or run `helios --help` for more information.
+All configuration options below are available on a per-network level, where network is specified by a header (eg `[mainnet]` or `[sepolia]`). Many of these options can be configured through cli flags as well. See [README.md](./README.md#additional-cli-options) or run `helios --help` for more information.
 
 
-- `consensus_rpc` - The URL of the consensus RPC endpoint used to fetch the latest beacon chain head and sync status. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, it defaults to `https://www.lightclientdata.org` which is run by us.
+- `consensus_rpc` - The URL of the consensus RPC endpoint used to fetch the latest beacon chain head and sync status. This must be a consensus node that supports the light client beaconchain api. We recommend using Nimbus for this. If no consensus rpc is supplied, mainnet defaults to `https://ethereum.operationsolarstorm.org`, which is run by us.
 
 - `execution_rpc` - The URL of the execution RPC endpoint used to fetch the latest execution chain head and sync status. This must be an execution node that supports the light client execution api. We recommend using Geth for this.
 
