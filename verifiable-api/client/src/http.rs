@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::{Arc, Weak}};
 
 use alloy::{
     eips::BlockId,
@@ -12,7 +12,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::de::DeserializeOwned;
 #[cfg(not(target_arch = "wasm32"))]
-use tokio::time::Duration;
+use tokio::time::{Duration, interval, timeout};
 use url::Url;
 
 use helios_common::network_spec::NetworkSpec;
@@ -65,12 +65,43 @@ impl<N: NetworkSpec> VerifiableApi<N> for HttpVerifiableApi<N> {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let client_ref = client.clone();
+            let client_weak: Weak<ClientWithMiddleware> = Arc::downgrade(&client);
             let base_url_str = base_url.to_string();
             tokio::spawn(async move {
+                let mut ticker = interval(Duration::from_secs(30));
+                let mut backoff_secs: u64 = 0; // 0 means no extra backoff
+                const TIMEOUT_SECS: u64 = 2;
+                const BACKOFF_START: u64 = 5;
+                const BACKOFF_CAP: u64 = 300; // 5 minutes
+                
                 loop {
-                    _ = client_ref.head(&base_url_str).send().await;
-                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    // If the client has been dropped everywhere, exit the task
+                    let Some(client_strong) = client_weak.upgrade() else { break; };
+
+                    // Base cadence
+                    ticker.tick().await;
+
+                    // Apply additional backoff if in error state
+                    if backoff_secs > 0 {
+                        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    }
+
+                    // Make a lightweight HEAD request with timeout
+                    let attempt = timeout(
+                        Duration::from_secs(TIMEOUT_SECS),
+                        client_strong.head(&base_url_str).send(),
+                    ).await;
+
+                    match attempt {
+                        Ok(Ok(_)) => {
+                            // Success clears backoff
+                            backoff_secs = 0;
+                        }
+                        _ => {
+                            // Increase backoff exponentially with cap
+                            backoff_secs = if backoff_secs == 0 { BACKOFF_START } else { (backoff_secs.saturating_mul(2)).min(BACKOFF_CAP) };
+                        }
+                    }
                 }
             });
         }
