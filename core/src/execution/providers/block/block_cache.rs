@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use alloy::consensus::BlockHeader;
 use alloy::eips::{BlockId, BlockNumberOrTag};
@@ -7,7 +6,6 @@ use alloy::network::{primitives::HeaderResponse, BlockResponse};
 use alloy::primitives::B256;
 use alloy::rpc::types::BlockTransactions;
 use async_trait::async_trait;
-
 use eyre::Result;
 use helios_common::{execution_provider::BlockProvider, network_spec::NetworkSpec};
 use tokio::sync::RwLock;
@@ -16,40 +14,27 @@ use tracing::warn;
 use crate::execution::constants::MAX_STATE_HISTORY_LENGTH;
 
 pub struct BlockCache<N: NetworkSpec> {
-    latest: Arc<RwLock<Option<N::BlockResponse>>>,
-    finalized: Arc<RwLock<Option<N::BlockResponse>>>,
-    blocks: Arc<RwLock<BTreeMap<u64, N::BlockResponse>>>,
-    hashes: Arc<RwLock<BTreeMap<B256, u64>>>,
-    size: usize,
+    state: RwLock<CacheState<N>>,
+}
+
+struct CacheState<N: NetworkSpec> {
+    latest: Option<N::BlockResponse>,
+    finalized: Option<N::BlockResponse>,
+    blocks: BTreeMap<u64, N::BlockResponse>,
+    hashes: BTreeMap<B256, u64>,
+    reorg_generation: u64,
 }
 
 impl<N: NetworkSpec> BlockCache<N> {
     pub fn new() -> Self {
         Self {
-            latest: Arc::default(),
-            finalized: Arc::default(),
-            blocks: Arc::default(),
-            hashes: Arc::default(),
-            size: MAX_STATE_HISTORY_LENGTH,
-        }
-    }
-
-    /// Clear all cached blocks except the finalized block
-    /// Finalized blocks are preserved since they cannot be reorganized
-    async fn clear(&self) {
-        let finalized_block = self.finalized.read().await.clone();
-
-        self.blocks.write().await.clear();
-        self.hashes.write().await.clear();
-        *self.latest.write().await = None;
-
-        // Re-insert finalized block if it exists
-        if let Some(finalized) = finalized_block {
-            let block_number = finalized.header().number();
-            let block_hash = finalized.header().hash();
-
-            self.blocks.write().await.insert(block_number, finalized);
-            self.hashes.write().await.insert(block_hash, block_number);
+            state: RwLock::new(CacheState {
+                latest: None,
+                finalized: None,
+                blocks: BTreeMap::new(),
+                hashes: BTreeMap::new(),
+                reorg_generation: 0,
+            }),
         }
     }
 }
@@ -63,120 +48,108 @@ impl<N: NetworkSpec> Default for BlockCache<N> {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<N: NetworkSpec> BlockProvider<N> for BlockCache<N> {
+    async fn reorg_generation(&self) -> u64 {
+        self.state.read().await.reorg_generation
+    }
+
     async fn get_block(
         &self,
         block_id: BlockId,
         full_tx: bool,
     ) -> Result<Option<N::BlockResponse>> {
-        let block = match block_id {
+        let state = self.state.read().await;
+        let mut block = match block_id {
             BlockId::Number(tag) => match tag {
-                BlockNumberOrTag::Latest => self.latest.read().await.clone(),
-                BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
-                    self.finalized.read().await.clone()
-                }
-                BlockNumberOrTag::Number(number) => self.blocks.read().await.get(&number).cloned(),
+                BlockNumberOrTag::Latest => state.latest.clone(),
+                BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => state.finalized.clone(),
+                BlockNumberOrTag::Number(number) => state.blocks.get(&number).cloned(),
                 BlockNumberOrTag::Pending | BlockNumberOrTag::Earliest => None,
             },
-            BlockId::Hash(hash) => {
-                let hash: B256 = hash.into();
-                if let Some(number) = self.hashes.read().await.get(&hash) {
-                    self.blocks.read().await.get(number).cloned()
-                } else {
-                    None
-                }
-            }
+            // Only canonical blocks are retained, regardless of requireCanonical.
+            BlockId::Hash(hash) => state
+                .hashes
+                .get(&hash.block_hash)
+                .and_then(|number| state.blocks.get(number))
+                .cloned(),
         };
 
         if !full_tx {
-            if let Some(mut block) = block {
+            if let Some(block) = &mut block {
                 *block.transactions_mut() =
                     BlockTransactions::Hashes(block.transactions().hashes().collect());
-
-                Ok(Some(block))
-            } else {
-                Ok(None)
             }
-        } else {
-            Ok(block)
         }
+        Ok(block)
     }
 
     async fn get_untrusted_block(
         &self,
         _block_id: BlockId,
         _full_tx: bool,
-    ) -> Result<Option<<N>::BlockResponse>> {
+    ) -> Result<Option<N::BlockResponse>> {
         Ok(None)
     }
 
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId) {
-        let block_number = block.header().number();
-        let block_hash = block.header().hash();
-        let parent_hash = block.header().parent_hash();
-
-        // Check if this block builds on top of existing history
-        let is_consistent = if block_id.is_finalized() {
-            // Skip check for finalized blocks
-            true
-        } else if block_number == 0 {
-            // Genesis block is always consistent
-            true
-        } else {
-            let blocks = self.blocks.read().await;
-
-            // Check if parent block exists and has the expected hash
-            if let Some(parent_block) = blocks.get(&(block_number - 1)) {
-                parent_block.header().hash() == parent_hash
+        let number = block.header().number();
+        let hash = block.header().hash();
+        let mut state = self.state.write().await;
+        let existing_hash = state.blocks.get(&number).map(|block| block.header().hash());
+        let known_block = existing_hash == Some(hash);
+        let conflicting_height = existing_hash.is_some_and(|old| old != hash);
+        let inconsistent_parent = number.checked_sub(1).is_some_and(|parent_number| {
+            if let Some(parent) = state.blocks.get(&parent_number) {
+                parent.header().hash() != block.header().parent_hash()
             } else {
-                // No parent block in cache - check if cache is empty except finalized blocks
-                let finalized = self.finalized.read().await;
-                if let Some((latest_number, _)) = blocks.last_key_value() {
-                    // All blocks in cache are finalized
-                    *latest_number
-                        <= finalized
+                state.blocks.last_key_value().is_some_and(|(last, _)| {
+                    *last
+                        > state
+                            .finalized
                             .as_ref()
                             .map(|block| block.header().number())
                             .unwrap_or_default()
-                } else {
-                    // Block cache is completely empty
-                    true
-                }
+                })
             }
-        };
+        });
 
-        // If the block is inconsistent with existing history, clear the cache
-        if !is_consistent {
+        if conflicting_height || (!known_block && !block_id.is_finalized() && inconsistent_parent) {
             warn!("inconsistent block history detected: clearing cache");
-            self.clear().await;
-        }
-
-        // Update latest/finalized references
-        if let BlockId::Number(tag) = block_id {
-            match tag {
-                BlockNumberOrTag::Latest => *self.latest.write().await = Some(block.clone()),
-                BlockNumberOrTag::Finalized => *self.finalized.write().await = Some(block.clone()),
-                _ => (),
+            // Invalidate executions together with the history they were reading.
+            state.reorg_generation += 1;
+            state.blocks.clear();
+            state.hashes.clear();
+            state.latest = None;
+            if let Some(finalized) = state.finalized.clone() {
+                let number = finalized.header().number();
+                let hash = finalized.header().hash();
+                state.blocks.insert(number, finalized);
+                state.hashes.insert(hash, number);
             }
         }
 
-        // Insert the new block
-        self.hashes.write().await.insert(block_hash, block_number);
+        match block_id {
+            BlockId::Number(BlockNumberOrTag::Latest) => state.latest = Some(block.clone()),
+            BlockId::Number(BlockNumberOrTag::Finalized) => state.finalized = Some(block.clone()),
+            _ => (),
+        }
+        if let Some(previous) = state.blocks.insert(number, block) {
+            state.hashes.remove(&previous.header().hash());
+        }
+        state.hashes.insert(hash, number);
 
-        self.blocks.write().await.insert(block_number, block);
-
-        // Maintain cache size limit
-        while self.blocks.read().await.len() > self.size {
-            let (num, old_block_hash) = {
-                let blocks = self.blocks.read().await;
-                if let Some((num, block)) = blocks.first_key_value() {
-                    (*num, block.header().hash())
-                } else {
-                    break;
-                }
-            };
-
-            self.blocks.write().await.remove(&num).unwrap();
-            self.hashes.write().await.remove(&old_block_hash);
+        // Keep finalized available by hash even when finality stalls.
+        let finalized_number = state
+            .finalized
+            .as_ref()
+            .map(|block| block.header().number());
+        while state.blocks.len() > MAX_STATE_HISTORY_LENGTH {
+            let oldest = *state
+                .blocks
+                .keys()
+                .find(|number| Some(**number) != finalized_number)
+                .unwrap();
+            let removed = state.blocks.remove(&oldest).unwrap();
+            state.hashes.remove(&removed.header().hash());
         }
     }
 }

@@ -40,6 +40,9 @@ pub trait AccountProvider<N: NetworkSpec> {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait BlockProvider<N: NetworkSpec>: Send + Sync + 'static {
+    /// Changes whenever canonical history is invalidated, but not on normal head advances.
+    async fn reorg_generation(&self) -> u64;
+
     async fn push_block(&self, block: N::BlockResponse, block_id: BlockId);
     async fn get_block(&self, block_id: BlockId, full_tx: bool)
         -> Result<Option<N::BlockResponse>>;

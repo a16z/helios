@@ -136,6 +136,10 @@ impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> Account
 impl<N: NetworkSpec, B: BlockProvider<N>, H: HistoricalBlockProvider<N>> BlockProvider<N>
     for VerifiableApiExecutionProvider<N, B, H>
 {
+    async fn reorg_generation(&self) -> u64 {
+        self.block_provider.reorg_generation().await
+    }
+
     async fn push_block(&self, block: <N>::BlockResponse, block_id: BlockId) {
         self.block_provider.push_block(block, block_id).await;
     }
