@@ -67,6 +67,4 @@ struct Cli {
     gossip_address: SocketAddr,
     #[arg(short, long, value_delimiter = ',')]
     replica_urls: Option<Vec<Url>>,
-    #[arg(short, long)]
-    execution_rpc: Url,
 }
