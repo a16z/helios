@@ -632,7 +632,7 @@ impl<S: ConsensusSpec, R: ConsensusRpc<S>> Inner<S, R> {
     }
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
-        slot * 12 + self.config.chain.genesis_time
+        slot * S::seconds_per_slot() + self.config.chain.genesis_time
     }
 
     // Determines blockhash_slot age and returns true if it is less than 14 days old
