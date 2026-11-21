@@ -18,6 +18,7 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
     type MaxWithdrawals: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxValidatorsPerCommittee: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type SlotsPerEpoch: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
+    type SecondsPerSlot: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type EpochsPerSyncCommitteePeriod: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type SyncCommitteeSize: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
     type MaxWithdrawalRequests: Unsigned + Default + Debug + Sync + Send + Clone + PartialEq;
@@ -26,6 +27,10 @@ pub trait ConsensusSpec: 'static + Default + Sync + Send + Clone + Debug + Parti
 
     fn slots_per_epoch() -> u64 {
         Self::SlotsPerEpoch::to_u64()
+    }
+
+    fn seconds_per_slot() -> u64 {
+        Self::SecondsPerSlot::to_u64()
     }
 
     fn epochs_per_sync_committee_period() -> u64 {
@@ -59,6 +64,7 @@ impl ConsensusSpec for MainnetConsensusSpec {
     type MaxWithdrawals = typenum::U16;
     type MaxValidatorsPerCommittee = typenum::U2048;
     type SlotsPerEpoch = typenum::U32;
+    type SecondsPerSlot = typenum::U12;
     type EpochsPerSyncCommitteePeriod = typenum::U256;
     type SyncCommitteeSize = typenum::U512;
     type MaxDepositRequests = typenum::U8192;
@@ -84,6 +90,7 @@ impl ConsensusSpec for MinimalConsensusSpec {
     type MaxWithdrawals = typenum::U16;
     type MaxValidatorsPerCommittee = typenum::U2048;
     type SlotsPerEpoch = typenum::U8;
+    type SecondsPerSlot = typenum::U12;
     type EpochsPerSyncCommitteePeriod = typenum::U8;
     type SyncCommitteeSize = typenum::U32;
     type MaxDepositRequests = typenum::U4;
