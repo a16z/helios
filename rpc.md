@@ -32,10 +32,11 @@ Helios provides a variety of RPC methods for interacting with the Ethereum netwo
 | `eth_getFilterLogs` | `get_filter_logs` | Returns an array of all logs matching the filter with a given id. | `client.get_filter_logs(&self, filter_id: H256)` |
 | `eth_newFilter` | `new_filter` | Creates a filter object, based on filter options, to notify when the state changes (logs). | `client.new_filter(&self, filter: Filter)` |
 | `eth_newBlockFilter` | `new_block_filter` | Creates a filter in the node, to notify when a new block arrives. | `client.new_block_filter(&self)` |
-| `eth_newPendingTransactionFilter` | `new_pending_transaction_filter` | Creates a filter in the node, to notify when new pending transactions arrive. | `client.new_pending_transaction_filter(&self)` |
+| `eth_uninstallFilter` | `uninstall_filter` | Uninstalls a filter with the given id. Returns true if the filter existed. | `client.uninstall_filter(&self, filter_id: U256)` |
 | `eth_getStorageAt` | `get_storage_at` | Returns the value from a storage position at a given address. | `client.get_storage_at(&self, address: &str, slot: H256, block: BlockTag)` |
 | `eth_getProof` | `get_proof` | Returns the merkle proof for a given account and optionally some storage keys. | `client.get_proof(&self, address: &str, slots: [H256], block: BlockTag)` |
 | `eth_coinbase` | `get_coinbase` | Returns the client coinbase address. | `client.get_coinbase(&self)` |
 | `eth_syncing` | `syncing` | Returns an object with data about the sync status or false. | `client.syncing(&self)` |
 | `eth_subscribe` | `subscribe` | Subscribes to events. Only "newHeads" is currently supported. | `client.subscribe(&self, event_type: &str)` |
 | `web3_clientVersion` | `client_version` | Returns the current version of the chain client. | `client.client_version(&self)` |
+| `net_version` | `get_chain_id` | Returns the chain ID of the current network, as a number. | `client.get_chain_id(&self)` |
