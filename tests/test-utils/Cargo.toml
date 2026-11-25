@@ -12,4 +12,3 @@ serde_json.workspace = true
 helios-common = { path = "../../common" }
 helios-core = { path = "../../core" }
 helios-ethereum = { path = "../../ethereum" }
-helios-verifiable-api-types = { path = "../../verifiable-api/types" }

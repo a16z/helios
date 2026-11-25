@@ -14,7 +14,6 @@ use helios_core::execution::cache::CachingProvider;
 use helios_core::execution::providers::block::block_cache::BlockCache;
 use helios_core::execution::providers::historical::eip2935::Eip2935Provider;
 use helios_core::execution::providers::rpc::RpcExecutionProvider;
-use helios_core::execution::providers::verifiable_api::VerifiableApiExecutionProvider;
 
 use crate::config::networks::Network;
 use crate::config::Config;
@@ -30,7 +29,6 @@ pub struct EthereumClientBuilder<DB: Database> {
     network: Option<Network>,
     consensus_rpc: Option<Url>,
     execution_rpc: Option<Url>,
-    verifiable_api: Option<Url>,
     checkpoint: Option<B256>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc_address: Option<SocketAddr>,
@@ -49,7 +47,6 @@ impl<DB: Database> Default for EthereumClientBuilder<DB> {
             network: None,
             consensus_rpc: None,
             execution_rpc: None,
-            verifiable_api: None,
             checkpoint: None,
             #[cfg(not(target_arch = "wasm32"))]
             rpc_address: None,
@@ -88,15 +85,6 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             execution_rpc
                 .into_url()
                 .map_err(|_| eyre!("Invalid execution RPC URL"))?,
-        );
-        Ok(self)
-    }
-
-    pub fn verifiable_api<T: IntoUrl>(mut self, verifiable_api: T) -> Result<Self> {
-        self.verifiable_api = Some(
-            verifiable_api
-                .into_url()
-                .map_err(|_| eyre!("Invalid verifiable API URL"))?,
         );
         Ok(self)
     }
@@ -164,10 +152,6 @@ impl<DB: Database> EthereumClientBuilder<DB> {
             .or_else(|| self.config.as_ref().and_then(|c| c.execution_rpc.clone()))
             .or(base_config.execution_rpc);
 
-        let verifiable_api = self
-            .verifiable_api
-            .or_else(|| self.config.as_ref().and_then(|c| c.verifiable_api.clone()));
-
         let checkpoint = if let Some(checkpoint) = self.checkpoint {
             Some(checkpoint)
         } else if let Some(config) = &self.config {
@@ -232,7 +216,6 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         let config = Config {
             consensus_rpc,
             execution_rpc,
-            verifiable_api,
             checkpoint,
             default_checkpoint,
             rpc_bind_ip: None,
@@ -252,50 +235,33 @@ impl<DB: Database> EthereumClientBuilder<DB> {
         };
 
         let config = Arc::new(config);
+        let rpc_url = config
+            .execution_rpc
+            .clone()
+            .ok_or_else(|| eyre!("execution rpc required"))?;
         let consensus = ConsensusClient::<MainnetConsensusSpec, HttpRpc, DB>::new(
             &config.consensus_rpc,
             config.clone(),
         )?;
 
-        if let Some(verifiable_api) = &config.verifiable_api {
-            let block_provider = BlockCache::<Ethereum>::new();
-            // Create EIP-2935 historical block provider
-            let historical_provider = Eip2935Provider::new();
-            let execution = VerifiableApiExecutionProvider::with_historical_provider(
-                verifiable_api,
-                block_provider,
-                historical_provider,
-            );
-            let execution = CachingProvider::new(execution);
+        let block_provider = BlockCache::<Ethereum>::new();
+        // Create EIP-2935 historical block provider
+        let historical_provider = Eip2935Provider::new();
+        let execution = RpcExecutionProvider::with_historical_provider(
+            rpc_url,
+            block_provider,
+            historical_provider,
+            config.execution_forks,
+        );
+        let execution = CachingProvider::new(execution);
 
-            Ok(EthereumClient::new(
-                consensus,
-                execution,
-                config.execution_forks,
-                #[cfg(not(target_arch = "wasm32"))]
-                rpc_address,
-            ))
-        } else {
-            let block_provider = BlockCache::<Ethereum>::new();
-            // Create EIP-2935 historical block provider
-            let rpc_url = config.execution_rpc.as_ref().unwrap().clone();
-            let historical_provider = Eip2935Provider::new();
-            let execution = RpcExecutionProvider::with_historical_provider(
-                rpc_url,
-                block_provider,
-                historical_provider,
-                config.execution_forks,
-            );
-            let execution = CachingProvider::new(execution);
-
-            Ok(EthereumClient::new(
-                consensus,
-                execution,
-                config.execution_forks,
-                #[cfg(not(target_arch = "wasm32"))]
-                rpc_address,
-            ))
-        }
+        Ok(EthereumClient::new(
+            consensus,
+            execution,
+            config.execution_forks,
+            #[cfg(not(target_arch = "wasm32"))]
+            rpc_address,
+        ))
     }
 }
 

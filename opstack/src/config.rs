@@ -19,7 +19,6 @@ use helios_ethereum::config::networks::Network as EthNetwork;
 pub struct Config {
     pub consensus_rpc: Url,
     pub execution_rpc: Option<Url>,
-    pub verifiable_api: Option<Url>,
     pub rpc_socket: Option<SocketAddr>,
     pub chain: ChainConfig,
     pub load_external_fallback: Option<bool>,

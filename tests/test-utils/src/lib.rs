@@ -8,10 +8,6 @@ use alloy::{
 
 use helios_common::types::Account;
 use helios_ethereum::spec::Ethereum as EthereumSpec;
-use helios_verifiable_api_types::{
-    ExtendedAccessListResponse, FilterLogsResponse, TransactionReceiptResponse,
-};
-
 pub fn testdata_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/testdata/")
 }
@@ -84,19 +80,4 @@ pub fn rpc_filter_id_blocks() -> U256 {
 pub fn rpc_filter_id_txs() -> U256 {
     let id = read_to_string(testdata_dir().join("rpc/filter_id_txs.txt")).unwrap();
     U256::from_str(&id).unwrap()
-}
-
-pub fn verifiable_api_access_list_response() -> ExtendedAccessListResponse {
-    let resp = read_to_string(testdata_dir().join("verifiable_api/access_list.json")).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-pub fn verifiable_api_tx_receipt_response() -> TransactionReceiptResponse<EthereumSpec> {
-    let resp = read_to_string(testdata_dir().join("verifiable_api/receipt.json")).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-pub fn verifiable_api_logs_response() -> FilterLogsResponse<EthereumSpec> {
-    let resp = read_to_string(testdata_dir().join("verifiable_api/logs.json")).unwrap();
-    serde_json::from_str(&resp).unwrap()
 }

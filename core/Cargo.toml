@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 # self crates
 helios-common = { path = "../common" }
-helios-verifiable-api-client = { path = "../verifiable-api/client" }
 
 # execution
 alloy = { workspace = true, features = ["rand"] }

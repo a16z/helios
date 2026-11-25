@@ -18,9 +18,8 @@ members = [
     "opstack",
     "helios-ts",
     "tests/test-utils",        # ToDo(@eshaan7): find a better way to include this
-    "verifiable-api/client",
-    "verifiable-api/server",
-    "verifiable-api/types", "linea", "revm-utils",
+    "linea",
+    "revm-utils",
 ]
 
 default-members = ["cli"]
@@ -108,7 +107,6 @@ serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
 dotenv = "0.15.0"
-helios-verifiable-api-server = { path = "verifiable-api/server" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 alloy = { version = "2.1.0", features = ["full"] }
