@@ -85,7 +85,6 @@ export class HeliosProvider {
 
   private constructor(config: Config, kind: NetworkKind) {
     const executionRpc = config.executionRpc;
-    const verifiableApi = config.verifiableApi;
 
     if (kind === "ethereum") {
       const consensusRpc = config.consensusRpc;
@@ -95,7 +94,6 @@ export class HeliosProvider {
 
       this.#client = new EthereumClient(
         executionRpc,
-        verifiableApi,
         consensusRpc,
         network,
         checkpoint,
@@ -103,7 +101,7 @@ export class HeliosProvider {
       );
     } else if (kind === "opstack") {
       const network = config.network;
-      this.#client = new OpStackClient(executionRpc, verifiableApi, network);
+      this.#client = new OpStackClient(executionRpc, network);
     } else {
       throw new Error("Invalid kind: must be 'ethereum' or 'opstack'");
     }
@@ -452,7 +450,7 @@ export class HeliosProvider {
  * @remarks
  * Different network kinds require different configuration options:
  * - For Ethereum networks: executionRpc, consensusRpc, and optionally checkpoint are required
- * - For OpStack networks: executionRpc and verifiableApi are required
+ * - For OpStack networks: executionRpc is required
  */
 export type Config = {
   /**
@@ -461,13 +459,6 @@ export type Config = {
    * @example "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
    */
   executionRpc?: string;
-  
-  /**
-   * The verifiable API endpoint for any networks.
-   * Not recommended for use currently.
-   * @example "https://verifiable-api-ethereum.operationsolarstorm.org
-   */
-  verifiableApi?: string;
   
   /**
    * The consensus layer RPC endpoint for Ethereum and OP Stack networks.

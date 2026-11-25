@@ -6,11 +6,7 @@ use alloy::primitives::{keccak256, Bytes, B256, U256};
 use alloy::rlp;
 use alloy::rpc::types::EIP1186AccountProofResponse;
 use alloy_trie::root::ordered_trie_root_with_encoder;
-use alloy_trie::{
-    proof::{verify_proof, ProofRetainer},
-    root::adjust_index_for_rlp,
-    HashBuilder, Nibbles, KECCAK_EMPTY,
-};
+use alloy_trie::{proof::verify_proof, Nibbles, KECCAK_EMPTY};
 use eyre::{eyre, Result};
 use helios_common::fork_schedule::ForkSchedule;
 
@@ -106,106 +102,6 @@ fn is_empty_value(value: &[u8]) -> bool {
     let is_empty_slot = value.len() == 1 && value[0] == 0x80;
     let is_empty_account = value == empty_account || value == new_empty_account;
     is_empty_slot || is_empty_account
-}
-
-/// Create a MPT proof for a given receipt in a list of receipts.
-pub fn create_receipt_proof<N: NetworkSpec>(
-    receipts: Vec<N::ReceiptResponse>,
-    target_index: usize,
-) -> Vec<Bytes> {
-    // Initialise the trie builder with proof retainer for the target index
-    let receipts_len = receipts.len();
-    let retainer = ProofRetainer::new(vec![Nibbles::unpack(rlp::encode_fixed_size(&target_index))]);
-    let mut hb = HashBuilder::default().with_proof_retainer(retainer);
-
-    // Iterate over each receipt, adding it to the trie
-    for i in 0..receipts_len {
-        let index = adjust_index_for_rlp(i, receipts_len);
-        let index_buffer = rlp::encode_fixed_size(&index);
-        hb.add_leaf(
-            Nibbles::unpack(&index_buffer),
-            N::encode_receipt(&receipts[index]).as_slice(),
-        );
-    }
-
-    // Note that calling `root()` is mandatory to build the trie
-    hb.root();
-
-    // Extract the proof nodes from the trie
-    hb.take_proof_nodes()
-        .into_nodes_sorted()
-        .into_iter()
-        .map(|n| n.1)
-        .collect::<Vec<_>>()
-}
-
-/// Given a receipt, the root hash, and a proof, verify the proof.
-pub fn verify_receipt_proof<N: NetworkSpec>(
-    receipt: &N::ReceiptResponse,
-    root: B256,
-    proof: &[Bytes],
-) -> Result<()> {
-    let key = {
-        let index = receipt
-            .transaction_index()
-            .ok_or(ExecutionError::TransactionNotIncluded(
-                receipt.transaction_hash(),
-            ))? as usize;
-        let index_buffer = rlp::encode_fixed_size(&index);
-        Nibbles::unpack(&index_buffer)
-    };
-    let expected_value = Some(N::encode_receipt(receipt));
-
-    verify_proof(root, key, expected_value, proof).map_err(|e| eyre!(e))
-}
-
-/// Create a MPT proof for a given transaction in a list of transactions.
-pub fn create_transaction_proof<N: NetworkSpec>(
-    transactions: Vec<N::TransactionResponse>,
-    target_index: usize,
-) -> Vec<Bytes> {
-    // Initialise the trie builder with proof retainer for the target index
-    let transactions_len = transactions.len();
-    let retainer = ProofRetainer::new(vec![Nibbles::unpack(rlp::encode_fixed_size(&target_index))]);
-    let mut hb = HashBuilder::default().with_proof_retainer(retainer);
-
-    // Iterate over each receipt, adding it to the trie
-    for i in 0..transactions_len {
-        let index = adjust_index_for_rlp(i, transactions_len);
-        let index_buffer = rlp::encode_fixed_size(&index);
-        hb.add_leaf(
-            Nibbles::unpack(&index_buffer),
-            N::encode_transaction(&transactions[index]).as_slice(),
-        );
-    }
-
-    // Note that calling `root()` is mandatory to build the trie
-    hb.root();
-
-    // Extract the proof nodes from the trie
-    hb.take_proof_nodes()
-        .into_nodes_sorted()
-        .into_iter()
-        .map(|n| n.1)
-        .collect::<Vec<_>>()
-}
-
-/// Given a transaction, the root hash, and a proof, verify the proof.
-pub fn verify_transaction_proof<N: NetworkSpec>(
-    tx: &N::TransactionResponse,
-    root: B256,
-    proof: &[Bytes],
-) -> Result<()> {
-    let key = {
-        let index =
-            tx.transaction_index()
-                .ok_or(ExecutionError::TransactionNotIncluded(tx.tx_hash()))? as usize;
-        let index_buffer = rlp::encode_fixed_size(&index);
-        Nibbles::unpack(&index_buffer)
-    };
-    let expected_value = Some(N::encode_transaction(tx));
-
-    verify_proof(root, key, expected_value, proof).map_err(|e| eyre!(e))
 }
 
 /// Calculate the receipts root hash from given list of receipts
@@ -352,57 +248,6 @@ mod tests {
         let result = verify_code_hash_proof(&proof, &code);
 
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_create_receipt_proof() {
-        let receipts = rpc_block_receipts();
-        let expected = verifiable_api_tx_receipt_response();
-
-        let proof = create_receipt_proof::<EthereumSpec>(
-            receipts,
-            expected.receipt.transaction_index().unwrap() as usize,
-        );
-
-        assert_eq!(proof, expected.receipt_proof);
-    }
-
-    #[test]
-    fn test_verify_receipt_proof() {
-        let receipts = rpc_block_receipts();
-        let receipts_root = rpc_block().header().receipts_root();
-
-        for idx in 0..receipts.len() {
-            let proof = create_receipt_proof::<EthereumSpec>(receipts.clone(), idx);
-
-            let result =
-                verify_receipt_proof::<EthereumSpec>(&receipts[idx], receipts_root, &proof);
-
-            assert!(result.is_ok());
-        }
-    }
-
-    #[test]
-    fn test_verify_receipt_proof_without_transaction_index() {
-        // A receipt that is not included in a block carries no index. Verification
-        // must reject it rather than panic, since the receipt comes from a server
-        // whose responses are exactly what this proof is meant to check.
-        let mut receipt = rpc_tx_receipt();
-        receipt.transaction_index = None;
-
-        let result = verify_receipt_proof::<EthereumSpec>(&receipt, B256::ZERO, &[]);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_transaction_proof_without_transaction_index() {
-        let mut tx = rpc_tx();
-        tx.transaction_index = None;
-
-        let result = verify_transaction_proof::<EthereumSpec>(&tx, B256::ZERO, &[]);
-
-        assert!(result.is_err());
     }
 
     #[test]

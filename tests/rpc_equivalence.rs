@@ -15,17 +15,12 @@ use eyre::Result;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use serde_json::{json, Value};
-use url::Url;
 
 use helios::ethereum::{config::networks::Network, EthereumClient, EthereumClientBuilder};
-use helios_verifiable_api_server::server::{
-    Network as ApiNetwork, ServerArgs, VerifiableApiServer,
-};
-
 // RPC EQUIVALENCE TEST SUITE
 //
 // This test suite verifies that Helios returns identical results to a reference Ethereum node
-// for all supported RPC methods. Tests automatically run against both API and RPC providers.
+// for all supported RPC methods.
 //
 // TESTED RPC METHODS:
 
@@ -278,81 +273,34 @@ mod block_equivalence_regressions {
     }
 }
 
-async fn setup() -> (
-    EthereumClient,
-    EthereumClient,
-    VerifiableApiServer,
-    Vec<RootProvider>,
-) {
+async fn setup() -> (EthereumClient, RootProvider, RootProvider) {
     let execution_rpc = env::var("MAINNET_EXECUTION_RPC").unwrap();
     let consensus_rpc = "https://ethereum.operationsolarstorm.org";
 
     // Direct provider
     let provider = RootProvider::new_http(execution_rpc.parse().unwrap());
 
-    // Helios provider (RPC) - optimized setup
-    let (helios_client, helios_provider) = {
-        let port = get_available_port();
-        let helios_client = EthereumClientBuilder::new()
-            .network(Network::Mainnet)
-            .execution_rpc(&execution_rpc)
-            .unwrap()
-            .consensus_rpc(consensus_rpc)
-            .unwrap()
-            .load_external_fallback()
-            .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
-            .with_config_db()
-            .build()
-            .unwrap();
+    let port = get_available_port();
+    let helios_client = EthereumClientBuilder::new()
+        .network(Network::Mainnet)
+        .execution_rpc(&execution_rpc)
+        .unwrap()
+        .consensus_rpc(consensus_rpc)
+        .unwrap()
+        .load_external_fallback()
+        .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
+        .with_config_db()
+        .build()
+        .unwrap();
 
-        let url = format!("http://localhost:{}", port).parse().unwrap();
-        let helios_provider = RootProvider::new_http(url);
+    let url = format!("http://localhost:{}", port).parse().unwrap();
+    let helios_provider = RootProvider::new_http(url);
 
-        (helios_client, helios_provider)
-    };
-
-    // Start Verifiable API server
-    let api_port = get_available_port();
-    let mut api_server = VerifiableApiServer::new(ApiNetwork::Ethereum(ServerArgs {
-        server_address: format!("127.0.0.1:{api_port}").parse().unwrap(),
-        execution_rpc: Url::parse(&execution_rpc).unwrap(),
-    }));
-    let _handle = api_server.start();
-
-    // Wait a moment for the API server to start
-    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-
-    // Helios provider (Verifiable API) - optimized setup
-    let (helios_client_api, helios_provider_api) = {
-        let port = get_available_port();
-        let helios_client = EthereumClientBuilder::new()
-            .network(Network::Mainnet)
-            .verifiable_api(format!("http://localhost:{api_port}"))
-            .unwrap()
-            .consensus_rpc(consensus_rpc)
-            .unwrap()
-            .load_external_fallback()
-            .rpc_address(SocketAddr::new("127.0.0.1".parse().unwrap(), port))
-            .with_config_db()
-            .build()
-            .unwrap();
-
-        let url = format!("http://localhost:{}", port).parse().unwrap();
-        let helios_provider = RootProvider::new_http(url);
-
-        (helios_client, helios_provider)
-    };
-
-    // Wait for both Helios instances to sync
-    tokio::try_join!(helios_client.wait_synced(), helios_client_api.wait_synced())
+    helios_client
+        .wait_synced()
+        .await
         .expect("Helios failed to sync its initial execution blocks");
-
-    (
-        helios_client,
-        helios_client_api,
-        api_server,
-        vec![helios_provider_api, helios_provider, provider],
-    )
+    (helios_client, helios_provider, provider)
 }
 
 fn rpc_exists() -> bool {
@@ -1510,11 +1458,8 @@ async fn test_call_with_combined_overrides(
 async fn rpc_equivalence_tests() {
     ensure_rpc_env();
 
-    println!("Setting up Helios instances (this may take a few seconds)...");
-    let (_handle1, _handle2, _handle3, providers) = setup().await;
-    let helios_api = &providers[0];
-    let helios_rpc = &providers[1];
-    let provider = &providers[2];
+    println!("Setting up Helios (this may take a few seconds)...");
+    let (_client, helios_rpc, provider) = setup().await;
     // Bound independent live comparisons so CI does not burst all 37 methods
     // against the same upstream quota. This does not change Helios's RPC paths.
     let permits = Arc::new(tokio::sync::Semaphore::new(4));
@@ -1522,28 +1467,13 @@ async fn rpc_equivalence_tests() {
     // Create a macro to simplify adding tests
     macro_rules! spawn_test {
         ($test_fn:ident, $test_name:expr) => {{
-            let helios_api = helios_api.clone();
             let helios_rpc = helios_rpc.clone();
             let provider = provider.clone();
             let permits = permits.clone();
             tokio::spawn(async move {
                 let _permit = permits.acquire_owned().await.unwrap();
-                let api_result = $test_fn(&helios_api, &provider).await;
-                let rpc_result = $test_fn(&helios_rpc, &provider).await;
-
-                let errors = [
-                    api_result
-                        .err()
-                        .map(|e| format!("API provider failed: {e}")),
-                    rpc_result
-                        .err()
-                        .map(|e| format!("RPC provider failed: {e}")),
-                ]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>();
-                if !errors.is_empty() {
-                    let result = TestResult::fail($test_name, errors.join("; "));
+                if let Err(err) = $test_fn(&helios_rpc, &provider).await {
+                    let result = TestResult::fail($test_name, err.to_string());
                     println!("  ❌ {}: {}", result.name, result.error.as_ref().unwrap());
                     result
                 } else {

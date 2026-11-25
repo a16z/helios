@@ -32,11 +32,7 @@ pub struct OpStackClient {
 #[wasm_bindgen]
 impl OpStackClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(
-        execution_rpc: Option<String>,
-        verifiable_api: Option<String>,
-        network: String,
-    ) -> Result<OpStackClient, JsError> {
+    pub fn new(execution_rpc: Option<String>, network: String) -> Result<OpStackClient, JsError> {
         console_error_panic_hook::set_once();
 
         let network_config = match network.as_str() {
@@ -59,14 +55,8 @@ impl OpStackClient {
             .transpose()
             .map_err(|e| JsError::new(&format!("Invalid execution RPC URL: {e}")))?;
 
-        let verifiable_api = verifiable_api
-            .map(|url| Url::parse(&url))
-            .transpose()
-            .map_err(|e| JsError::new(&format!("Invalid verifiable API URL: {e}")))?;
-
         let config = Config {
             execution_rpc,
-            verifiable_api,
             consensus_rpc,
             chain: network_config.chain,
             rpc_socket: None,

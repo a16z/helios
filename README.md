@@ -19,6 +19,9 @@ curl https://raw.githubusercontent.com/a16z/helios/master/heliosup/install | bas
 To install Helios, run `heliosup`.
 
 ## Usage
+
+Configure Helios with an execution JSON-RPC endpoint for the network you want to use. Pass its URL with `--execution-rpc` or set `execution_rpc` in your network configuration.
+
 ### Ethereum
 
 To run Helios on Ethereum, run the command below, replacing `$ETH_RPC_URL` with an RPC provider URL such as Alchemy:

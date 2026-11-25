@@ -29,7 +29,6 @@ mod types;
 pub struct Config {
     pub consensus_rpc: Url,
     pub execution_rpc: Option<Url>,
-    pub verifiable_api: Option<Url>,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
     pub default_checkpoint: B256,
@@ -107,7 +106,6 @@ impl From<BaseConfig> for Config {
                 .consensus_rpc
                 .unwrap_or_else(|| Url::parse("http://localhost:8545").unwrap()),
             execution_rpc: base.execution_rpc,
-            verifiable_api: None,
             checkpoint: None,
             default_checkpoint: base.default_checkpoint,
             chain: base.chain,
@@ -128,7 +126,6 @@ impl Default for Config {
         Config {
             consensus_rpc: Url::parse("http://localhost:8545").unwrap(),
             execution_rpc: None,
-            verifiable_api: None,
             rpc_bind_ip: None,
             rpc_port: None,
             default_checkpoint: B256::default(),
