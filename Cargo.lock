@@ -4051,7 +4051,6 @@ dependencies = [
  "helios-common",
  "helios-core",
  "helios-ethereum",
- "helios-linea",
  "helios-opstack",
  "ratatui",
  "tokio",
@@ -4173,26 +4172,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "helios-linea"
-version = "0.12.0"
-dependencies = [
- "alloy",
- "async-trait",
- "eyre",
- "figment",
- "helios-common",
- "helios-core",
- "helios-ethereum",
- "reqwest 0.12.22",
- "serde",
- "strum 0.26.3",
- "tokio",
- "tracing",
- "url",
- "wasm-bindgen-futures",
-]
-
-[[package]]
 name = "helios-opstack"
 version = "0.12.0"
 dependencies = [
@@ -4276,7 +4255,6 @@ dependencies = [
  "futures-util",
  "helios-common",
  "helios-ethereum",
- "helios-linea",
  "helios-opstack",
  "op-alloy-rpc-types",
  "serde",

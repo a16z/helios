@@ -24,10 +24,6 @@ use helios_common::network_spec::NetworkSpec;
 use helios_core::client::HeliosClient;
 use helios_ethereum::config::{cli::CliConfig, Config as EthereumConfig};
 use helios_ethereum::{EthereumClient, EthereumClientBuilder};
-use helios_linea::{
-    builder::LineaClientBuilder, config::CliConfig as LineaCliConfig,
-    config::Config as LineaConfig, LineaClient,
-};
 use helios_opstack::{config::Config as OpStackConfig, OpStackClient, OpStackClientBuilder};
 
 mod tui;
@@ -55,18 +51,6 @@ async fn main() -> Result<()> {
         }
         Command::OpStack(opstack) => {
             let client = opstack.make_client();
-            if cli.tui {
-                if let Err(e) = tui::run(client).await {
-                    error!(target: "helios::tui", "TUI error: {}", e);
-                    exit(1);
-                }
-            } else {
-                register_shutdown_handler(client);
-                std::future::pending().await
-            }
-        }
-        Command::Linea(linea) => {
-            let client = linea.make_client();
             if cli.tui {
                 if let Err(e) = tui::run(client).await {
                     error!(target: "helios::tui", "TUI error: {}", e);
@@ -143,8 +127,6 @@ enum Command {
     Ethereum(EthereumArgs),
     #[command(name = "opstack")]
     OpStack(OpStackArgs),
-    #[command(name = "linea")]
-    Linea(LineaArgs),
 }
 
 #[derive(Args)]
@@ -293,42 +275,6 @@ impl OpStackArgs {
         }
 
         Serialized::from(user_dict, &self.network)
-    }
-}
-
-#[derive(Args, Debug)]
-struct LineaArgs {
-    #[arg(short, long, default_value = "linea")]
-    network: String,
-    #[arg(short = 'b', long, env)]
-    rpc_bind_ip: Option<IpAddr>,
-    #[arg(short = 'p', long, env)]
-    rpc_port: Option<u16>,
-    #[arg(short, long, env, value_parser = parse_url)]
-    execution_rpc: Option<Url>,
-}
-
-impl LineaArgs {
-    fn make_client(&self) -> LineaClient {
-        let config_path = home_dir().unwrap().join(".helios/helios.toml");
-        let cli_config = self.as_cli_config();
-        let config = LineaConfig::from_file(&config_path, &self.network, &cli_config);
-
-        match LineaClientBuilder::new().config(config).build() {
-            Ok(client) => client,
-            Err(err) => {
-                error!(target: "helios::runner", error = %err);
-                exit(1);
-            }
-        }
-    }
-
-    fn as_cli_config(&self) -> LineaCliConfig {
-        LineaCliConfig {
-            execution_rpc: self.execution_rpc.clone(),
-            rpc_bind_ip: self.rpc_bind_ip,
-            rpc_port: self.rpc_port,
-        }
     }
 }
 
