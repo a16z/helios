@@ -1,6 +1,6 @@
 import { EventEmitter } from "eventemitter3";
 import { v4 as uuidv4 } from "uuid";
-import initWasm, { EthereumClient, OpStackClient, LineaClient } from "./pkg";
+import initWasm, { EthereumClient, OpStackClient } from "./pkg";
 
 let initPromise: Promise<any> | null = null;
 
@@ -17,9 +17,8 @@ async function ensureInitialized() {
  * @remarks
  * - `ethereum` - Standard Ethereum networks (mainnet, testnets)
  * - `opstack` - Optimism Stack based L2 networks
- * - `linea` - Linea L2 network
  */
-export type NetworkKind = "ethereum" | "opstack" | "linea";
+export type NetworkKind = "ethereum" | "opstack";
 
 /**
  * Creates a new HeliosProvider instance.
@@ -103,11 +102,8 @@ export class HeliosProvider {
     } else if (kind === "opstack") {
       const network = config.network;
       this.#client = new OpStackClient(executionRpc, network);
-    } else if (kind === "linea") {
-      const network = config.network;
-      this.#client = new LineaClient(executionRpc, network);
     } else {
-      throw new Error("Invalid kind: must be 'ethereum', 'opstack', or `linea`");
+      throw new Error("Invalid kind: must be 'ethereum' or 'opstack'");
     }
 
     this.#chainId = this.#client.chain_id();
@@ -455,7 +451,6 @@ export class HeliosProvider {
  * Different network kinds require different configuration options:
  * - For Ethereum networks: executionRpc, consensusRpc, and optionally checkpoint are required
  * - For OpStack networks: executionRpc is required
- * - For Linea networks: executionRpc is required
  */
 export type Config = {
   /**
@@ -502,7 +497,6 @@ export type Config = {
  * Networks are organized by their network kind:
  * - Ethereum networks: "mainnet", "sepolia", "hoodi", "plataberget"
  * - OP Stack networks: "op-mainnet", "base", "worldchain", "zora", "unichain"
- * - Linea networks: "linea", "linea-sepolia"
  * 
  * @example
  * ```typescript
@@ -534,10 +528,7 @@ export type Network =
   | "base-sepolia" // Base Sepolia testnet (chain ID: 85432)
   | "worldchain"   // Worldchain mainnet (chain ID: 480)
   | "zora"         // Zora mainnet (chain ID: 7777777)
-  | "unichain"     // Unichain mainnet (chain ID: 130)
-  // Linea networks
-  | "linea"        // Linea mainnet (chain ID: 59144)
-  | "linea-sepolia"; // Linea Sepolia testnet (chain ID: 59141)
+  | "unichain";    // Unichain mainnet (chain ID: 130)
 
 type Request = {
   method: string;

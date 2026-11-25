@@ -58,7 +58,6 @@ The built files will be in the `dist` directory.
   - Ethereum
   - OP Mainnet
   - Base
-  - Linea
 
 ## How it works
 

@@ -18,7 +18,6 @@ members = [
     "opstack",
     "helios-ts",
     "tests/test-utils",        # ToDo(@eshaan7): find a better way to include this
-    "linea",
     "revm-utils",
 ]
 
