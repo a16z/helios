@@ -57,6 +57,7 @@ op-alloy-rpc-types = "2.0.0"
 revm = { version = "43.0.3", default-features = false, features = [
     "std",
     "serde",
+    "memory_limit",
     "optional_block_gas_limit",
     "optional_eip3607",
     "optional_no_base_fee",
