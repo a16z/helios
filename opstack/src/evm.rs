@@ -26,7 +26,7 @@ use helios_common::{
     types::{Account, EvmError},
 };
 use helios_core::execution::errors::ExecutionError;
-use helios_revm_utils::proof_db::ProofDB;
+use helios_revm_utils::{proof_db::ProofDB, EVM_MEMORY_LIMIT};
 
 use crate::spec::OpStack;
 
@@ -137,6 +137,7 @@ impl<E: ExecutionProvider<OpStack>> OpStackEvm<E> {
         }
 
         let mut cfg = CfgEnv::default();
+        cfg.memory_limit = EVM_MEMORY_LIMIT;
         cfg.spec = get_spec_id_for_block_timestamp(block.header.timestamp, &self.fork_schedule);
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;

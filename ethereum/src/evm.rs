@@ -21,7 +21,7 @@ use helios_common::{
     types::{Account, EvmError},
 };
 use helios_core::execution::errors::ExecutionError;
-use helios_revm_utils::proof_db::ProofDB;
+use helios_revm_utils::{proof_db::ProofDB, EVM_MEMORY_LIMIT};
 
 use crate::spec::Ethereum;
 
@@ -123,6 +123,7 @@ impl<E: ExecutionProvider<Ethereum>> EthereumEvm<E> {
         }
 
         let mut cfg = CfgEnv::new_with_spec(spec);
+        cfg.memory_limit = EVM_MEMORY_LIMIT;
         cfg.chain_id = self.chain_id;
         cfg.disable_block_gas_limit = !validate_tx;
         cfg.disable_eip3607 = !validate_tx;
