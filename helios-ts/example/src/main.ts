@@ -1,5 +1,5 @@
 import { createPublicClient, custom, type PublicClient, type Block, type Chain } from 'viem';
-import { mainnet, optimism, base, linea } from 'viem/chains';
+import { mainnet, optimism, base } from 'viem/chains';
 
 // Import helios from the parent directory's built output
 // @ts-ignore - importing local build
@@ -9,7 +9,7 @@ interface NetworkConfig {
   name: string;
   blockTime: number;
   cfg: any;
-  kind: 'ethereum' | 'opstack' | 'linea';
+  kind: 'ethereum' | 'opstack';
   provider?: any;
   viemClient?: PublicClient;
   lastSeen?: bigint;
@@ -90,16 +90,6 @@ async function main() {
       },
       kind: "opstack",
       chain: base,
-    },
-    {
-      name: "linea",
-      blockTime: 3,
-      cfg: {
-        executionRpc: `https://linea-mainnet.g.alchemy.com/v2/${key}`,
-        network: "mainnet",
-      },
-      kind: "linea",
-      chain: linea,
     },
   ];
 
