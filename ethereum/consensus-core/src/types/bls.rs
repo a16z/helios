@@ -24,6 +24,14 @@ pub struct Signature {
 }
 
 impl PublicKey {
+    /// Whether this is the compressed encoding of the point at infinity. It is the only
+    /// identity encoding `G1Affine::from_compressed` accepts, and KeyValidate rejects it.
+    pub(crate) fn is_identity(&self) -> bool {
+        let mut identity = [0u8; 48];
+        identity[0] = 0xc0;
+        self.inner.inner[..] == identity[..]
+    }
+
     pub(crate) fn point(&self) -> Result<G1Affine> {
         let bytes = self.inner.inner.to_vec();
         let bytes = bytes.as_slice().try_into()?;
