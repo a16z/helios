@@ -7,9 +7,11 @@ use crate::{
     types::{BeaconBlockHeader, ExecutionPayloadHeader, Forks, SyncCommittee},
 };
 
+/// `finality_root` is the tree hash root of the finalized header's beacon header, or the zero
+/// root when the attested state's finalized checkpoint is the genesis one.
 pub fn is_finality_proof_valid(
     attested_header: &BeaconBlockHeader,
-    finality_header: &BeaconBlockHeader,
+    finality_root: B256,
     finality_branch: &[B256],
     current_epoch: u64,
     forks: &Forks,
@@ -22,9 +24,9 @@ pub fn is_finality_proof_valid(
         (41, 6)
     };
 
-    is_proof_valid(
+    is_root_proof_valid(
         attested_header.state_root,
-        finality_header,
+        finality_root,
         finality_branch,
         depth,
         index,

@@ -459,28 +459,36 @@ pub struct GenericUpdate<S: ConsensusSpec> {
 
 impl<S: ConsensusSpec> From<&Update<S>> for GenericUpdate<S> {
     fn from(update: &Update<S>) -> Self {
+        let finality_branch = default_branch_to_none(update.finality_branch());
         Self {
             attested_header: update.attested_header(),
             sync_aggregate: update.sync_aggregate().clone(),
             signature_slot: *update.signature_slot(),
             next_sync_committee: default_to_none(update.next_sync_committee().clone()),
             next_sync_committee_branch: default_branch_to_none(update.next_sync_committee_branch()),
-            finalized_header: default_header_to_none(update.finalized_header()),
-            finality_branch: default_branch_to_none(update.finality_branch()),
+            finalized_header: default_header_to_none(
+                update.finalized_header(),
+                finality_branch.is_some(),
+            ),
+            finality_branch,
         }
     }
 }
 
 impl<S: ConsensusSpec> From<&FinalityUpdate<S>> for GenericUpdate<S> {
     fn from(update: &FinalityUpdate<S>) -> Self {
+        let finality_branch = default_branch_to_none(update.finality_branch());
         Self {
             attested_header: update.attested_header(),
             sync_aggregate: update.sync_aggregate().clone(),
             signature_slot: *update.signature_slot(),
             next_sync_committee: None,
             next_sync_committee_branch: None,
-            finalized_header: default_header_to_none(update.finalized_header()),
-            finality_branch: default_branch_to_none(update.finality_branch()),
+            finalized_header: default_header_to_none(
+                update.finalized_header(),
+                finality_branch.is_some(),
+            ),
+            finality_branch,
         }
     }
 }
@@ -517,157 +525,62 @@ fn default_branch_to_none(value: &[B256]) -> Option<Vec<B256>> {
     None
 }
 
-fn default_header_to_none(value: LightClientHeader) -> Option<LightClientHeader> {
+fn default_header_to_none(
+    value: LightClientHeader,
+    has_finality_branch: bool,
+) -> Option<LightClientHeader> {
     // The finalized checkpoint at genesis is represented by a zero root, not a
     // light-client header. Some clients still return the concrete genesis header.
-    if value.beacon().slot == 0 {
+    // Keep tolerating that when there is no finality branch, but retain the header
+    // when a branch is present so it can be checked against the zero root.
+    if value.beacon().slot == 0 && !has_finality_branch {
         return None;
     }
 
-    match &value {
-        LightClientHeader::Bellatrix(header) => {
-            if header.beacon == BeaconBlockHeader::default() {
-                None
-            } else {
-                Some(value)
-            }
+    if is_empty_header(&value) {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+pub(crate) fn is_empty_header(value: &LightClientHeader) -> bool {
+    if value.beacon() != &BeaconBlockHeader::default() {
+        return false;
+    }
+
+    match value {
+        LightClientHeader::Bellatrix(_) => true,
+        LightClientHeader::Capella(header) => {
+            is_empty_execution_payload(&header.execution)
+                && default_branch_to_none(&header.execution_branch).is_none()
         }
-        LightClientHeader::Capella(header) => match &header.execution {
-            ExecutionPayloadHeader::Bellatrix(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderBellatrix::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Capella(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderCapella::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Deneb(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderDeneb::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Electra(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderElectra::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-        },
-        LightClientHeader::Deneb(header) => match &header.execution {
-            ExecutionPayloadHeader::Bellatrix(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderBellatrix::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Capella(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderCapella::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Deneb(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderDeneb::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Electra(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderElectra::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-        },
-        LightClientHeader::Electra(header) => match &header.execution {
-            ExecutionPayloadHeader::Bellatrix(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderBellatrix::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Capella(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderCapella::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Deneb(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderDeneb::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-            ExecutionPayloadHeader::Electra(payload_header) => {
-                let is_default = header.beacon == BeaconBlockHeader::default()
-                    && payload_header == &ExecutionPayloadHeaderElectra::default();
-
-                if is_default {
-                    None
-                } else {
-                    Some(value)
-                }
-            }
-        },
+        LightClientHeader::Deneb(header) => {
+            is_empty_execution_payload(&header.execution)
+                && default_branch_to_none(&header.execution_branch).is_none()
+        }
+        LightClientHeader::Electra(header) => {
+            is_empty_execution_payload(&header.execution)
+                && default_branch_to_none(&header.execution_branch).is_none()
+        }
         LightClientHeader::Gloas(header) => {
-            let is_default = header.beacon == BeaconBlockHeader::default()
-                && header.execution_block_hash.is_zero()
-                && default_branch_to_none(&header.execution_branch).is_none();
+            header.execution_block_hash.is_zero()
+                && default_branch_to_none(&header.execution_branch).is_none()
+        }
+    }
+}
 
-            if is_default {
-                None
-            } else {
-                Some(value)
-            }
+fn is_empty_execution_payload(value: &ExecutionPayloadHeader) -> bool {
+    match value {
+        ExecutionPayloadHeader::Bellatrix(header) => {
+            header == &ExecutionPayloadHeaderBellatrix::default()
+        }
+        ExecutionPayloadHeader::Capella(header) => {
+            header == &ExecutionPayloadHeaderCapella::default()
+        }
+        ExecutionPayloadHeader::Deneb(header) => header == &ExecutionPayloadHeaderDeneb::default(),
+        ExecutionPayloadHeader::Electra(header) => {
+            header == &ExecutionPayloadHeaderElectra::default()
         }
     }
 }
@@ -685,6 +598,121 @@ mod tests {
             },
         });
 
-        assert!(default_header_to_none(header).is_none());
+        assert!(default_header_to_none(header, false).is_none());
+    }
+
+    #[test]
+    fn slot_zero_header_is_retained_when_a_finality_branch_is_present() {
+        let header = LightClientHeader::Bellatrix(LightClientHeaderBellatrix {
+            beacon: BeaconBlockHeader {
+                state_root: B256::with_last_byte(1),
+                ..Default::default()
+            },
+        });
+
+        // Verification must be able to observe that the genesis header is not empty.
+        assert!(default_header_to_none(header, true).is_some());
+    }
+
+    #[test]
+    fn header_with_non_empty_execution_branch_is_not_empty() {
+        let header = LightClientHeader::Capella(LightClientHeaderCapella {
+            beacon: BeaconBlockHeader::default(),
+            execution: ExecutionPayloadHeader::Capella(ExecutionPayloadHeaderCapella::default()),
+            execution_branch: FixedVector::new(vec![
+                B256::with_last_byte(1),
+                B256::ZERO,
+                B256::ZERO,
+                B256::ZERO,
+            ])
+            .unwrap(),
+        });
+
+        assert!(!is_empty_header(&header));
+        assert!(default_header_to_none(header, true).is_some());
+    }
+
+    fn empty_headers() -> Vec<LightClientHeader> {
+        vec![
+            LightClientHeader::Bellatrix(LightClientHeaderBellatrix::default()),
+            LightClientHeader::Capella(LightClientHeaderCapella {
+                beacon: BeaconBlockHeader::default(),
+                execution: ExecutionPayloadHeader::Capella(ExecutionPayloadHeaderCapella::default()),
+                execution_branch: Default::default(),
+            }),
+            LightClientHeader::Deneb(LightClientHeaderDeneb {
+                beacon: BeaconBlockHeader::default(),
+                execution: ExecutionPayloadHeader::Deneb(ExecutionPayloadHeaderDeneb::default()),
+                execution_branch: Default::default(),
+            }),
+            LightClientHeader::Electra(LightClientHeaderElectra {
+                beacon: BeaconBlockHeader::default(),
+                execution: ExecutionPayloadHeader::Electra(ExecutionPayloadHeaderElectra::default()),
+                execution_branch: Default::default(),
+            }),
+            LightClientHeader::Gloas(LightClientHeaderGloas::default()),
+        ]
+    }
+
+    #[test]
+    fn every_fork_layout_has_an_empty_header() {
+        for header in empty_headers() {
+            assert!(is_empty_header(&header), "{header:?}");
+            assert!(default_header_to_none(header, true).is_none());
+        }
+    }
+
+    #[test]
+    fn non_default_fields_make_a_header_non_empty() {
+        for mut header in empty_headers() {
+            match &mut header {
+                LightClientHeader::Bellatrix(header) => {
+                    header.beacon.parent_root = B256::with_last_byte(1);
+                }
+                LightClientHeader::Capella(header) => match &mut header.execution {
+                    ExecutionPayloadHeader::Capella(payload) => {
+                        payload.block_hash = B256::with_last_byte(1);
+                    }
+                    _ => unreachable!(),
+                },
+                LightClientHeader::Deneb(header) => match &mut header.execution {
+                    ExecutionPayloadHeader::Deneb(payload) => {
+                        payload.block_hash = B256::with_last_byte(1);
+                    }
+                    _ => unreachable!(),
+                },
+                LightClientHeader::Electra(header) => match &mut header.execution {
+                    ExecutionPayloadHeader::Electra(payload) => {
+                        payload.block_hash = B256::with_last_byte(1);
+                    }
+                    _ => unreachable!(),
+                },
+                LightClientHeader::Gloas(header) => {
+                    header.execution_block_hash = B256::with_last_byte(1);
+                }
+            }
+
+            assert!(!is_empty_header(&header), "{header:?}");
+        }
+
+        for mut header in empty_headers() {
+            match &mut header {
+                LightClientHeader::Bellatrix(_) => continue,
+                LightClientHeader::Capella(header) => {
+                    header.execution_branch[0] = B256::with_last_byte(1)
+                }
+                LightClientHeader::Deneb(header) => {
+                    header.execution_branch[0] = B256::with_last_byte(1)
+                }
+                LightClientHeader::Electra(header) => {
+                    header.execution_branch[0] = B256::with_last_byte(1)
+                }
+                LightClientHeader::Gloas(header) => {
+                    header.execution_branch[0] = B256::with_last_byte(1)
+                }
+            }
+
+            assert!(!is_empty_header(&header), "{header:?}");
+        }
     }
 }

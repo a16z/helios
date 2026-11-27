@@ -18,8 +18,8 @@ use crate::proof::{
 };
 use crate::types::bls::Signature;
 use crate::types::{
-    BeaconBlockHeader, Bootstrap, FinalityUpdate, Forks, GenericUpdate, LightClientHeader,
-    LightClientStore, OptimisticUpdate, Update,
+    is_empty_header, BeaconBlockHeader, Bootstrap, FinalityUpdate, Forks, GenericUpdate,
+    LightClientHeader, LightClientStore, OptimisticUpdate, Update,
 };
 use crate::utils::{
     calculate_fork_version, compute_committee_sign_root, compute_fork_data_root,
@@ -299,15 +299,37 @@ pub fn verify_generic_update<S: ConsensusSpec>(
 
     let update_attested_epoch = update.attested_header.beacon().slot / S::slots_per_epoch();
 
-    if let Some(finalized_header) = &update.finalized_header {
-        if let Some(finality_branch) = &update.finality_branch {
-            if !is_valid_header::<S>(finalized_header, forks) {
-                return Err(ConsensusError::InvalidExecutionPayloadProof.into());
+    match (&update.finalized_header, &update.finality_branch) {
+        (None, None) => {}
+        (Some(finalized_header), None) => {
+            // A finalized header without a finality branch is only valid when it is empty.
+            if !is_empty_header(finalized_header) {
+                return Err(ConsensusError::InvalidFinalityProof.into());
             }
+        }
+        (finalized_header, Some(finality_branch)) => {
+            let finality_root = match finalized_header {
+                Some(finalized_header) if finalized_header.beacon().slot == 0 => {
+                    // The genesis finalized checkpoint is represented by an empty header and a
+                    // branch proving the zero root. `GenericUpdate::from` normalizes an empty
+                    // header to `None`, so a retained slot-zero header is not empty.
+                    if !is_empty_header(finalized_header) {
+                        return Err(ConsensusError::InvalidFinalityProof.into());
+                    }
+                    B256::ZERO
+                }
+                Some(finalized_header) => {
+                    if !is_valid_header::<S>(finalized_header, forks) {
+                        return Err(ConsensusError::InvalidExecutionPayloadProof.into());
+                    }
+                    finalized_header.beacon().tree_hash_root()
+                }
+                None => B256::ZERO,
+            };
 
             let is_valid = is_finality_proof_valid(
                 update.attested_header.beacon(),
-                finalized_header.beacon(),
+                finality_root,
                 finality_branch,
                 update_attested_epoch,
                 forks,
@@ -316,8 +338,6 @@ pub fn verify_generic_update<S: ConsensusSpec>(
             if !is_valid {
                 return Err(ConsensusError::InvalidFinalityProof.into());
             }
-        } else {
-            return Err(ConsensusError::InvalidFinalityProof.into());
         }
     }
 
